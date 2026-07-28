@@ -260,6 +260,12 @@ export interface Database {
         Update: Partial<Omit<Database["public"]["Tables"]["subscriptions"]["Row"], "user_id">>;
         Relationships: [];
       };
+      rate_limit_buckets: {
+        Row: { key: string; window_start: string; count: number };
+        Insert: { key: string; window_start: string; count?: number };
+        Update: Partial<{ count: number }>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -278,6 +284,10 @@ export interface Database {
       match_titles_by_query: {
         Args: { p_embedding: number[]; p_match_count?: number };
         Returns: { title_id: string; similarity: number }[];
+      };
+      check_rate_limit: {
+        Args: { p_key: string; p_max_requests: number; p_window_seconds: number };
+        Returns: boolean;
       };
     };
   };
