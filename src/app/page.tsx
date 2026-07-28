@@ -40,7 +40,7 @@ export default async function HomePage() {
   const geo = await getRequestGeo();
 
   const [{ data: profile }, { count: ratedCount }, { recommendations, isColdStart }, weather] = await Promise.all([
-    supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("username, display_name").eq("id", user.id).maybeSingle(),
     supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     getRecommendationsForUser(user.id, { limit: 5 }),
     geo?.latitude != null && geo?.longitude != null ? getCurrentWeather(geo.latitude, geo.longitude) : Promise.resolve(null),
@@ -122,7 +122,11 @@ export default async function HomePage() {
     timeZone: geo?.timezone ?? undefined,
   }).format(now);
   const location = geo?.city ? [geo.city, geo.region].filter(Boolean).join(", ") : geo?.region ?? null;
-  const username = profile?.username ?? "you";
+  // Greet by first name — display_name is free text (could be "Michael
+  // Lester" or just "Michael"), so only ever take its first word. Falls back
+  // to username, then a generic "there" if neither is set yet.
+  const rawName = profile?.display_name?.trim() || profile?.username || "there";
+  const firstName = rawName.split(/\s+/)[0];
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
@@ -133,7 +137,7 @@ export default async function HomePage() {
       </div>
 
       <h1 className="font-display mt-6 text-3xl">
-        {greeting}, {username}.
+        {greeting}, {firstName}.
       </h1>
       {ratedCount ? (
         <p className="mt-2 text-sm text-foreground-muted">
