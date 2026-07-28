@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna } from "lucide-react";
+import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings } from "lucide-react";
 
 const links = [
   { href: "/discover", label: "Discover", icon: Compass },
@@ -38,9 +38,14 @@ export function NavBar({ isAuthed }: { isAuthed: boolean }) {
             <Search size={18} />
           </Link>
           {isAuthed ? (
-            <Link href="/profile/me" aria-label="Profile" className="text-foreground-muted hover:text-foreground">
-              <User size={18} />
-            </Link>
+            <>
+              <Link href="/settings" aria-label="Settings" className="text-foreground-muted hover:text-foreground">
+                <Settings size={18} />
+              </Link>
+              <Link href="/profile/me" aria-label="Profile" className="text-foreground-muted hover:text-foreground">
+                <User size={18} />
+              </Link>
+            </>
           ) : (
             <Link
               href="/login"
