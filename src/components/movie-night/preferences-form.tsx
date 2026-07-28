@@ -7,17 +7,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const GENRE_OPTIONS = [
-  "Action",
-  "Comedy",
-  "Drama",
-  "Horror",
-  "Thriller",
-  "Romance",
-  "Sci-Fi",
-  "Documentary",
-  "Animation",
-  "Crime",
+// `value` must match the literal genre string stored in titles.genres
+// (TMDB's own naming — "Science Fiction", not "Sci-Fi"). Excluding "Sci-Fi"
+// previously matched nothing since no title's genres array contains that
+// literal string, so the exclusion silently did nothing.
+const GENRE_OPTIONS: { label: string; value: string }[] = [
+  { label: "Action", value: "Action" },
+  { label: "Comedy", value: "Comedy" },
+  { label: "Drama", value: "Drama" },
+  { label: "Horror", value: "Horror" },
+  { label: "Thriller", value: "Thriller" },
+  { label: "Romance", value: "Romance" },
+  { label: "Sci-Fi", value: "Science Fiction" },
+  { label: "Documentary", value: "Documentary" },
+  { label: "Animation", value: "Animation" },
+  { label: "Crime", value: "Crime" },
 ];
 
 export function PreferencesForm({
@@ -63,13 +67,13 @@ export function PreferencesForm({
       />
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {GENRE_OPTIONS.map((genre) => {
-          const active = excluded.includes(genre);
+        {GENRE_OPTIONS.map(({ label, value }) => {
+          const active = excluded.includes(value);
           return (
             <button
               type="button"
-              key={genre}
-              onClick={() => toggleGenre(genre)}
+              key={value}
+              onClick={() => toggleGenre(value)}
               className={cn(
                 "rounded-[var(--radius-full)] border px-3 py-1 text-[11px] uppercase tracking-wide transition-colors",
                 active
@@ -77,7 +81,7 @@ export function PreferencesForm({
                   : "border-border text-foreground-muted hover:border-border-strong"
               )}
             >
-              {active ? `No ${genre}` : genre}
+              {active ? `No ${label}` : label}
             </button>
           );
         })}

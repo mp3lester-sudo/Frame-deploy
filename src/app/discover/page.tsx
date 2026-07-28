@@ -5,7 +5,35 @@ import { LoadMoreGrid } from "@/components/load-more-grid";
 import { loadMoreDiscoverTitles } from "@/lib/actions/catalogue";
 import { DISCOVER_PAGE_SIZE } from "@/lib/constants/catalogue";
 
-const GENRES = ["Drama", "Comedy", "Thriller", "Horror", "Animation", "Documentary", "Sci-Fi"];
+/**
+ * `value` must match the genre string TMDB (and our `titles.genres` column)
+ * actually uses — most notably "Science Fiction", not "Sci-Fi". Filtering by
+ * the wrong literal silently returned zero rows instead of erroring, so this
+ * mismatch went unnoticed. `label` is just the friendlier display text.
+ * Covers every genre with a meaningful number of titles in the catalogue so
+ * movies are properly compartmentalized rather than just the original
+ * arbitrary seven.
+ */
+const GENRES: { label: string; value: string }[] = [
+  { label: "Action", value: "Action" },
+  { label: "Adventure", value: "Adventure" },
+  { label: "Animation", value: "Animation" },
+  { label: "Comedy", value: "Comedy" },
+  { label: "Crime", value: "Crime" },
+  { label: "Documentary", value: "Documentary" },
+  { label: "Drama", value: "Drama" },
+  { label: "Family", value: "Family" },
+  { label: "Fantasy", value: "Fantasy" },
+  { label: "History", value: "History" },
+  { label: "Horror", value: "Horror" },
+  { label: "Music", value: "Music" },
+  { label: "Mystery", value: "Mystery" },
+  { label: "Romance", value: "Romance" },
+  { label: "Sci-Fi", value: "Science Fiction" },
+  { label: "Thriller", value: "Thriller" },
+  { label: "War", value: "War" },
+  { label: "Western", value: "Western" },
+];
 
 export default async function DiscoverPage({
   searchParams,
@@ -39,16 +67,16 @@ export default async function DiscoverPage({
         >
           All
         </Link>
-        {GENRES.map((g) => (
+        {GENRES.map(({ label, value }) => (
           <Link
-            key={g}
-            href={`/discover?genre=${encodeURIComponent(g)}`}
+            key={value}
+            href={`/discover?genre=${encodeURIComponent(value)}`}
             className={cn(
               "rounded-[var(--radius-full)] border border-border px-3 py-1 text-sm",
-              genre === g && "border-accent text-accent"
+              genre === value && "border-accent text-accent"
             )}
           >
-            {g}
+            {label}
           </Link>
         ))}
       </div>
