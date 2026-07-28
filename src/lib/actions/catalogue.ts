@@ -15,7 +15,7 @@ export async function loadMoreDiscoverTitles(genre: string | undefined, page: nu
   let query = supabase
     .from("titles")
     .select("*")
-    .order("popularity", { ascending: false, nullsFirst: false });
+    .order("weighted_rating", { ascending: false, nullsFirst: false });
   if (genre) query = query.contains("genres", [genre]);
 
   const from = (page - 1) * DISCOVER_PAGE_SIZE;
@@ -34,7 +34,7 @@ export async function loadMoreSearchTitles(q: string, page: number) {
     .from("titles")
     .select("*")
     .ilike("name", `%${q}%`)
-    .order("popularity", { ascending: false, nullsFirst: false })
+    .order("weighted_rating", { ascending: false, nullsFirst: false })
     .range(from, to);
 
   return { titles: data ?? [], hasMore: (data?.length ?? 0) === SEARCH_PAGE_SIZE };

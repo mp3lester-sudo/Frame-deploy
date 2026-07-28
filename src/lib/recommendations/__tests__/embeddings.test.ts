@@ -31,6 +31,7 @@ function makeTitle(overrides: Partial<Title> = {}): Title {
     tmdb_rating: 7.9,
     tmdb_vote_count: 12000,
     popularity: 45.2,
+    weighted_rating: 7.6,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...overrides,

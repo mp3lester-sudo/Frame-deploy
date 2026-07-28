@@ -18,7 +18,7 @@ export default async function DiscoverPage({
   let query = supabase
     .from("titles")
     .select("*")
-    .order("popularity", { ascending: false, nullsFirst: false })
+    .order("weighted_rating", { ascending: false, nullsFirst: false })
     .range(0, DISCOVER_PAGE_SIZE - 1);
   if (genre) query = query.contains("genres", [genre]);
   const { data: titles } = await query;

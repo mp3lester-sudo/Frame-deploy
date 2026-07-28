@@ -49,6 +49,7 @@ export interface Database {
           tmdb_rating: number | null;
           tmdb_vote_count: number | null;
           popularity: number | null;
+          weighted_rating: number | null;
           created_at: string;
           updated_at: string;
         };

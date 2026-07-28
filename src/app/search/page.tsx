@@ -17,7 +17,7 @@ export default async function SearchPage({
         .from("titles")
         .select("*")
         .ilike("name", `%${q}%`)
-        .order("popularity", { ascending: false, nullsFirst: false })
+        .order("weighted_rating", { ascending: false, nullsFirst: false })
         .range(0, SEARCH_PAGE_SIZE - 1)
     : { data: [] };
 
