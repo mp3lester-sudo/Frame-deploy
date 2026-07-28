@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { TitleCard } from "@/components/title-card";
 import { WatchedTitleCard } from "@/components/profile/watched-title-card";
 import { FollowButton } from "@/components/follow-button";
+import { MessageButton } from "@/components/message-button";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
@@ -67,7 +68,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             {followerCount ?? 0} followers · {followingCount ?? 0} following
           </p>
         </div>
-        {viewer && !isOwnProfile && <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />}
+        {viewer && !isOwnProfile && (
+          <div className="flex gap-2">
+            <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
+            <MessageButton userId={profile.id} />
+          </div>
+        )}
         {isOwnProfile && (
           <div className="flex flex-col items-end gap-1">
             <Link href="/settings" className="text-xs uppercase tracking-wider text-accent hover:brightness-110">

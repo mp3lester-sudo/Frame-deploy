@@ -159,6 +159,18 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      conversations: {
+        Row: { id: string; user_a: string; user_b: string; created_at: string };
+        Insert: { user_a: string; user_b: string };
+        Update: never;
+        Relationships: [];
+      };
+      messages: {
+        Row: { id: string; conversation_id: string; sender_id: string; body: string; created_at: string; read_at: string | null };
+        Insert: { conversation_id: string; sender_id: string; body: string };
+        Update: Partial<{ read_at: string }>;
+        Relationships: [];
+      };
       list_items: {
         Row: { list_id: string; title_id: string; position: number; note: string | null; added_at: string };
         Insert: { list_id: string; title_id: string; position?: number; note?: string };

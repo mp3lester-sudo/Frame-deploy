@@ -48,13 +48,31 @@ export default async function RootLayout({
 
   if (user) await ensureProfile(supabase, user);
 
+  let unreadMessageCount = 0;
+  if (user) {
+    const { data: conversations } = await supabase
+      .from("conversations")
+      .select("id")
+      .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+    const conversationIds = (conversations ?? []).map((c) => c.id);
+    if (conversationIds.length) {
+      const { count } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .in("conversation_id", conversationIds)
+        .neq("sender_id", user.id)
+        .is("read_at", null);
+      unreadMessageCount = count ?? 0;
+    }
+  }
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <NavBar isAuthed={!!user} />
+        <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} />
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
         <BottomNav />
       </body>
