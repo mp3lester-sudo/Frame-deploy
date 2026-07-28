@@ -1,0 +1,55 @@
+"use server";
+
+import { createClient } from "@/lib/supabase/server";
+import { PEOPLE_SEARCH_PAGE_SIZE } from "@/lib/constants/social";
+import { buildUserSearchFilter } from "@/lib/search/user-search";
+
+export interface UserSearchResult {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  isFollowing: boolean;
+}
+
+async function searchUsersPage(rawQuery: string, from: number, to: number) {
+  const supabase = await createClient();
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
+
+  const filter = buildUserSearchFilter(rawQuery);
+  if (!filter) return { users: [] as UserSearchResult[], hasMore: false };
+
+  let builder = supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url, bio")
+    .or(filter)
+    .order("username")
+    .range(from, to);
+
+  if (viewer) builder = builder.neq("id", viewer.id);
+
+  const { data } = await builder;
+  if (!data || data.length === 0) return { users: [], hasMore: false };
+
+  const ids = data.map((p) => p.id);
+  const { data: followingRows } = viewer
+    ? await supabase.from("follows").select("followee_id").eq("follower_id", viewer.id).in("followee_id", ids)
+    : { data: [] };
+  const followingSet = new Set((followingRows ?? []).map((f) => f.followee_id));
+
+  const users: UserSearchResult[] = data.map((p) => ({ ...p, isFollowing: followingSet.has(p.id) }));
+  return { users, hasMore: data.length === to - from + 1 };
+}
+
+export async function searchUsers(query: string): Promise<{ users: UserSearchResult[]; hasMore: boolean }> {
+  return searchUsersPage(query, 0, PEOPLE_SEARCH_PAGE_SIZE - 1);
+}
+
+export async function loadMoreUserSearch(query: string, page: number) {
+  const from = (page - 1) * PEOPLE_SEARCH_PAGE_SIZE;
+  const to = from + PEOPLE_SEARCH_PAGE_SIZE - 1;
+  return searchUsersPage(query, from, to);
+}
