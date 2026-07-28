@@ -18,7 +18,8 @@
     "verify:matchmaking": "tsx --env-file=.env.local scripts/verify-matchmaking.ts",
     "verify:home": "tsx --env-file=.env.local scripts/verify-home.ts",
     "verify:profile-editing": "tsx --env-file=.env.local scripts/verify-profile-editing.ts",
-    "verify:letterboxd-import": "tsx --env-file=.env.local scripts/verify-letterboxd-import.ts"
+    "verify:letterboxd-import": "tsx --env-file=.env.local scripts/verify-letterboxd-import.ts",
+    "verify:letterboxd-paste-import": "tsx --env-file=.env.local scripts/verify-letterboxd-paste-import.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.12.1",

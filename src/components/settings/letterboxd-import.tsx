@@ -39,12 +39,14 @@ export function LetterboxdImport() {
 
   return (
     <div>
-      <p className="mb-1 text-[11px] uppercase tracking-wider text-foreground-muted">Import from Letterboxd</p>
+      <p className="mb-1 text-[11px] uppercase tracking-wider text-foreground-muted">Import via CSV (Letterboxd Pro)</p>
       <p className="mb-3 text-sm text-foreground-muted">
-        On Letterboxd, go to Settings &rarr; Import &amp; Export &rarr; Export This Data, then unzip the download.
-        Upload <code className="text-foreground">ratings.csv</code> and/or{" "}
-        <code className="text-foreground">watched.csv</code> from that folder below. Films are matched by title and
-        year — anything not yet in Frame&apos;s catalogue will show up as unmatched rather than being guessed at.
+        This requires a Letterboxd Pro account — the CSV export lives at Settings &rarr; Data on letterboxd.com, and
+        free accounts don&apos;t have that tab. If that&apos;s you, use the paste-based import below instead. Pro
+        members: download your export bundle there, unzip it, and upload{" "}
+        <code className="text-foreground">ratings.csv</code> and/or <code className="text-foreground">watched.csv</code>{" "}
+        below. Films are matched by title and year — anything not yet in Frame&apos;s catalogue will show up as
+        unmatched rather than being guessed at.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">

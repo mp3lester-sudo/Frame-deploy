@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { parseLetterboxdCsv, buildTitleIndex, matchTitle, type LetterboxdRow } from "@/lib/import/letterboxd";
+import { parseLetterboxdDiaryPaste } from "@/lib/import/letterboxd-paste";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -45,28 +46,15 @@ function readCsvFile(file: FormDataEntryValue | null): Promise<string> {
  * unique constraints, so importing the same file twice just re-applies the
  * same values rather than creating duplicates.
  */
-export async function importLetterboxdData(formData: FormData): Promise<ImportSummary> {
-  const { supabase, user } = await requireUser();
-
-  const [ratingsCsv, watchedCsv] = await Promise.all([
-    readCsvFile(formData.get("ratingsFile")),
-    readCsvFile(formData.get("watchedFile")),
-  ]);
-  if (!ratingsCsv && !watchedCsv) throw new Error("Upload at least one file (ratings.csv or watched.csv)");
-
-  const ratingsRows = ratingsCsv ? parseLetterboxdCsv(ratingsCsv) : [];
-  const watchedRows = watchedCsv ? parseLetterboxdCsv(watchedCsv) : [];
-
-  // ratings.csv takes precedence when a film appears in both files.
-  const byKey = new Map<string, LetterboxdRow>();
-  for (const row of watchedRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
-  for (const row of ratingsRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
-  const rows = [...byKey.values()];
-
-  if (rows.length > MAX_ROWS) throw new Error(`That's ${rows.length} rows — please split into files under ${MAX_ROWS}`);
+async function matchAndUpsertRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  rows: LetterboxdRow[]
+): Promise<ImportSummary> {
+  if (rows.length > MAX_ROWS) throw new Error(`That's ${rows.length} rows — please split into smaller batches under ${MAX_ROWS}`);
 
   // Pull the whole catalogue once (a few thousand rows) rather than querying
-  // per CSV row — this is the difference between one query and thousands.
+  // per row — this is the difference between one query and thousands.
   const { data: allTitles, error: titlesError } = await supabase.from("titles").select("id, name, release_date");
   if (titlesError) throw new Error(titlesError.message);
 
@@ -84,9 +72,9 @@ export async function importLetterboxdData(formData: FormData): Promise<ImportSu
       unmatched.push({ name: row.name, year: row.year });
       continue;
     }
-    watchUpserts.push({ user_id: user.id, title_id: titleId });
+    watchUpserts.push({ user_id: userId, title_id: titleId });
     if (row.rating !== null) {
-      ratingUpserts.push({ user_id: user.id, title_id: titleId, score: row.rating });
+      ratingUpserts.push({ user_id: userId, title_id: titleId, score: row.rating });
       ratedCount++;
     } else {
       watchedOnlyCount++;
@@ -110,4 +98,56 @@ export async function importLetterboxdData(formData: FormData): Promise<ImportSu
     watchedOnly: watchedOnlyCount,
     unmatchedSample: unmatched.slice(0, 50),
   };
+}
+
+export async function importLetterboxdData(formData: FormData): Promise<ImportSummary> {
+  const { supabase, user } = await requireUser();
+
+  const [ratingsCsv, watchedCsv] = await Promise.all([
+    readCsvFile(formData.get("ratingsFile")),
+    readCsvFile(formData.get("watchedFile")),
+  ]);
+  if (!ratingsCsv && !watchedCsv) throw new Error("Upload at least one file (ratings.csv or watched.csv)");
+
+  const ratingsRows = ratingsCsv ? parseLetterboxdCsv(ratingsCsv) : [];
+  const watchedRows = watchedCsv ? parseLetterboxdCsv(watchedCsv) : [];
+
+  // ratings.csv takes precedence when a film appears in both files.
+  const byKey = new Map<string, LetterboxdRow>();
+  for (const row of watchedRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
+  for (const row of ratingsRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
+  const rows = [...byKey.values()];
+
+  return matchAndUpsertRows(supabase, user.id, rows);
+}
+
+const MAX_PASTE_CHARS = 3 * 1024 * 1024; // a full diary page's HTML source runs well under this
+
+/**
+ * Import path for members without Letterboxd Pro (whose CSV export is
+ * locked behind Settings -> Data). Instead of a file, this takes the raw
+ * page source of the member's own Diary page — pasted from their own
+ * browser, which sails past Letterboxd's Cloudflare bot-protection since
+ * it's a real signed-in session, not a server-side fetch on our end. See
+ * src/lib/import/letterboxd-paste.ts for how the HTML is parsed.
+ *
+ * Diary pages paginate at ~50 entries, so a long history requires pasting
+ * multiple pages one at a time; each call here is independently idempotent
+ * (same upsert-on-conflict behavior as the CSV path), so re-pasting a page
+ * or pasting overlapping pages is harmless.
+ */
+export async function importLetterboxdPaste(html: string): Promise<ImportSummary> {
+  const { supabase, user } = await requireUser();
+
+  if (!html || !html.trim()) throw new Error("Paste your Diary page's HTML source first");
+  if (html.length > MAX_PASTE_CHARS) throw new Error("That's a lot of HTML — try pasting one Diary page at a time");
+
+  const rows = parseLetterboxdDiaryPaste(html);
+  if (rows.length === 0) {
+    throw new Error(
+      "Couldn't find any diary entries in that paste — make sure you copied the page source (View Page Source) of your Letterboxd Diary page, not just the visible text"
+    );
+  }
+
+  return matchAndUpsertRows(supabase, user.id, rows);
 }

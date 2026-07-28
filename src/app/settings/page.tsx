@@ -5,6 +5,7 @@ import { AvatarUpload } from "@/components/settings/avatar-upload";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { FavoriteTitlesEditor } from "@/components/settings/favorite-titles-editor";
 import { LetterboxdImport } from "@/components/settings/letterboxd-import";
+import { LetterboxdPasteImport } from "@/components/settings/letterboxd-paste-import";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -45,6 +46,10 @@ export default async function SettingsPage() {
 
       <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
         <FavoriteTitlesEditor initialFavorites={favorites} />
+      </section>
+
+      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+        <LetterboxdPasteImport />
       </section>
 
       <section className="rounded-[var(--radius-md)] border border-border bg-surface p-4">
