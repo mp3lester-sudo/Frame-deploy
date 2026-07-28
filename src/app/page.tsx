@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
+import { getRequestGeo } from "@/lib/geo";
+import { getCurrentWeather } from "@/lib/weather";
 import { HeroRecommendation } from "@/components/home/hero-recommendation";
 import { MoodRow } from "@/components/home/mood-row";
 import { MovieNightCard } from "@/components/home/movie-night-card";
 import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
+import { ContextCards } from "@/components/home/context-cards";
 
 type Participant = { username: string; display_name: string | null; avatar_url: string | null };
 
@@ -34,10 +37,13 @@ export default async function HomePage() {
     );
   }
 
-  const [{ data: profile }, { count: ratedCount }, { recommendations, isColdStart }] = await Promise.all([
+  const geo = await getRequestGeo();
+
+  const [{ data: profile }, { count: ratedCount }, { recommendations, isColdStart }, weather] = await Promise.all([
     supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
     supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     getRecommendationsForUser(user.id, { limit: 5 }),
+    geo?.latitude != null && geo?.longitude != null ? getCurrentWeather(geo.latitude, geo.longitude) : Promise.resolve(null),
   ]);
 
   const [hero, ...morePicks] = recommendations;
@@ -101,15 +107,32 @@ export default async function HomePage() {
     circleEvents = (events ?? []) as unknown as CircleEvent[];
   }
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  // Real time in the visitor's own timezone (from Vercel's edge geolocation),
+  // not the server's — falls back to server-local time when geo is
+  // unavailable (local dev, non-Vercel hosting).
+  const now = new Date();
+  const zonedNow = geo?.timezone ? new Date(now.toLocaleString("en-US", { timeZone: geo.timezone })) : now;
+  const greeting = zonedNow.getHours() < 12 ? "Good morning" : zonedNow.getHours() < 18 ? "Good afternoon" : "Good evening";
+  const day = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: geo?.timezone ?? undefined })
+    .format(now)
+    .toUpperCase();
+  const time = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: geo?.timezone ?? undefined,
+  }).format(now);
+  const location = geo?.city ? [geo.city, geo.region].filter(Boolean).join(", ") : geo?.region ?? null;
   const username = profile?.username ?? "you";
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
       <span className="font-display text-sm tracking-[0.2em] text-accent">FRAME</span>
 
-      <h1 className="font-display mt-4 text-3xl">
+      <div className="mt-5">
+        <ContextCards day={day} time={time} location={location} weather={weather} />
+      </div>
+
+      <h1 className="font-display mt-6 text-3xl">
         {greeting}, {username}.
       </h1>
       {ratedCount ? (
