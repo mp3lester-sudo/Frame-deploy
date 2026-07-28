@@ -141,6 +141,24 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      clubs: {
+        Row: { id: string; name: string; description: string; created_by: string; created_at: string };
+        Insert: { name: string; description?: string; created_by: string };
+        Update: Partial<{ name: string; description: string }>;
+        Relationships: [];
+      };
+      club_members: {
+        Row: { club_id: string; user_id: string; role: "owner" | "member"; joined_at: string };
+        Insert: { club_id: string; user_id: string; role?: "owner" | "member" };
+        Update: never;
+        Relationships: [];
+      };
+      club_posts: {
+        Row: { id: string; club_id: string; user_id: string; body: string; created_at: string };
+        Insert: { club_id: string; user_id: string; body: string };
+        Update: never;
+        Relationships: [];
+      };
       list_items: {
         Row: { list_id: string; title_id: string; position: number; note: string | null; added_at: string };
         Insert: { list_id: string; title_id: string; position?: number; note?: string };
