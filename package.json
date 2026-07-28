@@ -1,0 +1,53 @@
+{
+  "name": "frame",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ingest:tmdb": "tsx --env-file=.env.local scripts/ingest-tmdb.ts",
+    "enrich:titles": "tsx --env-file=.env.local scripts/enrich-titles.ts",
+    "verify:onboarding": "tsx --env-file=.env.local scripts/verify-onboarding-flow.ts",
+    "verify:movie-night": "tsx --env-file=.env.local scripts/verify-movie-night-flow.ts",
+    "verify:taste-dna": "tsx --env-file=.env.local scripts/verify-taste-dna.ts",
+    "verify:matchmaking": "tsx --env-file=.env.local scripts/verify-matchmaking.ts"
+  },
+  "dependencies": {
+    "@stripe/stripe-js": "^9.12.1",
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.110.9",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.27.0",
+    "next": "16.2.12",
+    "openai": "^7.0.0",
+    "posthog-js": "^1.407.3",
+    "posthog-node": "^5.46.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "resend": "^6.18.0",
+    "stripe": "^22.3.2",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.4",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "jsdom": "^30.0.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.19.2",
+    "typescript": "^5",
+    "vitest": "^4.1.10"
+  }
+}

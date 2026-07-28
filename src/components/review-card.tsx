@@ -1,0 +1,42 @@
+import { Avatar } from "@/components/ui/avatar";
+import { RatingStars } from "@/components/ui/rating-stars";
+import { formatDistanceToNow } from "@/lib/date";
+
+export function ReviewCard({
+  authorName,
+  authorAvatarUrl,
+  rating,
+  body,
+  containsSpoilers,
+  createdAt,
+}: {
+  authorName: string;
+  authorAvatarUrl?: string | null;
+  rating?: number | null;
+  body: string;
+  containsSpoilers: boolean;
+  createdAt: string;
+}) {
+  return (
+    <div className="border-b border-border py-4 last:border-0">
+      <div className="mb-2 flex items-center gap-3">
+        <Avatar name={authorName} src={authorAvatarUrl} size={32} />
+        <div>
+          <p className="text-sm font-medium">{authorName}</p>
+          <p className="text-xs text-foreground-muted">{formatDistanceToNow(createdAt)}</p>
+        </div>
+        {typeof rating === "number" && <RatingStars value={rating} size={14} className="ml-auto" />}
+      </div>
+      {containsSpoilers ? (
+        <details>
+          <summary className="cursor-pointer text-sm text-foreground-muted">
+            Contains spoilers — click to reveal
+          </summary>
+          <p className="mt-2 text-sm leading-relaxed">{body}</p>
+        </details>
+      ) : (
+        <p className="text-sm leading-relaxed">{body}</p>
+      )}
+    </div>
+  );
+}

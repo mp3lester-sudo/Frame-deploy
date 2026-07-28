@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/*
+ * Frame Design System
+ * Sleek, restrained, dark. One accent, near-invisible hairlines, generous
+ * whitespace — closer to a premium editorial reading app than a dashboard.
+ */
+:root {
+  --background: #0c0706;
+  --surface: #1f1215;
+  --surface-raised: #2b191d;
+  --border: rgba(201, 162, 39, 0.16);
+  --border-strong: rgba(201, 162, 39, 0.32);
+  --foreground: #f2ede6;
+  --foreground-muted: #a3958e;
+
+  /* One accent, used for everything that means "this is selected / rated /
+     matched" — ratings, matches, the wordmark, active states. */
+  --accent: #c9a227;
+  --accent-foreground: #171206;
+
+  --success: #4ade80;
+  --danger: #e0685f;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-full: var(--radius-full);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-playfair);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Skeleton shimmer for loading states */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-raised) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
