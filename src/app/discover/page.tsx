@@ -57,28 +57,37 @@ export default async function DiscoverPage({
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="mb-4 text-2xl font-semibold">Discover</h1>
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        <Link
-          href="/discover"
-          className={cn(
-            "rounded-[var(--radius-full)] border border-border px-3 py-1 text-sm",
-            !genre && "border-accent text-accent"
-          )}
-        >
-          All
-        </Link>
-        {GENRES.map(({ label, value }) => (
+      <div className="relative mb-8 -mx-4 px-4">
+        <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
           <Link
-            key={value}
-            href={`/discover?genre=${encodeURIComponent(value)}`}
+            href="/discover"
             className={cn(
-              "rounded-[var(--radius-full)] border border-border px-3 py-1 text-sm",
-              genre === value && "border-accent text-accent"
+              "shrink-0 whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
+              !genre
+                ? "border-accent bg-accent text-accent-foreground"
+                : "border-border text-foreground-muted hover:border-border-strong hover:text-foreground"
             )}
           >
-            {label}
+            All
           </Link>
-        ))}
+          {GENRES.map(({ label, value }) => (
+            <Link
+              key={value}
+              href={`/discover?genre=${encodeURIComponent(value)}`}
+              className={cn(
+                "shrink-0 whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
+                genre === value
+                  ? "border-accent bg-accent text-accent-foreground"
+                  : "border-border text-foreground-muted hover:border-border-strong hover:text-foreground"
+              )}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+        {/* Edge fades hint that the rail scrolls, without a visible scrollbar */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent" />
       </div>
 
       <LoadMoreGrid

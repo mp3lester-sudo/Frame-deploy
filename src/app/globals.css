@@ -65,3 +65,13 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
+
+/* Horizontal filter rails (Discover genres, etc.) — scrollable on all
+   screen sizes without an ugly visible scrollbar. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
