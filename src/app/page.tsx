@@ -8,10 +8,23 @@ import { MoodRow } from "@/components/home/mood-row";
 import { MovieNightCard } from "@/components/home/movie-night-card";
 import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
 import { ContextCards } from "@/components/home/context-cards";
+import { ContextPicker } from "@/components/home/context-picker";
+import { detectAutoContext, isCircumstantialContext } from "@/lib/context/circumstantial";
 
 type Participant = { username: string; display_name: string | null; avatar_url: string | null };
 
-export default async function HomePage() {
+// Home page is deliberately weighted ~60% personal (Taste Graph picks, tuned
+// to whichever circumstantial context applies right now) and ~40% social
+// (what people you follow are actually doing) — two distinct sections
+// rather than one blended feed, so each stays legible on its own.
+const SOCIAL_EVENTS_LIMIT = 5;
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ context?: string }>;
+}) {
+  const { context: contextParam } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,12 +52,30 @@ export default async function HomePage() {
 
   const geo = await getRequestGeo();
 
-  const [{ data: profile }, { count: ratedCount }, { recommendations, isColdStart }, weather] = await Promise.all([
+  const [{ data: profile }, { count: ratedCount }, weather] = await Promise.all([
     supabase.from("profiles").select("username, display_name").eq("id", user.id).maybeSingle(),
     supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-    getRecommendationsForUser(user.id, { limit: 5 }),
     geo?.latitude != null && geo?.longitude != null ? getCurrentWeather(geo.latitude, geo.longitude) : Promise.resolve(null),
   ]);
+
+  // Real time in the visitor's own timezone (from Vercel's edge geolocation),
+  // computed here (rather than lower down, where it used to live) because
+  // the circumstantial context auto-detection needs it before recommendations
+  // are fetched.
+  const now = new Date();
+  const zonedNow = geo?.timezone ? new Date(now.toLocaleString("en-US", { timeZone: geo.timezone })) : now;
+
+  const autoContext = detectAutoContext({
+    hour: zonedNow.getHours(),
+    dayOfWeek: zonedNow.getDay(),
+    weatherCode: weather?.code ?? null,
+  });
+  const activeContext = contextParam && isCircumstantialContext(contextParam) ? contextParam : autoContext;
+
+  const { recommendations, isColdStart } = await getRecommendationsForUser(user.id, {
+    limit: 5,
+    context: activeContext,
+  });
 
   const [hero, ...morePicks] = recommendations;
 
@@ -103,15 +134,10 @@ export default async function HomePage() {
       .select("id, event_type, created_at, profiles(username, avatar_url), titles(name)")
       .in("user_id", followeeIds)
       .order("created_at", { ascending: false })
-      .limit(3);
+      .limit(SOCIAL_EVENTS_LIMIT);
     circleEvents = (events ?? []) as unknown as CircleEvent[];
   }
 
-  // Real time in the visitor's own timezone (from Vercel's edge geolocation),
-  // not the server's — falls back to server-local time when geo is
-  // unavailable (local dev, non-Vercel hosting).
-  const now = new Date();
-  const zonedNow = geo?.timezone ? new Date(now.toLocaleString("en-US", { timeZone: geo.timezone })) : now;
   const greeting = zonedNow.getHours() < 12 ? "Good morning" : zonedNow.getHours() < 18 ? "Good afternoon" : "Good evening";
   const day = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: geo?.timezone ?? undefined })
     .format(now)
@@ -153,6 +179,10 @@ export default async function HomePage() {
         </p>
       )}
 
+      <div className="mt-6">
+        <ContextPicker active={activeContext} />
+      </div>
+
       {hero && (
         <div className="mt-8">
           <HeroRecommendation
@@ -170,21 +200,39 @@ export default async function HomePage() {
         </div>
       )}
 
-      {activeNight && (
-        <div className="mt-8">
-          <MovieNightCard
-            nightId={activeNight.id}
-            participants={activeNight.participants}
-            isHost={activeNight.hostId === user.id}
-          />
+      {/* Social section — what people you follow are actually doing, kept
+          visually distinct from the personal picks above with a divider and
+          its own eyebrow label rather than blended into one feed. */}
+      <div className="mt-10 border-t border-border pt-6">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[10px] uppercase tracking-wider text-foreground-muted">Your circle</span>
+          <Link href="/hot-takes" className="text-[11px] uppercase tracking-wider text-foreground-muted hover:text-accent">
+            Hot Takes &rarr;
+          </Link>
         </div>
-      )}
 
-      {circleEvents.length > 0 && (
-        <div className="mt-8">
-          <CircleFeed items={circleEvents} />
-        </div>
-      )}
+        {activeNight && (
+          <div className="mt-4">
+            <MovieNightCard
+              nightId={activeNight.id}
+              participants={activeNight.participants}
+              isHost={activeNight.hostId === user.id}
+            />
+          </div>
+        )}
+
+        {circleEvents.length > 0 ? (
+          <div className="mt-4">
+            <CircleFeed items={circleEvents} />
+          </div>
+        ) : (
+          !activeNight && (
+            <p className="mt-4 text-sm text-foreground-muted">
+              Follow a few people to see what they&apos;re watching here.
+            </p>
+          )
+        )}
+      </div>
     </div>
   );
 }
