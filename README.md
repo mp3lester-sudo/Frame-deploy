@@ -71,3 +71,5 @@ Typecheck, lint, unit tests, and `next build` all pass as of this commit.
 - **Stripe webhook**: point it at `https://<domain>/api/stripe/webhook`, subscribe to
   `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
 - **CI**: `.github/workflows/ci.yml` runs typecheck/lint/test/build on every PR and push to `main`.
+
+<!-- CI/CD verification: this line was pushed via git to confirm Vercel auto-deploys from GitHub -->
