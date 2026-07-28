@@ -24,7 +24,8 @@
     "verify:review-reactions": "tsx --env-file=.env.local scripts/verify-review-reactions.ts",
     "verify:review-comments": "tsx --env-file=.env.local scripts/verify-review-comments.ts",
     "verify:movie-clubs": "tsx --env-file=.env.local scripts/verify-movie-clubs.ts",
-    "verify:direct-messages": "tsx --env-file=.env.local scripts/verify-direct-messages.ts"
+    "verify:direct-messages": "tsx --env-file=.env.local scripts/verify-direct-messages.ts",
+    "verify:hot-takes": "tsx --env-file=.env.local scripts/verify-hot-takes.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.12.1",

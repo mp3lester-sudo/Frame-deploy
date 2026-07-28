@@ -74,6 +74,23 @@ async function main() {
   }
   console.log("   ok — reaction is publicly visible");
 
+  console.log("4b. Confirming the movie detail page's own reviews query still resolves cleanly...");
+  // review_reactions creates a second join path from reviews to profiles
+  // (direct authorship vs. indirectly via reactions), which broke
+  // src/app/movie/[id]/page.tsx's bare `profiles(...)` embed the moment a
+  // review actually had a reaction on it — exactly the state this script
+  // is in by this point. The !reviews_user_id_fkey hint is the fix; this
+  // guards against that regression coming back.
+  const { data: moviePageShapedReviews, error: moviePageQueryError } = await author.client
+    .from("reviews")
+    .select("*, profiles!reviews_user_id_fkey(username, avatar_url)")
+    .eq("title_id", title.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (moviePageQueryError) throw new Error(`movie page reviews query regressed: ${moviePageQueryError.message}`);
+  if (!moviePageShapedReviews?.some((r) => r.id === review.id)) throw new Error("expected our review in the movie page query's results");
+  console.log("   ok — disambiguated query still resolves with a real reaction present");
+
   console.log("5. Aggregating the fetched rows with the real aggregateReactions()...");
   const summary = aggregateReactions(rowsAsAuthor ?? [], reactor.id).get(review.id);
   if (!summary || summary.counts.agree !== 1 || summary.myReaction !== "agree") {

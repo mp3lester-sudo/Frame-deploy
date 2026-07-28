@@ -40,7 +40,12 @@ export default async function FeedPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-semibold">Feed</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Feed</h1>
+        <Link href="/hot-takes" className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent">
+          Hot Takes &rarr;
+        </Link>
+      </div>
 
       {!events?.length && (
         <p className="text-sm text-foreground-muted">

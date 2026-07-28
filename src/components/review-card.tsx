@@ -16,8 +16,9 @@ export function ReviewCard({
   createdAt,
   reactions,
   canReact,
-  comments,
+  comments = [],
   viewerId,
+  showComments = true,
 }: {
   reviewId: string;
   authorName: string;
@@ -28,8 +29,10 @@ export function ReviewCard({
   createdAt: string;
   reactions?: ReactionSummary;
   canReact: boolean;
-  comments: DisplayComment[];
+  comments?: DisplayComment[];
   viewerId: string | null;
+  /** Shows the full comment thread by default; set false on dense multi-review feeds (e.g. Hot Takes) to keep them scannable — full discussion is still one click away on the movie page. */
+  showComments?: boolean;
 }) {
   const { counts, myReaction } = reactions ?? emptyReactionSummary();
   return (
@@ -53,7 +56,9 @@ export function ReviewCard({
         <p className="text-sm leading-relaxed">{body}</p>
       )}
       <ReviewReactionBar reviewId={reviewId} initialCounts={counts} initialMyReaction={myReaction} canReact={canReact} />
-      <ReviewComments reviewId={reviewId} initialComments={comments} viewerId={viewerId} canComment={canReact} />
+      {showComments && (
+        <ReviewComments reviewId={reviewId} initialComments={comments} viewerId={viewerId} canComment={canReact} />
+      )}
     </div>
   );
 }

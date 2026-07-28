@@ -21,7 +21,13 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
     supabase.from("titles").select("*").eq("id", id).single(),
     supabase
       .from("reviews")
-      .select("*, profiles(username, avatar_url), ratings:ratings(score)")
+      // No FK links reviews to ratings directly (they're sibling tables,
+      // both keyed on user_id+title_id), so a reviewer's own rating on this
+      // title can't be embedded here — fetched separately below instead.
+      // The explicit !reviews_user_id_fkey hint disambiguates profiles,
+      // which otherwise has two valid join paths from reviews (direct
+      // authorship, and indirectly via review_reactions).
+      .select("*, profiles!reviews_user_id_fkey(username, avatar_url)")
       .eq("title_id", id)
       .order("created_at", { ascending: false })
       .limit(20),
@@ -37,6 +43,11 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
   if (!title) notFound();
 
   const reviewIds = (reviews ?? []).map((r) => r.id);
+  const reviewerIds = [...new Set((reviews ?? []).map((r) => r.user_id))];
+  const { data: reviewerRatingRows } = reviewerIds.length
+    ? await supabase.from("ratings").select("user_id, score").eq("title_id", id).in("user_id", reviewerIds)
+    : { data: [] };
+  const ratingByReviewer = new Map((reviewerRatingRows ?? []).map((r) => [r.user_id, r.score]));
   const [{ data: reactionRows }, { data: commentRows }] = reviewIds.length
     ? await Promise.all([
         supabase.from("review_reactions").select("review_id, reaction, user_id").in("review_id", reviewIds),
@@ -108,7 +119,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
               body={r.body}
               containsSpoilers={r.contains_spoilers}
               createdAt={r.created_at}
-              rating={(r as unknown as { ratings: { score: number }[] }).ratings?.[0]?.score}
+              rating={ratingByReviewer.get(r.user_id)}
               reactions={reactionsByReview.get(r.id)}
               canReact={!!viewer}
               comments={commentsByReview.get(r.id) ?? []}
