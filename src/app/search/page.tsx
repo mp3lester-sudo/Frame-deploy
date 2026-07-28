@@ -33,6 +33,10 @@ export default async function SearchPage({
 
       {q && (
         <LoadMoreGrid
+          // Keyed on the query so a new search remounts the grid instead of
+          // reusing the previous query's cached state (see discover/page.tsx
+          // for the same fix and why it's needed).
+          key={q}
           initialTitles={titles ?? []}
           initialHasMore={(titles?.length ?? 0) === SEARCH_PAGE_SIZE}
           loadMore={loadMore}

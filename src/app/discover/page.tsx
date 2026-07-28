@@ -82,6 +82,10 @@ export default async function DiscoverPage({
       </div>
 
       <LoadMoreGrid
+        // Keyed on genre so switching filters remounts the grid — otherwise
+        // its internal `useState(initialTitles)` keeps showing the previous
+        // genre's titles (only seeded on mount) until a full page reload.
+        key={genre ?? "all"}
         initialTitles={titles ?? []}
         initialHasMore={(titles?.length ?? 0) === DISCOVER_PAGE_SIZE}
         loadMore={loadMore}
