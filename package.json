@@ -20,7 +20,8 @@
     "verify:profile-editing": "tsx --env-file=.env.local scripts/verify-profile-editing.ts",
     "verify:letterboxd-import": "tsx --env-file=.env.local scripts/verify-letterboxd-import.ts",
     "verify:letterboxd-paste-import": "tsx --env-file=.env.local scripts/verify-letterboxd-paste-import.ts",
-    "verify:user-search": "tsx --env-file=.env.local scripts/verify-user-search.ts"
+    "verify:user-search": "tsx --env-file=.env.local scripts/verify-user-search.ts",
+    "verify:review-reactions": "tsx --env-file=.env.local scripts/verify-review-reactions.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.12.1",

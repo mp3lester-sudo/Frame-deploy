@@ -12,7 +12,7 @@
  * themselves in their own results, and isFollowing reflects the real
  * follows row. Cleans up after itself.
  */
-import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { createClient as createServiceClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import { buildUserSearchFilter } from "../src/lib/search/user-search";
 
@@ -20,7 +20,8 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-async function createTestUser(admin: ReturnType<typeof createServiceClient>, label: string, displayName: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function createTestUser(admin: SupabaseClient<any>, label: string, displayName: string) {
   const email = `mp3lester+usersearch${label}${Date.now()}@gmail.com`;
   const password = "TestPassword123!";
   const username = `usrch_${label}_${Date.now()}`.replace(/[^a-z0-9_]/g, "").slice(-20);

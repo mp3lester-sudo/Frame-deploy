@@ -6,10 +6,15 @@ import { ReviewCard } from "@/components/review-card";
 import { CreditsSection, type Credit } from "@/components/credits-row";
 import { Badge } from "@/components/ui/badge";
 import { formatRuntime } from "@/lib/utils";
+import { aggregateReactions } from "@/lib/reactions/aggregate";
 
 export default async function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
+
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
 
   const [{ data: title }, { data: reviews }, { data: userRating }, { data: credits }] = await Promise.all([
     supabase.from("titles").select("*").eq("id", id).single(),
@@ -19,13 +24,9 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
       .eq("title_id", id)
       .order("created_at", { ascending: false })
       .limit(20),
-    (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return { data: null };
-      return supabase.from("ratings").select("score").eq("title_id", id).eq("user_id", user.id).maybeSingle();
-    })(),
+    viewer
+      ? supabase.from("ratings").select("score").eq("title_id", id).eq("user_id", viewer.id).maybeSingle()
+      : Promise.resolve({ data: null }),
     supabase
       .from("title_credits")
       .select("credit_type, character_name, billing_order, people(name, photo_url)")
@@ -33,6 +34,12 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
   ]);
 
   if (!title) notFound();
+
+  const reviewIds = (reviews ?? []).map((r) => r.id);
+  const { data: reactionRows } = reviewIds.length
+    ? await supabase.from("review_reactions").select("review_id, reaction, user_id").in("review_id", reviewIds)
+    : { data: [] };
+  const reactionsByReview = aggregateReactions(reactionRows ?? [], viewer?.id ?? null);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -72,12 +79,15 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
           reviews.map((r) => (
             <ReviewCard
               key={r.id}
+              reviewId={r.id}
               authorName={(r as unknown as { profiles: { username: string } }).profiles?.username ?? "Someone"}
               authorAvatarUrl={(r as unknown as { profiles: { avatar_url: string | null } }).profiles?.avatar_url}
               body={r.body}
               containsSpoilers={r.contains_spoilers}
               createdAt={r.created_at}
               rating={(r as unknown as { ratings: { score: number }[] }).ratings?.[0]?.score}
+              reactions={reactionsByReview.get(r.id)}
+              canReact={!!viewer}
             />
           ))
         ) : (
