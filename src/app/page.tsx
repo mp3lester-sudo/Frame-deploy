@@ -126,7 +126,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
-      <span className="font-display text-sm tracking-[0.2em] text-accent">FRAME</span>
+      <span className="font-hollywood text-xl uppercase tracking-[0.15em] text-accent">Frame</span>
 
       <div className="mt-5">
         <ContextCards day={day} time={time} location={location} weather={weather} />

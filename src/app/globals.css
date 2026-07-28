@@ -47,6 +47,8 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-playfair);
+  /* Reserved for the "Frame" wordmark only — see layout.tsx. */
+  --font-hollywood: var(--font-bebas);
 }
 
 body {

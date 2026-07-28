@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -22,6 +22,15 @@ const playfairDisplay = Playfair_Display({
   style: ["normal", "italic"],
 });
 
+// Tall, condensed, bold marquee lettering — the "HOLLYWOOD sign" look.
+// Reserved for the Frame wordmark only; everything else stays on
+// --font-display (Playfair) for body/heading text.
+const bebasNeue = Bebas_Neue({
+  variable: "--font-bebas",
+  subsets: ["latin"],
+  weight: "400",
+});
+
 export const metadata: Metadata = {
   title: "Frame — The Operating System for Entertainment",
   description: "Personalized movie and TV recommendations that actually get your taste.",
@@ -42,7 +51,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar isAuthed={!!user} />

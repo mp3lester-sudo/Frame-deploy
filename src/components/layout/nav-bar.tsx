@@ -15,7 +15,7 @@ export function NavBar({ isAuthed }: { isAuthed: boolean }) {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         <Link
           href="/"
-          className="font-display text-lg tracking-[0.1em] text-accent"
+          className="font-hollywood text-2xl uppercase tracking-[0.08em] text-accent"
         >
           Frame
         </Link>
