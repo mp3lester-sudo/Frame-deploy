@@ -23,10 +23,18 @@ const COLLABORATIVE_WEIGHT = 0.35;
  * Falls back to a popularity-sorted list for users with no taste vector yet
  * (new signups) instead of returning nothing.
  */
+export interface RecommendationResult {
+  recommendations: Recommendation[];
+  /** True when there's no taste vector yet, so these are popularity fallbacks
+   *  rather than personalized picks — callers use this to avoid showing a
+   *  meaningless match %. */
+  isColdStart: boolean;
+}
+
 export async function getRecommendationsForUser(
   userId: string,
   { limit = 5 }: { limit?: number } = {}
-): Promise<Recommendation[]> {
+): Promise<RecommendationResult> {
   const supabase = await createClient();
 
   const { data: tasteVector } = await supabase
@@ -36,7 +44,7 @@ export async function getRecommendationsForUser(
     .maybeSingle();
 
   if (!tasteVector) {
-    return getColdStartRecommendations(limit);
+    return { recommendations: await getColdStartRecommendations(limit), isColdStart: true };
   }
 
   const [{ data: contentMatches }, { data: collabMatches }] = await Promise.all([
@@ -58,12 +66,14 @@ export async function getRecommendationsForUser(
     .slice(0, limit)
     .map(([id]) => id);
 
-  if (rankedIds.length === 0) return getColdStartRecommendations(limit);
+  if (rankedIds.length === 0) {
+    return { recommendations: await getColdStartRecommendations(limit), isColdStart: true };
+  }
 
   const { data: titles } = await supabase.from("titles").select("*").in("id", rankedIds);
   const byId = new Map((titles ?? []).map((t) => [t.id, t]));
 
-  return rankedIds
+  const recommendations = rankedIds
     .filter((id) => byId.has(id))
     .map((id) => {
       const title = byId.get(id)!;
@@ -73,6 +83,8 @@ export async function getRecommendationsForUser(
         reason: explainRecommendation(title, contentMatches ?? [], collabMatches ?? [], id),
       };
     });
+
+  return { recommendations, isColdStart: false };
 }
 
 function explainRecommendation(

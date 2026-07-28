@@ -1,67 +1,48 @@
-import { RatingStars } from "@/components/ui/rating-stars";
-import type { circleFeed as CircleFeedType } from "@/lib/demo/home-demo-data";
+import Link from "next/link";
+import { Avatar } from "@/components/ui/avatar";
+import { formatDistanceToNow } from "@/lib/date";
 
-export function CircleFeed({ items }: { items: typeof CircleFeedType }) {
+const EVENT_COPY: Record<string, (name: string, target: string) => string> = {
+  rated: (name, target) => `${name} rated ${target}`,
+  reviewed: (name, target) => `${name} reviewed ${target}`,
+  watched: (name, target) => `${name} watched ${target}`,
+  list_created: (name) => `${name} created a new list`,
+  followed: (name) => `${name} followed someone new`,
+};
+
+export type CircleEvent = {
+  id: string;
+  event_type: string;
+  created_at: string;
+  profiles: { username: string; avatar_url: string | null } | null;
+  titles: { name: string } | null;
+};
+
+export function CircleFeed({ items }: { items: CircleEvent[] }) {
+  if (!items.length) return null;
+
   return (
     <div>
-      <h3 className="font-display mb-3 text-lg">From your circle</h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="font-display text-lg">From your circle</h3>
+        <Link href="/feed" className="text-[11px] uppercase tracking-wider text-foreground-muted hover:text-accent">
+          See all
+        </Link>
+      </div>
       <div className="flex flex-col gap-3">
-        {items.map((item) => (
-          <div
-            key={item.initial + item.name}
-            className="flex gap-3 rounded-[var(--radius-md)] border border-border bg-surface p-4"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-accent/40 bg-surface-raised text-xs font-medium text-accent">
-              {item.initial}
+        {items.map((item) => {
+          const name = item.profiles?.username ?? "Someone";
+          const copy = EVENT_COPY[item.event_type]?.(name, item.titles?.name ?? "a title") ?? "New activity";
+          return (
+            <div key={item.id} className="flex items-center gap-3 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+              <Avatar name={name} src={item.profiles?.avatar_url} size={36} />
+              <div className="flex-1">
+                <p className="text-sm">{copy}</p>
+                <p className="text-[11px] text-foreground-muted">{formatDistanceToNow(item.created_at)}</p>
+              </div>
             </div>
-            <div className="flex-1">
-              {item.kind === "rated" && (
-                <>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm">
-                      <span className="font-medium">{item.name}</span> rated {item.titleName}
-                    </p>
-                    <RatingStars value={item.rating} size={12} />
-                  </div>
-                  <p className="font-display mt-1 italic text-foreground-muted">{item.quote}</p>
-                  <div className="mt-2 flex gap-4 text-[11px] uppercase tracking-wider text-accent">
-                    {item.reactions.map((r) => (
-                      <span key={r.label}>
-                        {r.label} &middot; {r.count}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {item.kind === "watched" && (
-                <>
-                  <p className="text-sm">
-                    <span className="font-medium">{item.name}</span> watched {item.titleName}
-                  </p>
-                  <p className="font-display mt-1 italic text-foreground-muted">{item.quote}</p>
-                  <div className="mt-2 flex gap-4 text-[11px] uppercase tracking-wider text-accent">
-                    {item.reactions.map((r) => (
-                      <span key={r.label}>
-                        {r.label} &middot; {r.count}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {item.kind === "compatibility" && (
-                <>
-                  <p className="text-sm">
-                    <span className="font-medium">{item.name}</span> and you are{" "}
-                    <span className="text-accent">{item.compatibilityPercent}%</span> compatible
-                  </p>
-                  <p className="font-display mt-1 italic text-foreground-muted">{item.blurb}</p>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

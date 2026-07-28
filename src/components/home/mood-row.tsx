@@ -1,32 +1,39 @@
 import Image from "next/image";
-import type { moodRow as MoodRowType } from "@/lib/demo/home-demo-data";
+import Link from "next/link";
+import type { Recommendation } from "@/lib/recommendations/engine";
 
-export function MoodRow({ items }: { items: typeof MoodRowType }) {
+export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isColdStart: boolean }) {
+  if (!picks.length) return null;
+
   return (
     <div>
-      <h3 className="font-display mb-3 text-lg">More for tonight&apos;s mood</h3>
+      <h3 className="font-display mb-3 text-lg">{isColdStart ? "Popular right now" : "More picks for you"}</h3>
       <div className="grid grid-cols-2 gap-3">
-        {items.map((item) => (
-          <div key={item.title}>
-            <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface">
-              {item.posterUrl && (
+        {picks.map(({ title, score }) => (
+          <Link key={title.id} href={`/movie/${title.id}`} className="group">
+            <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface transition-colors group-hover:border-border-strong">
+              {title.poster_url && (
                 <Image
-                  src={item.posterUrl}
-                  alt={item.title}
+                  src={title.poster_url}
+                  alt={title.name}
                   fill
                   className="object-cover"
                   sizes="(max-width: 640px) 50vw, 288px"
                 />
               )}
-              <span className="absolute left-2 top-2 rounded-[var(--radius-sm)] bg-background/70 px-2 py-0.5 text-[10px] uppercase tracking-wider text-accent backdrop-blur-sm">
-                {item.genreBadge}
-              </span>
+              {title.genres?.[0] && (
+                <span className="absolute left-2 top-2 rounded-[var(--radius-sm)] bg-background/70 px-2 py-0.5 text-[10px] uppercase tracking-wider text-accent backdrop-blur-sm">
+                  {title.genres[0]}
+                </span>
+              )}
             </div>
-            <p className="mt-2 text-sm font-medium">{item.title}</p>
-            <p className="mt-0.5 text-[11px] uppercase tracking-wider text-foreground-muted">
-              {item.matchPercent}% match
-            </p>
-          </div>
+            <p className="mt-2 text-sm font-medium">{title.name}</p>
+            {!isColdStart && (
+              <p className="mt-0.5 text-[11px] uppercase tracking-wider text-foreground-muted">
+                {Math.round(Math.min(score, 1) * 100)}% match
+              </p>
+            )}
+          </Link>
         ))}
       </div>
     </div>
