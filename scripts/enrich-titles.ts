@@ -27,7 +27,7 @@ const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 const CHAT_MODEL = "gpt-4.1-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small";
-const CONCURRENCY = 4;
+const CONCURRENCY = 8;
 
 function parseArgs() {
   const args = Object.fromEntries(
@@ -157,15 +157,24 @@ async function main() {
   // Titles with no row in title_embeddings yet — the one reliable signal
   // that a title still needs AI enrichment, regardless of what placeholder
   // values ingest-tmdb.ts left in the taste columns.
-  const { data: embedded } = await supabase.from("title_embeddings").select("title_id");
-  const embeddedIds = new Set((embedded ?? []).map((r) => r.title_id));
-
-  // Paginate through the *entire* catalogue rather than a single .limit(1000)
-  // fetch — otherwise, once the first 1000 rows (by default order) are
-  // enriched, every subsequent run would keep re-fetching that same window
-  // and finding nothing pending, silently never reaching the rest of the
-  // catalogue.
+  //
+  // Both queries below paginate with .range() rather than a bare .select(),
+  // because PostgREST silently caps unpaginated selects at 1000 rows. Once
+  // title_embeddings passed 1000 rows, a bare select here only saw an
+  // arbitrary 1000-row slice of "done" ids, so already-embedded titles kept
+  // getting treated as pending and reprocessed for no gain — the fetch of
+  // allTitles below had the identical bug and was fixed first, which is what
+  // exposed this one.
   const PAGE_SIZE = 1000;
+  const embeddedIds = new Set<string>();
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase.from("title_embeddings").select("title_id").range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    for (const row of data) embeddedIds.add(row.title_id);
+    if (data.length < PAGE_SIZE) break;
+  }
+
   const allTitles: Title[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await supabase
