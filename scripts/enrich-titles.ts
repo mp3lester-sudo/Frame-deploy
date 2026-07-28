@@ -160,15 +160,27 @@ async function main() {
   const { data: embedded } = await supabase.from("title_embeddings").select("title_id");
   const embeddedIds = new Set((embedded ?? []).map((r) => r.title_id));
 
-  const { data: allTitles, error } = await supabase
-    .from("titles")
-    .select("id, name, overview, genres")
-    .limit(1000);
-  if (error) throw new Error(error.message);
+  // Paginate through the *entire* catalogue rather than a single .limit(1000)
+  // fetch — otherwise, once the first 1000 rows (by default order) are
+  // enriched, every subsequent run would keep re-fetching that same window
+  // and finding nothing pending, silently never reaching the rest of the
+  // catalogue.
+  const PAGE_SIZE = 1000;
+  const allTitles: Title[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("titles")
+      .select("id, name, overview, genres")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    allTitles.push(...(data as Title[]));
+    if (data.length < PAGE_SIZE) break;
+  }
 
-  const pending = (allTitles ?? []).filter((t) => !embeddedIds.has(t.id)).slice(0, limit);
+  const pending = allTitles.filter((t) => !embeddedIds.has(t.id)).slice(0, limit);
 
-  console.log(`${pending.length} titles need enrichment (of ${(allTitles ?? []).length} total, limit ${limit}).`);
+  console.log(`${pending.length} titles need enrichment (of ${allTitles.length} total, limit ${limit}).`);
   if (pending.length === 0) {
     console.log("Nothing to do.");
     return;
