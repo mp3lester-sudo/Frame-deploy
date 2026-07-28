@@ -1,0 +1,113 @@
+"use server";
+
+import { createClient } from "@/lib/supabase/server";
+import { parseLetterboxdCsv, buildTitleIndex, matchTitle, type LetterboxdRow } from "@/lib/import/letterboxd";
+
+async function requireUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  return { supabase, user };
+}
+
+const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2MB — generous; Letterboxd's own importer caps at 1MB
+const MAX_ROWS = 20_000;
+
+export interface ImportSummary {
+  totalRows: number;
+  matched: number;
+  rated: number;
+  watchedOnly: number;
+  unmatchedSample: { name: string; year: number | null }[];
+}
+
+function readCsvFile(file: FormDataEntryValue | null): Promise<string> {
+  if (!(file instanceof File)) return Promise.resolve("");
+  if (file.size === 0) return Promise.resolve("");
+  if (file.size > MAX_FILE_BYTES) throw new Error(`${file.name || "File"} is too large (max 2MB)`);
+  return file.text();
+}
+
+/**
+ * Imports a Letterboxd export (ratings.csv and/or watched.csv — see
+ * src/lib/import/letterboxd.ts for the exact format and why matching is
+ * title+year rather than an ID lookup) into ratings/watch_history.
+ *
+ * Deliberately does NOT write any activity_events — for an account with
+ * thousands of logged films, one event per title would flood the social
+ * feed of anyone following this user, and none of the existing event types
+ * ("rated", "watched", etc, which all expect a specific title) fit a bulk
+ * "imported N films" summary cleanly enough to fake one.
+ *
+ * Safe to re-run: ratings/watch_history are upserted on their existing
+ * unique constraints, so importing the same file twice just re-applies the
+ * same values rather than creating duplicates.
+ */
+export async function importLetterboxdData(formData: FormData): Promise<ImportSummary> {
+  const { supabase, user } = await requireUser();
+
+  const [ratingsCsv, watchedCsv] = await Promise.all([
+    readCsvFile(formData.get("ratingsFile")),
+    readCsvFile(formData.get("watchedFile")),
+  ]);
+  if (!ratingsCsv && !watchedCsv) throw new Error("Upload at least one file (ratings.csv or watched.csv)");
+
+  const ratingsRows = ratingsCsv ? parseLetterboxdCsv(ratingsCsv) : [];
+  const watchedRows = watchedCsv ? parseLetterboxdCsv(watchedCsv) : [];
+
+  // ratings.csv takes precedence when a film appears in both files.
+  const byKey = new Map<string, LetterboxdRow>();
+  for (const row of watchedRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
+  for (const row of ratingsRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
+  const rows = [...byKey.values()];
+
+  if (rows.length > MAX_ROWS) throw new Error(`That's ${rows.length} rows — please split into files under ${MAX_ROWS}`);
+
+  // Pull the whole catalogue once (a few thousand rows) rather than querying
+  // per CSV row — this is the difference between one query and thousands.
+  const { data: allTitles, error: titlesError } = await supabase.from("titles").select("id, name, release_date");
+  if (titlesError) throw new Error(titlesError.message);
+
+  const index = buildTitleIndex(allTitles ?? []);
+
+  const ratingUpserts: { user_id: string; title_id: string; score: number }[] = [];
+  const watchUpserts: { user_id: string; title_id: string }[] = [];
+  const unmatched: { name: string; year: number | null }[] = [];
+  let ratedCount = 0;
+  let watchedOnlyCount = 0;
+
+  for (const row of rows) {
+    const titleId = matchTitle(row, index);
+    if (!titleId) {
+      unmatched.push({ name: row.name, year: row.year });
+      continue;
+    }
+    watchUpserts.push({ user_id: user.id, title_id: titleId });
+    if (row.rating !== null) {
+      ratingUpserts.push({ user_id: user.id, title_id: titleId, score: row.rating });
+      ratedCount++;
+    } else {
+      watchedOnlyCount++;
+    }
+  }
+
+  const CHUNK = 500;
+  for (let i = 0; i < watchUpserts.length; i += CHUNK) {
+    const { error } = await supabase.from("watch_history").upsert(watchUpserts.slice(i, i + CHUNK));
+    if (error) throw new Error(`watch_history import failed: ${error.message}`);
+  }
+  for (let i = 0; i < ratingUpserts.length; i += CHUNK) {
+    const { error } = await supabase.from("ratings").upsert(ratingUpserts.slice(i, i + CHUNK));
+    if (error) throw new Error(`ratings import failed: ${error.message}`);
+  }
+
+  return {
+    totalRows: rows.length,
+    matched: ratedCount + watchedOnlyCount,
+    rated: ratedCount,
+    watchedOnly: watchedOnlyCount,
+    unmatchedSample: unmatched.slice(0, 50),
+  };
+}

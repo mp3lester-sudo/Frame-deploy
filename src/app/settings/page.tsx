@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AvatarUpload } from "@/components/settings/avatar-upload";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { FavoriteTitlesEditor } from "@/components/settings/favorite-titles-editor";
+import { LetterboxdImport } from "@/components/settings/letterboxd-import";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -42,8 +43,12 @@ export default async function SettingsPage() {
         <ProfileForm initialDisplayName={profile?.display_name ?? ""} initialBio={profile?.bio ?? ""} />
       </section>
 
-      <section className="rounded-[var(--radius-md)] border border-border bg-surface p-4">
+      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
         <FavoriteTitlesEditor initialFavorites={favorites} />
+      </section>
+
+      <section className="rounded-[var(--radius-md)] border border-border bg-surface p-4">
+        <LetterboxdImport />
       </section>
     </div>
   );

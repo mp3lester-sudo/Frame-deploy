@@ -17,7 +17,8 @@
     "verify:taste-dna": "tsx --env-file=.env.local scripts/verify-taste-dna.ts",
     "verify:matchmaking": "tsx --env-file=.env.local scripts/verify-matchmaking.ts",
     "verify:home": "tsx --env-file=.env.local scripts/verify-home.ts",
-    "verify:profile-editing": "tsx --env-file=.env.local scripts/verify-profile-editing.ts"
+    "verify:profile-editing": "tsx --env-file=.env.local scripts/verify-profile-editing.ts",
+    "verify:letterboxd-import": "tsx --env-file=.env.local scripts/verify-letterboxd-import.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.12.1",
@@ -27,6 +28,7 @@
     "lucide-react": "^1.27.0",
     "next": "16.2.12",
     "openai": "^7.0.0",
+    "papaparse": "^5.5.4",
     "posthog-js": "^1.407.3",
     "posthog-node": "^5.46.1",
     "react": "19.2.4",
@@ -42,6 +44,7 @@
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.4",
