@@ -16,7 +16,8 @@
     "verify:movie-night": "tsx --env-file=.env.local scripts/verify-movie-night-flow.ts",
     "verify:taste-dna": "tsx --env-file=.env.local scripts/verify-taste-dna.ts",
     "verify:matchmaking": "tsx --env-file=.env.local scripts/verify-matchmaking.ts",
-    "verify:home": "tsx --env-file=.env.local scripts/verify-home.ts"
+    "verify:home": "tsx --env-file=.env.local scripts/verify-home.ts",
+    "verify:profile-editing": "tsx --env-file=.env.local scripts/verify-profile-editing.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.12.1",

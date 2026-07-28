@@ -99,6 +99,12 @@ export interface Database {
         Update: Partial<{ title: string; description: string; is_public: boolean }>;
         Relationships: [];
       };
+      favorite_titles: {
+        Row: { user_id: string; title_id: string; position: number; created_at: string };
+        Insert: { user_id: string; title_id: string; position: number };
+        Update: Partial<{ title_id: string; position: number }>;
+        Relationships: [];
+      };
       follows: {
         Row: { follower_id: string; followee_id: string; created_at: string };
         Insert: { follower_id: string; followee_id: string };

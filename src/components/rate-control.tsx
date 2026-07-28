@@ -2,19 +2,32 @@
 
 import { useState, useTransition } from "react";
 import { RatingStars } from "@/components/ui/rating-stars";
-import { rateTitle } from "@/lib/actions/social";
+import { rateTitle, unrateTitle } from "@/lib/actions/social";
 
 export function RateControl({ titleId, initialScore = 0 }: { titleId: string; initialScore?: number }) {
   const [score, setScore] = useState(initialScore);
   const [isPending, startTransition] = useTransition();
 
   function handleChange(next: number) {
+    const previous = score;
     setScore(next);
     startTransition(async () => {
       try {
         await rateTitle({ titleId, score: next });
       } catch {
-        setScore(initialScore);
+        setScore(previous);
+      }
+    });
+  }
+
+  function handleRemove() {
+    const previous = score;
+    setScore(0);
+    startTransition(async () => {
+      try {
+        await unrateTitle(titleId);
+      } catch {
+        setScore(previous);
       }
     });
   }
@@ -23,6 +36,16 @@ export function RateControl({ titleId, initialScore = 0 }: { titleId: string; in
     <div className="flex items-center gap-2">
       <RatingStars value={score} onChange={handleChange} size={24} />
       {isPending && <span className="text-xs text-foreground-muted">Saving…</span>}
+      {!isPending && score > 0 && (
+        <button
+          type="button"
+          onClick={handleRemove}
+          className="text-xs text-foreground-muted hover:text-danger"
+          title="Undo — remove this rating and mark as not watched"
+        >
+          Remove
+        </button>
+      )}
     </div>
   );
 }

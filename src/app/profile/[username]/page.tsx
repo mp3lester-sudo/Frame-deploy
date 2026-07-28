@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/ui/avatar";
 import { TitleCard } from "@/components/title-card";
+import { WatchedTitleCard } from "@/components/profile/watched-title-card";
 import { FollowButton } from "@/components/follow-button";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 
@@ -26,7 +27,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const compatibility =
     viewer && !isOwnProfile ? await computeCompatibilityForUsers(viewer.id, profile.id) : null;
 
-  const [{ count: followerCount }, { count: followingCount }, { data: recentRatings }, { data: isFollowing }] =
+  const [{ count: followerCount }, { count: followingCount }, { data: recentRatings }, { data: isFollowing }, { data: favoriteRows }] =
     await Promise.all([
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("followee_id", profile.id),
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
@@ -44,7 +45,16 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             .eq("followee_id", profile.id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
+      supabase
+        .from("favorite_titles")
+        .select("position, titles(*)")
+        .eq("user_id", profile.id)
+        .order("position", { ascending: true }),
     ]);
+
+  const favorites = (favoriteRows ?? [])
+    .map((r) => (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] | null }).titles)
+    .filter((t): t is Parameters<typeof TitleCard>[0]["title"] => !!t);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -59,16 +69,32 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         </div>
         {viewer && !isOwnProfile && <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />}
         {isOwnProfile && (
-          <Link
-            href="/taste-dna"
-            className="text-xs uppercase tracking-wider text-accent hover:brightness-110"
-          >
-            View Taste DNA &rarr;
-          </Link>
+          <div className="flex flex-col items-end gap-1">
+            <Link href="/settings" className="text-xs uppercase tracking-wider text-accent hover:brightness-110">
+              Edit profile
+            </Link>
+            <Link
+              href="/taste-dna"
+              className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent"
+            >
+              View Taste DNA &rarr;
+            </Link>
+          </div>
         )}
       </div>
 
       {profile.bio && <p className="mt-4 text-sm leading-relaxed">{profile.bio}</p>}
+
+      {favorites.length > 0 && (
+        <div className="mt-6">
+          <h2 className="mb-3 text-lg font-semibold">Favorites</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {favorites.map((title) => (
+              <TitleCard key={title.id} title={title} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {compatibility && compatibility.hasEnoughData && (
         <div className="mt-6 rounded-[var(--radius-md)] border border-border bg-surface p-4">
@@ -105,7 +131,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
         {recentRatings?.map((r) => {
           const title = (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] }).titles;
-          return title ? <TitleCard key={title.id} title={title} reason={`Rated ${r.score}/5`} /> : null;
+          return title ? (
+            <WatchedTitleCard
+              key={title.id}
+              title={title}
+              reason={`Rated ${r.score}/5`}
+              canRemove={isOwnProfile}
+            />
+          ) : null;
         })}
       </div>
     </div>
