@@ -135,6 +135,12 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      review_comments: {
+        Row: { id: string; review_id: string; user_id: string; body: string; created_at: string };
+        Insert: { review_id: string; user_id: string; body: string };
+        Update: never;
+        Relationships: [];
+      };
       list_items: {
         Row: { list_id: string; title_id: string; position: number; note: string | null; added_at: string };
         Insert: { list_id: string; title_id: string; position?: number; note?: string };

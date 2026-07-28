@@ -7,6 +7,7 @@ import { CreditsSection, type Credit } from "@/components/credits-row";
 import { Badge } from "@/components/ui/badge";
 import { formatRuntime } from "@/lib/utils";
 import { aggregateReactions } from "@/lib/reactions/aggregate";
+import type { DisplayComment } from "@/components/review-comments";
 
 export default async function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -36,10 +37,32 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
   if (!title) notFound();
 
   const reviewIds = (reviews ?? []).map((r) => r.id);
-  const { data: reactionRows } = reviewIds.length
-    ? await supabase.from("review_reactions").select("review_id, reaction, user_id").in("review_id", reviewIds)
-    : { data: [] };
+  const [{ data: reactionRows }, { data: commentRows }] = reviewIds.length
+    ? await Promise.all([
+        supabase.from("review_reactions").select("review_id, reaction, user_id").in("review_id", reviewIds),
+        supabase
+          .from("review_comments")
+          .select("id, review_id, user_id, body, created_at, profiles(username, avatar_url)")
+          .in("review_id", reviewIds)
+          .order("created_at", { ascending: true }),
+      ])
+    : [{ data: [] }, { data: [] }];
   const reactionsByReview = aggregateReactions(reactionRows ?? [], viewer?.id ?? null);
+
+  const commentsByReview = new Map<string, DisplayComment[]>();
+  for (const c of commentRows ?? []) {
+    const profile = (c as unknown as { profiles: { username: string; avatar_url: string | null } | null }).profiles;
+    const list = commentsByReview.get(c.review_id) ?? [];
+    list.push({
+      id: c.id,
+      userId: c.user_id,
+      username: profile?.username ?? "Someone",
+      avatarUrl: profile?.avatar_url ?? null,
+      body: c.body,
+      createdAt: c.created_at,
+    });
+    commentsByReview.set(c.review_id, list);
+  }
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -88,6 +111,8 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
               rating={(r as unknown as { ratings: { score: number }[] }).ratings?.[0]?.score}
               reactions={reactionsByReview.get(r.id)}
               canReact={!!viewer}
+              comments={commentsByReview.get(r.id) ?? []}
+              viewerId={viewer?.id ?? null}
             />
           ))
         ) : (

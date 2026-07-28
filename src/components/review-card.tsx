@@ -1,6 +1,7 @@
 import { Avatar } from "@/components/ui/avatar";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ReviewReactionBar } from "@/components/review-reaction-bar";
+import { ReviewComments, type DisplayComment } from "@/components/review-comments";
 import { formatDistanceToNow } from "@/lib/date";
 import { emptyReactionSummary } from "@/lib/reactions/aggregate";
 import type { ReactionSummary } from "@/lib/reactions/aggregate";
@@ -15,6 +16,8 @@ export function ReviewCard({
   createdAt,
   reactions,
   canReact,
+  comments,
+  viewerId,
 }: {
   reviewId: string;
   authorName: string;
@@ -25,6 +28,8 @@ export function ReviewCard({
   createdAt: string;
   reactions?: ReactionSummary;
   canReact: boolean;
+  comments: DisplayComment[];
+  viewerId: string | null;
 }) {
   const { counts, myReaction } = reactions ?? emptyReactionSummary();
   return (
@@ -48,6 +53,7 @@ export function ReviewCard({
         <p className="text-sm leading-relaxed">{body}</p>
       )}
       <ReviewReactionBar reviewId={reviewId} initialCounts={counts} initialMyReaction={myReaction} canReact={canReact} />
+      <ReviewComments reviewId={reviewId} initialComments={comments} viewerId={viewerId} canComment={canReact} />
     </div>
   );
 }
