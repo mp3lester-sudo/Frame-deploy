@@ -229,6 +229,7 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
     mood_tags: taste.mood_tags ?? [],
     tmdb_rating: details.vote_average ?? null,
     tmdb_vote_count: details.vote_count ?? null,
+    popularity: details.popularity ?? null,
   };
 
   const { data: title, error } = await supabase

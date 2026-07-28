@@ -30,6 +30,7 @@ function makeTitle(overrides: Partial<Title> = {}): Title {
     mood_tags: ["melancholy", "thought-provoking"],
     tmdb_rating: 7.9,
     tmdb_vote_count: 12000,
+    popularity: 45.2,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...overrides,

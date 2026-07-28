@@ -12,7 +12,10 @@ import { DISCOVER_PAGE_SIZE, SEARCH_PAGE_SIZE } from "@/lib/constants/catalogue"
 
 export async function loadMoreDiscoverTitles(genre: string | undefined, page: number) {
   const supabase = await createClient();
-  let query = supabase.from("titles").select("*").order("tmdb_rating", { ascending: false });
+  let query = supabase
+    .from("titles")
+    .select("*")
+    .order("popularity", { ascending: false, nullsFirst: false });
   if (genre) query = query.contains("genres", [genre]);
 
   const from = (page - 1) * DISCOVER_PAGE_SIZE;
@@ -27,7 +30,12 @@ export async function loadMoreSearchTitles(q: string, page: number) {
 
   const from = (page - 1) * SEARCH_PAGE_SIZE;
   const to = from + SEARCH_PAGE_SIZE - 1;
-  const { data } = await supabase.from("titles").select("*").ilike("name", `%${q}%`).range(from, to);
+  const { data } = await supabase
+    .from("titles")
+    .select("*")
+    .ilike("name", `%${q}%`)
+    .order("popularity", { ascending: false, nullsFirst: false })
+    .range(from, to);
 
   return { titles: data ?? [], hasMore: (data?.length ?? 0) === SEARCH_PAGE_SIZE };
 }

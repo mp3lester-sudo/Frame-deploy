@@ -48,6 +48,7 @@ export interface Database {
           mood_tags: string[];
           tmdb_rating: number | null;
           tmdb_vote_count: number | null;
+          popularity: number | null;
           created_at: string;
           updated_at: string;
         };

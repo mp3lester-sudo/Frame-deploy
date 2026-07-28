@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "ingest:tmdb": "tsx --env-file=.env.local scripts/ingest-tmdb.ts",
     "enrich:titles": "tsx --env-file=.env.local scripts/enrich-titles.ts",
+    "backfill:popularity": "tsx --env-file=.env.local scripts/backfill-popularity.ts",
     "verify:onboarding": "tsx --env-file=.env.local scripts/verify-onboarding-flow.ts",
     "verify:movie-night": "tsx --env-file=.env.local scripts/verify-movie-night-flow.ts",
     "verify:taste-dna": "tsx --env-file=.env.local scripts/verify-taste-dna.ts",

@@ -13,7 +13,12 @@ export default async function SearchPage({
   const supabase = await createClient();
 
   const { data: titles } = q
-    ? await supabase.from("titles").select("*").ilike("name", `%${q}%`).range(0, SEARCH_PAGE_SIZE - 1)
+    ? await supabase
+        .from("titles")
+        .select("*")
+        .ilike("name", `%${q}%`)
+        .order("popularity", { ascending: false, nullsFirst: false })
+        .range(0, SEARCH_PAGE_SIZE - 1)
     : { data: [] };
 
   const loadMore = loadMoreSearchTitles.bind(null, q ?? "");
