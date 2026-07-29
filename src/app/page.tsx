@@ -158,19 +158,19 @@ export default async function HomePage({
     <div className="mx-auto max-w-xl px-4 py-10">
       <span className="font-hollywood text-xl uppercase tracking-[0.15em] text-accent">Frame</span>
 
-      <div className="mt-5">
+      <div className="mt-2">
         <ContextCards day={day} time={time} location={location} weather={weather} />
       </div>
 
-      <h1 className="font-display mt-6 text-3xl">
+      <h1 className="font-display mt-5 text-3xl">
         {greeting}, {firstName}.
       </h1>
       {ratedCount ? (
-        <p className="mt-2 text-sm text-foreground-muted">
+        <p className="mt-1.5 text-sm text-foreground-muted">
           {ratedCount} title{ratedCount === 1 ? "" : "s"} rated so far — tonight&apos;s picks are tuned to that.
         </p>
       ) : (
-        <p className="mt-2 text-sm text-foreground-muted">
+        <p className="mt-1.5 text-sm text-foreground-muted">
           Rate a few titles in{" "}
           <Link href="/taste-dna" className="text-accent hover:underline">
             Taste Training
@@ -179,12 +179,12 @@ export default async function HomePage({
         </p>
       )}
 
-      <div className="mt-6">
+      <div className="mt-5">
         <ContextPicker active={activeContext} />
       </div>
 
       {hero && (
-        <div className="mt-8">
+        <div className="mt-7">
           <HeroRecommendation
             title={hero.title}
             reason={hero.reason}

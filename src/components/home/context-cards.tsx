@@ -10,24 +10,6 @@ import {
   CloudLightning,
 } from "lucide-react";
 
-function ContextCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Clock;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex flex-1 flex-col items-center gap-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 py-3 text-center">
-      <Icon size={16} className="text-accent" />
-      <span className="text-[10px] uppercase tracking-wider text-foreground-muted">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
-    </div>
-  );
-}
-
 /** Maps Open-Meteo's WMO weather_code to a representative lucide icon. */
 function weatherIcon(code: number) {
   if (code === 0) return Sun;
@@ -40,13 +22,25 @@ function weatherIcon(code: number) {
   return Cloud;
 }
 
+// Takes the already-resolved icon as a prop (mirrors the old ContextCard's
+// `icon` prop shape) rather than calling weatherIcon() and rendering the
+// result in the same scope — react-hooks/static-components flags deriving
+// a PascalCase component reference and using it as a JSX tag in one render.
+function WeatherGlyph({ icon: Icon }: { icon: typeof Clock }) {
+  return <Icon size={13} className="text-accent" />;
+}
+
 /**
  * Real time (in the visitor's own timezone, from Vercel's edge geolocation),
  * real location (same source), real current weather (Open-Meteo, keyed off
  * that location) — replaces the old hardcoded "New York, NY" / "46°F · Rain"
- * demo values. Location/weather cards are omitted individually whenever
+ * demo values. Location/weather segments are omitted individually whenever
  * that particular signal isn't available (e.g. local dev has no Vercel geo
  * headers) rather than showing a fake fallback.
+ *
+ * Rendered as one compact muted line rather than three bordered cards —
+ * this is ambient context, not the point of the page, so it shouldn't
+ * compete for space with the greeting or the actual recommendation below it.
  */
 export function ContextCards({
   day,
@@ -60,15 +54,22 @@ export function ContextCards({
   weather: { tempF: number; description: string; code: number } | null;
 }) {
   return (
-    <div className="flex gap-3">
-      <ContextCard icon={Clock} label={day} value={time} />
-      {location && <ContextCard icon={MapPin} label="Location" value={location} />}
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground-muted">
+      <span className="inline-flex items-center gap-1">
+        <Clock size={13} className="text-accent" />
+        {day} &middot; {time}
+      </span>
+      {location && (
+        <span className="inline-flex items-center gap-1">
+          <MapPin size={13} className="text-accent" />
+          {location}
+        </span>
+      )}
       {weather && (
-        <ContextCard
-          icon={weatherIcon(weather.code)}
-          label="Weather"
-          value={`${weather.tempF}°F · ${weather.description}`}
-        />
+        <span className="inline-flex items-center gap-1">
+          <WeatherGlyph icon={weatherIcon(weather.code)} />
+          {weather.tempF}&deg;F &middot; {weather.description}
+        </span>
       )}
     </div>
   );
