@@ -90,7 +90,7 @@ export function TasteTeaser({ deck }: { deck: DeckTitle[] }) {
         </p>
         {picks.length > 0 ? (
           <>
-            <h2 className="mt-2 text-2xl font-semibold">Here&apos;s what Frame would show you</h2>
+            <h2 className="mt-2 text-2xl font-semibold">Here&apos;s what Backlot would show you</h2>
             <div className="mt-6 grid grid-cols-3 gap-4">
               {picks.map((p) => (
                 <div key={p.id}>

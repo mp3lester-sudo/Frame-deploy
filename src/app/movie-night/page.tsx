@@ -69,7 +69,7 @@ export default async function MovieNightListPage() {
 
       {!nights?.length ? (
         <p className="text-sm text-foreground-muted">
-          No movie nights yet. Start one and invite friends by username — Frame will suggest
+          No movie nights yet. Start one and invite friends by username — Backlot will suggest
           something everyone&apos;s taste agrees on.
         </p>
       ) : (

@@ -5,7 +5,7 @@
 --
 -- No realtime/websocket wiring here (this app doesn't use Supabase Realtime
 -- anywhere yet) — messages appear on page load/refresh, same
--- request/response model as the rest of Frame.
+-- request/response model as the rest of Backlot.
 create table public.conversations (
   id uuid primary key default gen_random_uuid(),
   user_a uuid not null references public.profiles(id) on delete cascade,

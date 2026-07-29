@@ -9,7 +9,7 @@ import type { Database } from "@/lib/supabase/types";
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 type Pick = { title: Title; reason: string };
 
-export default function AskFramePage() {
+export default function AskBacklotPage() {
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [picks, setPicks] = useState<Pick[]>([]);
@@ -40,7 +40,7 @@ export default function AskFramePage() {
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="mb-1 text-2xl font-semibold">Ask Frame</h1>
+      <h1 className="mb-1 text-2xl font-semibold">Ask Backlot</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         &ldquo;I want something that feels lonely.&rdquo; &ldquo;A movie where the villain wins.&rdquo;
         Describe the feeling, not the genre.

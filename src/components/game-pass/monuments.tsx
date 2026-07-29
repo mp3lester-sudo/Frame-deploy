@@ -1,5 +1,5 @@
 // Decorative Hollywood Boulevard landmarks that dress up the swervy path.
-// Unlike the rest of Frame (a strict single-gold-accent system), this one
+// Unlike the rest of Backlot (a strict single-gold-accent system), this one
 // feature is meant to read as an actual place — a dusk-lit boulevard with
 // a red carpet, a real (white) Hollywood sign, and a Chinese Theatre — so
 // it deliberately borrows a few extra real-world colors (carpet red,
@@ -10,7 +10,7 @@ function sparklePath(cx: number, cy: number, s: number): string {
 }
 
 /** The dusk sky the whole boulevard sits under — sunset near the sign,
- *  fading down into Frame's usual night. Renders its own <defs>, so it's
+ *  fading down into Backlot's usual night. Renders its own <defs>, so it's
  *  safe to drop in once near the top of the board's SVG. */
 export function BoulevardSky({
   width,

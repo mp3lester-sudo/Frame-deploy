@@ -23,7 +23,7 @@ const playfairDisplay = Playfair_Display({
 });
 
 // Tall, condensed, bold marquee lettering — the "HOLLYWOOD sign" look.
-// Reserved for the Frame wordmark only; everything else stays on
+// Reserved for the Backlot wordmark only; everything else stays on
 // --font-display (Playfair) for body/heading text.
 const bebasNeue = Bebas_Neue({
   variable: "--font-bebas",
@@ -32,7 +32,7 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "Frame — The Operating System for Entertainment",
+  title: "Backlot — The Operating System for Entertainment",
   description: "Personalized movie and TV recommendations that actually get your taste.",
 };
 

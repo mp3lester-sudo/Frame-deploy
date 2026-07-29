@@ -27,7 +27,7 @@ export default async function TasteDnaPage() {
         <h1 className="font-display text-3xl">Your Taste DNA</h1>
         <p className="mt-3 text-sm text-foreground-muted">
           Rate a few more titles and this fills in — nobody wants recommendations because you
-          liked one movie. Frame learns the throughline: morally gray protagonists, atmospheric
+          liked one movie. Backlot learns the throughline: morally gray protagonists, atmospheric
           tension, slow burns, whatever it turns out to be.
         </p>
         <p className="mt-2 text-xs uppercase tracking-wider text-foreground-muted">

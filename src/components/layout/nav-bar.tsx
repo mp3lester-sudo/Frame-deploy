@@ -4,7 +4,7 @@ import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, Us
 const links = [
   { href: "/discover", label: "Discover", icon: Compass },
   { href: "/taste-dna", label: "Taste DNA", icon: Dna },
-  { href: "/ai", label: "Ask Frame", icon: Sparkles },
+  { href: "/ai", label: "Ask Backlot", icon: Sparkles },
   { href: "/feed", label: "Social", icon: Users },
   { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
   { href: "/clubs", label: "Clubs", icon: UsersRound },
@@ -19,7 +19,7 @@ export function NavBar({ isAuthed, unreadMessageCount = 0 }: { isAuthed: boolean
           href="/"
           className="font-hollywood text-2xl uppercase tracking-[0.08em] text-accent"
         >
-          Frame
+          Backlot
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">

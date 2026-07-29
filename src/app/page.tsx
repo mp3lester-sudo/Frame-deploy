@@ -41,7 +41,7 @@ export default async function HomePage({
             Never ask &ldquo;what should I watch&rdquo; again.
           </h1>
           <p className="max-w-xl text-lg text-foreground-muted">
-            Frame learns your taste — pacing, tone, favorite directors, the things you can&apos;t stand —
+            Backlot learns your taste — pacing, tone, favorite directors, the things you can&apos;t stand —
             and turns it into three recommendations, not five hundred. Try it below before you sign up.
           </p>
         </div>
@@ -167,7 +167,7 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
-      <span className="font-hollywood text-xl uppercase tracking-[0.15em] text-accent">Frame</span>
+      <span className="font-hollywood text-xl uppercase tracking-[0.15em] text-accent">Backlot</span>
 
       <div className="mt-2">
         <ContextCards day={day} time={time} location={location} weather={weather} />

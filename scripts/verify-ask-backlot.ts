@@ -1,7 +1,7 @@
 /**
- * End-to-end verification of "Ask Frame" (src/lib/ai/concierge.ts, /ai page,
+ * End-to-end verification of "Ask Backlot" (src/lib/ai/concierge.ts, /ai page,
  * /api/ai/concierge route) against the real Supabase project and a real
- * OpenAI call. This is Frame's natural-language "describe the feeling, not
+ * OpenAI call. This is Backlot's natural-language "describe the feeling, not
  * the genre" recommendation flow — a genuine Letterboxd-can't-do-this
  * feature that's been sitting in the codebase, but was never actually
  * testable until OpenAI billing was fixed this session and the catalogue
@@ -24,7 +24,7 @@ const openaiKey = process.env.OPENAI_API_KEY!;
 const CHAT_MODEL = "gpt-4.1-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 
-const SYSTEM_PROMPT = `You are Frame's movie concierge: the smartest, most well-watched friend
+const SYSTEM_PROMPT = `You are Backlot's movie concierge: the smartest, most well-watched friend
 someone could ask "what should I watch" — never a search engine. Rules:
 - Never return more than 3 titles.
 - Every recommendation gets one specific, concrete sentence of why it fits THIS request
@@ -100,7 +100,7 @@ async function main() {
     }
   }
 
-  console.log("\nAsk Frame works end-to-end against the live catalogue.");
+  console.log("\nAsk Backlot works end-to-end against the live catalogue.");
 }
 
 main().catch((e) => {
