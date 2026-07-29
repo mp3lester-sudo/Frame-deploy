@@ -1,13 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getGamePassBoard } from "@/lib/game-pass/board";
 import { boardBounds, buildPathPoints, computeBoardLayout } from "@/lib/game-pass/board-layout";
 import { StarTile } from "@/components/game-pass/star-tile";
 
-const COLUMNS = 6;
-const TILE_SPACING = 76;
-const PADDING = 50;
+// Fewer, wider columns and a tall row spacing so each day's poster reads
+// as a real movie poster rather than a thumbnail — the board runs long
+// down the page, like an actual walk down the boulevard.
+const COLUMNS = 4;
+const TILE_SPACING = 150;
+const ROW_SPACING = 210;
+const PADDING = 70;
 
 export default async function GamePassPage() {
   const supabase = await createClient();
@@ -19,7 +24,7 @@ export default async function GamePassPage() {
   const board = await getGamePassBoard(user.id);
   const watchedCount = board.days.filter((d) => d.status === "watched").length;
 
-  const positions = computeBoardLayout(board.days.length, COLUMNS, TILE_SPACING);
+  const positions = computeBoardLayout(board.days.length, COLUMNS, TILE_SPACING, ROW_SPACING);
   const { width, height } = boardBounds(positions, PADDING);
   const points = buildPathPoints(positions.map((p) => ({ x: p.x + PADDING, y: p.y + PADDING })));
 
@@ -39,8 +44,12 @@ export default async function GamePassPage() {
           Home
         </Link>
       </div>
-      <h1 className="font-hollywood text-3xl uppercase tracking-[0.08em] text-accent">{board.season.theme_name}</h1>
-      <p className="mt-2 text-sm text-foreground-muted">{board.season.theme_description}</p>
+      <h1 className="mt-1 flex items-center justify-center gap-3 font-hollywood text-4xl uppercase tracking-[0.08em] text-accent">
+        <Star size={20} className="shrink-0 fill-accent text-accent" />
+        {board.season.theme_name}
+        <Star size={20} className="shrink-0 fill-accent text-accent" />
+      </h1>
+      <p className="mt-2 text-center text-sm text-foreground-muted">{board.season.theme_description}</p>
       <p className="mt-3 text-xs uppercase tracking-wider text-foreground-muted">
         {watchedCount} of {board.days.length} watched this month
       </p>
@@ -65,11 +74,10 @@ export default async function GamePassPage() {
             points={points}
             fill="none"
             stroke="var(--accent)"
-            strokeWidth={2}
-            strokeDasharray="2 8"
+            strokeWidth={2.5}
+            strokeDasharray="1 11"
             strokeLinecap="round"
-            opacity={0.5}
-            transform={`translate(0 0)`}
+            opacity={0.55}
           />
           {last && (
             <line
@@ -78,10 +86,10 @@ export default async function GamePassPage() {
               x2={trophyPos.x + PADDING}
               y2={trophyPos.y + PADDING}
               stroke="var(--accent)"
-              strokeWidth={2}
-              strokeDasharray="2 8"
+              strokeWidth={2.5}
+              strokeDasharray="1 11"
               strokeLinecap="round"
-              opacity={0.5}
+              opacity={0.55}
             />
           )}
 
@@ -100,17 +108,18 @@ export default async function GamePassPage() {
 
           {/* Trophy tile — the season's reward, past the last star. */}
           <g transform={`translate(${trophyPos.x + PADDING} ${trophyPos.y + PADDING})`}>
+            {board.completed && <circle r={52} fill="var(--accent)" opacity={0.16} />}
             <circle
-              r={26}
+              r={36}
               fill={board.completed ? "var(--accent)" : "var(--surface-raised)"}
               stroke="var(--accent)"
-              strokeWidth={2}
+              strokeWidth={2.5}
               opacity={board.completed ? 1 : 0.5}
             />
             <path
-              d="M-10,-8 L-10,-1 A10,10 0 0 0 10,-1 L10,-8 M-13,-8 L13,-8 M-6,-8 A6,7 0 0 0 6,-8 M-2,4 L2,4 L2,8 L6,8 L6,10 L-6,10 L-6,8 L-2,8 Z"
+              d="M-14,-11 L-14,-1.5 A14,14 0 0 0 14,-1.5 L14,-11 M-18,-11 L18,-11 M-8.5,-11 A8.5,10 0 0 0 8.5,-11 M-3,6 L3,6 L3,11 L8.5,11 L8.5,14 L-8.5,14 L-8.5,11 L-3,11 Z"
               stroke={board.completed ? "var(--accent-foreground)" : "var(--foreground-muted)"}
-              strokeWidth={1.4}
+              strokeWidth={1.8}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"

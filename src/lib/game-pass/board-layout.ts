@@ -10,14 +10,19 @@ export interface TilePosition {
   y: number;
 }
 
-export function computeBoardLayout(dayCount: number, columns: number, tileSpacing: number): TilePosition[] {
+export function computeBoardLayout(
+  dayCount: number,
+  columns: number,
+  tileSpacing: number,
+  rowSpacing: number = tileSpacing
+): TilePosition[] {
   const positions: TilePosition[] = [];
   for (let i = 0; i < dayCount; i++) {
     const rowIndex = Math.floor(i / columns);
     const colInRow = i % columns;
     const isEvenRow = rowIndex % 2 === 0;
     const col = isEvenRow ? colInRow : columns - 1 - colInRow;
-    positions.push({ x: col * tileSpacing, y: rowIndex * tileSpacing });
+    positions.push({ x: col * tileSpacing, y: rowIndex * rowSpacing });
   }
   return positions;
 }

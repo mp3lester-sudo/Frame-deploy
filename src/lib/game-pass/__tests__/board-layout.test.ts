@@ -47,6 +47,15 @@ describe("computeBoardLayout", () => {
   it("returns an empty array for zero days", () => {
     expect(computeBoardLayout(0, 5, 100)).toEqual([]);
   });
+
+  it("supports a separate row spacing (taller tiles need more vertical room than horizontal)", () => {
+    const positions = computeBoardLayout(8, 4, 130, 190);
+    expect(positions[0]).toEqual({ x: 0, y: 0 });
+    expect(positions[3]).toEqual({ x: 390, y: 0 });
+    // Row 1 (reversed) starts at col 3 again, but at the taller row spacing.
+    expect(positions[4]).toEqual({ x: 390, y: 190 });
+    expect(positions[7]).toEqual({ x: 0, y: 190 });
+  });
 });
 
 describe("buildPathPoints", () => {
