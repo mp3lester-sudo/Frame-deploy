@@ -66,12 +66,19 @@ async function main() {
     diaryRow({ slug: "made-up-slug", title: "This Film Definitely Does Not Exist In Our Catalogue", year: 2019 }),
   ].join("\n");
 
-  console.log("4. Parsing + matching (mirrors importLetterboxdPaste)...");
+  console.log("4. Parsing + matching (mirrors importLetterboxdPaste's matchAndUpsertRows, post-RPC-fix)...");
   const rows = parseLetterboxdDiaryPaste(html);
   if (rows.length !== 3) throw new Error(`expected 3 parsed rows, got ${rows.length}`);
 
-  const { data: allTitles } = await client.from("titles").select("id, name, release_date");
-  const index = buildTitleIndex(allTitles ?? []);
+  const distinctNames = [...new Set(rows.map((r) => r.name))];
+  const rpcStart = Date.now();
+  const { data: candidateTitles, error: rpcError } = await client.rpc("titles_matching_names", {
+    p_names: distinctNames,
+  });
+  const rpcMs = Date.now() - rpcStart;
+  if (rpcError) throw new Error(`titles_matching_names RPC failed: ${rpcError.message}`);
+  console.log(`   titles_matching_names took ${rpcMs}ms and returned ${candidateTitles?.length ?? 0} candidate rows (vs. all ~36.5k titles previously)`);
+  const index = buildTitleIndex(candidateTitles ?? []);
 
   const ratingUpserts: { user_id: string; title_id: string; score: number }[] = [];
   const watchUpserts: { user_id: string; title_id: string }[] = [];
