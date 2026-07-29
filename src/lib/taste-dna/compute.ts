@@ -1,11 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
-import { computeTasteDnaFromRatings, type RatedTitleFeatures, type TasteDnaResult } from "@/lib/taste-dna/archetypes";
+import { computeTasteDnaFromRatings, type TasteDnaResult } from "@/lib/taste-dna/archetypes";
+import { computeTasteEvolution, type RatedTitleFeaturesWithTime, type TasteEvolutionResult } from "@/lib/taste-dna/evolution";
 
 function toDecade(releaseDate: string | null): string | null {
   if (!releaseDate) return null;
   const year = Number(releaseDate.slice(0, 4));
   if (!Number.isFinite(year)) return null;
   return `${Math.floor(year / 10) * 10}s`;
+}
+
+export interface TasteDnaWithEvolution extends TasteDnaResult {
+  /** null when there isn't enough rating history yet to say anything
+   *  meaningful about change over time (see evolution.ts's thresholds). */
+  evolution: TasteEvolutionResult | null;
 }
 
 /**
@@ -17,14 +24,20 @@ function toDecade(releaseDate: string | null): string | null {
  * archetype percentages (Neo-Noir, Psychological Slow Burn, etc.) don't fit
  * fixed columns, so those are returned for display but recomputed on each
  * call rather than persisted — cheap given realistic per-user rating counts.
+ *
+ * Also computes taste evolution (see evolution.ts) from the same rating
+ * history, split chronologically — no separate query, no snapshot table.
  */
-export async function computeTasteDna(userId: string): Promise<TasteDnaResult> {
+export async function computeTasteDna(userId: string): Promise<TasteDnaWithEvolution> {
   const supabase = await createClient();
 
-  const { data: ratings } = await supabase.from("ratings").select("title_id, score").eq("user_id", userId);
+  const { data: ratings } = await supabase
+    .from("ratings")
+    .select("title_id, score, created_at")
+    .eq("user_id", userId);
 
   if (!ratings?.length) {
-    return computeTasteDnaFromRatings([]);
+    return { ...computeTasteDnaFromRatings([]), evolution: null };
   }
 
   const titleIds = ratings.map((r) => r.title_id);
@@ -50,12 +63,12 @@ export async function computeTasteDna(userId: string): Promise<TasteDnaResult> {
     if (person) directorByTitle.set(c.title_id, { id: person.id, name: person.name });
   }
 
-  const rated: RatedTitleFeatures[] = ratings
+  const rated: RatedTitleFeaturesWithTime[] = ratings
     .map((r) => {
       const title = titleById.get(r.title_id);
       if (!title) return null;
       const director = directorByTitle.get(r.title_id);
-      const feature: RatedTitleFeatures = {
+      const feature: RatedTitleFeaturesWithTime = {
         weight: Math.max(r.score - 2.5, 0),
         genres: title.genres ?? [],
         tone: title.tone ?? [],
@@ -69,12 +82,14 @@ export async function computeTasteDna(userId: string): Promise<TasteDnaResult> {
         violenceLevel: title.violence_level,
         comedyLevel: title.comedy_level,
         emotionalIntensity: title.emotional_intensity,
+        ratedAt: r.created_at,
       };
       return feature;
     })
-    .filter((f): f is RatedTitleFeatures => f !== null);
+    .filter((f): f is RatedTitleFeaturesWithTime => f !== null);
 
   const result = computeTasteDnaFromRatings(rated);
+  const evolution = computeTasteEvolution(rated);
 
   // Best-effort persistence — a failed write here shouldn't break the page.
   try {
@@ -92,5 +107,5 @@ export async function computeTasteDna(userId: string): Promise<TasteDnaResult> {
     // non-fatal
   }
 
-  return result;
+  return { ...result, evolution };
 }

@@ -142,6 +142,22 @@ export default async function TasteDnaPage() {
           </div>
         )}
       </div>
+
+      {/* Omitted entirely (not a "not enough data yet" placeholder) when
+          there isn't enough rating history to say anything real about
+          change over time — see evolution.ts's thresholds. */}
+      {dna.evolution && dna.evolution.insights.length > 0 && (
+        <div className="mt-10 border-t border-border pt-6">
+          <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+            How your taste is evolving
+          </p>
+          <ul className="flex flex-col gap-2 text-sm text-foreground-muted">
+            {dna.evolution.insights.map((insight) => (
+              <li key={insight}>{insight}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
