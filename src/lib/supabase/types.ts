@@ -403,6 +403,10 @@ export interface Database {
         Args: { p_key: string; p_max_requests: number; p_window_seconds: number };
         Returns: boolean;
       };
+      titles_matching_names: {
+        Args: { p_names: string[] };
+        Returns: { id: string; name: string; release_date: string | null }[];
+      };
     };
   };
 }

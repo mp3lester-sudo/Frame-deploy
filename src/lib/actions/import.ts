@@ -53,25 +53,24 @@ async function matchAndUpsertRows(
 ): Promise<ImportSummary> {
   if (rows.length > MAX_ROWS) throw new Error(`That's ${rows.length} rows — please split into smaller batches under ${MAX_ROWS}`);
 
-  // Pull the whole catalogue once (tens of thousands of rows) rather than
-  // querying per row — this is the difference between one paginated fetch
-  // and thousands of queries. Paginated via .range() because PostgREST caps
-  // an unbounded .select() at 1000 rows, and the catalogue is well past
-  // that now.
-  const allTitles: { id: string; name: string; release_date: string | null }[] = [];
-  const PAGE_SIZE = 1000;
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const { data: page, error: titlesError } = await supabase
-      .from("titles")
-      .select("id, name, release_date")
-      .range(offset, offset + PAGE_SIZE - 1);
-    if (titlesError) throw new Error(titlesError.message);
-    if (!page || page.length === 0) break;
-    allTitles.push(...page);
-    if (page.length < PAGE_SIZE) break;
-  }
+  // Only fetch titles whose name could plausibly match one of the rows
+  // being imported, via a single RPC (migration 0019), rather than pulling
+  // the entire catalogue (36.5k+ rows, ~37 paginated requests) into JS on
+  // every import call regardless of how many rows are actually being
+  // matched. That full-catalogue fetch alone took ~5.3s against the live
+  // catalogue — enough on its own to blow past Vercel's serverless
+  // function timeout (5-10s on the Hobby plan, no maxDuration override
+  // configured), which fails with an opaque, digest-only "Server
+  // Components render" error rather than anything that hints at a timeout.
+  const distinctNames = [...new Set(rows.map((r) => r.name))];
+  const { data: candidateTitles, error: titlesError } = await supabase.rpc("titles_matching_names", {
+    p_names: distinctNames,
+  });
+  if (titlesError) throw new Error(titlesError.message);
 
-  const index = buildTitleIndex(allTitles);
+  const index = buildTitleIndex(
+    (candidateTitles ?? []) as { id: string; name: string; release_date: string | null }[]
+  );
 
   const ratingUpserts: { user_id: string; title_id: string; score: number }[] = [];
   const watchUpserts: { user_id: string; title_id: string }[] = [];
