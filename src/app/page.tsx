@@ -166,9 +166,7 @@ export default async function HomePage({
         {greeting}, {firstName}.
       </h1>
       {ratedCount ? (
-        <p className="mt-1.5 text-sm text-foreground-muted">
-          {ratedCount} title{ratedCount === 1 ? "" : "s"} rated so far — tonight&apos;s picks are tuned to that.
-        </p>
+        <p className="mt-1.5 text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
       ) : (
         <p className="mt-1.5 text-sm text-foreground-muted">
           Rate a few titles in{" "}
