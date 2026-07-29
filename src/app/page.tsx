@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
+import { getLandingSwipeDeck } from "@/lib/actions/landing-teaser";
+import { TasteTeaser } from "@/components/landing/taste-teaser";
 import { getRequestGeo } from "@/lib/geo";
 import { getCurrentWeather } from "@/lib/weather";
 import { HeroRecommendation } from "@/components/home/hero-recommendation";
@@ -31,21 +33,29 @@ export default async function HomePage({
   } = await supabase.auth.getUser();
 
   if (!user) {
+    const deck = await getLandingSwipeDeck();
     return (
-      <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center">
-        <h1 className="font-display text-4xl sm:text-5xl">
-          Never ask &ldquo;what should I watch&rdquo; again.
-        </h1>
-        <p className="max-w-xl text-lg text-foreground-muted">
-          Frame learns your taste — pacing, tone, favorite directors, the things you can&apos;t stand —
-          and turns it into three recommendations, not five hundred.
-        </p>
-        <Link
-          href="/signup"
-          className="inline-flex h-12 items-center rounded-[var(--radius-md)] bg-accent px-6 font-medium text-accent-foreground hover:brightness-110"
-        >
-          Get started
-        </Link>
+      <section className="mx-auto flex max-w-3xl flex-col items-center gap-10 px-6 py-16 text-center sm:py-24">
+        <div className="flex flex-col items-center gap-6">
+          <h1 className="font-display text-4xl sm:text-5xl">
+            Never ask &ldquo;what should I watch&rdquo; again.
+          </h1>
+          <p className="max-w-xl text-lg text-foreground-muted">
+            Frame learns your taste — pacing, tone, favorite directors, the things you can&apos;t stand —
+            and turns it into three recommendations, not five hundred. Try it below before you sign up.
+          </p>
+        </div>
+
+        {deck.length > 0 ? (
+          <TasteTeaser deck={deck} />
+        ) : (
+          <Link
+            href="/signup"
+            className="inline-flex h-12 items-center rounded-[var(--radius-md)] bg-accent px-6 font-medium text-accent-foreground hover:brightness-110"
+          >
+            Get started
+          </Link>
+        )}
       </section>
     );
   }

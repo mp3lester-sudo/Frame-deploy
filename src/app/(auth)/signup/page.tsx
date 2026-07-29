@@ -1,13 +1,36 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { signUp } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ANON_SWIPES_STORAGE_KEY } from "@/components/landing/taste-teaser";
 
 export default function SignUpPage() {
   const [state, formAction, pending] = useActionState(signUp, null);
+  const [anonymousSwipes, setAnonymousSwipes] = useState<string>("");
+
+  // Read once on mount — the landing page's taste teaser (if the visitor
+  // went through it) writes swipes to this same key as they swipe. Carried
+  // through as a hidden field so signUp() can seed the new account's
+  // ratings/taste vector in the same request that creates it.
+  //
+  // Deliberately an effect + setState rather than a useState lazy
+  // initializer: localStorage doesn't exist during SSR, so the initial
+  // server-rendered HTML must be the empty string either way — reading it
+  // in the initializer would make the client's first render diverge from
+  // that SSR output and trigger a hydration mismatch. This is exactly the
+  // "synchronize with an external system" case React's effect docs carve
+  // out as legitimate, hence the rule suppression below.
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAnonymousSwipes(localStorage.getItem(ANON_SWIPES_STORAGE_KEY) ?? "");
+    } catch {
+      // Storage unavailable — sign up proceeds with no pre-seeded signal.
+    }
+  }, []);
 
   return (
     <div className="mx-auto flex min-h-[80vh] max-w-sm flex-col justify-center px-6">
@@ -17,6 +40,7 @@ export default function SignUpPage() {
       </p>
 
       <form action={formAction} className="flex flex-col gap-3">
+        <input type="hidden" name="anonymousSwipes" value={anonymousSwipes} />
         <Input name="username" placeholder="Username" required autoComplete="username" />
         <Input name="email" type="email" placeholder="Email" required autoComplete="email" />
         <Input name="password" type="password" placeholder="Password (8+ characters)" required autoComplete="new-password" />
