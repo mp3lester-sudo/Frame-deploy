@@ -72,9 +72,13 @@ async function main() {
   console.log("   OK — anon can read the new columns.");
 
   console.log("4. Confirming anon role CANNOT write to titles/people (catalog stays service-role-only)...");
-  const { error: anonWriteErr } = await anon.from("titles").update({ rt_critic_score: 1 }).eq("id", title.id);
-  if (!anonWriteErr) throw new Error("Anon role was able to write to titles — RLS regression!");
-  console.log("   OK — anon write correctly rejected.");
+  // PostgREST doesn't surface an "error" for an RLS-filtered update — it
+  // just filters the row out and reports 0 rows affected, so the only
+  // reliable check is: did the value actually change in the DB?
+  await anon.from("titles").update({ rt_critic_score: 1 }).eq("id", title.id);
+  const { data: unchanged } = await admin.from("titles").select("rt_critic_score").eq("id", title.id).single();
+  if (unchanged?.rt_critic_score === 1) throw new Error("Anon role was able to write to titles — RLS regression!");
+  console.log("   OK — anon write silently rejected by RLS (value unchanged).");
 
   console.log("5. Resetting test rows back to unchecked state...");
   await admin
