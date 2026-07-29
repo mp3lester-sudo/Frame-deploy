@@ -42,16 +42,25 @@ async function createTestUser(admin: SupabaseClient<any>, label: string) {
 async function main() {
   const admin = createServiceClient(url, serviceKey);
 
-  console.log("1. get_or_create_game_pass_season is idempotent and this month resolves to Hollywood Boulevard...");
-  const now = new Date();
-  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
-  const dayCount = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+  console.log("1. get_or_create_game_pass_season is idempotent...");
+  // Deliberately a synthetic, far-future period_start rather than the real
+  // current month — this table has no per-user scoping (period_start is
+  // globally unique), so testing against the real current month risks
+  // creating or clobbering the actual live season everyone sees. Learned
+  // this the hard way: an earlier version of this script used the real
+  // current month and its placeholder test description ended up as the
+  // live "Hollywood Boulevard" season's description in production.
+  const periodStart = "2099-01-01";
+  const dayCount = 31;
+
+  // Clean up any leftovers from a previous interrupted run before we start.
+  await admin.from("game_pass_seasons").delete().eq("period_start", periodStart);
 
   const seasonArgs = {
     p_period_start: periodStart,
     p_day_count: dayCount,
-    p_theme_name: "Hollywood Boulevard",
-    p_theme_description: "test call — should be ignored if a season already exists",
+    p_theme_name: "Test Theme",
+    p_theme_description: "synthetic test season — never shown to real users",
     p_theme_genres: ["Drama"],
     p_theme_keywords: ["legendary"],
     p_theme_decade_min: null,
@@ -150,6 +159,7 @@ async function main() {
   await admin.from("watch_history").delete().eq("user_id", userA.id).in("title_id", pickRows.map((r) => r.title_id));
   await admin.from("game_pass_picks").delete().eq("user_id", userA.id);
   await admin.from("game_pass_entries").delete().eq("user_id", userA.id);
+  await admin.from("game_pass_seasons").delete().eq("id", season1.id);
   await admin.auth.admin.deleteUser(userA.id);
   await admin.auth.admin.deleteUser(userB.id);
 
