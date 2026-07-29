@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOrFetchPersonBio } from "@/lib/external/tmdb-person";
+import { tmdbImageAtSize } from "@/lib/external/tmdb-client";
+import { PersonPortrait } from "@/components/person-portrait";
 
 function formatBirthday(iso: string | null): string | null {
   if (!iso) return null;
@@ -40,9 +42,11 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="flex flex-col gap-6 sm:flex-row">
-        <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-[var(--radius-lg)] bg-surface-raised sm:w-56">
-          {person.photo_url && <Image src={person.photo_url} alt={person.name} fill className="object-cover" />}
-        </div>
+        <PersonPortrait
+          src={tmdbImageAtSize(person.photo_url, "h632")}
+          name={person.name}
+          className="w-40 shrink-0 sm:w-56"
+        />
 
         <div className="flex-1">
           <h1 className="text-2xl font-semibold sm:text-3xl">{person.name}</h1>
