@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { contextMultiplier } from "./context-weighting";
 import { weatherTimeMultiplier, weatherTimeNote, type WeatherTimeSignal } from "./weather-time-weighting";
+import { qualityMultiplier } from "./quality-weighting";
 import { calibrateMatchPercents } from "./match-percent";
 import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
@@ -61,7 +62,7 @@ export async function getRecommendationsForUser(
     .maybeSingle();
 
   if (!tasteVector) {
-    return { recommendations: await getColdStartRecommendations(limit, context), isColdStart: true };
+    return { recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true };
   }
 
   // Over-fetch candidates well beyond `limit` — context weighting (below)
@@ -84,7 +85,7 @@ export async function getRecommendationsForUser(
   }
 
   if (blended.size === 0) {
-    return { recommendations: await getColdStartRecommendations(limit, context), isColdStart: true };
+    return { recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true };
   }
 
   // Context weighting needs each candidate's taste metadata (runtime,
@@ -104,7 +105,8 @@ export async function getRecommendationsForUser(
     // for something_short) context multiplier — see weather-time-weighting.ts
     // for why this is never a hard exclusion.
     const weatherMult = weather ? weatherTimeMultiplier(title, weather) : 1;
-    adjusted.push({ id, score: score * contextMult * weatherMult });
+    const qualityMult = qualityMultiplier(title.weighted_rating);
+    adjusted.push({ id, score: score * contextMult * weatherMult * qualityMult });
   }
 
   const rankedIds = adjusted
@@ -113,7 +115,7 @@ export async function getRecommendationsForUser(
     .map((r) => r.id);
 
   if (rankedIds.length === 0) {
-    return { recommendations: await getColdStartRecommendations(limit, context), isColdStart: true };
+    return { recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true };
   }
 
   // Citations ("Because you loved X") only make sense for the final,
@@ -189,20 +191,34 @@ export async function getRecommendationsForUser(
 }
 
 async function getColdStartRecommendations(
+  userId: string,
   limit: number,
   context?: CircumstantialContext
 ): Promise<Recommendation[]> {
   const supabase = await createClient();
+
+  // No taste vector yet doesn't mean no watch history — a user who's rated
+  // a couple of things but not enough to seed a vector, or who's mid-import,
+  // still shouldn't see something they've already logged.
+  const { data: watched } = await supabase.from("watch_history").select("title_id").eq("user_id", userId);
+  const watchedIds = new Set((watched ?? []).map((w) => w.title_id));
+
   // Cold start still respects a hard context constraint (something_short's
   // runtime cap) — no taste signal yet, but "give me something short" is a
   // constraint, not a preference, so it should still be honored.
+  //
+  // Ordered by weighted_rating (not raw popularity) since there's no taste
+  // signal to lean on yet — "best reviewed" is the most sensible default
+  // first impression a new user can get.
   const { data: titles } = await supabase
     .from("titles")
     .select("*")
-    .order("tmdb_vote_count", { ascending: false })
-    .limit(limit * 4);
+    .order("weighted_rating", { ascending: false, nullsFirst: false })
+    .limit((limit + watchedIds.size) * 4);
 
-  const filtered = (titles ?? []).filter((t) => (context ? contextMultiplier(t, context) !== null : true));
+  const filtered = (titles ?? []).filter(
+    (t) => !watchedIds.has(t.id) && (context ? contextMultiplier(t, context) !== null : true)
+  );
 
   return filtered.slice(0, limit).map((title) => {
     const detail = buildColdStartDetail(title);
