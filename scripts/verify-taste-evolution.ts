@@ -53,10 +53,11 @@ async function loadRatedFeatures(admin: SupabaseClient<any>, userId: string): Pr
     .from("titles")
     .select("id, genres, tone, themes, mood_tags, pacing, violence_level, comedy_level, emotional_intensity, release_date, original_language")
     .in("id", titleIds);
-  const titleById = new Map((titles ?? []).map((t: { id: string }) => [t.id, t]));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const titleById = new Map((titles ?? []).map((t: any) => [t.id, t]));
 
   return ratings
-    .map((r: { title_id: string; score: number; created_at: string }) => {
+    .map((r: { title_id: string; score: number; created_at: string }): RatedTitleFeaturesWithTime | null => {
       const title = titleById.get(r.title_id);
       if (!title) return null;
       return {
@@ -76,7 +77,7 @@ async function loadRatedFeatures(admin: SupabaseClient<any>, userId: string): Pr
         ratedAt: r.created_at,
       };
     })
-    .filter((f: RatedTitleFeaturesWithTime | null): f is RatedTitleFeaturesWithTime => f !== null);
+    .filter((f): f is RatedTitleFeaturesWithTime => f !== null);
 }
 
 async function main() {

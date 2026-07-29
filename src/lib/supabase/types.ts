@@ -310,9 +310,75 @@ export interface Database {
         Update: Partial<{ count: number }>;
         Relationships: [];
       };
+      game_pass_seasons: {
+        Row: {
+          id: string;
+          period_start: string;
+          day_count: number;
+          theme_name: string;
+          theme_description: string;
+          theme_genres: string[];
+          theme_keywords: string[];
+          theme_decade_min: number | null;
+          theme_decade_max: number | null;
+          created_at: string;
+        };
+        Insert: {
+          period_start: string;
+          day_count: number;
+          theme_name: string;
+          theme_description: string;
+          theme_genres?: string[];
+          theme_keywords?: string[];
+          theme_decade_min?: number | null;
+          theme_decade_max?: number | null;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      game_pass_entries: {
+        Row: {
+          id: string;
+          season_id: string;
+          user_id: string;
+          joined_at: string;
+          completed_at: string | null;
+          reward_granted_at: string | null;
+        };
+        Insert: { season_id: string; user_id: string };
+        Update: never;
+        Relationships: [];
+      };
+      game_pass_picks: {
+        Row: { id: string; season_id: string; user_id: string; day_number: number; title_id: string; generated_at: string };
+        Insert: { season_id: string; user_id: string; day_number: number; title_id: string };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
+      check_and_complete_game_pass: {
+        Args: { p_season_id: string; p_user_id: string };
+        Returns: boolean;
+      };
+      grant_game_pass_reward: {
+        Args: { p_season_id: string; p_user_id: string };
+        Returns: boolean;
+      };
+      get_or_create_game_pass_season: {
+        Args: {
+          p_period_start: string;
+          p_day_count: number;
+          p_theme_name: string;
+          p_theme_description: string;
+          p_theme_genres: string[];
+          p_theme_keywords: string[];
+          p_theme_decade_min: number | null;
+          p_theme_decade_max: number | null;
+        };
+        Returns: Database["public"]["Tables"]["game_pass_seasons"]["Row"];
+      };
       match_titles_for_user: {
         Args: { p_user_id: string; p_match_count?: number; p_exclude_watched?: boolean };
         Returns: { title_id: string; similarity: number }[];
