@@ -106,7 +106,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="flex flex-col gap-6 sm:flex-row">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-[var(--radius-lg)] bg-surface-raised sm:w-56">
           {title.poster_url && (
             <Image src={title.poster_url} alt={title.name} fill className="object-cover" />

@@ -41,7 +41,7 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="flex flex-col gap-6 sm:flex-row">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <PersonPortrait
           src={tmdbImageAtSize(person.photo_url, "h632")}
           name={person.name}
