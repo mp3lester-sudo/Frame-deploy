@@ -41,7 +41,8 @@ const TMDB_BASE = "https://api.themoviedb.org/3";
 const IMAGE_BASE = "https://image.tmdb.org/t/p";
 const CHAT_MODEL = "gpt-4.1-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small";
-const CONCURRENCY = 8;
+const DEFAULT_CONCURRENCY_AI = 8;
+const DEFAULT_CONCURRENCY_NO_AI = 20; // no OpenAI calls to rate-limit against, just TMDB + Supabase
 
 function parseArgs() {
   const args = Object.fromEntries(
@@ -67,9 +68,31 @@ function parseArgs() {
     | "top_rated"
     | "now_playing"
     | "upcoming"
+    | "discover"
   )[];
 
-  return { pageStart, pageEnd, lists, noAi: args["no-ai"] === "true" };
+  const noAi = args["no-ai"] === "true";
+  const concurrency = args.concurrency
+    ? Number(args.concurrency)
+    : noAi
+      ? DEFAULT_CONCURRENCY_NO_AI
+      : DEFAULT_CONCURRENCY_AI;
+
+  return {
+    pageStart,
+    pageEnd,
+    lists,
+    noAi,
+    concurrency,
+    // Only meaningful for --list=discover — a bulk-catalogue query filtered
+    // by minimum vote count and a release-date band. TMDB caps any single
+    // discover query at 500 pages (10,000 results) regardless of how many
+    // total_results it reports, so a large target range has to be split
+    // into several date bands run as separate invocations of this script.
+    voteCountGte: args["vote-count-gte"] ?? "0",
+    dateGte: args["date-gte"] ?? "",
+    dateLte: args["date-lte"] ?? "",
+  };
 }
 
 async function tmdbFetch(path: string, params: Record<string, string> = {}) {
@@ -298,7 +321,7 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
 }
 
 async function main() {
-  const { pageStart, pageEnd, lists, noAi } = parseArgs();
+  const { pageStart, pageEnd, lists, noAi, concurrency, voteCountGte, dateGte, dateLte } = parseArgs();
 
   let ok = 0;
   let failed = 0;
@@ -307,10 +330,23 @@ async function main() {
 
   for (const list of lists) {
     for (let page = pageStart; page <= pageEnd; page++) {
-      console.log(`Fetching TMDB "${list}" page ${page}...`);
+      const isDiscover = list === "discover";
+      console.log(
+        isDiscover
+          ? `Fetching TMDB discover page ${page} (vote_count>=${voteCountGte}, ${dateGte || "any"}..${dateLte || "any"})...`
+          : `Fetching TMDB "${list}" page ${page}...`
+      );
       let listResponse: { results?: TmdbMovieSummary[] };
       try {
-        listResponse = await tmdbFetch(`/movie/${list}`, { page: String(page) });
+        listResponse = isDiscover
+          ? await tmdbFetch(`/discover/movie`, {
+              page: String(page),
+              sort_by: "popularity.desc",
+              "vote_count.gte": voteCountGte,
+              ...(dateGte ? { "primary_release_date.gte": dateGte } : {}),
+              ...(dateLte ? { "primary_release_date.lte": dateLte } : {}),
+            })
+          : await tmdbFetch(`/movie/${list}`, { page: String(page) });
       } catch (e) {
         console.error(`  FAIL fetching ${list} page ${page}:`, e instanceof Error ? e.message : e);
         continue;
@@ -322,7 +358,7 @@ async function main() {
       }
       totalSeen += summaries.length;
 
-      await runWithConcurrency(summaries, CONCURRENCY, async (summary) => {
+      await runWithConcurrency(summaries, concurrency, async (summary) => {
         try {
           const result = await ingestOne(summary, noAi);
           ok++;

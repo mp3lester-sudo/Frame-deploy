@@ -53,12 +53,25 @@ async function matchAndUpsertRows(
 ): Promise<ImportSummary> {
   if (rows.length > MAX_ROWS) throw new Error(`That's ${rows.length} rows — please split into smaller batches under ${MAX_ROWS}`);
 
-  // Pull the whole catalogue once (a few thousand rows) rather than querying
-  // per row — this is the difference between one query and thousands.
-  const { data: allTitles, error: titlesError } = await supabase.from("titles").select("id, name, release_date");
-  if (titlesError) throw new Error(titlesError.message);
+  // Pull the whole catalogue once (tens of thousands of rows) rather than
+  // querying per row — this is the difference between one paginated fetch
+  // and thousands of queries. Paginated via .range() because PostgREST caps
+  // an unbounded .select() at 1000 rows, and the catalogue is well past
+  // that now.
+  const allTitles: { id: string; name: string; release_date: string | null }[] = [];
+  const PAGE_SIZE = 1000;
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data: page, error: titlesError } = await supabase
+      .from("titles")
+      .select("id, name, release_date")
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (titlesError) throw new Error(titlesError.message);
+    if (!page || page.length === 0) break;
+    allTitles.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
 
-  const index = buildTitleIndex(allTitles ?? []);
+  const index = buildTitleIndex(allTitles);
 
   const ratingUpserts: { user_id: string; title_id: string; score: number }[] = [];
   const watchUpserts: { user_id: string; title_id: string }[] = [];

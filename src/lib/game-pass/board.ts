@@ -25,10 +25,12 @@ export interface GamePassBoard {
 }
 
 // Wide enough to give the taste-ranked pass a real shot at filling every
-// day of a themed month without needing the popularity fallback, while
-// staying cheap against a ~4k-title catalogue.
+// day of a themed month without needing the popularity fallback. The
+// catalogue grew from ~4k to ~36k titles, so POPULARITY_POOL_SIZE was
+// bumped proportionally — otherwise the fallback pool would only cover
+// ~4% of the catalogue instead of the ~37% it used to.
 const TASTE_POOL_SIZE = 500;
-const POPULARITY_POOL_SIZE = 1500;
+const POPULARITY_POOL_SIZE = 6000;
 
 function currentPeriodStart(): string {
   const now = new Date();
