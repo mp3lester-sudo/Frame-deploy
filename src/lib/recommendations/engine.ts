@@ -1,13 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
-import { contextMultiplier, contextNote } from "./context-weighting";
+import { contextMultiplier } from "./context-weighting";
+import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
 export interface Recommendation {
   title: Title;
+  /** One-liner — same text as detail.headline, kept as its own field so
+   *  simple callers (MoodRow) don't need to reach into detail. */
   reason: string;
+  detail: ReasonDetail;
   score: number;
 }
 
@@ -97,43 +101,67 @@ export async function getRecommendationsForUser(
     return { recommendations: await getColdStartRecommendations(limit, context), isColdStart: true };
   }
 
+  // Citations ("Because you loved X") only make sense for the final,
+  // already-ranked short list — computing them for the whole over-fetched
+  // candidate pool would be wasted work most of it never surfaces.
+  const STRONG_CONTENT_THRESHOLD = 0.85;
+  const matchFlags = new Map<string, { hasStrongContentMatch: boolean; hasCollaborativeEdge: boolean }>();
+  for (const id of rankedIds) {
+    const inContent = (contentMatches ?? []).find((m) => m.title_id === id);
+    const inCollab = (collabMatches ?? []).find((m) => m.title_id === id);
+    matchFlags.set(id, {
+      hasStrongContentMatch: !!inContent && inContent.similarity > STRONG_CONTENT_THRESHOLD,
+      hasCollaborativeEdge: !!inCollab && (!inContent || inContent.similarity < inCollab.score),
+    });
+  }
+
+  const citationTargets = rankedIds.filter((id) => matchFlags.get(id)?.hasStrongContentMatch);
+  const citedTitleNameByRecId = new Map<string, string>(); // recommended title id -> cited title's name
+  if (citationTargets.length) {
+    const citationResults = await Promise.all(
+      citationTargets.map((id) =>
+        supabase.rpc("most_similar_liked_title", { p_user_id: userId, p_title_id: id }).then((r) => ({ id, r }))
+      )
+    );
+    const citedIdByRecId = new Map<string, string>();
+    for (const { id, r } of citationResults) {
+      const citedId = r.data?.[0]?.title_id;
+      if (citedId) citedIdByRecId.set(id, citedId);
+    }
+    if (citedIdByRecId.size) {
+      const { data: citedTitles } = await supabase
+        .from("titles")
+        .select("id, name")
+        .in("id", [...new Set(citedIdByRecId.values())]);
+      const citedNameByTitleId = new Map((citedTitles ?? []).map((t) => [t.id, t.name]));
+      for (const [recId, citedId] of citedIdByRecId) {
+        const name = citedNameByTitleId.get(citedId);
+        if (name) citedTitleNameByRecId.set(recId, name); // drop rather than cite a blank if the name lookup failed
+      }
+    }
+  }
+
   const recommendations = rankedIds
     .filter((id) => byId.has(id))
     .map((id) => {
       const title = byId.get(id)!;
+      const flags = matchFlags.get(id) ?? { hasStrongContentMatch: false, hasCollaborativeEdge: false };
+      const detail = buildReasonDetail({
+        title,
+        hasStrongContentMatch: flags.hasStrongContentMatch,
+        hasCollaborativeEdge: flags.hasCollaborativeEdge,
+        citedTitle: citedTitleNameByRecId.get(id) ?? null,
+        context,
+      });
       return {
         title,
         score: blended.get(id) ?? 0,
-        reason: explainRecommendation(title, contentMatches ?? [], collabMatches ?? [], id, context),
+        reason: detail.headline,
+        detail,
       };
     });
 
   return { recommendations, isColdStart: false };
-}
-
-function explainRecommendation(
-  title: Title,
-  contentMatches: { title_id: string; similarity: number }[],
-  collabMatches: { title_id: string; score: number }[],
-  id: string,
-  context?: CircumstantialContext
-): string {
-  const note = context ? contextNote(title, context) : null;
-  const suffix = note ? ` (${note})` : "";
-
-  const inContent = contentMatches.find((m) => m.title_id === id);
-  const inCollab = collabMatches.find((m) => m.title_id === id);
-
-  if (inContent && inContent.similarity > 0.85) {
-    return `Matches your taste closely — similar tone and pacing to what you love.${suffix}`;
-  }
-  if (inCollab && (!inContent || inContent.similarity < inCollab.score)) {
-    return `Loved by people whose taste overlaps with yours.${suffix}`;
-  }
-  if (title.mood_tags?.length) {
-    return `Fits your recent mood: ${title.mood_tags.slice(0, 2).join(", ")}.${suffix}`;
-  }
-  return `Picked for you based on your Taste Graph.${suffix}`;
 }
 
 async function getColdStartRecommendations(
@@ -152,9 +180,8 @@ async function getColdStartRecommendations(
 
   const filtered = (titles ?? []).filter((t) => (context ? contextMultiplier(t, context) !== null : true));
 
-  return filtered.slice(0, limit).map((title) => ({
-    title,
-    score: 0,
-    reason: "Popular right now — rate a few titles to personalize this.",
-  }));
+  return filtered.slice(0, limit).map((title) => {
+    const detail = buildColdStartDetail(title);
+    return { title, score: 0, reason: detail.headline, detail };
+  });
 }

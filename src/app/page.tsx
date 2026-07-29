@@ -188,6 +188,7 @@ export default async function HomePage({
           <HeroRecommendation
             title={hero.title}
             reason={hero.reason}
+            detail={hero.detail}
             matchPercent={isColdStart ? null : Math.round(Math.min(hero.score, 1) * 100)}
             director={heroDirector}
           />

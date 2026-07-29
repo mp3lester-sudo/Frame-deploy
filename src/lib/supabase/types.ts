@@ -325,6 +325,10 @@ export interface Database {
         Args: { p_user_id: string; p_title_id: string; p_score: number };
         Returns: void;
       };
+      most_similar_liked_title: {
+        Args: { p_user_id: string; p_title_id: string; p_min_similarity?: number };
+        Returns: { title_id: string; similarity: number }[];
+      };
       match_titles_by_query: {
         Args: { p_embedding: number[]; p_match_count?: number };
         Returns: { title_id: string; similarity: number }[];
