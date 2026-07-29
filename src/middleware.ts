@@ -1,7 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/settings", "/onboarding", "/movie-night"];
+// Note: "/lists" is deliberately NOT here — /lists/[id] must stay reachable
+// while logged out for public lists (RLS + the page's own notFound() handle
+// visibility), and this matcher is prefix-based so adding "/lists" would
+// wrongly gate every list detail page too. The bare "/lists" index (a
+// signed-in user's own lists) redirects itself in src/app/lists/page.tsx.
+const PROTECTED_PREFIXES = ["/settings", "/onboarding", "/movie-night", "/watchlist"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });

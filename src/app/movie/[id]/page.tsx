@@ -2,6 +2,8 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RateControl } from "@/components/rate-control";
+import { WatchlistButton } from "@/components/watchlist-button";
+import { AddToListMenu, type AddToListMenuList } from "@/components/add-to-list-menu";
 import { ReviewCard } from "@/components/review-card";
 import { CreditsSection, type Credit } from "@/components/credits-row";
 import { Badge } from "@/components/ui/badge";
@@ -17,30 +19,48 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
     data: { user: viewer },
   } = await supabase.auth.getUser();
 
-  const [{ data: title }, { data: reviews }, { data: userRating }, { data: credits }] = await Promise.all([
-    supabase.from("titles").select("*").eq("id", id).single(),
-    supabase
-      .from("reviews")
-      // No FK links reviews to ratings directly (they're sibling tables,
-      // both keyed on user_id+title_id), so a reviewer's own rating on this
-      // title can't be embedded here — fetched separately below instead.
-      // The explicit !reviews_user_id_fkey hint disambiguates profiles,
-      // which otherwise has two valid join paths from reviews (direct
-      // authorship, and indirectly via review_reactions).
-      .select("*, profiles!reviews_user_id_fkey(username, avatar_url)")
-      .eq("title_id", id)
-      .order("created_at", { ascending: false })
-      .limit(20),
-    viewer
-      ? supabase.from("ratings").select("score").eq("title_id", id).eq("user_id", viewer.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase
-      .from("title_credits")
-      .select("credit_type, character_name, billing_order, people(name, photo_url)")
-      .eq("title_id", id),
-  ]);
+  const [{ data: title }, { data: reviews }, { data: userRating }, { data: credits }, { data: watchlistRow }, { data: myLists }] =
+    await Promise.all([
+      supabase.from("titles").select("*").eq("id", id).single(),
+      supabase
+        .from("reviews")
+        // No FK links reviews to ratings directly (they're sibling tables,
+        // both keyed on user_id+title_id), so a reviewer's own rating on this
+        // title can't be embedded here — fetched separately below instead.
+        // The explicit !reviews_user_id_fkey hint disambiguates profiles,
+        // which otherwise has two valid join paths from reviews (direct
+        // authorship, and indirectly via review_reactions).
+        .select("*, profiles!reviews_user_id_fkey(username, avatar_url)")
+        .eq("title_id", id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      viewer
+        ? supabase.from("ratings").select("score").eq("title_id", id).eq("user_id", viewer.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase
+        .from("title_credits")
+        .select("credit_type, character_name, billing_order, people(name, photo_url)")
+        .eq("title_id", id),
+      viewer
+        ? supabase.from("watchlist").select("id").eq("title_id", id).eq("user_id", viewer.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      viewer
+        ? supabase.from("lists").select("id, title").eq("user_id", viewer.id).order("created_at", { ascending: false })
+        : Promise.resolve({ data: null }),
+    ]);
 
   if (!title) notFound();
+
+  const myListIds = (myLists ?? []).map((l) => l.id);
+  const { data: listItemsForThisTitle } = myListIds.length
+    ? await supabase.from("list_items").select("list_id").eq("title_id", id).in("list_id", myListIds)
+    : { data: [] };
+  const listIdsWithTitle = new Set((listItemsForThisTitle ?? []).map((li) => li.list_id));
+  const addToListMenuLists: AddToListMenuList[] = (myLists ?? []).map((l) => ({
+    id: l.id,
+    title: l.title,
+    hasTitle: listIdsWithTitle.has(l.id),
+  }));
 
   const reviewIds = (reviews ?? []).map((r) => r.id);
   const reviewerIds = [...new Set((reviews ?? []).map((r) => r.user_id))];
@@ -104,6 +124,13 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
             <p className="mb-1 text-xs uppercase tracking-wide text-foreground-muted">Your rating</p>
             <RateControl titleId={title.id} initialScore={userRating?.score ?? 0} />
           </div>
+
+          {viewer && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <WatchlistButton titleId={title.id} initiallyOnWatchlist={!!watchlistRow} />
+              <AddToListMenu titleId={title.id} lists={addToListMenuLists} />
+            </div>
+          )}
         </div>
       </div>
 

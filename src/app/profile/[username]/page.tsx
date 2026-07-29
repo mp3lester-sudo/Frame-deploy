@@ -85,6 +85,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             >
               View Taste DNA &rarr;
             </Link>
+            <Link
+              href="/watchlist"
+              className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent"
+            >
+              Watchlist &rarr;
+            </Link>
+            <Link
+              href="/lists"
+              className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent"
+            >
+              Your lists &rarr;
+            </Link>
           </div>
         )}
       </div>
