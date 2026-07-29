@@ -76,7 +76,7 @@ async function main() {
 
   const { data: afterOne, error: e1 } = await viewer.client.rpc("similar_users_liked", {
     p_user_id: viewer.id,
-    p_match_count: 50,
+    p_match_count: 20000,
   });
   if (e1) throw new Error(`similar_users_liked failed: ${e1.message}`);
   const scoreAfterOne = afterOne?.find((r: { title_id: string; score: number }) => r.title_id === targetTitleId)?.score;
@@ -89,7 +89,7 @@ async function main() {
 
   const { data: afterTwo, error: e2 } = await viewer.client.rpc("similar_users_liked", {
     p_user_id: viewer.id,
-    p_match_count: 50,
+    p_match_count: 20000,
   });
   if (e2) throw new Error(`similar_users_liked failed: ${e2.message}`);
   const scoreAfterTwo = afterTwo?.find((r: { title_id: string; score: number }) => r.title_id === targetTitleId)?.score;
