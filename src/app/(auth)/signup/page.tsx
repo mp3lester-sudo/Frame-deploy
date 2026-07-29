@@ -32,6 +32,22 @@ export default function SignUpPage() {
     }
   }, []);
 
+  // Fires on every submit attempt, not just a successful one — but that's
+  // fine: the hidden field's value already lives in React state by this
+  // point, so a retry after a validation error (e.g. taken username)
+  // still resubmits the same swipes. Once submitted, there's no reason to
+  // keep them in localStorage; clearing here (rather than only on
+  // confirmed success, which useActionState + a redirecting action can't
+  // easily hook into) avoids a stale session's swipes silently attaching
+  // to a much later, unrelated signup.
+  function clearStoredSwipes() {
+    try {
+      localStorage.removeItem(ANON_SWIPES_STORAGE_KEY);
+    } catch {
+      // Storage unavailable — nothing to clear.
+    }
+  }
+
   return (
     <div className="mx-auto flex min-h-[80vh] max-w-sm flex-col justify-center px-6">
       <h1 className="mb-1 text-2xl font-semibold">Create your account</h1>
@@ -39,7 +55,7 @@ export default function SignUpPage() {
         We&apos;ll start learning your taste from your very first rating.
       </p>
 
-      <form action={formAction} className="flex flex-col gap-3">
+      <form action={formAction} onSubmit={clearStoredSwipes} className="flex flex-col gap-3">
         <input type="hidden" name="anonymousSwipes" value={anonymousSwipes} />
         <Input name="username" placeholder="Username" required autoComplete="username" />
         <Input name="email" type="email" placeholder="Email" required autoComplete="email" />
