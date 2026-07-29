@@ -3,9 +3,9 @@ import { redirect } from "next/navigation";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getGamePassBoard } from "@/lib/game-pass/board";
-import { boardBounds, buildSmoothPath, computeSwervyPath } from "@/lib/game-pass/board-layout";
+import { boardBounds, buildRibbonPath, buildSmoothPath, computeRibbonEdges, computeSwervyPath } from "@/lib/game-pass/board-layout";
 import { StarTile } from "@/components/game-pass/star-tile";
-import { HollywoodSignBanner, PalmTree, TheaterMarker } from "@/components/game-pass/monuments";
+import { BoulevardSky, HollywoodSignBanner, PalmTree, RopeStanchion, TheaterMarker } from "@/components/game-pass/monuments";
 
 // A single winding lane down the page — the Game of Life convention —
 // rather than a grid of rows/columns. Vertical spacing has to clear the
@@ -16,9 +16,12 @@ const AMPLITUDE = 115;
 const WAVELENGTH_DAYS = 6;
 const PADDING = 70;
 const SIDE_PADDING = PADDING + 65; // extra room for palm trees past the swerve
-const BANNER_HEIGHT = 130;
+const BANNER_HEIGHT = 150;
 const TOP_OFFSET = PADDING + BANNER_HEIGHT;
 const BOTTOM_EXTRA = 110; // room for the theater marker + trophy past the last day
+const CARPET_HALF_WIDTH = 30;
+const PALM_INTERVAL = 3;
+const STANCHION_INTERVAL = 2;
 
 export default async function GamePassPage() {
   const supabase = await createClient();
@@ -41,12 +44,24 @@ export default async function GamePassPage() {
   const last = positions[positions.length - 1];
   const trophyPos = last ? { x: last.x, y: last.y + VERTICAL_SPACING * 0.85 } : { x: 0, y: 0 };
   const pathPositions = last ? [...positions, trophyPos] : positions;
-  const pathD = buildSmoothPath(pathPositions.map((p) => ({ x: renderX(p.x), y: renderY(p.y) })));
+  const renderedPathPositions = pathPositions.map((p) => ({ x: renderX(p.x), y: renderY(p.y) }));
+
+  // The red carpet follows the exact same curve as the star path, offset
+  // into a ribbon of constant width — a solid fill plus gold rope edges,
+  // rather than the plain dashed accent line the earlier version used.
+  const { left: carpetLeft, right: carpetRight } = computeRibbonEdges(renderedPathPositions, CARPET_HALF_WIDTH);
+  const carpetFillD = buildRibbonPath(carpetLeft, carpetRight);
+  const ropeLeftD = buildSmoothPath(carpetLeft);
+  const ropeRightD = buildSmoothPath(carpetRight);
+  const seamD = buildSmoothPath(renderedPathPositions);
 
   const centerX = coreWidth / 2;
   const palmTrees = positions
     .map((p, i) => ({ y: p.y, i }))
-    .filter(({ i }) => i > 0 && i % 5 === 0);
+    .filter(({ i }) => i > 0 && i % PALM_INTERVAL === 0);
+  const stanchions = positions
+    .map((p, i) => ({ left: carpetLeft[i], right: carpetRight[i], i }))
+    .filter(({ i }) => i % STANCHION_INTERVAL === 0);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -73,7 +88,7 @@ export default async function GamePassPage() {
         </div>
       )}
 
-      <div className="mt-6 overflow-x-auto rounded-[var(--radius-lg)] border border-border bg-surface py-6">
+      <div className="mt-6 overflow-x-auto rounded-[var(--radius-lg)] border border-border py-6">
         <svg
           width={boardWidth}
           height={boardHeight}
@@ -82,20 +97,37 @@ export default async function GamePassPage() {
           role="img"
           aria-label={`${board.season.theme_name} Game Pass board, ${watchedCount} of ${board.days.length} days watched`}
         >
+          <BoulevardSky width={boardWidth} totalHeight={boardHeight} bannerHeight={BANNER_HEIGHT + PADDING} />
+
           <g transform={`translate(${SIDE_PADDING} ${PADDING})`}>
             <HollywoodSignBanner width={coreWidth} height={BANNER_HEIGHT} />
           </g>
 
-          <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth={3} strokeDasharray="1 12" strokeLinecap="round" opacity={0.55} />
+          {/* Red carpet — a solid ribbon following the star path, with gold
+              rope edges and a dashed center seam, replacing a plain line. */}
+          <path d={carpetFillD} fill="#7a1620" stroke="#4a0f16" strokeWidth={1} />
+          <path d={ropeLeftD} fill="none" stroke="var(--accent)" strokeWidth={2} opacity={0.85} />
+          <path d={ropeRightD} fill="none" stroke="var(--accent)" strokeWidth={2} opacity={0.85} />
+          <path d={seamD} fill="none" stroke="#c9a227" strokeWidth={1.5} strokeDasharray="1 9" opacity={0.5} />
 
-          {palmTrees.map(({ y, i }) => (
-            <PalmTree
-              key={i}
-              x={renderX(i % 10 === 0 ? centerX - AMPLITUDE - 55 : centerX + AMPLITUDE + 55)}
-              y={renderY(y) + 44}
-              flip={i % 10 === 0}
-            />
+          {stanchions.map(({ left, right, i }) => (
+            <g key={i}>
+              <RopeStanchion x={left.x} y={left.y} />
+              <RopeStanchion x={right.x} y={right.y} />
+            </g>
           ))}
+
+          {palmTrees.map(({ y, i }) => {
+            const flip = (i / PALM_INTERVAL) % 2 === 0;
+            return (
+              <PalmTree
+                key={i}
+                x={renderX(flip ? centerX - AMPLITUDE - 55 : centerX + AMPLITUDE + 55)}
+                y={renderY(y) + 44}
+                flip={flip}
+              />
+            );
+          })}
 
           {board.days.map((day, i) => (
             <StarTile

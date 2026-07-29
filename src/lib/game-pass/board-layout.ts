@@ -91,3 +91,43 @@ export function buildSmoothPath(positions: TilePosition[]): string {
   }
   return d;
 }
+
+/**
+ * The two edges of a ribbon (a red carpet, in practice) that hugs the
+ * path at a constant half-width — offset perpendicular to the local
+ * tangent at each point, so the ribbon stays a consistent width even
+ * through the curve's swerves rather than just shifting every point
+ * sideways by a fixed amount. Endpoints reuse their single neighbor as
+ * the tangent reference.
+ */
+export function computeRibbonEdges(
+  positions: TilePosition[],
+  halfWidth: number
+): { left: TilePosition[]; right: TilePosition[] } {
+  if (positions.length === 0) return { left: [], right: [] };
+  const left: TilePosition[] = [];
+  const right: TilePosition[] = [];
+  for (let i = 0; i < positions.length; i++) {
+    const prev = positions[i - 1] ?? positions[i];
+    const next = positions[i + 1] ?? positions[i];
+    const dx = next.x - prev.x;
+    const dy = next.y - prev.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const p = positions[i];
+    left.push({ x: p.x + nx * halfWidth, y: p.y + ny * halfWidth });
+    right.push({ x: p.x - nx * halfWidth, y: p.y - ny * halfWidth });
+  }
+  return { left, right };
+}
+
+/** Stitches a ribbon's two edges into one closed, smoothly-curved SVG
+ *  path — up one edge, straight across the end, back down the other
+ *  edge, straight across the start, close. */
+export function buildRibbonPath(left: TilePosition[], right: TilePosition[]): string {
+  if (left.length === 0 || right.length === 0) return "";
+  const leftPath = buildSmoothPath(left);
+  const rightPath = buildSmoothPath([...right].reverse());
+  return `${leftPath} ${rightPath.replace(/^M/, "L")} Z`;
+}

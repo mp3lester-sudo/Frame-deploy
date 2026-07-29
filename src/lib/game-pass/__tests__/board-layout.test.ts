@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { boardBounds, buildPathPoints, buildSmoothPath, computeBoardLayout, computeSwervyPath } from "../board-layout";
+import {
+  boardBounds,
+  buildPathPoints,
+  buildRibbonPath,
+  buildSmoothPath,
+  computeBoardLayout,
+  computeRibbonEdges,
+  computeSwervyPath,
+} from "../board-layout";
 
 describe("computeBoardLayout", () => {
   it("lays out the first row left-to-right", () => {
@@ -138,5 +146,59 @@ describe("buildSmoothPath", () => {
     ];
     const d = buildSmoothPath(positions);
     expect(d.endsWith("20.00,200.00")).toBe(true);
+  });
+});
+
+describe("computeRibbonEdges", () => {
+  it("offsets a straight vertical line into two parallel edges", () => {
+    const positions = [
+      { x: 0, y: 0 },
+      { x: 0, y: 100 },
+      { x: 0, y: 200 },
+    ];
+    const { left, right } = computeRibbonEdges(positions, 30);
+    // A vertical path's perpendicular is purely horizontal.
+    left.forEach((p, i) => {
+      expect(Math.abs(p.x)).toBeCloseTo(30);
+      expect(p.y).toBe(positions[i].y);
+    });
+    right.forEach((p, i) => {
+      expect(Math.abs(p.x)).toBeCloseTo(30);
+      expect(p.y).toBe(positions[i].y);
+    });
+  });
+
+  it("keeps both edges exactly 2*halfWidth apart at every point, even mid-swerve", () => {
+    const positions = computeSwervyPath(12, 190, 110, 6);
+    const { left, right } = computeRibbonEdges(positions, 26);
+    left.forEach((l, i) => {
+      const r = right[i];
+      const dist = Math.hypot(l.x - r.x, l.y - r.y);
+      expect(dist).toBeCloseTo(52, 1);
+    });
+  });
+
+  it("returns empty edges for an empty path", () => {
+    expect(computeRibbonEdges([], 30)).toEqual({ left: [], right: [] });
+  });
+});
+
+describe("buildRibbonPath", () => {
+  it("returns a closed path (M...C...L...C...Z) with matching curve counts on both edges", () => {
+    const positions = computeSwervyPath(6, 190, 110, 6);
+    const { left, right } = computeRibbonEdges(positions, 26);
+    const d = buildRibbonPath(left, right);
+    expect(d.startsWith("M")).toBe(true);
+    expect(d.endsWith("Z")).toBe(true);
+    // One M (the start) plus one L (the cap connecting to the reversed
+    // right edge) — never a second M, or the shape wouldn't be closed.
+    expect(d.match(/M/g)).toHaveLength(1);
+    expect(d.match(/L/g)).toHaveLength(1);
+    expect(d.match(/C/g)).toHaveLength((left.length - 1) * 2);
+  });
+
+  it("returns an empty string when either edge is empty", () => {
+    expect(buildRibbonPath([], [{ x: 0, y: 0 }])).toBe("");
+    expect(buildRibbonPath([{ x: 0, y: 0 }], [])).toBe("");
   });
 });
