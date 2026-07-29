@@ -9,6 +9,22 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.supabase.co" },
     ],
   },
+  experimental: {
+    // Next's default Server Action body size cap is 1MB. The Letterboxd
+    // diary paste/upload import (importLetterboxdPaste) can legitimately
+    // exceed that — a single saved "Complete Webpage" of a Diary page, or a
+    // full page-source paste, is often several hundred KB on its own before
+    // even considering someone dropping in multiple pages at once. Exceeding
+    // the default cap silently fails at the framework level with a generic,
+    // digest-only "Server Components render" error that gives the user (and
+    // us) no indication it was a size problem — this is a backstop, not the
+    // primary fix (the import UI now shrinks payloads client-side first, see
+    // src/lib/import/extract-diary-fragments.ts), but it's a cheap safety
+    // net for any path that ends up sending a large raw payload.
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
 };
 
 export default nextConfig;

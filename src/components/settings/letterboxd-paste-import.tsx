@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { importLetterboxdPaste } from "@/lib/actions/import";
 import type { ImportSummary } from "@/lib/actions/import";
 import { Button } from "@/components/ui/button";
+import { extractDiaryFragmentsFromPages } from "@/lib/import/extract-diary-fragments";
 
 /**
  * Easiest-available path for Letterboxd members without Pro (whose account
@@ -17,10 +18,14 @@ import { Button } from "@/components/ui/button";
  * once, so a long diary history still only needs one Import click at the
  * end instead of one per page.
  *
- * Reuses importLetterboxdPaste unchanged — a saved page's HTML is parsed
- * by parseLetterboxdDiaryPaste exactly like a pasted one, since the parser
- * only ever looks for repeating title+year+rating markup, not a specific
- * document structure.
+ * Both paths (dropped files and pasted text) run extractDiaryFragments
+ * client-side before ever calling importLetterboxdPaste — a saved
+ * "Complete Webpage" or a full page-source paste is mostly boilerplate the
+ * server-side parser was always going to discard, and sending it raw risks
+ * tripping Next's default 1MB Server Action body cap (which fails with an
+ * opaque, digest-only error, not a helpful one — see next.config.ts).
+ * Shrinking first means only the few-hundred-bytes-per-film fragments the
+ * parser actually needs ever leave the browser.
  */
 export function LetterboxdPasteImport() {
   const [html, setHtml] = useState("");
@@ -66,12 +71,12 @@ export function LetterboxdPasteImport() {
   async function handleImportFiles() {
     if (files.length === 0) return;
     const contents = await Promise.all(files.map((f) => f.text()));
-    runImport(contents.join("\n"));
+    runImport(extractDiaryFragmentsFromPages(contents));
   }
 
   function handlePasteSubmit(e: React.FormEvent) {
     e.preventDefault();
-    runImport(html);
+    runImport(extractDiaryFragmentsFromPages([html]));
   }
 
   return (
