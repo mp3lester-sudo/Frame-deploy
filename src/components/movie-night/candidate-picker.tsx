@@ -50,6 +50,7 @@ export function CandidatePicker({
             )}
           </div>
           <p className="mt-2 line-clamp-1 text-sm font-medium">{c.title.name}</p>
+          <p className="mt-0.5 line-clamp-2 text-xs text-foreground-muted">{c.note}</p>
           <Button
             size="sm"
             variant="secondary"

@@ -389,6 +389,10 @@ export interface Database {
         Args: { p_user_id: string; p_match_count?: number; p_exclude_watched?: boolean };
         Returns: { title_id: string; similarity: number }[];
       };
+      title_similarity_for_user: {
+        Args: { p_user_id: string; p_title_ids: string[] };
+        Returns: { title_id: string; similarity: number }[];
+      };
       similar_users_liked: {
         Args: { p_user_id: string; p_match_count?: number };
         Returns: { title_id: string; score: number }[];
