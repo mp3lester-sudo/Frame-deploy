@@ -7,9 +7,13 @@ import { AddToListMenu, type AddToListMenuList } from "@/components/add-to-list-
 import { ReviewCard } from "@/components/review-card";
 import { CreditsSection, type Credit } from "@/components/credits-row";
 import { Badge } from "@/components/ui/badge";
+import { RtBadge } from "@/components/rt-badge";
+import { TmdbReviewsSection } from "@/components/tmdb-reviews-section";
 import { formatRuntime } from "@/lib/utils";
 import { aggregateReactions } from "@/lib/reactions/aggregate";
 import type { DisplayComment } from "@/components/review-comments";
+import { getOrFetchRtCriticScore } from "@/lib/external/rotten-tomatoes";
+import { getTmdbReviews } from "@/lib/external/tmdb-reviews";
 
 export default async function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -39,7 +43,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
         : Promise.resolve({ data: null }),
       supabase
         .from("title_credits")
-        .select("credit_type, character_name, billing_order, people(name, photo_url)")
+        .select("credit_type, character_name, billing_order, people(id, name, photo_url)")
         .eq("title_id", id),
       viewer
         ? supabase.from("watchlist").select("id").eq("title_id", id).eq("user_id", viewer.id).maybeSingle()
@@ -50,6 +54,11 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
     ]);
 
   if (!title) notFound();
+
+  const [rtScore, tmdbReviews] = await Promise.all([
+    getOrFetchRtCriticScore(title),
+    title.tmdb_id ? getTmdbReviews(title.tmdb_id, title.type) : Promise.resolve([]),
+  ]);
 
   const myListIds = (myLists ?? []).map((l) => l.id);
   const { data: listItemsForThisTitle } = myListIds.length
@@ -110,7 +119,8 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
             {title.release_date?.slice(0, 4)} · {formatRuntime(title.runtime_minutes)}
           </p>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {rtScore != null && <RtBadge score={rtScore} />}
             {title.genres?.map((g) => (
               <Badge key={g}>{g}</Badge>
             ))}
@@ -157,6 +167,8 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
           <p className="text-sm text-foreground-muted">No reviews yet — be the first.</p>
         )}
       </section>
+
+      <TmdbReviewsSection reviews={tmdbReviews} />
     </div>
   );
 }

@@ -50,6 +50,9 @@ export interface Database {
           tmdb_vote_count: number | null;
           popularity: number | null;
           weighted_rating: number | null;
+          imdb_id: string | null;
+          rt_critic_score: number | null;
+          rt_checked_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -233,9 +236,28 @@ export interface Database {
         Relationships: [];
       };
       people: {
-        Row: { id: string; tmdb_id: number | null; name: string; role: string | null; photo_url: string | null; created_at: string };
+        Row: {
+          id: string;
+          tmdb_id: number | null;
+          name: string;
+          role: string | null;
+          photo_url: string | null;
+          bio: string | null;
+          birthday: string | null;
+          place_of_birth: string | null;
+          bio_checked_at: string | null;
+          created_at: string;
+        };
         Insert: { tmdb_id?: number; name: string; role?: string; photo_url?: string };
-        Update: Partial<{ name: string; role: string; photo_url: string }>;
+        Update: Partial<{
+          name: string;
+          role: string;
+          photo_url: string;
+          bio: string | null;
+          birthday: string | null;
+          place_of_birth: string | null;
+          bio_checked_at: string | null;
+        }>;
         Relationships: [];
       };
       title_credits: {
