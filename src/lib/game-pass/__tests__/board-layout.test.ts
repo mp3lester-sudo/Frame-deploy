@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardBounds, buildPathPoints, computeBoardLayout } from "../board-layout";
+import { boardBounds, buildPathPoints, buildSmoothPath, computeBoardLayout, computeSwervyPath } from "../board-layout";
 
 describe("computeBoardLayout", () => {
   it("lays out the first row left-to-right", () => {
@@ -76,5 +76,67 @@ describe("boardBounds", () => {
 
   it("returns just padding for an empty board", () => {
     expect(boardBounds([], 50)).toEqual({ width: 100, height: 100 });
+  });
+});
+
+describe("computeSwervyPath", () => {
+  it("returns one position per day, y advancing steadily", () => {
+    const positions = computeSwervyPath(10, 190, 110, 6);
+    expect(positions).toHaveLength(10);
+    positions.forEach((p, i) => expect(p.y).toBe(i * 190));
+  });
+
+  it("normalizes so the leftmost point is exactly x=0", () => {
+    const positions = computeSwervyPath(20, 190, 110, 6);
+    expect(Math.min(...positions.map((p) => p.x))).toBe(0);
+  });
+
+  it("stays within the amplitude's full swing width", () => {
+    const amplitude = 110;
+    const positions = computeSwervyPath(20, 190, amplitude, 6);
+    const maxX = Math.max(...positions.map((p) => p.x));
+    expect(maxX).toBeLessThanOrEqual(amplitude * 2 + 0.001);
+  });
+
+  it("actually swerves — x is not constant across days", () => {
+    const positions = computeSwervyPath(12, 190, 110, 6);
+    const xs = new Set(positions.map((p) => Math.round(p.x)));
+    expect(xs.size).toBeGreaterThan(1);
+  });
+
+  it("returns an empty array for zero days", () => {
+    expect(computeSwervyPath(0, 190, 110, 6)).toEqual([]);
+  });
+});
+
+describe("buildSmoothPath", () => {
+  it("returns an empty string for no positions", () => {
+    expect(buildSmoothPath([])).toBe("");
+  });
+
+  it("returns a single moveto for one position", () => {
+    expect(buildSmoothPath([{ x: 5, y: 10 }])).toBe("M5,10");
+  });
+
+  it("starts at the first point and has one curve segment per gap", () => {
+    const positions = [
+      { x: 0, y: 0 },
+      { x: 50, y: 100 },
+      { x: 0, y: 200 },
+      { x: 50, y: 300 },
+    ];
+    const d = buildSmoothPath(positions);
+    expect(d.startsWith("M0,0")).toBe(true);
+    expect(d.match(/C/g)).toHaveLength(positions.length - 1);
+  });
+
+  it("the curve's final segment actually ends at the last point", () => {
+    const positions = [
+      { x: 0, y: 0 },
+      { x: 50, y: 100 },
+      { x: 20, y: 200 },
+    ];
+    const d = buildSmoothPath(positions);
+    expect(d.endsWith("20.00,200.00")).toBe(true);
   });
 });

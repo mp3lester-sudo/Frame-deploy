@@ -3,16 +3,22 @@ import { redirect } from "next/navigation";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getGamePassBoard } from "@/lib/game-pass/board";
-import { boardBounds, buildPathPoints, computeBoardLayout } from "@/lib/game-pass/board-layout";
+import { boardBounds, buildSmoothPath, computeSwervyPath } from "@/lib/game-pass/board-layout";
 import { StarTile } from "@/components/game-pass/star-tile";
+import { HollywoodSignBanner, PalmTree, TheaterMarker } from "@/components/game-pass/monuments";
 
-// Fewer, wider columns and a tall row spacing so each day's poster reads
-// as a real movie poster rather than a thumbnail — the board runs long
-// down the page, like an actual walk down the boulevard.
-const COLUMNS = 4;
-const TILE_SPACING = 150;
-const ROW_SPACING = 210;
+// A single winding lane down the page — the Game of Life convention —
+// rather than a grid of rows/columns. Vertical spacing has to clear the
+// tallest a poster tile ever gets; amplitude/wavelength control how wide
+// and how often the path swerves.
+const VERTICAL_SPACING = 190;
+const AMPLITUDE = 115;
+const WAVELENGTH_DAYS = 6;
 const PADDING = 70;
+const SIDE_PADDING = PADDING + 65; // extra room for palm trees past the swerve
+const BANNER_HEIGHT = 130;
+const TOP_OFFSET = PADDING + BANNER_HEIGHT;
+const BOTTOM_EXTRA = 110; // room for the theater marker + trophy past the last day
 
 export default async function GamePassPage() {
   const supabase = await createClient();
@@ -24,17 +30,23 @@ export default async function GamePassPage() {
   const board = await getGamePassBoard(user.id);
   const watchedCount = board.days.filter((d) => d.status === "watched").length;
 
-  const positions = computeBoardLayout(board.days.length, COLUMNS, TILE_SPACING, ROW_SPACING);
-  const { width, height } = boardBounds(positions, PADDING);
-  const points = buildPathPoints(positions.map((p) => ({ x: p.x + PADDING, y: p.y + PADDING })));
+  const positions = computeSwervyPath(board.days.length, VERTICAL_SPACING, AMPLITUDE, WAVELENGTH_DAYS);
+  const { width: coreWidth, height: coreHeight } = boardBounds(positions, 0);
+  const boardWidth = coreWidth + SIDE_PADDING * 2;
+  const boardHeight = TOP_OFFSET + coreHeight + BOTTOM_EXTRA;
 
-  // The trophy sits one tile-step past the last star, continuing whichever
-  // direction that row was headed.
+  const renderX = (x: number) => x + SIDE_PADDING;
+  const renderY = (y: number) => y + TOP_OFFSET;
+
   const last = positions[positions.length - 1];
-  const secondToLast = positions[positions.length - 2] ?? last;
-  const trophyDirection = last && secondToLast ? Math.sign(last.x - secondToLast.x) || 1 : 1;
-  const trophyPos = last ? { x: last.x + TILE_SPACING * trophyDirection, y: last.y } : { x: 0, y: 0 };
-  const trophyWidth = last ? Math.max(width, trophyPos.x + PADDING * 2) : width;
+  const trophyPos = last ? { x: last.x, y: last.y + VERTICAL_SPACING * 0.85 } : { x: 0, y: 0 };
+  const pathPositions = last ? [...positions, trophyPos] : positions;
+  const pathD = buildSmoothPath(pathPositions.map((p) => ({ x: renderX(p.x), y: renderY(p.y) })));
+
+  const centerX = coreWidth / 2;
+  const palmTrees = positions
+    .map((p, i) => ({ y: p.y, i }))
+    .filter(({ i }) => i > 0 && i % 5 === 0);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -63,41 +75,33 @@ export default async function GamePassPage() {
 
       <div className="mt-6 overflow-x-auto rounded-[var(--radius-lg)] border border-border bg-surface py-6">
         <svg
-          width={trophyWidth}
-          height={height}
-          viewBox={`0 0 ${trophyWidth} ${height}`}
+          width={boardWidth}
+          height={boardHeight}
+          viewBox={`0 0 ${boardWidth} ${boardHeight}`}
           className="mx-auto"
           role="img"
           aria-label={`${board.season.theme_name} Game Pass board, ${watchedCount} of ${board.days.length} days watched`}
         >
-          <polyline
-            points={points}
-            fill="none"
-            stroke="var(--accent)"
-            strokeWidth={2.5}
-            strokeDasharray="1 11"
-            strokeLinecap="round"
-            opacity={0.55}
-          />
-          {last && (
-            <line
-              x1={last.x + PADDING}
-              y1={last.y + PADDING}
-              x2={trophyPos.x + PADDING}
-              y2={trophyPos.y + PADDING}
-              stroke="var(--accent)"
-              strokeWidth={2.5}
-              strokeDasharray="1 11"
-              strokeLinecap="round"
-              opacity={0.55}
+          <g transform={`translate(${SIDE_PADDING} ${PADDING})`}>
+            <HollywoodSignBanner width={coreWidth} height={BANNER_HEIGHT} />
+          </g>
+
+          <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth={3} strokeDasharray="1 12" strokeLinecap="round" opacity={0.55} />
+
+          {palmTrees.map(({ y, i }) => (
+            <PalmTree
+              key={i}
+              x={renderX(i % 10 === 0 ? centerX - AMPLITUDE - 55 : centerX + AMPLITUDE + 55)}
+              y={renderY(y) + 44}
+              flip={i % 10 === 0}
             />
-          )}
+          ))}
 
           {board.days.map((day, i) => (
             <StarTile
               key={day.dayNumber}
-              x={positions[i].x + PADDING}
-              y={positions[i].y + PADDING}
+              x={renderX(positions[i].x)}
+              y={renderY(positions[i].y)}
               dayNumber={day.dayNumber}
               titleId={day.title.id}
               titleName={day.title.name}
@@ -106,8 +110,9 @@ export default async function GamePassPage() {
             />
           ))}
 
-          {/* Trophy tile — the season's reward, past the last star. */}
-          <g transform={`translate(${trophyPos.x + PADDING} ${trophyPos.y + PADDING})`}>
+          {/* Theater marker + trophy — the season's reward, past the last star. */}
+          <TheaterMarker x={renderX(trophyPos.x)} y={renderY(trophyPos.y)} />
+          <g transform={`translate(${renderX(trophyPos.x)} ${renderY(trophyPos.y)})`}>
             {board.completed && <circle r={52} fill="var(--accent)" opacity={0.16} />}
             <circle
               r={36}
