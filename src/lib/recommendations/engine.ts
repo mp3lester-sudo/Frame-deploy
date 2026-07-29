@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { contextMultiplier } from "./context-weighting";
+import { weatherTimeMultiplier, weatherTimeNote, type WeatherTimeSignal } from "./weather-time-weighting";
+import { calibrateMatchPercents } from "./match-percent";
 import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
 
@@ -13,6 +15,11 @@ export interface Recommendation {
   reason: string;
   detail: ReasonDetail;
   score: number;
+  /** Calibrated 75-98 display percentage (see match-percent.ts) — null for
+   *  cold-start picks, where a match % would be meaningless. Single source
+   *  of truth so HeroRecommendation and MoodRow never need their own
+   *  Math.round(score * 100) math. */
+  matchPercent: number | null;
 }
 
 const VECTOR_WEIGHT = 0.65;
@@ -39,7 +46,11 @@ export interface RecommendationResult {
 
 export async function getRecommendationsForUser(
   userId: string,
-  { limit = 5, context }: { limit?: number; context?: CircumstantialContext } = {}
+  {
+    limit = 5,
+    context,
+    weather,
+  }: { limit?: number; context?: CircumstantialContext; weather?: WeatherTimeSignal } = {}
 ): Promise<RecommendationResult> {
   const supabase = await createClient();
 
@@ -87,9 +98,13 @@ export async function getRecommendationsForUser(
   for (const [id, score] of blended.entries()) {
     const title = byId.get(id);
     if (!title) continue;
-    const multiplier = context ? contextMultiplier(title, context) : 1;
-    if (multiplier === null) continue; // hard-excluded by this context (e.g. too long for something_short)
-    adjusted.push({ id, score: score * multiplier });
+    const contextMult = context ? contextMultiplier(title, context) : 1;
+    if (contextMult === null) continue; // hard-excluded by this context (e.g. too long for something_short)
+    // Weather/time is a soft nudge layered on top of the (also soft, except
+    // for something_short) context multiplier — see weather-time-weighting.ts
+    // for why this is never a hard exclusion.
+    const weatherMult = weather ? weatherTimeMultiplier(title, weather) : 1;
+    adjusted.push({ id, score: score * contextMult * weatherMult });
   }
 
   const rankedIds = adjusted
@@ -141,25 +156,34 @@ export async function getRecommendationsForUser(
     }
   }
 
-  const recommendations = rankedIds
-    .filter((id) => byId.has(id))
-    .map((id) => {
-      const title = byId.get(id)!;
-      const flags = matchFlags.get(id) ?? { hasStrongContentMatch: false, hasCollaborativeEdge: false };
-      const detail = buildReasonDetail({
-        title,
-        hasStrongContentMatch: flags.hasStrongContentMatch,
-        hasCollaborativeEdge: flags.hasCollaborativeEdge,
-        citedTitle: citedTitleNameByRecId.get(id) ?? null,
-        context,
-      });
-      return {
-        title,
-        score: blended.get(id) ?? 0,
-        reason: detail.headline,
-        detail,
-      };
+  // Use the post-context/post-weather adjusted score (not the raw blend)
+  // both for what's displayed as `score` and for match-% calibration below —
+  // it's what actually decided the ranking, so it's what should be reflected
+  // back as "how good a match, right now."
+  const adjustedScoreById = new Map(adjusted.map((a) => [a.id, a.score]));
+  const finalIds = rankedIds.filter((id) => byId.has(id));
+  const matchPercents = calibrateMatchPercents(finalIds.map((id) => adjustedScoreById.get(id) ?? 0));
+
+  const recommendations = finalIds.map((id, i) => {
+    const title = byId.get(id)!;
+    const flags = matchFlags.get(id) ?? { hasStrongContentMatch: false, hasCollaborativeEdge: false };
+    const weatherNote = weather ? weatherTimeNote(title, weather) : null;
+    const detail = buildReasonDetail({
+      title,
+      hasStrongContentMatch: flags.hasStrongContentMatch,
+      hasCollaborativeEdge: flags.hasCollaborativeEdge,
+      citedTitle: citedTitleNameByRecId.get(id) ?? null,
+      context,
+      weatherNote,
     });
+    return {
+      title,
+      score: adjustedScoreById.get(id) ?? 0,
+      reason: detail.headline,
+      detail,
+      matchPercent: matchPercents[i],
+    };
+  });
 
   return { recommendations, isColdStart: false };
 }
@@ -182,6 +206,6 @@ async function getColdStartRecommendations(
 
   return filtered.slice(0, limit).map((title) => {
     const detail = buildColdStartDetail(title);
-    return { title, score: 0, reason: detail.headline, detail };
+    return { title, score: 0, reason: detail.headline, detail, matchPercent: null };
   });
 }

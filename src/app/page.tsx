@@ -75,6 +75,7 @@ export default async function HomePage({
   const { recommendations, isColdStart } = await getRecommendationsForUser(user.id, {
     limit: 5,
     context: activeContext,
+    weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
   });
 
   const [hero, ...morePicks] = recommendations;
@@ -187,7 +188,7 @@ export default async function HomePage({
             title={hero.title}
             reason={hero.reason}
             detail={hero.detail}
-            matchPercent={isColdStart ? null : Math.round(Math.min(hero.score, 1) * 100)}
+            matchPercent={hero.matchPercent}
             director={heroDirector}
           />
         </div>

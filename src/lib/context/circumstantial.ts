@@ -29,7 +29,7 @@ export function isCircumstantialContext(value: string): value is CircumstantialC
 }
 
 /** Open-Meteo WMO weather_code groups that mean "it's actively bad out". */
-function isRoughWeather(weatherCode: number | null | undefined): boolean {
+export function isRoughWeather(weatherCode: number | null | undefined): boolean {
   if (weatherCode == null) return false;
   return (
     (weatherCode >= 51 && weatherCode <= 57) || // drizzle

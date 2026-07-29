@@ -42,16 +42,22 @@ export function buildReasonDetail(params: {
   hasCollaborativeEdge: boolean;
   citedTitle: string | null;
   context?: CircumstantialContext;
+  /** Set by the engine when weather/time materially nudged this pick (see
+   *  weather-time-weighting.ts) — kept as a plain string rather than a
+   *  signal object here so explain.ts doesn't need to know about weather
+   *  codes or hours, just the sentence fragment to fold in. */
+  weatherNote?: string | null;
 }): ReasonDetail {
-  const { title, hasStrongContentMatch, hasCollaborativeEdge, citedTitle, context } = params;
+  const { title, hasStrongContentMatch, hasCollaborativeEdge, citedTitle, context, weatherNote } = params;
   const themes = title.themes ?? [];
   const tone = title.tone ?? [];
   const moodTags = title.mood_tags ?? [];
 
   const matchKind = determineMatchKind(hasStrongContentMatch, hasCollaborativeEdge, moodTags.length > 0);
 
-  const note = context ? contextNote(title, context) : null;
-  const suffix = note ? ` (${note})` : "";
+  const contextSuffixNote = context ? contextNote(title, context) : null;
+  const notes = [contextSuffixNote, weatherNote].filter((n): n is string => !!n);
+  const suffix = notes.length ? ` (${notes.join("; ")})` : "";
 
   let headline: string;
   if (matchKind === "content" && citedTitle) {

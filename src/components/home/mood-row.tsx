@@ -9,7 +9,7 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
     <div>
       <h3 className="font-display mb-3 text-lg">{isColdStart ? "Popular right now" : "More picks for you"}</h3>
       <div className="grid grid-cols-2 gap-3">
-        {picks.map(({ title, score, reason }) => (
+        {picks.map(({ title, reason, matchPercent }) => (
           <Link key={title.id} href={`/movie/${title.id}`} className="group">
             <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface transition-colors group-hover:border-border-strong">
               {title.poster_url && (
@@ -28,9 +28,9 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
               )}
             </div>
             <p className="mt-2 text-sm font-medium">{title.name}</p>
-            {!isColdStart && (
+            {!isColdStart && matchPercent !== null && (
               <p className="mt-0.5 text-[11px] uppercase tracking-wider text-foreground-muted">
-                {Math.round(Math.min(score, 1) * 100)}% match
+                {matchPercent}% match
               </p>
             )}
             <p className="mt-1 line-clamp-2 text-xs text-foreground-muted">{reason}</p>
