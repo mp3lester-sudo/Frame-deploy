@@ -13,11 +13,52 @@ import { LETTERBOXD_DIARY_BOOKMARKLET_SOURCE } from "@/lib/import/bookmarklet-so
 // source deliberately has no `//` line comments to swallow.
 const BOOKMARKLET_HREF = "javascript:" + LETTERBOXD_DIARY_BOOKMARKLET_SOURCE.replace(/\s+/g, " ").trim();
 
+function escapeHtmlAttr(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// React refuses to ever set a real DOM `href` attribute that starts with
+// "javascript:" — it's a deliberate XSS guard (see
+// https://github.com/facebook/react/pull/15047) and applies even to a
+// value the developer hardcoded, not just user input. Rendering
+// `<a href={BOOKMARKLET_HREF}>` silently swaps it for a stub href that just
+// throws, so a dragged "bookmark" would drop with a href pointing at that
+// stub instead of the real script — a bookmark that looks right but does
+// nothing when clicked.
+//
+// The fix: never put the real payload in the `href` DOM attribute at all.
+// Keep href="#" (a plain, unsanitized value) and supply the actual
+// bookmarklet text directly on the drag event's DataTransfer instead, in
+// every format a browser might read when a link is dropped onto the
+// bookmarks bar (uri-list, plain text, and a synthetic anchor's outerHTML).
+function handleBookmarkletDragStart(e: React.DragEvent<HTMLAnchorElement>) {
+  e.dataTransfer.setData("text/uri-list", BOOKMARKLET_HREF);
+  e.dataTransfer.setData("text/plain", BOOKMARKLET_HREF);
+  e.dataTransfer.setData("text/html", `<a href="${escapeHtmlAttr(BOOKMARKLET_HREF)}">Import Frame Diary</a>`);
+}
+
 export function LetterboxdPasteImport() {
   const [html, setHtml] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+
+  // Dragging is the intended path, but it depends on the browser reading
+  // DataTransfer the way we expect, and there's no reliable way to confirm
+  // a drag onto the (native, outside-the-page) bookmarks bar actually
+  // worked. Clicking is the guaranteed fallback: copy the exact same
+  // bookmarklet text, then the member pastes it into a bookmark's URL
+  // field themselves instead of relying on drag-and-drop.
+  async function handleBookmarkletClick(e: React.MouseEvent) {
+    e.preventDefault();
+    try {
+      await navigator.clipboard.writeText(BOOKMARKLET_HREF);
+      setCopyStatus("Copied. Right-click your bookmarks bar → Add page (or Add bookmark), name it anything, and paste this as the URL.");
+    } catch {
+      window.prompt("Copy this, then create a new bookmark and paste it as the URL:", BOOKMARKLET_HREF);
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,12 +84,14 @@ export function LetterboxdPasteImport() {
         <p className="text-xs uppercase tracking-wider text-accent">Recommended — one click, whole diary</p>
         <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-foreground-muted">
           <li>
-            Drag this to your bookmarks bar:{" "}
+            Drag this to your bookmarks bar (or click it to copy the link instead):{" "}
             <a
-              href={BOOKMARKLET_HREF}
-              onClick={(e) => e.preventDefault()}
+              href="#"
+              draggable
+              onDragStart={handleBookmarkletDragStart}
+              onClick={handleBookmarkletClick}
               className="inline-flex cursor-grab items-center rounded-[var(--radius-sm)] bg-accent px-2 py-1 text-xs font-medium text-accent-foreground active:cursor-grabbing"
-              title="Drag me to your bookmarks bar — clicking here won't do anything"
+              title="Drag me to your bookmarks bar, or click to copy the bookmarklet link"
             >
               Import Frame Diary
             </a>
@@ -64,6 +107,7 @@ export function LetterboxdPasteImport() {
           Runs entirely in your own signed-in browser tab — it&apos;s the same page-source lookup as the manual method
           below, just automated across every page instead of one at a time.
         </p>
+        {copyStatus && <p className="mt-2 text-xs text-accent">{copyStatus}</p>}
       </div>
 
       <details className="mb-4">
