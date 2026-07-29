@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { OnboardingSwipe, type SwipeTitle } from "@/components/onboarding/onboarding-swipe";
-
-const BATCH_SIZE = 14;
+import { buildDiverseDeck } from "@/lib/catalogue/diverse-deck";
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
@@ -11,14 +10,17 @@ export default async function OnboardingPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/onboarding");
 
-  const { data: titles } = await supabase
-    .from("titles")
-    .select("*")
-    .order("tmdb_vote_count", { ascending: false })
-    .limit(BATCH_SIZE);
+  // Exclude anything the user's already rated/watched — most commonly from
+  // a landing-page taste-teaser session before signup (see signUp() in
+  // auth.ts), so this quiz doesn't re-ask about a title they just swiped on.
+  const { data: alreadyWatched } = await supabase.from("watch_history").select("title_id").eq("user_id", user.id);
+  const excludeIds = (alreadyWatched ?? []).map((w) => w.title_id);
 
-  if (!titles?.length) {
-    // Catalogue not seeded yet — nothing to rate, so don't block the user here.
+  const titles = await buildDiverseDeck(supabase, { excludeIds });
+
+  if (!titles.length) {
+    // Catalogue not seeded yet, or the user's already rated everything in
+    // the anchor deck — either way, nothing left to usefully ask here.
     redirect("/");
   }
 
@@ -39,11 +41,11 @@ export default async function OnboardingPage() {
     id: t.id,
     name: t.name,
     overview: t.overview,
-    posterUrl: t.poster_url,
-    year: t.release_date?.slice(0, 4) ?? null,
+    posterUrl: t.posterUrl,
+    year: t.year,
     director: directorByTitle.get(t.id) ?? null,
-    runtimeMinutes: t.runtime_minutes,
-    genres: t.genres ?? [],
+    runtimeMinutes: t.runtimeMinutes,
+    genres: t.genres,
   }));
 
   return (

@@ -4,8 +4,9 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { formatRuntime } from "@/lib/utils";
-import { getTasteTeaser, type DeckTitle, type TeaserPick } from "@/lib/actions/landing-teaser";
-import type { AnonSwipe } from "@/lib/recommendations/teaser";
+import { getTasteTeaser, type TeaserPick } from "@/lib/actions/landing-teaser";
+import { MIN_SWIPES_FOR_TEASER, type AnonSwipe } from "@/lib/recommendations/teaser";
+import type { DeckTitle } from "@/lib/catalogue/diverse-deck";
 
 /**
  * Pre-signup "taste teaser": an anonymous visitor swipes on a handful of
@@ -23,7 +24,6 @@ import type { AnonSwipe } from "@/lib/recommendations/teaser";
 
 export const ANON_SWIPES_STORAGE_KEY = "frame_anon_swipes_v1";
 const RATING_FOR = { not_for_me: 1, its_fine: 3, love_it: 5 } as const;
-const MIN_SWIPES_FOR_TEASER = 6;
 
 function persistSwipes(swipes: AnonSwipe[]) {
   try {

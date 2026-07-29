@@ -17,6 +17,16 @@ export interface AnonSwipe {
   score: number; // 1 = not for me, 3 = it's fine, 5 = love it (see onboarding-swipe.tsx's RATING_FOR)
 }
 
+/**
+ * How many rated (non-skip) swipes the landing-page teaser waits for
+ * before showing its reveal (see taste-teaser.tsx). Also used as the bar
+ * for whether a brand-new signup has "enough" pre-signup signal to skip
+ * the post-signup /onboarding quiz entirely (see signUp() in auth.ts) —
+ * below this, the taste vector is too thin to trust, so onboarding still
+ * runs to deepen it (excluding whatever was already swiped on).
+ */
+export const MIN_SWIPES_FOR_TEASER = 6;
+
 export interface SwipedTitleInfo {
   id: string;
   genres: string[];

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { buildGenreAffinity, rankTeaserCandidates, buildTeaserWhy, type AnonSwipe } from "@/lib/recommendations/teaser";
+import { buildDiverseDeck, type DeckTitle } from "@/lib/catalogue/diverse-deck";
 
 /**
  * Anonymous pre-signup taste teaser (see teaser.ts for the scoring logic).
@@ -67,66 +68,12 @@ export async function getTasteTeaser(rawSwipes: AnonSwipe[]): Promise<TeaserPick
   });
 }
 
-/**
- * A diverse ~10-title swipe deck for the landing page's anonymous teaser —
- * deliberately one strong title per anchor genre rather than raw
- * popularity, since a deck of all-the-same-genre blockbusters wouldn't
- * generate enough genre spread for the teaser to say anything meaningful
- * after only 6-8 swipes.
- */
-const ANCHOR_GENRES = [
-  "Drama",
-  "Comedy",
-  "Action",
-  "Thriller",
-  "Horror",
-  "Romance",
-  "Science Fiction",
-  "Fantasy",
-  "Animation",
-  "Crime",
-];
-
-export interface DeckTitle {
-  id: string;
-  name: string;
-  overview: string | null;
-  posterUrl: string | null;
-  year: string | null;
-  runtimeMinutes: number | null;
-  genres: string[];
-}
+// The landing teaser deliberately uses only the first 10 (of 14) anchor
+// genres — see diverse-deck.ts — to keep the pre-signup flow short; the
+// post-signup /onboarding quiz uses the full set for a deeper first pass.
+const LANDING_DECK_SIZE = 10;
 
 export async function getLandingSwipeDeck(): Promise<DeckTitle[]> {
   const supabase = await createClient();
-
-  const results = await Promise.all(
-    ANCHOR_GENRES.map((genre) =>
-      supabase
-        .from("titles")
-        .select("id, name, overview, poster_url, release_date, runtime_minutes, genres")
-        .contains("genres", [genre])
-        .not("poster_url", "is", null)
-        .order("weighted_rating", { ascending: false, nullsFirst: false })
-        .limit(1)
-        .maybeSingle()
-    )
-  );
-
-  const seen = new Set<string>();
-  const deck: DeckTitle[] = [];
-  for (const { data: t } of results) {
-    if (!t || seen.has(t.id)) continue; // same title can be each other's top pick in >1 genre
-    seen.add(t.id);
-    deck.push({
-      id: t.id,
-      name: t.name,
-      overview: t.overview,
-      posterUrl: t.poster_url,
-      year: t.release_date?.slice(0, 4) ?? null,
-      runtimeMinutes: t.runtime_minutes,
-      genres: t.genres ?? [],
-    });
-  }
-  return deck;
+  return buildDiverseDeck(supabase, { limit: LANDING_DECK_SIZE });
 }

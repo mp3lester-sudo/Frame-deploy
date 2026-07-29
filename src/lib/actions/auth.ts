@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { MIN_SWIPES_FOR_TEASER } from "@/lib/recommendations/teaser";
 
 const signUpSchema = z.object({
   email: z.string().email(),
@@ -102,10 +103,12 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
     seededSwipes = await claimAnonymousSwipes(supabase, data.user.id, formData.get("anonymousSwipes") as string | null);
   }
 
-  // Already have real signal from the landing-page teaser — the post-signup
-  // swipe quiz would be redundant (and home is now personalized instead of
-  // a cold-start popularity fallback). Otherwise, same flow as before.
-  redirect(seededSwipes > 0 ? "/" : "/onboarding");
+  // Only skip the post-signup /onboarding quiz if the landing-page teaser
+  // gave a real taste signal (same bar the teaser itself uses to decide
+  // it has enough to show a reveal) — a couple of swipes before bailing
+  // to "skip to signup" is too thin to trust, so onboarding still runs in
+  // that case (excluding whatever was already swiped on) to deepen it.
+  redirect(seededSwipes >= MIN_SWIPES_FOR_TEASER ? "/" : "/onboarding");
 }
 
 export async function signIn(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
