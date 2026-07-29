@@ -27,7 +27,7 @@ const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 const CHAT_MODEL = "gpt-4.1-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small";
-const CONCURRENCY = 8;
+const DEFAULT_CONCURRENCY = 8;
 
 function parseArgs() {
   const args = Object.fromEntries(
@@ -36,7 +36,10 @@ function parseArgs() {
       return [k, v ?? "true"];
     })
   );
-  return { limit: Number(args.limit ?? 25) };
+  return {
+    limit: Number(args.limit ?? 25),
+    concurrency: Number(args.concurrency ?? DEFAULT_CONCURRENCY),
+  };
 }
 
 type Title = {
@@ -152,44 +155,21 @@ async function enrichOne(title: Title) {
 }
 
 async function main() {
-  const { limit } = parseArgs();
+  const { limit, concurrency } = parseArgs();
 
-  // Titles with no row in title_embeddings yet — the one reliable signal
-  // that a title still needs AI enrichment, regardless of what placeholder
-  // values ingest-tmdb.ts left in the taste columns.
-  //
-  // Both queries below paginate with .range() rather than a bare .select(),
-  // because PostgREST silently caps unpaginated selects at 1000 rows. Once
-  // title_embeddings passed 1000 rows, a bare select here only saw an
-  // arbitrary 1000-row slice of "done" ids, so already-embedded titles kept
-  // getting treated as pending and reprocessed for no gain — the fetch of
-  // allTitles below had the identical bug and was fixed first, which is what
-  // exposed this one.
-  const PAGE_SIZE = 1000;
-  const embeddedIds = new Set<string>();
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase.from("title_embeddings").select("title_id").range(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) break;
-    for (const row of data) embeddedIds.add(row.title_id);
-    if (data.length < PAGE_SIZE) break;
-  }
+  // Which titles still need AI enrichment is now computed by a single
+  // indexed anti-join in Postgres (migration 0018) instead of pulling the
+  // entire titles + title_embeddings tables into JS and diffing them
+  // client-side. That client-side approach required ~40 paginated round
+  // trips on every single invocation once the catalogue hit ~36.5k rows —
+  // most of a 45s run was spent computing the pending list, not enriching.
+  // Ordered by TMDB popularity server-side, so the highest-impact titles
+  // (the ones users will actually search for or get recommended) land first.
+  const { data, error } = await supabase.rpc("pending_enrichment_titles", { p_limit: limit });
+  if (error) throw new Error(`pending_enrichment_titles failed: ${error.message}`);
+  const pending = (data ?? []) as Title[];
 
-  const allTitles: Title[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from("titles")
-      .select("id, name, overview, genres")
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) break;
-    allTitles.push(...(data as Title[]));
-    if (data.length < PAGE_SIZE) break;
-  }
-
-  const pending = allTitles.filter((t) => !embeddedIds.has(t.id)).slice(0, limit);
-
-  console.log(`${pending.length} titles need enrichment (of ${allTitles.length} total, limit ${limit}).`);
+  console.log(`${pending.length} titles fetched for enrichment (limit ${limit}, concurrency ${concurrency}).`);
   if (pending.length === 0) {
     console.log("Nothing to do.");
     return;
@@ -197,9 +177,9 @@ async function main() {
 
   let ok = 0;
   let failed = 0;
-  await runWithConcurrency(pending, CONCURRENCY, async (title) => {
+  await runWithConcurrency(pending, concurrency, async (title) => {
     try {
-      await enrichOne(title as Title);
+      await enrichOne(title);
       ok++;
     } catch (e) {
       failed++;
