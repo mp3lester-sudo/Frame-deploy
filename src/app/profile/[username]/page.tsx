@@ -119,42 +119,67 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
 
       {favorites.length > 0 && (
         <div className="mt-6">
-          <h2 className="mb-3 text-lg font-semibold">Favorites</h2>
-          {/* 3-2-1 podium: rank comes from POSITION (alone on top, pair in
-              the middle, trio on the bottom), not from size — every tile is
-              the same width. Each row is its own 6-column grid so a row of
-              1, 2, or 3 all resolve to identical column widths (2 of 6
-              columns per tile) and stay centered regardless of tier. */}
-          <div className="mx-auto flex max-w-[480px] flex-col gap-4">
-            <div className="grid grid-cols-6 gap-4">
-              <div className="col-span-2 col-start-3">
-                <TitleCard title={favorites[0]} highlight />
+          {/* The podium used to sit directly on the page background at a
+              narrow 480px width, which read as an accidentally small
+              widget stranded in a lot of empty page rather than a
+              deliberate section. Wrapping it in a bordered panel (with a
+              faint gold glow behind it) gives the surrounding space a
+              reason to exist — it's the panel's padding, not dead air —
+              and widening the panel lets every tile scale up with it. */}
+          <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border">
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(ellipse at 50% 30%, rgba(205,166,70,0.08), transparent 70%)",
+              }}
+            />
+            <div className="relative px-6 py-8 sm:px-10 sm:py-10">
+              <div className="mb-6 flex items-baseline justify-between">
+                <h2 className="text-lg font-semibold">Favorites</h2>
+                <span className="text-xs text-foreground-muted">
+                  {favorites.length} all-time pick{favorites.length === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              {/* 3-2-1 podium: rank comes from POSITION (alone on top, pair
+                  in the middle, trio on the bottom), not from size — every
+                  tile is the same width. Each row is its own 6-column grid
+                  so a row of 1, 2, or 3 all resolve to identical column
+                  widths (2 of 6 columns per tile) and stay centered
+                  regardless of tier. */}
+              <div className="mx-auto flex max-w-[560px] flex-col gap-5">
+                <div className="grid grid-cols-6 gap-5">
+                  <div className="col-span-2 col-start-3">
+                    <TitleCard title={favorites[0]} highlight />
+                  </div>
+                </div>
+                {favorites.length > 1 && (
+                  <div className="grid grid-cols-6 gap-5">
+                    {favorites.slice(1, 3).map((title, i, arr) => (
+                      <div
+                        key={title.id}
+                        className={`col-span-2 ${centeredColStart(arr.length, i)}`}
+                      >
+                        <TitleCard title={title} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {favorites.length > 3 && (
+                  <div className="grid grid-cols-6 gap-5">
+                    {favorites.slice(3, 6).map((title, i, arr) => (
+                      <div
+                        key={title.id}
+                        className={`col-span-2 ${centeredColStart(arr.length, i)}`}
+                      >
+                        <TitleCard title={title} />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-            {favorites.length > 1 && (
-              <div className="grid grid-cols-6 gap-4">
-                {favorites.slice(1, 3).map((title, i, arr) => (
-                  <div
-                    key={title.id}
-                    className={`col-span-2 ${centeredColStart(arr.length, i)}`}
-                  >
-                    <TitleCard title={title} />
-                  </div>
-                ))}
-              </div>
-            )}
-            {favorites.length > 3 && (
-              <div className="grid grid-cols-6 gap-4">
-                {favorites.slice(3, 6).map((title, i, arr) => (
-                  <div
-                    key={title.id}
-                    className={`col-span-2 ${centeredColStart(arr.length, i)}`}
-                  >
-                    <TitleCard title={title} />
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}
