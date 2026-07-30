@@ -4,8 +4,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOrFetchPersonBio } from "@/lib/external/tmdb-person";
 import { tmdbImageAtSize } from "@/lib/external/tmdb-client";
-import { PersonPortrait } from "@/components/person-portrait";
-import { ExpandableText } from "@/components/ui/expandable-text";
+import { PersonHero } from "@/components/person-hero";
 
 function formatBirthday(iso: string | null): string | null {
   if (!iso) return null;
@@ -42,31 +41,13 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-        <PersonPortrait
-          src={tmdbImageAtSize(person.photo_url, "h632")}
-          name={person.name}
-          className="w-40 shrink-0 sm:w-56"
-        />
-
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold sm:text-3xl">{person.name}</h1>
-          {(birthday || placeOfBirth) && (
-            <p className="mt-1 text-sm text-foreground-muted">
-              {formatBirthday(birthday)}
-              {birthday && placeOfBirth && " · "}
-              {placeOfBirth}
-            </p>
-          )}
-          {bio ? (
-            <div className="mt-4">
-              <ExpandableText text={bio} className="text-sm leading-relaxed text-foreground-muted" />
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-foreground-muted">No biography available yet.</p>
-          )}
-        </div>
-      </div>
+      <PersonHero
+        photoSrc={tmdbImageAtSize(person.photo_url, "h632")}
+        name={person.name}
+        birthdayLabel={formatBirthday(birthday)}
+        placeOfBirth={placeOfBirth}
+        bio={bio}
+      />
 
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-semibold">
