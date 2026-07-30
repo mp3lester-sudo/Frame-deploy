@@ -5,6 +5,7 @@ import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/actions/ensure-profile";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,9 +43,13 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Reads the user middleware already verified for this request instead of
+  // calling supabase.auth.getUser() again here — this layout wraps every
+  // single page, so that redundant call used to happen on every navigation
+  // (and a second time after every Server Action's revalidatePath forced
+  // a re-render), each one a real network round trip to Supabase's Auth
+  // server. See src/lib/auth/verified-user.ts.
+  const user = await getVerifiedUser();
 
   if (user) await ensureProfile(supabase, user);
 

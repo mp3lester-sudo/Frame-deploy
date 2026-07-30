@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { explainTitle } from "@/lib/ai/ending-explainer";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isRateLimited } from "@/lib/rate-limit";
 import { z } from "zod";
 
@@ -8,9 +9,7 @@ const bodySchema = z.object({ titleId: z.string().uuid(), question: z.string().m
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
   if (!user) {
     return NextResponse.json({ error: "Sign in to ask about a title" }, { status: 401 });
   }

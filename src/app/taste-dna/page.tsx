@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { computeTasteDna } from "@/lib/taste-dna/compute";
 import { Button } from "@/components/ui/button";
 
@@ -14,9 +15,7 @@ const PACING_LABEL: Record<string, string> = {
 
 export default async function TasteDnaPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/taste-dna");
 
   const dna = await computeTasteDna(user.id);

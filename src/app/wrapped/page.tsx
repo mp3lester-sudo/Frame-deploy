@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getMyWrapped } from "@/lib/actions/wrapped";
 import { WrappedRecap } from "@/components/wrapped/wrapped-recap";
 import { ShareWrappedButton } from "@/components/wrapped/share-button";
@@ -13,9 +14,7 @@ export default async function WrappedPage({
   searchParams: Promise<{ year?: string }>;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/wrapped");
 
   const now = new Date();

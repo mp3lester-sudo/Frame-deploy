@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { AvatarUpload } from "@/components/settings/avatar-upload";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { FavoriteTitlesEditor } from "@/components/settings/favorite-titles-editor";
@@ -9,9 +10,7 @@ import { LetterboxdPasteImport } from "@/components/settings/letterboxd-paste-im
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/settings");
 
   const [{ data: profile }, { data: favoriteRows }] = await Promise.all([

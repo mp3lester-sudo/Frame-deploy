@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { Avatar } from "@/components/ui/avatar";
 import { TitleCard } from "@/components/title-card";
 import { WatchedTitleCard } from "@/components/profile/watched-title-card";
@@ -26,9 +27,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const { username } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getVerifiedUser();
 
   const resolvedUsername = username === "me" && viewer ? null : username;
 

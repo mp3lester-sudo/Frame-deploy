@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageThread, type DisplayMessage } from "@/components/messages/message-thread";
 import { markConversationRead } from "@/lib/actions/messages";
@@ -8,9 +9,7 @@ import { markConversationRead } from "@/lib/actions/messages";
 export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getVerifiedUser();
   if (!viewer) redirect(`/login?next=/messages/${id}`);
 
   const { data: conversation } = await supabase.from("conversations").select("*").eq("id", id).maybeSingle();

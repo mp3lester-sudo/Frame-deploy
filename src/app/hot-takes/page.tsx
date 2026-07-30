@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "@/components/ui/fade-image";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { ReviewCard } from "@/components/review-card";
 import { aggregateReactions } from "@/lib/reactions/aggregate";
 import { rankByControversy } from "@/lib/reactions/rank";
@@ -13,9 +14,7 @@ const FEED_SIZE = 20;
 
 export default async function HotTakesPage() {
   const supabase = await createClient();
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getVerifiedUser();
 
   const { data: reviews } = await supabase
     .from("reviews")

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { Avatar } from "@/components/ui/avatar";
 import { JoinLeaveClubButton } from "@/components/clubs/join-leave-club-button";
 import { ClubFeed, type ClubPost } from "@/components/clubs/club-feed";
@@ -8,9 +9,7 @@ import { ClubFeed, type ClubPost } from "@/components/clubs/club-feed";
 export default async function ClubDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getVerifiedUser();
 
   const { data: club } = await supabase.from("clubs").select("*").eq("id", id).maybeSingle();
   if (!club) notFound();

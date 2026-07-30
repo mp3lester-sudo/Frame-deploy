@@ -1,5 +1,5 @@
-import type { User } from "@supabase/supabase-js";
 import type { createClient } from "@/lib/supabase/server";
+import type { VerifiedUser } from "@/lib/auth/verified-user";
 
 /**
  * Self-healing guard against a class of bug where an auth.users row exists
@@ -9,10 +9,14 @@ import type { createClient } from "@/lib/supabase/server";
  *
  * Called once per request from the root layout for any authenticated user.
  * Cheap when the profile already exists (one indexed select, no write).
+ *
+ * Takes the already-verified user (see src/lib/auth/verified-user.ts)
+ * rather than the full Supabase `User` type — the layout no longer calls
+ * supabase.auth.getUser() itself to produce one.
  */
 export async function ensureProfile(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  user: User
+  user: VerifiedUser
 ): Promise<void> {
   const { data: existing } = await supabase
     .from("profiles")

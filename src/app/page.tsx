@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
 import { getLandingSwipeDeck } from "@/lib/actions/landing-teaser";
 import { TasteTeaser } from "@/components/landing/taste-teaser";
@@ -28,9 +29,7 @@ export default async function HomePage({
 }) {
   const { context: contextParam } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
 
   if (!user) {
     const deck = await getLandingSwipeDeck();

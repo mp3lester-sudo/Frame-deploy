@@ -1,13 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { OnboardingSwipe, type SwipeTitle } from "@/components/onboarding/onboarding-swipe";
 import { buildDiverseDeck } from "@/lib/catalogue/diverse-deck";
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/onboarding");
 
   // Exclude anything the user's already rated/watched — most commonly from

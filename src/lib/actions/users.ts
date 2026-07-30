@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { PEOPLE_SEARCH_PAGE_SIZE } from "@/lib/constants/social";
 import { buildUserSearchFilter } from "@/lib/search/user-search";
 
@@ -15,9 +16,7 @@ export interface UserSearchResult {
 
 async function searchUsersPage(rawQuery: string, from: number, to: number) {
   const supabase = await createClient();
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getVerifiedUser();
 
   const filter = buildUserSearchFilter(rawQuery);
   if (!filter) return { users: [] as UserSearchResult[], hasMore: false };

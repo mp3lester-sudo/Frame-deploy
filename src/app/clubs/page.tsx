@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { CreateClubForm } from "@/components/clubs/create-club-form";
 
 export default async function ClubsPage() {
   const supabase = await createClient();
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getVerifiedUser();
 
   const [{ data: clubs }, { data: memberships }] = await Promise.all([
     supabase.from("clubs").select("id, name, description, created_at").order("created_at", { ascending: false }),

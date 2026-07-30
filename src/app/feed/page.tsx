@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { Avatar } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "@/lib/date";
 
@@ -13,9 +14,7 @@ const EVENT_COPY: Record<string, (name: string, target: string) => string> = {
 
 export default async function FeedPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
 
   if (!user) {
     return (

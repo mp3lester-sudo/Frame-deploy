@@ -1,6 +1,7 @@
 import Image from "@/components/ui/fade-image";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { RateControl } from "@/components/rate-control";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { AddToListMenu, type AddToListMenuList } from "@/components/add-to-list-menu";
@@ -21,9 +22,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getVerifiedUser();
 
   const [{ data: title }, { data: reviews }, { data: userRating }, { data: credits }, { data: watchlistRow }, { data: myLists }] =
     await Promise.all([

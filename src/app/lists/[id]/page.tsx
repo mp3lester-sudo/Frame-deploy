@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { TitleCard } from "@/components/title-card";
 import { RemoveFromListButton } from "@/components/lists/remove-from-list-button";
 import { DeleteListButton } from "@/components/lists/delete-list-button";
@@ -9,9 +10,7 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getVerifiedUser();
 
   const { data: list } = await supabase.from("lists").select("*").eq("id", id).maybeSingle();
   // RLS already hides private lists from non-owners (the row simply won't

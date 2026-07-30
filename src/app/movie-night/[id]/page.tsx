@@ -2,6 +2,7 @@ import Image from "@/components/ui/fade-image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getCandidatesForMovieNight } from "@/lib/recommendations/movie-night";
 import { reopenMovieNight, cancelMovieNight } from "@/lib/actions/movie-night";
 import { Avatar } from "@/components/ui/avatar";
@@ -22,9 +23,7 @@ interface ParticipantRow {
 export default async function MovieNightDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
   if (!user) redirect(`/login?next=/movie-night/${id}`);
 
   const { data: night } = await supabase

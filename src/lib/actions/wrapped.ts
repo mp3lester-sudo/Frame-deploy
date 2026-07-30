@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { computeWrapped } from "@/lib/taste-dna/compute";
 import type { WrappedResult } from "@/lib/taste-dna/wrapped";
 
@@ -12,10 +13,7 @@ import type { WrappedResult } from "@/lib/taste-dna/wrapped";
  */
 
 export async function getMyWrapped(year: number): Promise<WrappedResult | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
   if (!user) return null;
   return computeWrapped(user.id, year);
 }
@@ -31,9 +29,7 @@ export interface WrappedShareResult {
  */
 export async function createWrappedShare(year: number): Promise<WrappedShareResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
   if (!user) throw new Error("Not authenticated");
 
   const stats = await computeWrapped(user.id, year);

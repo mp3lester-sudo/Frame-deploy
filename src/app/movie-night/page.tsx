@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { createMovieNight } from "@/lib/actions/movie-night";
 import { Button } from "@/components/ui/button";
 
@@ -12,9 +13,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function MovieNightListPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/movie-night");
 
   const { data: memberships } = await supabase

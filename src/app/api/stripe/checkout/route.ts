@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { getStripe, PREMIUM_PRICE_ID } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 
 /** Creates a Stripe Checkout session for the Premium subscription. */
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const stripe = getStripe();

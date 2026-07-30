@@ -1,15 +1,20 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { validateListTitle, validateListDescription, validateListItemNote } from "@/lib/lists/validate";
 
 async function requireUser() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Trusts the user middleware already verified for this request (see
+  // src/lib/auth/verified-user.ts) instead of calling
+  // supabase.auth.getUser() again — that's a real network round trip to
+  // Supabase's Auth server, so re-deriving it here on top of middleware
+  // (and again after this action's revalidatePath re-renders the layout)
+  // was tripling that latency on every single mutating button.
+  const user = await getVerifiedUser();
   if (!user) throw new Error("Not authenticated");
   return { supabase, user };
 }
