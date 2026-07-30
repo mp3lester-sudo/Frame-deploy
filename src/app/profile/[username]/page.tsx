@@ -106,10 +106,23 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       {favorites.length > 0 && (
         <div className="mt-6">
           <h2 className="mb-3 text-lg font-semibold">Favorites</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {favorites.map((title) => (
-              <TitleCard key={title.id} title={title} />
-            ))}
+          {/* Pyramid: the #1 favorite (position 1, set via the first slot
+              in the editor) gets a bigger, centered spot on top instead of
+              sitting flush in an even row with the rest — one crowned
+              pick reads as an actual ranking, not just four posters. */}
+          <div className="mx-auto flex max-w-[420px] flex-col items-center gap-4">
+            <div className="w-[36%] sm:w-[30%]">
+              <TitleCard title={favorites[0]} />
+            </div>
+            {favorites.length > 1 && (
+              <div className="flex w-full justify-center gap-4">
+                {favorites.slice(1, 4).map((title) => (
+                  <div key={title.id} className="w-1/3">
+                    <TitleCard title={title} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

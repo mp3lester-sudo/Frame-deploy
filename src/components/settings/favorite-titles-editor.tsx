@@ -8,6 +8,49 @@ import { Button } from "@/components/ui/button";
 
 type PickerTitle = { id: string; name: string; release_date: string | null; poster_url: string | null };
 
+function FavoriteSlot({
+  fav,
+  label,
+  onOpen,
+  onRemove,
+}: {
+  fav: PickerTitle | null;
+  label?: string;
+  onOpen: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="relative block aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] border border-dashed border-border bg-surface transition-colors hover:border-border-strong"
+      >
+        {fav?.poster_url ? (
+          <Image src={fav.poster_url} alt={fav.name} fill className="object-cover" sizes="140px" />
+        ) : (
+          <span className="flex h-full items-center justify-center text-2xl text-foreground-muted">+</span>
+        )}
+      </button>
+      {label && (
+        <span className="absolute left-1 top-1 rounded-[var(--radius-sm)] bg-background px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
+          {label}
+        </span>
+      )}
+      {fav && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove ${fav.name}`}
+          className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-foreground-muted hover:text-danger"
+        >
+          <X size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function FavoriteTitlesEditor({ initialFavorites }: { initialFavorites: PickerTitle[] }) {
   const [favorites, setFavorites] = useState<(PickerTitle | null)[]>(() => {
     const slots: (PickerTitle | null)[] = [null, null, null, null];
@@ -68,33 +111,32 @@ export function FavoriteTitlesEditor({ initialFavorites }: { initialFavorites: P
 
   return (
     <div>
-      <p className="mb-3 text-[11px] uppercase tracking-wider text-foreground-muted">Your four favorites</p>
-      <div className="grid grid-cols-4 gap-3">
-        {favorites.map((fav, i) => (
-          <div key={i} className="relative">
-            <button
-              type="button"
-              onClick={() => openSlot(i)}
-              className="relative block aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] border border-dashed border-border bg-surface transition-colors hover:border-border-strong"
-            >
-              {fav?.poster_url ? (
-                <Image src={fav.poster_url} alt={fav.name} fill className="object-cover" sizes="140px" />
-              ) : (
-                <span className="flex h-full items-center justify-center text-2xl text-foreground-muted">+</span>
-              )}
-            </button>
-            {fav && (
-              <button
-                type="button"
-                onClick={() => removeSlot(i)}
-                aria-label={`Remove ${fav.name}`}
-                className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-foreground-muted hover:text-danger"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
-        ))}
+      <p className="mb-3 text-[11px] uppercase tracking-wider text-foreground-muted">
+        Your four favorites
+      </p>
+      {/* Slot 0 is your profile's crowned #1 pick — shown bigger here too,
+          so the editor previews the same pyramid the profile page renders
+          instead of four identical-looking boxes with a hidden ranking. */}
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-[36%] sm:w-[30%]">
+          <FavoriteSlot
+            fav={favorites[0]}
+            label="#1"
+            onOpen={() => openSlot(0)}
+            onRemove={() => removeSlot(0)}
+          />
+        </div>
+        <div className="flex w-full max-w-[420px] justify-center gap-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="w-1/3">
+              <FavoriteSlot
+                fav={favorites[i]}
+                onOpen={() => openSlot(i)}
+                onRemove={() => removeSlot(i)}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {activeSlot !== null && (
