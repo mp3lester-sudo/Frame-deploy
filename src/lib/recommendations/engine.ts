@@ -3,6 +3,7 @@ import type { Database } from "@/lib/supabase/types";
 import { contextMultiplier } from "./context-weighting";
 import { weatherTimeMultiplier, weatherTimeNote, type WeatherTimeSignal } from "./weather-time-weighting";
 import { qualityMultiplier } from "./quality-weighting";
+import { computeGenreAffinity, genreAffinityMultiplier } from "./genre-affinity";
 import { calibrateMatchPercents } from "./match-percent";
 import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
@@ -70,10 +71,26 @@ export async function getRecommendationsForUser(
   // (something_short's runtime cap), so ranking needs a wide enough pool
   // that a hard exclusion doesn't leave the final list short.
   const CANDIDATE_POOL_MULTIPLIER = 6;
-  const [{ data: contentMatches }, { data: collabMatches }] = await Promise.all([
+  const [{ data: contentMatches }, { data: collabMatches }, { data: userRatings }] = await Promise.all([
     supabase.rpc("match_titles_for_user", { p_user_id: userId, p_match_count: limit * CANDIDATE_POOL_MULTIPLIER }),
     supabase.rpc("similar_users_liked", { p_user_id: userId, p_match_count: limit * CANDIDATE_POOL_MULTIPLIER }),
+    // Feeds genre-level negative signal (below) — deliberately a plain
+    // ratings query, not the RPCs above, since this needs the user's own
+    // raw scores + genres, not a similarity metric.
+    supabase.from("ratings").select("score, title_id").eq("user_id", userId),
   ]);
+
+  // Genre affinity needs each rated title's genres, which the ratings query
+  // above doesn't have — a second lookup, but bounded by this user's rating
+  // count (typically dozens-hundreds), not the catalogue.
+  const ratedTitleIds = [...new Set((userRatings ?? []).map((r) => r.title_id))];
+  const { data: ratedTitleGenres } = ratedTitleIds.length
+    ? await supabase.from("titles").select("id, genres").in("id", ratedTitleIds)
+    : { data: [] };
+  const genresByRatedTitleId = new Map((ratedTitleGenres ?? []).map((t) => [t.id, t.genres]));
+  const genreAffinity = computeGenreAffinity(
+    (userRatings ?? []).map((r) => ({ score: r.score, genres: genresByRatedTitleId.get(r.title_id) ?? null }))
+  );
 
   const blended = new Map<string, number>();
   for (const m of contentMatches ?? []) {
@@ -95,6 +112,17 @@ export async function getRecommendationsForUser(
   const { data: candidateTitles } = await supabase.from("titles").select("*").in("id", candidateIds);
   const byId = new Map((candidateTitles ?? []).map((t) => [t.id, t]));
 
+  // Non-taste adjustments (context/weather/quality/genre-affinity) combine
+  // as a SUM of deltas-from-1, not a product. Multiplying four independent
+  // multipliers compounds fast — a date-night violence penalty (0.5x) times
+  // a quality floor (0.6x) times a cold-weather mismatch (0.9x) times a
+  // disliked-genre penalty (0.7x) is 0.19x, nearly zeroing out a title that
+  // might still be this user's best taste match. Summing deltas instead
+  // (each signal nudges up or down independently, then the total is
+  // clamped) keeps every signal meaningful without any handful of soft
+  // nudges accidentally acting like a hard exclusion.
+  const MIN_TOTAL_ADJUSTMENT = 0.45;
+  const MAX_TOTAL_ADJUSTMENT = 1.6;
   const adjusted: { id: string; score: number }[] = [];
   for (const [id, score] of blended.entries()) {
     const title = byId.get(id);
@@ -106,7 +134,10 @@ export async function getRecommendationsForUser(
     // for why this is never a hard exclusion.
     const weatherMult = weather ? weatherTimeMultiplier(title, weather) : 1;
     const qualityMult = qualityMultiplier(title.weighted_rating);
-    adjusted.push({ id, score: score * contextMult * weatherMult * qualityMult });
+    const genreMult = genreAffinityMultiplier(title.genres, genreAffinity);
+    const totalDelta = (contextMult - 1) + (weatherMult - 1) + (qualityMult - 1) + (genreMult - 1);
+    const totalAdjustment = Math.max(MIN_TOTAL_ADJUSTMENT, Math.min(MAX_TOTAL_ADJUSTMENT, 1 + totalDelta));
+    adjusted.push({ id, score: score * totalAdjustment });
   }
 
   const rankedIds = adjusted
