@@ -88,27 +88,34 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           </div>
         )}
         {isOwnProfile && (
-          <div className="flex flex-col items-end gap-1">
-            <Link href="/settings" className="text-xs uppercase tracking-wider text-accent hover:brightness-110">
+          // Pill row matching Discover's genre filters / the movie page's
+          // Watchlist-Add-to-list pair, rather than four bare stacked text
+          // links — the one bit of the app that hadn't picked up that
+          // language yet.
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link
+              href="/settings"
+              className="rounded-[var(--radius-full)] bg-accent px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-accent-foreground hover:brightness-110"
+            >
               Edit profile
             </Link>
             <Link
               href="/taste-dna"
-              className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent"
+              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
             >
-              View Taste DNA &rarr;
+              Taste DNA
             </Link>
             <Link
               href="/watchlist"
-              className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent"
+              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
             >
-              Watchlist &rarr;
+              Watchlist
             </Link>
             <Link
               href="/lists"
-              className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent"
+              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
             >
-              Your lists &rarr;
+              Your lists
             </Link>
           </div>
         )}

@@ -67,11 +67,17 @@ export default async function HotTakesPage() {
             const rating = ratingByReviewerAndTitle.get(`${review.user_id}|${review.title_id}`);
 
             return (
-              <div key={reviewId}>
+              // The title link and the review used to be two separate
+              // blocks stacked with no shared container — a poster/title
+              // row, then a totally distinct avatar/name row right below
+              // it. Wrapping both in one bordered card ties them together
+              // as "this review, about this movie, by this person" the way
+              // every other card-based screen in the app already reads.
+              <div key={reviewId} className="rounded-[var(--radius-lg)] border border-border bg-surface p-4">
                 {title && (
                   <Link
                     href={`/movie/${title.id}`}
-                    className="mb-2 flex items-center gap-2 text-sm text-foreground-muted hover:text-accent"
+                    className="mb-3 flex items-center gap-2 text-sm text-foreground-muted hover:text-accent"
                   >
                     {title.poster_url && (
                       <span className="relative block h-9 w-6 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-surface-raised">

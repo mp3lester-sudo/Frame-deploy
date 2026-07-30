@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { CreateClubForm } from "@/components/clubs/create-club-form";
+import { Avatar } from "@/components/ui/avatar";
 
 export default async function ClubsPage() {
   const supabase = await createClient();
@@ -35,21 +36,32 @@ export default async function ClubsPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {clubs.map((club) => (
+            // An avatar badge (same initials-fallback used for people) gives
+            // each club a visual anchor — previously this was three lines of
+            // plain stacked text with nothing to distinguish one club's card
+            // from another at a glance.
             <Link
               key={club.id}
               href={`/clubs/${club.id}`}
-              className="rounded-[var(--radius-md)] border border-border bg-surface p-4 hover:border-accent/50"
+              className="flex items-center gap-4 rounded-[var(--radius-md)] border border-border bg-surface p-4 transition-colors hover:border-accent/50"
             >
-              <div className="flex items-center justify-between">
-                <p className="font-medium">{club.name}</p>
-                {myClubIds.has(club.id) && (
-                  <span className="text-xs uppercase tracking-wide text-accent">Member</span>
+              <Avatar name={club.name} size={44} className="shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate font-medium">{club.name}</p>
+                  {myClubIds.has(club.id) && (
+                    <span className="shrink-0 rounded-[var(--radius-full)] border border-accent/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-accent">
+                      Member
+                    </span>
+                  )}
+                </div>
+                {club.description && (
+                  <p className="mt-0.5 truncate text-sm text-foreground-muted">{club.description}</p>
                 )}
               </div>
-              {club.description && <p className="mt-1 text-sm text-foreground-muted">{club.description}</p>}
-              <p className="mt-2 text-xs text-foreground-muted">
+              <span className="shrink-0 text-xs text-foreground-muted">
                 {memberCounts.get(club.id) ?? 0} member{(memberCounts.get(club.id) ?? 0) === 1 ? "" : "s"}
-              </p>
+              </span>
             </Link>
           ))}
         </div>
