@@ -45,14 +45,24 @@ export default async function TasteDnaPage() {
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="font-display text-3xl">Your Taste DNA</h1>
-      <p className="mt-2 text-sm text-foreground-muted">
-        Based on {dna.sampleSize} rated title{dna.sampleSize === 1 ? "" : "s"}
-        {hasEnrichedData
-          ? ` (${dna.enrichedSampleSize} with full AI tagging)`
-          : " — tone and mood dimensions unlock once your ratings include AI-tagged titles"}
-        .
-      </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl">Your Taste DNA</h1>
+          <p className="mt-2 text-sm text-foreground-muted">
+            Based on {dna.sampleSize} rated title{dna.sampleSize === 1 ? "" : "s"}
+            {hasEnrichedData
+              ? ` (${dna.enrichedSampleSize} with full AI tagging)`
+              : " — tone and mood dimensions unlock once your ratings include AI-tagged titles"}
+            .
+          </p>
+        </div>
+        <Link
+          href="/wrapped"
+          className="hidden shrink-0 whitespace-nowrap rounded-[var(--radius-full)] border border-accent/40 px-3 py-1.5 text-xs text-accent hover:bg-accent/10 sm:block"
+        >
+          See your Wrapped &rarr;
+        </Link>
+      </div>
 
       <div className="mt-8 flex flex-col gap-4">
         {topArchetypes.map((a) => (

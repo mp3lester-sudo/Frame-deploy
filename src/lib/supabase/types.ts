@@ -383,6 +383,12 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      wrapped_shares: {
+        Row: { id: string; user_id: string; year: number; stats: Record<string, unknown>; created_at: string };
+        Insert: { user_id: string; year: number; stats: Record<string, unknown> };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, UsersRound, Mail } from "lucide-react";
+import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, UsersRound, Mail, Gift } from "lucide-react";
 
 const links = [
   { href: "/discover", label: "Discover", icon: Compass },
   { href: "/taste-dna", label: "Taste DNA", icon: Dna },
+  { href: "/wrapped", label: "Wrapped", icon: Gift },
   { href: "/ai", label: "Ask Backlot", icon: Sparkles },
   { href: "/feed", label: "Social", icon: Users },
   { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
