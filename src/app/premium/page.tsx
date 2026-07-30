@@ -28,7 +28,7 @@ export default function PremiumPage() {
   return (
     <div className="mx-auto max-w-md px-4 py-16">
       <Card className="p-6">
-        <h1 className="text-xl font-semibold">Taste Premium</h1>
+        <h1 className="text-xl font-semibold">Backlot Premium</h1>
         <p className="mt-1 text-sm text-foreground-muted">$7.99/month</p>
 
         <ul className="mt-4 flex flex-col gap-2 text-sm">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TitleCard } from "@/components/title-card";
@@ -15,12 +16,14 @@ export default function AskBacklotPage() {
   const [picks, setPicks] = useState<Pick[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [upgradeUrl, setUpgradeUrl] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
     setLoading(true);
     setError(null);
+    setUpgradeUrl(null);
     try {
       const res = await fetch("/api/ai/concierge", {
         method: "POST",
@@ -28,7 +31,10 @@ export default function AskBacklotPage() {
         body: JSON.stringify({ message: query }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Something went wrong");
+      if (!res.ok) {
+        setUpgradeUrl(data.upgradeUrl ?? null);
+        throw new Error(data.error ?? "Something went wrong");
+      }
       setMessage(data.message);
       setPicks(data.recommendations ?? []);
     } catch (err) {
@@ -57,7 +63,20 @@ export default function AskBacklotPage() {
         </Button>
       </form>
 
-      {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+      {error && (
+        <p className="mt-4 text-sm text-danger">
+          {error}
+          {upgradeUrl && (
+            <>
+              {" "}
+              <Link href={upgradeUrl} className="text-accent hover:underline">
+                Upgrade to Premium
+              </Link>{" "}
+              for unlimited conversations.
+            </>
+          )}
+        </p>
+      )}
       {message && <p className="mt-6 text-sm text-foreground-muted">{message}</p>}
 
       {picks.length > 0 && (
