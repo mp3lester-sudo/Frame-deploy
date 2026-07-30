@@ -1,7 +1,7 @@
 "use client";
 
 import Image, { type ImageProps } from "next/image";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,13 +13,27 @@ import { cn } from "@/lib/utils";
  *
  * Usage: `import Image from "@/components/ui/fade-image"` — same API as
  * next/image, so no call sites need to change beyond the import line.
+ *
+ * Why the ref callback, not just onLoad: if the browser already has the
+ * image in its HTTP cache (e.g. revisiting a page), it can decode and
+ * paint the <img> before React finishes attaching the onLoad listener,
+ * so `load` never fires and the image is stuck invisible forever. The
+ * ref callback checks `img.complete` the moment the node mounts to catch
+ * that case; onLoad remains the path for a genuine first-time fetch.
  */
 export default function FadeImage({ className, onLoad, ...props }: ImageProps) {
   const [loaded, setLoaded] = useState(false);
 
+  const checkAlreadyComplete = useCallback((img: HTMLImageElement | null) => {
+    if (img && img.complete && img.naturalWidth > 0) {
+      setLoaded(true);
+    }
+  }, []);
+
   return (
     <Image
       {...props}
+      ref={checkAlreadyComplete}
       className={cn(
         "transition-opacity duration-500 ease-out",
         loaded ? "opacity-100" : "opacity-0",
