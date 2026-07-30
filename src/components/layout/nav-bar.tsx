@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, UsersRound, Mail, Star } from "lucide-react";
+import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, UsersRound, Mail } from "lucide-react";
 
 const links = [
   { href: "/discover", label: "Discover", icon: Compass },
@@ -8,7 +8,6 @@ const links = [
   { href: "/feed", label: "Social", icon: Users },
   { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
   { href: "/clubs", label: "Clubs", icon: UsersRound },
-  { href: "/game-pass", label: "Game Pass", icon: Star },
 ];
 
 export function NavBar({ isAuthed, unreadMessageCount = 0 }: { isAuthed: boolean; unreadMessageCount?: number }) {
