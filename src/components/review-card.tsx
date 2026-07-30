@@ -2,12 +2,14 @@ import { Avatar } from "@/components/ui/avatar";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ReviewReactionBar } from "@/components/review-reaction-bar";
 import { ReviewComments, type DisplayComment } from "@/components/review-comments";
+import { DeleteReviewButton } from "@/components/delete-review-button";
 import { formatDistanceToNow } from "@/lib/date";
 import { emptyReactionSummary } from "@/lib/reactions/aggregate";
 import type { ReactionSummary } from "@/lib/reactions/aggregate";
 
 export function ReviewCard({
   reviewId,
+  authorId,
   authorName,
   authorAvatarUrl,
   rating,
@@ -21,6 +23,11 @@ export function ReviewCard({
   showComments = true,
 }: {
   reviewId: string;
+  /** Compared against viewerId to decide whether the "Delete" affordance
+   *  shows — undo for an accidental/regretted review. Optional so existing
+   *  call sites that haven't been updated yet don't break; the delete
+   *  option simply won't render for them. */
+  authorId?: string | null;
   authorName: string;
   authorAvatarUrl?: string | null;
   rating?: number | null;
@@ -34,6 +41,7 @@ export function ReviewCard({
   /** Shows the full comment thread by default; set false on dense multi-review feeds (e.g. Hot Takes) to keep them scannable — full discussion is still one click away on the movie page. */
   showComments?: boolean;
 }) {
+  const isOwnReview = !!viewerId && !!authorId && viewerId === authorId;
   const { counts, myReaction } = reactions ?? emptyReactionSummary();
   return (
     <div className="border-b border-border py-4 last:border-0">
@@ -54,6 +62,11 @@ export function ReviewCard({
         </details>
       ) : (
         <p className="text-sm leading-relaxed">{body}</p>
+      )}
+      {isOwnReview && (
+        <div className="mt-2 flex justify-end">
+          <DeleteReviewButton reviewId={reviewId} />
+        </div>
       )}
       <ReviewReactionBar reviewId={reviewId} initialCounts={counts} initialMyReaction={myReaction} canReact={canReact} />
       {showComments && (

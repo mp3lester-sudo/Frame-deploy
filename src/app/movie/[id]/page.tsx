@@ -179,6 +179,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
             <ReviewCard
               key={r.id}
               reviewId={r.id}
+              authorId={r.user_id}
               authorName={(r as unknown as { profiles: { username: string } }).profiles?.username ?? "Someone"}
               authorAvatarUrl={(r as unknown as { profiles: { avatar_url: string | null } }).profiles?.avatar_url}
               body={r.body}

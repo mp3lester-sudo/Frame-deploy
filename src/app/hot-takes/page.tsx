@@ -89,6 +89,7 @@ export default async function HotTakesPage() {
                 )}
                 <ReviewCard
                   reviewId={review.id}
+                  authorId={review.user_id}
                   authorName={profile?.username ?? "Someone"}
                   authorAvatarUrl={profile?.avatar_url}
                   body={review.body}

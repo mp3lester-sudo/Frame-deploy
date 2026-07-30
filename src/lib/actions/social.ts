@@ -102,6 +102,44 @@ export async function writeReview(input: z.infer<typeof reviewSchema>) {
   revalidatePath(`/movie/${titleId}`);
 }
 
+// Undo for an accidental/regretted review — mirrors unrateTitle's pattern
+// (own-row delete + matching activity_events cleanup) but leaves the star
+// rating alone, since a review and a rating are separate rows a user might
+// reasonably want to walk back independently (e.g. keep the rating, delete
+// a review they wrote in the heat of the moment).
+export async function deleteReview(reviewId: string) {
+  const schema = z.object({ reviewId: z.string().uuid() });
+  const { reviewId: id } = schema.parse({ reviewId });
+  const { supabase, user } = await requireUser();
+
+  const { data: review } = await supabase
+    .from("reviews")
+    .select("title_id")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!review) throw new Error("Review not found");
+
+  // RLS ("users delete own reviews") already scopes this to the owner, but
+  // the explicit .eq("user_id", ...) keeps intent obvious here too.
+  const { error } = await supabase.from("reviews").delete().eq("id", id).eq("user_id", user.id);
+  if (error) throw new Error(error.message);
+
+  // review_reactions and review_comments cascade-delete with the review at
+  // the DB level (see migrations 0001/0012); activity_events doesn't have a
+  // FK to reviews (sibling reference via ref_id), so it needs its own
+  // cleanup, same as unrateTitle does for "rated" events.
+  await supabase
+    .from("activity_events")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("ref_id", id)
+    .eq("event_type", "reviewed");
+
+  revalidatePath(`/movie/${review.title_id}`);
+  revalidatePath("/hot-takes");
+}
+
 export async function toggleFollow(followeeId: string) {
   const { supabase, user } = await requireUser();
   if (user.id === followeeId) throw new Error("Cannot follow yourself");
