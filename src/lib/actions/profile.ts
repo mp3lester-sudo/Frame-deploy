@@ -84,9 +84,9 @@ export async function searchTitlesForPicker(query: string) {
   return data ?? [];
 }
 
-const favoritesSchema = z.array(z.string().uuid()).max(4);
+const favoritesSchema = z.array(z.string().uuid()).max(6);
 
-/** Replaces the user's four favorite films in one go, in the given order (position 1-4). */
+/** Replaces the user's six favorite films in one go, in the given order (position 1-6). */
 export async function setFavoriteTitles(titleIds: string[]) {
   const parsed = favoritesSchema.parse(titleIds);
   const { supabase, user } = await requireUser();

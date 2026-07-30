@@ -53,8 +53,8 @@ function FavoriteSlot({
 
 export function FavoriteTitlesEditor({ initialFavorites }: { initialFavorites: PickerTitle[] }) {
   const [favorites, setFavorites] = useState<(PickerTitle | null)[]>(() => {
-    const slots: (PickerTitle | null)[] = [null, null, null, null];
-    initialFavorites.slice(0, 4).forEach((t, i) => {
+    const slots: (PickerTitle | null)[] = [null, null, null, null, null, null];
+    initialFavorites.slice(0, 6).forEach((t, i) => {
       slots[i] = t;
     });
     return slots;
@@ -112,13 +112,14 @@ export function FavoriteTitlesEditor({ initialFavorites }: { initialFavorites: P
   return (
     <div>
       <p className="mb-3 text-[11px] uppercase tracking-wider text-foreground-muted">
-        Your four favorites
+        Your six favorites
       </p>
-      {/* Slot 0 is your profile's crowned #1 pick — shown bigger here too,
-          so the editor previews the same pyramid the profile page renders
-          instead of four identical-looking boxes with a hidden ranking. */}
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-[36%] sm:w-[30%]">
+      {/* 3-2-1 podium: rank alone (not just a label) carries the hierarchy —
+          1 crowned pick on top, 2 runners-up in the middle, 3 more across
+          the bottom. Sizes step down tier by tier so it reads as a ranking
+          at a glance, matching what the profile page renders. */}
+      <div className="mx-auto flex max-w-[480px] flex-col items-center gap-3">
+        <div className="w-[32%]">
           <FavoriteSlot
             fav={favorites[0]}
             label="#1"
@@ -126,9 +127,20 @@ export function FavoriteTitlesEditor({ initialFavorites }: { initialFavorites: P
             onRemove={() => removeSlot(0)}
           />
         </div>
-        <div className="flex w-full max-w-[420px] justify-center gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="w-1/3">
+        <div className="flex w-[64%] justify-center gap-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="w-1/2">
+              <FavoriteSlot
+                fav={favorites[i]}
+                onOpen={() => openSlot(i)}
+                onRemove={() => removeSlot(i)}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex w-full justify-center gap-3">
+          {[3, 4, 5].map((i) => (
+            <div key={i} className="w-1/5">
               <FavoriteSlot
                 fav={favorites[i]}
                 onOpen={() => openSlot(i)}

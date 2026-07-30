@@ -106,18 +106,28 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       {favorites.length > 0 && (
         <div className="mt-6">
           <h2 className="mb-3 text-lg font-semibold">Favorites</h2>
-          {/* Pyramid: the #1 favorite (position 1, set via the first slot
-              in the editor) gets a bigger, centered spot on top instead of
-              sitting flush in an even row with the rest — one crowned
-              pick reads as an actual ranking, not just four posters. */}
-          <div className="mx-auto flex max-w-[420px] flex-col items-center gap-4">
-            <div className="w-[36%] sm:w-[30%]">
+          {/* 3-2-1 podium: the #1 favorite (position 1, set via the first
+              slot in the editor) sits alone on top, #2/#3 form a middle
+              row, and #4-6 fill the widest row at the bottom — size steps
+              down tier by tier so it reads as an actual ranking, not just
+              six posters in a grid. */}
+          <div className="mx-auto flex max-w-[480px] flex-col items-center gap-4">
+            <div className="w-[32%]">
               <TitleCard title={favorites[0]} />
             </div>
             {favorites.length > 1 && (
+              <div className="flex w-[64%] justify-center gap-4">
+                {favorites.slice(1, 3).map((title) => (
+                  <div key={title.id} className="w-1/2">
+                    <TitleCard title={title} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {favorites.length > 3 && (
               <div className="flex w-full justify-center gap-4">
-                {favorites.slice(1, 4).map((title) => (
-                  <div key={title.id} className="w-1/3">
+                {favorites.slice(3, 6).map((title) => (
+                  <div key={title.id} className="w-1/5">
                     <TitleCard title={title} />
                   </div>
                 ))}
