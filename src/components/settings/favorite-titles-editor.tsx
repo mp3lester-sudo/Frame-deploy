@@ -5,17 +5,22 @@ import Image from "@/components/ui/fade-image";
 import { X, Search } from "lucide-react";
 import { searchTitlesForPicker, setFavoriteTitles } from "@/lib/actions/profile";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type PickerTitle = { id: string; name: string; release_date: string | null; poster_url: string | null };
 
 function FavoriteSlot({
   fav,
   label,
+  highlight,
   onOpen,
   onRemove,
 }: {
   fav: PickerTitle | null;
   label?: string;
+  /** Matches TitleCard's highlight treatment so the #1 slot previews the
+      same gold rim it'll get on the actual profile. */
+  highlight?: boolean;
   onOpen: () => void;
   onRemove: () => void;
 }) {
@@ -24,7 +29,12 @@ function FavoriteSlot({
       <button
         type="button"
         onClick={onOpen}
-        className="relative block aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] border border-dashed border-border bg-surface transition-colors hover:border-border-strong"
+        className={cn(
+          "relative block aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] bg-surface transition-colors",
+          highlight
+            ? "border-2 border-accent shadow-[0_0_20px_-4px_rgba(205,166,70,0.65)]"
+            : "border border-dashed border-border hover:border-border-strong"
+        )}
       >
         {fav?.poster_url ? (
           <Image src={fav.poster_url} alt={fav.name} fill className="object-cover" sizes="140px" />
@@ -125,6 +135,7 @@ export function FavoriteTitlesEditor({ initialFavorites }: { initialFavorites: P
             <FavoriteSlot
               fav={favorites[0]}
               label="#1"
+              highlight
               onOpen={() => openSlot(0)}
               onRemove={() => removeSlot(0)}
             />

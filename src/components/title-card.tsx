@@ -1,13 +1,30 @@
 import Image from "@/components/ui/fade-image";
 import Link from "next/link";
 import type { Database } from "@/lib/supabase/types";
+import { cn } from "@/lib/utils";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
-export function TitleCard({ title, reason }: { title: Title; reason?: string }) {
+export function TitleCard({
+  title,
+  reason,
+  highlight,
+}: {
+  title: Title;
+  reason?: string;
+  /** Gold rim + soft glow for a single "this is the one" tile — e.g. the
+      #1 spot on the favorites podium. Not meant for routine use. */
+  highlight?: boolean;
+}) {
   return (
     <Link href={`/movie/${title.id}`} className="group block">
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] bg-surface-raised">
+      <div
+        className={cn(
+          "relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] bg-surface-raised",
+          highlight &&
+            "ring-2 ring-accent shadow-[0_0_20px_-4px_rgba(205,166,70,0.65)]"
+        )}
+      >
         {title.poster_url ? (
           <Image
             src={title.poster_url}

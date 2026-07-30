@@ -127,7 +127,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           <div className="mx-auto flex max-w-[480px] flex-col gap-4">
             <div className="grid grid-cols-6 gap-4">
               <div className="col-span-2 col-start-3">
-                <TitleCard title={favorites[0]} />
+                <TitleCard title={favorites[0]} highlight />
               </div>
             </div>
             {favorites.length > 1 && (
