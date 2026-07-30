@@ -6,6 +6,7 @@ import { RateControl } from "@/components/rate-control";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { AddToListMenu, type AddToListMenuList } from "@/components/add-to-list-menu";
 import { ReviewCard } from "@/components/review-card";
+import { WriteReviewForm } from "@/components/write-review-form";
 import { CreditsSection, type Credit } from "@/components/credits-row";
 import { Badge } from "@/components/ui/badge";
 import { RtBadge } from "@/components/rt-badge";
@@ -174,6 +175,11 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-semibold">Reviews</h2>
+        {viewer && (
+          <div className="mb-4">
+            <WriteReviewForm titleId={title.id} />
+          </div>
+        )}
         {reviews?.length ? (
           reviews.map((r) => (
             <ReviewCard
