@@ -179,8 +179,8 @@ export default async function HomePage({
         <ContextCards day={day} time={time} location={location} weather={weather} />
       </div>
 
-      <h1 className="font-display mt-5 text-3xl">
-        {greeting}, {firstName}.
+      <h1 className="font-display mt-5 text-4xl leading-tight tracking-tight sm:text-5xl">
+        {greeting}, <span className="italic text-accent">{firstName}</span>.
       </h1>
       {ratedCount ? (
         <p className="mt-1.5 text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
