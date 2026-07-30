@@ -53,6 +53,7 @@ export interface Database {
           imdb_id: string | null;
           rt_critic_score: number | null;
           rt_checked_at: string | null;
+          streaming_checked_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -285,6 +286,7 @@ export interface Database {
           region: string;
           offer_type: "subscription" | "rent" | "buy";
           url: string | null;
+          logo_url: string | null;
           updated_at: string;
         };
         Insert: {
@@ -293,8 +295,9 @@ export interface Database {
           region?: string;
           offer_type: "subscription" | "rent" | "buy";
           url?: string;
+          logo_url?: string;
         };
-        Update: Partial<{ url: string }>;
+        Update: Partial<{ url: string; logo_url: string }>;
         Relationships: [];
       };
       taste_attributes: {

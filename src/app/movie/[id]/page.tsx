@@ -14,6 +14,8 @@ import { aggregateReactions } from "@/lib/reactions/aggregate";
 import type { DisplayComment } from "@/components/review-comments";
 import { getOrFetchRtCriticScore } from "@/lib/external/rotten-tomatoes";
 import { getTmdbReviews } from "@/lib/external/tmdb-reviews";
+import { getOrFetchWatchProviders } from "@/lib/external/tmdb-watch-providers";
+import { WhereToWatch } from "@/components/where-to-watch";
 
 export default async function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -55,9 +57,10 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
   if (!title) notFound();
 
-  const [rtScore, tmdbReviews] = await Promise.all([
+  const [rtScore, tmdbReviews, watchProviders] = await Promise.all([
     getOrFetchRtCriticScore(title),
     title.tmdb_id ? getTmdbReviews(title.tmdb_id, title.type) : Promise.resolve([]),
+    getOrFetchWatchProviders(title),
   ]);
 
   const myListIds = (myLists ?? []).map((l) => l.id);
@@ -153,6 +156,8 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
           <p className="mt-4 text-sm leading-relaxed text-foreground-muted">{title.overview}</p>
 
           <CreditsSection credits={(credits ?? []) as unknown as Credit[]} />
+
+          <WhereToWatch offers={watchProviders} />
 
           <div className="mt-6">
             <p className="mb-1 text-xs uppercase tracking-wide text-foreground-muted">Your rating</p>
