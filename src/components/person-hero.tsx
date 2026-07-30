@@ -1,23 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { PersonPortrait } from "@/components/person-portrait";
-import { cn } from "@/lib/utils";
-
-/** Below this length, a bio just renders as a normal paragraph — no toggle
- *  UI at all for the common case of a short, already-tidy bio. Above it,
- *  clamp to a few lines and offer a "Show more" toggle rather than dumping
- *  a wall of text (some TMDB bios run to multiple paragraphs). */
-const LONG_TEXT_THRESHOLD = 380;
-const CLAMPED_LINES = 5;
 
 /**
  * Portrait + name/meta/bio header for a person profile page, as one client
- * component. The "Show more" toggle sits directly under the portrait (not
- * at the bottom of the bio text) while still controlling the bio's clamp
- * state — the two live in different flex columns, so the expanded/collapsed
- * state has to be owned by a common parent rather than by the bio text
- * itself (which is why this isn't just <ExpandableText> reused twice).
+ * component. Unlike a fixed line-clamp, the bio is only truncated (and the
+ * "Show more" toggle only shown) once the bio's own natural height would run
+ * past the bottom of the portrait photo — a short bio that already fits
+ * alongside the photo renders in full with no toggle at all. The toggle
+ * lives directly under the portrait rather than under the bio text, so its
+ * expanded/collapsed state has to be owned by this shared parent rather
+ * than by the bio text itself.
  */
 export function PersonHero({
   photoSrc,
@@ -33,13 +27,45 @@ export function PersonHero({
   bio: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const isLong = !!bio && bio.length > LONG_TEXT_THRESHOLD;
+  const [clampHeight, setClampHeight] = useState<number | null>(null);
+  const [overflows, setOverflows] = useState(false);
+  const portraitRef = useRef<HTMLDivElement>(null);
+  const bioRef = useRef<HTMLParagraphElement>(null);
+
+  useLayoutEffect(() => {
+    if (!bio) return;
+
+    function measure() {
+      const portraitEl = portraitRef.current;
+      const bioEl = bioRef.current;
+      if (!portraitEl || !bioEl) return;
+      const portraitHeight = portraitEl.getBoundingClientRect().height;
+      // scrollHeight reflects the paragraph's natural, unclamped height
+      // regardless of the wrapper's overflow-hidden clamp below.
+      const bioHeight = bioEl.scrollHeight;
+      setClampHeight(portraitHeight);
+      // Small tolerance so a bio that lands within a few px of the photo's
+      // bottom edge doesn't trigger a toggle for effectively no gain.
+      setOverflows(bioHeight > portraitHeight + 4);
+    }
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (portraitRef.current) observer.observe(portraitRef.current);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [bio]);
 
   return (
     <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
       <div className="w-40 shrink-0 sm:w-56">
-        <PersonPortrait src={photoSrc} name={name} />
-        {isLong && (
+        <div ref={portraitRef}>
+          <PersonPortrait src={photoSrc} name={name} />
+        </div>
+        {overflows && (
           <button
             type="button"
             onClick={() => setExpanded((e) => !e)}
@@ -60,16 +86,14 @@ export function PersonHero({
           </p>
         )}
         {bio ? (
-          <p
-            className={cn("mt-4 whitespace-pre-line text-sm leading-relaxed text-foreground-muted")}
-            style={
-              isLong && !expanded
-                ? { display: "-webkit-box", WebkitLineClamp: CLAMPED_LINES, WebkitBoxOrient: "vertical", overflow: "hidden" }
-                : undefined
-            }
+          <div
+            className="mt-4"
+            style={!expanded && clampHeight ? { maxHeight: clampHeight, overflow: "hidden" } : undefined}
           >
-            {bio}
-          </p>
+            <p ref={bioRef} className="whitespace-pre-line text-sm leading-relaxed text-foreground-muted">
+              {bio}
+            </p>
+          </div>
         ) : (
           <p className="mt-4 text-sm text-foreground-muted">No biography available yet.</p>
         )}
