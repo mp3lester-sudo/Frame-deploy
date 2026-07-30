@@ -1,18 +1,19 @@
 import Image from "@/components/ui/fade-image";
+import { cn } from "@/lib/utils";
 import type { WatchProviderOffer } from "@/lib/external/tmdb-watch-providers";
-
-const OFFER_LABEL: Record<WatchProviderOffer["offerType"], string> = {
-  subscription: "Stream on",
-  rent: "Rent on",
-  buy: "Buy on",
-};
-
-const OFFER_ORDER: WatchProviderOffer["offerType"][] = ["subscription", "rent", "buy"];
 
 /**
  * "Where to watch" — the single most-requested thing Letterboxd has never
  * had: it tells you a film is great and stops there. See
  * tmdb-watch-providers.ts for the lazy fetch-on-view caching this reads.
+ *
+ * Logo-grid presentation rather than a labeled pill per (provider, offer
+ * type) pair — the same provider showing up under both "Rent" and "Buy"
+ * with its full name repeated each time reads as cluttered and redundant
+ * when, realistically, most titles have the exact same 5-7 storefronts in
+ * both buckets. Subscription access is the one distinction worth calling
+ * out on its own (it's already-paid-for vs. an extra purchase), so that's
+ * the only row kept separate and visually set apart with an accent border.
  */
 export function WhereToWatch({ offers }: { offers: WatchProviderOffer[] }) {
   if (offers.length === 0) {
@@ -26,45 +27,67 @@ export function WhereToWatch({ offers }: { offers: WatchProviderOffer[] }) {
     );
   }
 
-  const byType = new Map<WatchProviderOffer["offerType"], WatchProviderOffer[]>();
-  for (const o of offers) {
-    const list = byType.get(o.offerType) ?? [];
-    // A provider can legitimately appear twice in TMDB's raw data (e.g. two
-    // regional storefronts under the same name) — de-dupe within a bucket
-    // so the row doesn't repeat the same logo.
-    if (!list.some((existing) => existing.provider === o.provider)) list.push(o);
-    byType.set(o.offerType, list);
-  }
+  const streamProviders = dedupeByProvider(offers.filter((o) => o.offerType === "subscription"));
+  const payProviders = dedupeByProvider(offers.filter((o) => o.offerType !== "subscription"));
 
   return (
     <div className="mt-6">
-      <p className="mb-2 text-xs uppercase tracking-wide text-foreground-muted">Where to watch</p>
-      <div className="flex flex-col gap-3">
-        {OFFER_ORDER.map((type) => {
-          const list = byType.get(type);
-          if (!list?.length) return null;
-          return (
-            <div key={type} className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-foreground-muted">{OFFER_LABEL[type]}</span>
-              {list.map((o) => (
-                <a
-                  key={o.provider}
-                  href={o.url ?? undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-[var(--radius-full)] border border-border bg-surface-raised py-1 pl-1 pr-2.5 text-xs font-medium text-foreground hover:border-accent/50"
-                >
-                  {o.logoUrl && (
-                    <span className="relative block h-5 w-5 overflow-hidden rounded-[var(--radius-sm)]">
-                      <Image src={o.logoUrl} alt="" fill sizes="20px" />
-                    </span>
-                  )}
-                  {o.provider}
-                </a>
-              ))}
-            </div>
-          );
-        })}
+      <p className="mb-3 text-xs uppercase tracking-wide text-foreground-muted">Where to watch</p>
+      <div className="flex flex-col gap-4">
+        {streamProviders.length > 0 && (
+          <ProviderRow label="Stream with your subscription" providers={streamProviders} highlight />
+        )}
+        {payProviders.length > 0 && <ProviderRow label="Rent or buy" providers={payProviders} />}
+      </div>
+    </div>
+  );
+}
+
+function dedupeByProvider(offers: WatchProviderOffer[]): WatchProviderOffer[] {
+  const seen = new Set<string>();
+  const result: WatchProviderOffer[] = [];
+  for (const o of offers) {
+    if (seen.has(o.provider)) continue;
+    seen.add(o.provider);
+    result.push(o);
+  }
+  return result;
+}
+
+function ProviderRow({
+  label,
+  providers,
+  highlight = false,
+}: {
+  label: string;
+  providers: WatchProviderOffer[];
+  highlight?: boolean;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-xs text-foreground-muted">{label}</p>
+      <div className="flex flex-wrap gap-2.5">
+        {providers.map((p) => (
+          <a
+            key={p.provider}
+            href={p.url ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={p.provider}
+            className={cn(
+              "relative block h-11 w-11 shrink-0 overflow-hidden rounded-[var(--radius-md)] border bg-surface-raised transition-transform hover:scale-105 hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.5)]",
+              highlight ? "border-accent/50" : "border-border"
+            )}
+          >
+            {p.logoUrl ? (
+              <Image src={p.logoUrl} alt={p.provider} fill sizes="44px" />
+            ) : (
+              <span className="flex h-full items-center justify-center px-1 text-center text-[8px] leading-tight text-foreground-muted">
+                {p.provider}
+              </span>
+            )}
+          </a>
+        ))}
       </div>
     </div>
   );
