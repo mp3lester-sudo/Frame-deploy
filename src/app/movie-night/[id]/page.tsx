@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { InviteForm } from "@/components/movie-night/invite-form";
 import { PreferencesForm } from "@/components/movie-night/preferences-form";
 import { CandidatePicker } from "@/components/movie-night/candidate-picker";
+import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
+import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 
 interface ParticipantRow {
   user_id: string;
@@ -42,6 +44,18 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
 
   const isHost = night.host_id === user.id;
   const me = participants.find((p) => p.user_id === user.id);
+
+  // Taste comparison: how does the viewer's taste stack up against everyone
+  // else in this session? For the common 2-person case (you + one invite)
+  // this is exactly one card; scales to a short list for bigger groups.
+  const otherParticipants = participants.filter((p) => p.user_id !== user.id);
+  const comparisons = await Promise.all(
+    otherParticipants.map(async (p) => ({
+      userId: p.user_id,
+      name: p.profiles?.display_name ?? p.profiles?.username ?? "them",
+      compatibility: await computeCompatibilityForUsers(user.id, p.user_id),
+    }))
+  );
 
   const decidedTitle = night.decided_title_id
     ? (await supabase.from("titles").select("*").eq("id", night.decided_title_id).maybeSingle()).data
@@ -81,6 +95,15 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
           </div>
         ))}
       </div>
+
+      {comparisons.length > 0 && (
+        <div className="mt-6 space-y-3">
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Taste comparison</p>
+          {comparisons.map((c) => (
+            <TasteCompatibilityCard key={c.userId} compatibility={c.compatibility} otherName={c.name} />
+          ))}
+        </div>
+      )}
 
       {night.status === "cancelled" && (
         <p className="mt-8 text-sm text-foreground-muted">This movie night was cancelled.</p>

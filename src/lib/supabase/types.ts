@@ -415,6 +415,10 @@ export interface Database {
         Args: { p_user_id: string; p_title_ids: string[] };
         Returns: { title_id: string; similarity: number }[];
       };
+      titles_watched_by_users: {
+        Args: { p_user_ids: string[]; p_title_ids: string[] };
+        Returns: { title_id: string }[];
+      };
       similar_users_liked: {
         Args: { p_user_id: string; p_match_count?: number };
         Returns: { title_id: string; score: number }[];

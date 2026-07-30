@@ -7,6 +7,7 @@ import { WatchedTitleCard } from "@/components/profile/watched-title-card";
 import { FollowButton } from "@/components/follow-button";
 import { MessageButton } from "@/components/message-button";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
+import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 
 /**
  * Tailwind col-start-N classes must appear literally in source for the JIT
@@ -158,35 +159,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         </div>
       )}
 
-      {compatibility && compatibility.hasEnoughData && (
-        <div className="mt-6 rounded-[var(--radius-md)] border border-border bg-surface p-4">
-          <p className="font-display text-lg">
-            You and {profile.display_name ?? profile.username} are{" "}
-            <span className="text-accent">{compatibility.percent}%</span> compatible
-          </p>
-          {compatibility.sharedFavoriteGenres.length > 0 && (
-            <p className="mt-2 text-sm text-foreground-muted">
-              You both love: {compatibility.sharedFavoriteGenres.join(", ")}
-            </p>
-          )}
-          {compatibility.sharedFavoriteDirectors.length > 0 && (
-            <p className="mt-1 text-sm text-foreground-muted">
-              You both rank {compatibility.sharedFavoriteDirectors.map((d) => d.name).join(", ")} among your
-              favorite directors
-            </p>
-          )}
-          {compatibility.biggestDisagreementGenre && (
-            <p className="mt-1 text-sm text-foreground-muted">
-              Your biggest disagreement: {compatibility.biggestDisagreementGenre}
-            </p>
-          )}
+      {compatibility && (
+        <div className="mt-6">
+          <TasteCompatibilityCard
+            compatibility={compatibility}
+            otherName={profile.display_name ?? profile.username}
+          />
         </div>
-      )}
-
-      {compatibility && !compatibility.hasEnoughData && (
-        <p className="mt-6 text-xs text-foreground-muted">
-          Not enough ratings from both of you yet to compute compatibility.
-        </p>
       )}
 
       <h2 className="mb-3 mt-8 text-lg font-semibold">Recently watched</h2>

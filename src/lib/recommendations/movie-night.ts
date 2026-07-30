@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { rankGroupCandidates, buildGroupConsensusNote, type ParticipantScores } from "./group-fairness";
+import { computeGenreAffinity } from "./genre-affinity";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 type ParticipantRow = { user_id: string; excluded_genres: string[] | null };
@@ -18,6 +19,14 @@ export interface MovieNightCandidate {
 // exclude a fair number of candidates via the floor) still has enough left
 // to choose from.
 const PER_PARTICIPANT_SEED_COUNT = 40;
+
+// Ruling out what the group clearly doesn't want, inferred from ratings —
+// not just the manual excluded_genres checklist. Deliberately a HARD cut
+// (unlike the soft 0.7x-1.3x nudge genre-affinity applies to solo home-page
+// recs): picking one title for two-plus people justifies excluding a genre
+// that even one participant has repeatedly rated poorly, rather than
+// letting the group average paper over a guaranteed miss for them.
+const HARD_DISLIKE_THRESHOLD = -0.5;
 
 function firstName(display: string | null | undefined, username: string): string {
   return display?.trim()?.split(/\s+/)[0] || username;
@@ -57,6 +66,35 @@ export async function getCandidatesForMovieNight(
     participants.map((p) => [p.user_id, firstName(p.profiles?.display_name, p.profiles?.username ?? "someone")])
   );
 
+  // Infer additional hard-excludes from each participant's own rating
+  // history (ratings are public-read, so this needs no RLS workaround).
+  // Union across participants: excludedGenres is a "drop if title has any
+  // of these genres" set, so adding one participant's clear dislikes here
+  // means nobody in the group sees a pick built around a genre someone
+  // else has repeatedly rated badly.
+  const participantIds = participants.map((p) => p.user_id);
+  const { data: groupRatings } = await supabase
+    .from("ratings")
+    .select("user_id, score, title_id")
+    .in("user_id", participantIds);
+  const ratedTitleIds = [...new Set((groupRatings ?? []).map((r) => r.title_id))];
+  const { data: ratedTitles } = ratedTitleIds.length
+    ? await supabase.from("titles").select("id, genres").in("id", ratedTitleIds)
+    : { data: [] };
+  const genresByRatedTitle = new Map((ratedTitles ?? []).map((t) => [t.id, t.genres ?? []]));
+  const ratingsByParticipant = new Map<string, { score: number; genres: string[] | null }[]>();
+  for (const r of groupRatings ?? []) {
+    const list = ratingsByParticipant.get(r.user_id) ?? [];
+    list.push({ score: r.score, genres: genresByRatedTitle.get(r.title_id) ?? [] });
+    ratingsByParticipant.set(r.user_id, list);
+  }
+  for (const p of participants) {
+    const affinity = computeGenreAffinity(ratingsByParticipant.get(p.user_id) ?? []);
+    for (const [genre, value] of affinity) {
+      if (value <= HARD_DISLIKE_THRESHOLD) excludedGenres.add(genre);
+    }
+  }
+
   // Seed a shared candidate pool from each participant's own top matches —
   // keeps the pool to "things at least someone likes" rather than scoring
   // the entire catalogue for every person. (match_titles_for_user is
@@ -75,6 +113,20 @@ export async function getCandidatesForMovieNight(
       anyoneHasMatches = true;
       for (const m of matches) candidateIds.add(m.title_id);
     }
+  }
+
+  // Belt-and-suspenders watched-exclusion: match_titles_for_user only
+  // excludes titles the SEEDING participant watched, so a title one
+  // participant already watched can still enter the pool via someone
+  // else's seed contribution. This checks the whole seeded pool against
+  // every participant's watch history (titles_watched_by_users, migration
+  // 0027) and drops anything anyone in the group has already seen.
+  if (candidateIds.size > 0) {
+    const { data: watched } = await supabase.rpc("titles_watched_by_users", {
+      p_user_ids: participantIds,
+      p_title_ids: [...candidateIds],
+    });
+    for (const w of watched ?? []) candidateIds.delete(w.title_id);
   }
 
   if (!anyoneHasMatches) {
