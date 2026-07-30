@@ -8,6 +8,19 @@ import { FollowButton } from "@/components/follow-button";
 import { MessageButton } from "@/components/message-button";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 
+/**
+ * Tailwind col-start-N classes must appear literally in source for the JIT
+ * scanner to pick them up, so this returns full class strings rather than
+ * building "col-start-" + n. Centers a row of 1, 2, or 3 tiles (each
+ * spanning 2 of 6 grid columns) so partial favorite lists still look
+ * deliberate instead of left-aligned.
+ */
+function centeredColStart(count: number, index: number): string {
+  if (count === 1) return "col-start-3";
+  if (count === 2) return index === 0 ? "col-start-2" : "col-start-4";
+  return index === 0 ? "col-start-1" : index === 1 ? "col-start-3" : "col-start-5";
+}
+
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
   const supabase = await createClient();
@@ -106,28 +119,36 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       {favorites.length > 0 && (
         <div className="mt-6">
           <h2 className="mb-3 text-lg font-semibold">Favorites</h2>
-          {/* 3-2-1 podium: the #1 favorite (position 1, set via the first
-              slot in the editor) sits alone on top, #2/#3 form a middle
-              row, and #4-6 fill the widest row at the bottom — size steps
-              down tier by tier so it reads as an actual ranking, not just
-              six posters in a grid. */}
-          <div className="mx-auto flex max-w-[480px] flex-col items-center gap-4">
-            <div className="w-[32%]">
-              <TitleCard title={favorites[0]} />
+          {/* 3-2-1 podium: rank comes from POSITION (alone on top, pair in
+              the middle, trio on the bottom), not from size — every tile is
+              the same width. Each row is its own 6-column grid so a row of
+              1, 2, or 3 all resolve to identical column widths (2 of 6
+              columns per tile) and stay centered regardless of tier. */}
+          <div className="mx-auto flex max-w-[480px] flex-col gap-4">
+            <div className="grid grid-cols-6 gap-4">
+              <div className="col-span-2 col-start-3">
+                <TitleCard title={favorites[0]} />
+              </div>
             </div>
             {favorites.length > 1 && (
-              <div className="flex w-[64%] justify-center gap-4">
-                {favorites.slice(1, 3).map((title) => (
-                  <div key={title.id} className="w-1/2">
+              <div className="grid grid-cols-6 gap-4">
+                {favorites.slice(1, 3).map((title, i, arr) => (
+                  <div
+                    key={title.id}
+                    className={`col-span-2 ${centeredColStart(arr.length, i)}`}
+                  >
                     <TitleCard title={title} />
                   </div>
                 ))}
               </div>
             )}
             {favorites.length > 3 && (
-              <div className="flex w-full justify-center gap-4">
-                {favorites.slice(3, 6).map((title) => (
-                  <div key={title.id} className="w-1/5">
+              <div className="grid grid-cols-6 gap-4">
+                {favorites.slice(3, 6).map((title, i, arr) => (
+                  <div
+                    key={title.id}
+                    className={`col-span-2 ${centeredColStart(arr.length, i)}`}
+                  >
                     <TitleCard title={title} />
                   </div>
                 ))}

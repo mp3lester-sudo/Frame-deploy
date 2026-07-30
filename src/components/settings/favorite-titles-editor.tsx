@@ -114,33 +114,33 @@ export function FavoriteTitlesEditor({ initialFavorites }: { initialFavorites: P
       <p className="mb-3 text-[11px] uppercase tracking-wider text-foreground-muted">
         Your six favorites
       </p>
-      {/* 3-2-1 podium: rank alone (not just a label) carries the hierarchy —
-          1 crowned pick on top, 2 runners-up in the middle, 3 more across
-          the bottom. Sizes step down tier by tier so it reads as a ranking
-          at a glance, matching what the profile page renders. */}
-      <div className="mx-auto flex max-w-[480px] flex-col items-center gap-3">
-        <div className="w-[32%]">
-          <FavoriteSlot
-            fav={favorites[0]}
-            label="#1"
-            onOpen={() => openSlot(0)}
-            onRemove={() => removeSlot(0)}
-          />
+      {/* 3-2-1 podium: rank comes from POSITION (alone on top, pair in the
+          middle, trio on the bottom), not from size — all six tiles are the
+          same width. Each row is its own 6-column grid so a 1-item row, a
+          2-item row, and a 3-item row all resolve to identical column
+          widths (each tile spans 2 of 6 columns) and stay centered. */}
+      <div className="mx-auto flex max-w-[480px] flex-col gap-3">
+        <div className="grid grid-cols-6 gap-3">
+          <div className="col-span-2 col-start-3">
+            <FavoriteSlot
+              fav={favorites[0]}
+              label="#1"
+              onOpen={() => openSlot(0)}
+              onRemove={() => removeSlot(0)}
+            />
+          </div>
         </div>
-        <div className="flex w-[64%] justify-center gap-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="w-1/2">
-              <FavoriteSlot
-                fav={favorites[i]}
-                onOpen={() => openSlot(i)}
-                onRemove={() => removeSlot(i)}
-              />
-            </div>
-          ))}
+        <div className="grid grid-cols-6 gap-3">
+          <div className="col-span-2 col-start-2">
+            <FavoriteSlot fav={favorites[1]} onOpen={() => openSlot(1)} onRemove={() => removeSlot(1)} />
+          </div>
+          <div className="col-span-2 col-start-4">
+            <FavoriteSlot fav={favorites[2]} onOpen={() => openSlot(2)} onRemove={() => removeSlot(2)} />
+          </div>
         </div>
-        <div className="flex w-full justify-center gap-3">
+        <div className="grid grid-cols-6 gap-3">
           {[3, 4, 5].map((i) => (
-            <div key={i} className="w-1/5">
+            <div key={i} className="col-span-2">
               <FavoriteSlot
                 fav={favorites[i]}
                 onOpen={() => openSlot(i)}
