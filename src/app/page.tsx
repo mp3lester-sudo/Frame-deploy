@@ -81,72 +81,79 @@ export default async function HomePage({
   });
   const activeContext = contextParam && isCircumstantialContext(contextParam) ? contextParam : autoContext;
 
-  const { recommendations, isColdStart } = await getRecommendationsForUser(user.id, {
-    limit: 5,
-    context: activeContext,
-    weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
-  });
+  // These three don't depend on each other's results (recommendations,
+  // this user's Movie Night membership, and who they follow are all
+  // independent lookups), so they used to run one after another purely
+  // because they were each written as their own top-level `await` — a
+  // waterfall that added up on the single heaviest page in the app. Now
+  // they run concurrently; only the follow-on queries below (which director
+  // for the hero pick, which specific night, whose activity) are genuinely
+  // sequential, since each needs an id from the batch above.
+  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }] = await Promise.all([
+    getRecommendationsForUser(user.id, {
+      limit: 5,
+      context: activeContext,
+      weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
+    }),
+    // Active Movie Night (still collecting picks) that this user is part of
+    // — only ever shown when real, never a placeholder invite.
+    supabase.from("movie_night_participants").select("movie_night_id").eq("user_id", user.id),
+    // Recent activity from people the user follows — omitted entirely
+    // rather than shown with placeholder people when there's nothing real yet.
+    supabase.from("follows").select("followee_id").eq("follower_id", user.id),
+  ]);
 
   const [hero, ...morePicks] = recommendations;
-
-  let heroDirector: string | null = null;
-  if (hero) {
-    const { data: creditRow } = await supabase
-      .from("title_credits")
-      .select("people(name)")
-      .eq("title_id", hero.title.id)
-      .eq("credit_type", "director")
-      .limit(1)
-      .maybeSingle();
-    heroDirector =
-      (creditRow as unknown as { people: { name: string } | null } | null)?.people?.name ?? null;
-  }
-
-  // Active Movie Night (still collecting picks) that this user is part of —
-  // only ever shown when real, never a placeholder invite.
-  const { data: memberships } = await supabase
-    .from("movie_night_participants")
-    .select("movie_night_id")
-    .eq("user_id", user.id);
   const nightIds = (memberships ?? []).map((m) => m.movie_night_id);
-
-  let activeNight: { id: string; hostId: string; participants: Participant[] } | null = null;
-  if (nightIds.length) {
-    const { data: nights } = await supabase
-      .from("movie_nights")
-      .select("id, host_id, created_at")
-      .in("id", nightIds)
-      .eq("status", "collecting")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    const night = nights?.[0];
-    if (night) {
-      const { data: participantRows } = await supabase
-        .from("movie_night_participants")
-        .select("profiles(username, display_name, avatar_url)")
-        .eq("movie_night_id", night.id);
-      const participants = (participantRows ?? [])
-        .map((r) => (r as unknown as { profiles: Participant | null }).profiles)
-        .filter((p): p is Participant => !!p);
-      activeNight = { id: night.id, hostId: night.host_id, participants };
-    }
-  }
-
-  // Recent activity from people the user follows — omitted entirely rather
-  // than shown with placeholder people when there's nothing real yet.
-  const { data: following } = await supabase.from("follows").select("followee_id").eq("follower_id", user.id);
   const followeeIds = (following ?? []).map((f) => f.followee_id);
 
-  let circleEvents: CircleEvent[] = [];
-  if (followeeIds.length) {
-    const { data: events } = await supabase
-      .from("activity_events")
-      .select("id, event_type, created_at, profiles(username, avatar_url), titles(name)")
-      .in("user_id", followeeIds)
-      .order("created_at", { ascending: false })
-      .limit(SOCIAL_EVENTS_LIMIT);
-    circleEvents = (events ?? []) as unknown as CircleEvent[];
+  const [heroDirectorResult, night, events] = await Promise.all([
+    hero
+      ? supabase
+          .from("title_credits")
+          .select("people(name)")
+          .eq("title_id", hero.title.id)
+          .eq("credit_type", "director")
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    nightIds.length
+      ? supabase
+          .from("movie_nights")
+          .select("id, host_id, created_at")
+          .in("id", nightIds)
+          .eq("status", "collecting")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .then((r) => r.data?.[0] ?? null)
+      : Promise.resolve(null),
+    followeeIds.length
+      ? supabase
+          .from("activity_events")
+          .select("id, event_type, created_at, profiles(username, avatar_url), titles(name)")
+          .in("user_id", followeeIds)
+          .order("created_at", { ascending: false })
+          .limit(SOCIAL_EVENTS_LIMIT)
+          .then((r) => r.data ?? [])
+      : Promise.resolve([]),
+  ]);
+
+  const heroDirector =
+    (heroDirectorResult?.data as unknown as { people: { name: string } | null } | null)?.people?.name ?? null;
+
+  let activeNight: { id: string; hostId: string; participants: Participant[] } | null = null;
+  if (night) {
+    const { data: participantRows } = await supabase
+      .from("movie_night_participants")
+      .select("profiles(username, display_name, avatar_url)")
+      .eq("movie_night_id", night.id);
+    const participants = (participantRows ?? [])
+      .map((r) => (r as unknown as { profiles: Participant | null }).profiles)
+      .filter((p): p is Participant => !!p);
+    activeNight = { id: night.id, hostId: night.host_id, participants };
   }
+
+  const circleEvents = events as unknown as CircleEvent[];
 
   const greeting = zonedNow.getHours() < 12 ? "Good morning" : zonedNow.getHours() < 18 ? "Good afternoon" : "Good evening";
   const day = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: geo?.timezone ?? undefined })
