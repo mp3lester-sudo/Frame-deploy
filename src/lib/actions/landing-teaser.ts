@@ -68,10 +68,13 @@ export async function getTasteTeaser(rawSwipes: AnonSwipe[]): Promise<TeaserPick
   });
 }
 
-// The landing teaser deliberately uses only the first 10 (of 14) anchor
-// genres — see diverse-deck.ts — to keep the pre-signup flow short; the
-// post-signup /onboarding quiz uses the full set for a deeper first pass.
-const LANDING_DECK_SIZE = 10;
+// Raised from 10 to 20 — 10 swipes (and revealing after just 6 of them,
+// see MIN_SWIPES_FOR_TEASER) wasn't enough signal for the teaser to be
+// reliably specific; going up to a full 20-title, genre-diverse deck (see
+// diverse-deck.ts's round-robin — this spills past the 14 anchor genres
+// into 2nd-best picks for the ~6 most common ones) gives the genre-affinity
+// scoring in teaser.ts real signal to work with before the reveal.
+const LANDING_DECK_SIZE = 20;
 
 export async function getLandingSwipeDeck(): Promise<DeckTitle[]> {
   const supabase = await createClient();

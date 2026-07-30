@@ -10,7 +10,11 @@ import type { createClient } from "@/lib/supabase/server";
  *
  * Ordered roughly by real catalogue genre frequency (see the genre audit
  * behind this list) so a caller wanting a shorter deck can just slice the
- * first N — the landing teaser uses the first 10, onboarding uses all 14.
+ * first N — onboarding uses all 14. A caller wanting MORE than 14 (the
+ * landing teaser now asks for up to 20, to get a genuinely confident read
+ * on taste before the reveal) gets a second round-robin pass through the
+ * same genre order, picking each genre's next-best title, rather than
+ * capping out at one-per-genre — see the round-robin loop below.
  */
 export const ANCHOR_GENRES = [
   "Drama",
@@ -40,20 +44,22 @@ export interface DeckTitle {
 }
 
 // How many candidates to pull per genre before falling back to the next
-// one — covers both the "same title tops two genres" case and the
-// "caller's excludeIds ate the top pick" case, without needing a second
-// round-trip per genre.
-const CANDIDATES_PER_GENRE = 5;
+// one — covers the "same title tops two genres" case, the "caller's
+// excludeIds ate the top pick" case, AND (now that decks can ask for more
+// than one title per genre) supplying a genuine 2nd/3rd-best pick for the
+// round-robin pass below, all without a second round-trip per genre.
+const CANDIDATES_PER_GENRE = 8;
 
 export async function buildDiverseDeck(
   supabase: Awaited<ReturnType<typeof createClient>>,
   { limit = ANCHOR_GENRES.length, excludeIds = [] as string[] }: { limit?: number; excludeIds?: string[] } = {}
 ): Promise<DeckTitle[]> {
-  const genres = ANCHOR_GENRES.slice(0, limit);
   const excluded = new Set(excludeIds);
 
+  // Fetch each anchor genre's candidate pool once regardless of `limit` —
+  // the round-robin below decides how many of each pool actually get used.
   const results = await Promise.all(
-    genres.map((genre) => {
+    ANCHOR_GENRES.map((genre) => {
       let query = supabase
         .from("titles")
         .select("id, name, overview, poster_url, release_date, runtime_minutes, genres")
@@ -66,21 +72,43 @@ export async function buildDiverseDeck(
     })
   );
 
+  const pools = ANCHOR_GENRES.map((genre, i) => ({
+    genre,
+    candidates: (results[i].data ?? []).filter((t) => !excluded.has(t.id)),
+    cursor: 0,
+  }));
+
+  // Round-robin through every anchor genre, taking each one's next-best
+  // unused title per lap, until `limit` titles are collected or every pool
+  // runs dry. A `limit` of 14 or fewer never needs a second lap (one pick
+  // per genre, same behavior as before); a `limit` of 20 naturally spills
+  // into a 2nd-best pick for the first ~6 genres in frequency order, which
+  // keeps the deck genre-diverse instead of just deeper into one genre.
   const seen = new Set<string>();
   const deck: DeckTitle[] = [];
-  for (const { data: candidates } of results) {
-    const pick = (candidates ?? []).find((t) => !seen.has(t.id) && !excluded.has(t.id));
-    if (!pick) continue; // every candidate for this genre was a dup or excluded — skip this slot rather than error
-    seen.add(pick.id);
-    deck.push({
-      id: pick.id,
-      name: pick.name,
-      overview: pick.overview,
-      posterUrl: pick.poster_url,
-      year: pick.release_date?.slice(0, 4) ?? null,
-      runtimeMinutes: pick.runtime_minutes,
-      genres: pick.genres ?? [],
-    });
+  let madeProgressThisLap = true;
+  while (deck.length < limit && madeProgressThisLap) {
+    madeProgressThisLap = false;
+    for (const pool of pools) {
+      if (deck.length >= limit) break;
+      while (pool.cursor < pool.candidates.length && seen.has(pool.candidates[pool.cursor].id)) {
+        pool.cursor++;
+      }
+      if (pool.cursor >= pool.candidates.length) continue; // this genre's pool is exhausted — skip it, not an error
+      const pick = pool.candidates[pool.cursor];
+      pool.cursor++;
+      seen.add(pick.id);
+      deck.push({
+        id: pick.id,
+        name: pick.name,
+        overview: pick.overview,
+        posterUrl: pick.poster_url,
+        year: pick.release_date?.slice(0, 4) ?? null,
+        runtimeMinutes: pick.runtime_minutes,
+        genres: pick.genres ?? [],
+      });
+      madeProgressThisLap = true;
+    }
   }
   return deck;
 }

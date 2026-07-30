@@ -24,8 +24,15 @@ export interface AnonSwipe {
  * the post-signup /onboarding quiz entirely (see signUp() in auth.ts) —
  * below this, the taste vector is too thin to trust, so onboarding still
  * runs to deepen it (excluding whatever was already swiped on).
+ *
+ * Raised from 6 to 20 (matching the full landing deck size in
+ * landing-teaser.ts) — 6 swipes made for a fast reveal, but too thin a
+ * genre-affinity signal to be genuinely specific/accurate, which was the
+ * actual complaint this fixes. Skipping ("haven't seen it") doesn't count
+ * toward this, so a visitor who skips through the deck still gets the
+ * reveal at reachedDeckEnd in taste-teaser.tsx rather than being stuck.
  */
-export const MIN_SWIPES_FOR_TEASER = 6;
+export const MIN_SWIPES_FOR_TEASER = 20;
 
 export interface SwipedTitleInfo {
   id: string;
