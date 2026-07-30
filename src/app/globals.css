@@ -9,15 +9,27 @@
   --background: #0c0706;
   --surface: #1f1215;
   --surface-raised: #2b191d;
-  --border: rgba(201, 162, 39, 0.16);
-  --border-strong: rgba(201, 162, 39, 0.32);
+  --border: rgba(205, 166, 70, 0.16);
+  --border-strong: rgba(205, 166, 70, 0.32);
   --foreground: #f2ede6;
   --foreground-muted: #a3958e;
 
   /* One accent, used for everything that means "this is selected / rated /
-     matched" — ratings, matches, the wordmark, active states. */
-  --accent: #c9a227;
+     matched" — ratings, matches, the wordmark, active states.
+     A warmer, more saturated gold than the old #c9a227 — less yellow,
+     more metal. Paired with --accent-gradient for foil/sheen treatments
+     on the wordmark and primary CTAs. */
+  --accent: #cda646;
+  --accent-soft: #e8c874;
+  --accent-deep: #9c7a29;
   --accent-foreground: #171206;
+  --accent-gradient: linear-gradient(
+    135deg,
+    #f0d78c 0%,
+    #cda646 32%,
+    #9c7a29 68%,
+    #e8c874 100%
+  );
 
   --success: #4ade80;
   --danger: #e0685f;
@@ -37,6 +49,8 @@
   --color-foreground: var(--foreground);
   --color-foreground-muted: var(--foreground-muted);
   --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-deep: var(--accent-deep);
   --color-accent-foreground: var(--accent-foreground);
   --color-success: var(--success);
   --color-danger: var(--danger);
@@ -77,3 +91,21 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Gold foil effect — used for the wordmark and other "this is precious"
+   moments. Flat --accent reads fine at small sizes (badges, links,
+   borders) but a big flat fill looks plasticky; the gradient clip gives
+   it the light-catches-metal sheen real gold has. */
+.text-gold-foil {
+  background-image: var(--accent-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Same idea for solid surfaces — primary buttons, active pills. */
+.bg-gold-foil {
+  background-image: var(--accent-gradient);
+}
+

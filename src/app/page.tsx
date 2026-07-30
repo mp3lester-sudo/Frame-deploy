@@ -51,7 +51,7 @@ export default async function HomePage({
         ) : (
           <Link
             href="/signup"
-            className="inline-flex h-12 items-center rounded-[var(--radius-md)] bg-accent px-6 font-medium text-accent-foreground hover:brightness-110"
+            className="inline-flex h-12 items-center rounded-[var(--radius-md)] bg-gold-foil px-6 font-medium text-accent-foreground shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] hover:brightness-110"
           >
             Get started
           </Link>

@@ -17,7 +17,7 @@ export function NavBar({ isAuthed, unreadMessageCount = 0 }: { isAuthed: boolean
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         <Link
           href="/"
-          className="font-hollywood text-2xl uppercase tracking-[0.08em] text-accent"
+          className="text-gold-foil font-hollywood text-2xl uppercase tracking-[0.08em]"
         >
           Backlot
         </Link>
@@ -59,7 +59,7 @@ export function NavBar({ isAuthed, unreadMessageCount = 0 }: { isAuthed: boolean
           ) : (
             <Link
               href="/login"
-              className="inline-flex h-8 items-center rounded-[var(--radius-md)] bg-accent px-3 text-sm font-medium text-accent-foreground hover:brightness-110"
+              className="inline-flex h-8 items-center rounded-[var(--radius-md)] bg-gold-foil px-3 text-sm font-medium text-accent-foreground shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] hover:brightness-110"
             >
               Log in
             </Link>

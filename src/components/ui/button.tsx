@@ -2,7 +2,8 @@ import { ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 const variants = {
-  primary: "bg-accent text-accent-foreground hover:brightness-110",
+  primary:
+    "bg-gold-foil text-accent-foreground shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] hover:brightness-110",
   secondary: "bg-surface-raised text-foreground border border-border hover:border-accent/50",
   ghost: "bg-transparent text-foreground hover:bg-surface-raised",
   danger: "bg-danger text-white hover:brightness-110",

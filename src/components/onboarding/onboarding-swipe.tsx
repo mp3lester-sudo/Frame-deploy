@@ -101,7 +101,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
         <button
           type="button"
           onClick={() => router.push("/")}
-          className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-[var(--radius-md)] bg-accent px-6 font-medium text-accent-foreground hover:brightness-110"
+          className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-[var(--radius-md)] bg-gold-foil px-6 font-medium text-accent-foreground shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] hover:brightness-110"
         >
           Let&apos;s go
         </button>
