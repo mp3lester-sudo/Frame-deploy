@@ -90,7 +90,12 @@ export function LiveCandidateVoting({
         { event: "*", schema: "public", table: "movie_night_participants", filter: `movie_night_id=eq.${movieNightId}` },
         () => router.refresh()
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        // Temporary diagnostic logging while verifying the Realtime wiring
+        // end-to-end for the first time in this codebase — safe to remove
+        // once confirmed working across two real sessions.
+        console.log("[movie-night realtime] subscribe status:", status, err ?? "");
+      });
 
     return () => {
       supabase.removeChannel(channel);
