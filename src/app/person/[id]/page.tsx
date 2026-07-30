@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrFetchPersonBio } from "@/lib/external/tmdb-person";
 import { tmdbImageAtSize } from "@/lib/external/tmdb-client";
 import { PersonPortrait } from "@/components/person-portrait";
+import { ExpandableText } from "@/components/ui/expandable-text";
 
 function formatBirthday(iso: string | null): string | null {
   if (!iso) return null;
@@ -58,7 +59,9 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
             </p>
           )}
           {bio ? (
-            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-foreground-muted">{bio}</p>
+            <div className="mt-4">
+              <ExpandableText text={bio} className="text-sm leading-relaxed text-foreground-muted" />
+            </div>
           ) : (
             <p className="mt-4 text-sm text-foreground-muted">No biography available yet.</p>
           )}
