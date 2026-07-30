@@ -97,6 +97,27 @@ export async function setMyMovieNightPreferences(input: z.infer<typeof preferenc
   revalidatePath(`/movie-night/${movieNightId}`);
 }
 
+const voteSchema = z.object({
+  movieNightId: z.string().uuid(),
+  titleId: z.string().uuid(),
+  vote: z.enum(["like", "pass"]),
+});
+
+// No revalidatePath here on purpose: every participant's screen picks up
+// votes live via the LiveCandidateVoting component's Supabase Realtime
+// subscription (see src/components/movie-night/live-candidate-voting.tsx),
+// not a server re-render. Revalidating here would just force an
+// unnecessary full page refetch on top of the realtime update.
+export async function castMovieNightVote(input: z.infer<typeof voteSchema>) {
+  const { movieNightId, titleId, vote } = voteSchema.parse(input);
+  const { supabase, user } = await requireUser();
+
+  const { error } = await supabase
+    .from("movie_night_votes")
+    .upsert({ movie_night_id: movieNightId, title_id: titleId, user_id: user.id, vote });
+  if (error) throw new Error(error.message);
+}
+
 const decideSchema = z.object({ movieNightId: z.string().uuid(), titleId: z.string().uuid() });
 
 export async function decideMovieNight(input: z.infer<typeof decideSchema>) {

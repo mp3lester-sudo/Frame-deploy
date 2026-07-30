@@ -9,7 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { InviteForm } from "@/components/movie-night/invite-form";
 import { PreferencesForm } from "@/components/movie-night/preferences-form";
-import { CandidatePicker } from "@/components/movie-night/candidate-picker";
+import { LiveCandidateVoting } from "@/components/movie-night/live-candidate-voting";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 
@@ -60,8 +60,18 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
     ? (await supabase.from("titles").select("*").eq("id", night.decided_title_id).maybeSingle()).data
     : null;
 
-  const candidates =
-    night.status === "collecting" && isHost ? await getCandidatesForMovieNight(id) : [];
+  // Every participant (not just the host) sees and votes on the shared
+  // candidate pool now — see LiveCandidateVoting. The host still makes the
+  // final call via decideMovieNight, informed by the live tally.
+  const candidates = night.status === "collecting" ? await getCandidatesForMovieNight(id) : [];
+
+  const { data: voteRows } = night.status === "collecting"
+    ? await supabase
+        .from("movie_night_votes")
+        .select("title_id, user_id, vote")
+        .eq("movie_night_id", id)
+    : { data: null };
+  const initialVotes = voteRows ?? [];
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-8">
@@ -153,33 +163,35 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
             />
           </div>
 
-          {isHost ? (
-            <>
-              <div className="mt-6">
-                <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                  Invite someone
-                </p>
-                <InviteForm movieNightId={night.id} />
-              </div>
+          {isHost && (
+            <div className="mt-6">
+              <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                Invite someone
+              </p>
+              <InviteForm movieNightId={night.id} />
+            </div>
+          )}
 
-              <div className="mt-8">
-                <p className="mb-3 text-[11px] uppercase tracking-wider text-foreground-muted">
-                  Picks everyone might like
-                </p>
-                <CandidatePicker movieNightId={night.id} candidates={candidates} />
-              </div>
-
-              <form action={cancelMovieNight.bind(null, night.id)} className="mt-6">
-                <Button type="submit" size="sm" variant="ghost">
-                  Cancel this movie night
-                </Button>
-              </form>
-            </>
-          ) : (
-            <p className="mt-6 text-sm text-foreground-muted">
-              Waiting on the host to pick something — set your mood and genres to exclude above so
-              it factors into the pick.
+          <div className="mt-8">
+            <p className="mb-3 text-[11px] uppercase tracking-wider text-foreground-muted">
+              Vote on picks everyone might like
             </p>
+            <LiveCandidateVoting
+              movieNightId={night.id}
+              candidates={candidates}
+              initialVotes={initialVotes}
+              viewerId={user.id}
+              isHost={isHost}
+              participantCount={participants.length}
+            />
+          </div>
+
+          {isHost && (
+            <form action={cancelMovieNight.bind(null, night.id)} className="mt-6">
+              <Button type="submit" size="sm" variant="ghost">
+                Cancel this movie night
+              </Button>
+            </form>
           )}
         </>
       )}

@@ -236,6 +236,18 @@ export interface Database {
         Update: Partial<{ available_providers: string[]; excluded_genres: string[]; mood: string | null }>;
         Relationships: [];
       };
+      movie_night_votes: {
+        Row: {
+          movie_night_id: string;
+          title_id: string;
+          user_id: string;
+          vote: "like" | "pass";
+          created_at: string;
+        };
+        Insert: { movie_night_id: string; title_id: string; user_id: string; vote: "like" | "pass" };
+        Update: never;
+        Relationships: [];
+      };
       people: {
         Row: {
           id: string;
