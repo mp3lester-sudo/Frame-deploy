@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/ui/fade-image";
 import Link from "next/link";
 import type { Database } from "@/lib/supabase/types";
 import type { ReasonDetail } from "@/lib/recommendations/explain";

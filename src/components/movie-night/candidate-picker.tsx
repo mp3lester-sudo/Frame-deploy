@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import Image from "@/components/ui/fade-image";
 import { decideMovieNight } from "@/lib/actions/movie-night";
 import { Button } from "@/components/ui/button";
 import type { MovieNightCandidate } from "@/lib/recommendations/movie-night";

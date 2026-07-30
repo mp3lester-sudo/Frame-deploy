@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Image from "next/image";
+import Image from "@/components/ui/fade-image";
 import { X, Search } from "lucide-react";
 import { searchTitlesForPicker, setFavoriteTitles } from "@/lib/actions/profile";
 import { Button } from "@/components/ui/button";

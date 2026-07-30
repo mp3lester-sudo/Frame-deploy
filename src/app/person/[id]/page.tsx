@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/ui/fade-image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import Image from "@/components/ui/fade-image";
 import { createClient } from "@/lib/supabase/server";
 import { ReviewCard } from "@/components/review-card";
 import { aggregateReactions } from "@/lib/reactions/aggregate";

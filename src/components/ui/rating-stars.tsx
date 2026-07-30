@@ -39,12 +39,23 @@ export function RatingStars({
             <Star
               width={size}
               height={size}
-              className="absolute inset-0 text-foreground-muted"
+              className="absolute inset-0 text-foreground-muted transition-colors duration-150"
               strokeWidth={1.5}
             />
             {(full || half) && (
-              <div className="absolute inset-0 overflow-hidden" style={{ width: half ? "50%" : "100%" }}>
-                <Star width={size} height={size} className="text-accent fill-accent" strokeWidth={1.5} />
+              <div
+                className="absolute inset-0 overflow-hidden transition-transform duration-150 ease-out"
+                style={{
+                  width: half ? "50%" : "100%",
+                  transform: interactive && hover != null ? "scale(1.12)" : "scale(1)",
+                }}
+              >
+                <Star
+                  width={size}
+                  height={size}
+                  className="text-accent fill-accent drop-shadow-[0_0_5px_rgba(205,166,70,0.55)]"
+                  strokeWidth={1.5}
+                />
               </div>
             )}
             {interactive && (

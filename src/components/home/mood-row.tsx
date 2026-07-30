@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/ui/fade-image";
 import Link from "next/link";
 import type { Recommendation } from "@/lib/recommendations/engine";
 

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import Image from "@/components/ui/fade-image";
 import { formatRuntime } from "@/lib/utils";
 import { getTasteTeaser, type TeaserPick } from "@/lib/actions/landing-teaser";
 import { MIN_SWIPES_FOR_TEASER, type AnonSwipe } from "@/lib/recommendations/teaser";
