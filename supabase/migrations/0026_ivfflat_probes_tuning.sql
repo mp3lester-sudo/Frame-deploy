@@ -4,14 +4,18 @@
 -- per query — at ~36k embedded titles that's a real recall risk: a title
 -- that's actually the best cosine match can simply fall in a cluster the
 -- index never probes, so it never even reaches the p_match_count candidate
--- pool engine.ts scores against. No amount of downstream tuning (quality
--- weighting, genre affinity, etc.) can fix a good match that was silently
--- excluded before scoring even started.
+-- pool engine.ts scores against.
 --
--- `set ivfflat.probes = 10` on the function checks 10 of the 100 clusters
--- (10x the default recall) for the duration of this function's calls only —
--- doesn't touch the global/session default, so nothing else is affected.
--- Everything else is identical to 0023's definition.
+-- First attempt used `set ivfflat.probes = 10` as a CREATE FUNCTION option
+-- (identical to how `set search_path = public` is set two lines below) —
+-- that failed on Supabase with "permission denied to set parameter
+-- ivfflat.probes", because Supabase's managed Postgres restricts the
+-- ALTER-FUNCTION-level SET clause for extension-defined GUCs even when the
+-- GUC itself (ivfflat.probes is PGC_USERSET) would normally allow any role
+-- to set it at the session level. The fix: set it at RUNTIME inside the
+-- function body via set_config(..., true) — the `true` (is_local) scopes it
+-- to just this transaction, which for an RPC call is just this one query,
+-- so it never leaks into any other call on the connection.
 create or replace function public.match_titles_for_user(
   p_user_id uuid,
   p_match_count int default 20,
@@ -25,9 +29,10 @@ language plpgsql
 stable
 security definer
 set search_path = public
-set ivfflat.probes = 10
 as $$
 begin
+  perform set_config('ivfflat.probes', '10', true);
+
   return query
   select
     te.title_id,
