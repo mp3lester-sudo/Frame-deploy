@@ -67,6 +67,25 @@ Vercel's env vars and every local `.env.local` in use.
   live-verify step for anything user-facing — passing tests don't guarantee the
   deployed page actually renders correctly.
 
+## Product principles (apply to every new feature)
+
+Two standing lenses to weigh before building anything new, per Michael's
+explicit direction:
+
+1. **Revenue expansion.** Ask whether a feature opens a path to monetization
+   or strengthens an existing one (e.g. premium tiers, anything that could
+   plausibly become a paid upsell) — not that every feature must be
+   monetized directly, but the option value should be part of the judgment
+   call, not an afterthought.
+2. **User-centric design.** Weigh how a feature actually serves existing
+   users' experience, retention, and satisfaction — not capability added for
+   its own sake. If a feature doesn't clearly make the product better *for
+   the person using it*, that's a signal to reconsider or simplify it.
+
+When proposing "what's next" options or making build/skip calls on a
+feature, run it through both lenses explicitly rather than defaulting to
+"what's technically interesting to build."
+
 ## Sandbox setup (if starting fresh)
 
 ```
