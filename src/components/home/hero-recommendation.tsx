@@ -13,8 +13,15 @@ type Title = Database["public"]["Tables"]["titles"]["Row"];
  * with a gold spotlight glow radiating around it. Sized down from the
  * earlier full-bleed-in-a-card version -- without a card to fill,
  * stretching the poster to the page's own content width read as
- * oversized, so it's back to a fixed, smaller centered size, but still
- * with no side padding/border of its own.
+ * oversized, so it's back to a fixed, smaller size, but still with no
+ * side padding/border of its own.
+ *
+ * Left-aligned (not centered) so it lines up with the mood row and
+ * "More picks" row directly beneath it in the home page's left column --
+ * centering just the hero created a center/left/center/left zigzag
+ * against the left-aligned context pills above it and the left-aligned
+ * rows below it, and left a lot of dead space flanking a fixed-width
+ * poster inside the (much wider) two-column layout's left column.
  *
  * No "Featured for you" label -- removed per feedback; the glow +
  * prominent placement already read as "this is the pick" on its own.
@@ -59,9 +66,9 @@ export function HeroRecommendation({
   const posterImage = title.poster_url ?? title.backdrop_url;
 
   return (
-    <div className="relative text-center">
+    <div className="relative">
       <Link href={`/movie/${title.id}`} className="relative block">
-        <div className="relative mx-auto h-[288px] w-48 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised shadow-[0_24px_50px_-14px_rgba(0,0,0,0.7),0_0_90px_4px_rgba(217,184,118,0.55)] sm:h-[360px] sm:w-60">
+        <div className="relative h-[288px] w-48 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised shadow-[0_24px_50px_-14px_rgba(0,0,0,0.7),0_0_90px_4px_rgba(217,184,118,0.55)] sm:h-[360px] sm:w-60">
           {posterImage && (
             <Image src={posterImage} alt={title.name} fill priority className="object-cover" sizes="(max-width: 640px) 192px, 240px" />
           )}
@@ -75,7 +82,7 @@ export function HeroRecommendation({
         </h2>
         {meta && <p className="mt-1 text-xs uppercase tracking-wider text-foreground-muted">{meta}</p>}
 
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {title.genres?.[0] && (
             <span className="rounded-[var(--radius-sm)] border border-accent/40 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-accent">
               {title.genres[0]}
@@ -89,7 +96,7 @@ export function HeroRecommendation({
         </div>
       </Link>
 
-      <div className="relative mx-auto mt-6 max-w-sm text-left">
+      <div className="relative mt-6 max-w-sm">
         <p className="font-display border-l-2 border-accent pl-3 text-base italic leading-relaxed text-foreground-muted">
           {reason}
         </p>
