@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/actions/ensure-profile";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { getUnreadNotificationCount } from "@/lib/actions/notifications";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -71,13 +72,15 @@ export default async function RootLayout({
     }
   }
 
+  const unreadNotificationCount = user ? await getUnreadNotificationCount() : 0;
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} />
+        <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
         <BottomNav />
       </body>

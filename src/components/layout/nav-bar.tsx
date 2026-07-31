@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, UsersRound, Mail, Gift } from "lucide-react";
+import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, UsersRound, Mail, Gift, Bell } from "lucide-react";
 
 const links = [
   { href: "/discover", label: "Discover", icon: Compass },
@@ -11,7 +11,15 @@ const links = [
   { href: "/clubs", label: "Clubs", icon: UsersRound },
 ];
 
-export function NavBar({ isAuthed, unreadMessageCount = 0 }: { isAuthed: boolean; unreadMessageCount?: number }) {
+export function NavBar({
+  isAuthed,
+  unreadMessageCount = 0,
+  unreadNotificationCount = 0,
+}: {
+  isAuthed: boolean;
+  unreadMessageCount?: number;
+  unreadNotificationCount?: number;
+}) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
@@ -41,6 +49,14 @@ export function NavBar({ isAuthed, unreadMessageCount = 0 }: { isAuthed: boolean
           </Link>
           {isAuthed ? (
             <>
+              <Link href="/notifications" aria-label="Notifications" className="relative text-foreground-muted hover:text-foreground">
+                <Bell size={18} />
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[9px] font-medium text-accent-foreground">
+                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                  </span>
+                )}
+              </Link>
               <Link href="/messages" aria-label="Messages" className="relative text-foreground-muted hover:text-foreground">
                 <Mail size={18} />
                 {unreadMessageCount > 0 && (

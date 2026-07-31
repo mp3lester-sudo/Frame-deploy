@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { validateCommentBody } from "@/lib/comments/validate";
+import { notify } from "@/lib/actions/notifications";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -42,8 +43,17 @@ export async function addComment(reviewId: string, rawBody: string): Promise<New
 
   const { data: profile } = await supabase.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle();
 
-  const { data: review } = await supabase.from("reviews").select("title_id").eq("id", reviewId).maybeSingle();
+  const { data: review } = await supabase.from("reviews").select("title_id, user_id").eq("id", reviewId).maybeSingle();
   if (review?.title_id) revalidatePath(`/movie/${review.title_id}`);
+  if (review?.user_id) {
+    await notify(supabase, {
+      recipientId: review.user_id,
+      actorId: user.id,
+      type: "comment",
+      titleId: review.title_id,
+      refId: reviewId,
+    });
+  }
 
   return { ...comment, username: profile?.username ?? "you", avatar_url: profile?.avatar_url ?? null };
 }

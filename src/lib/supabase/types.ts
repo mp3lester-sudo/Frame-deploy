@@ -205,6 +205,28 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      notifications: {
+        Row: {
+          id: string;
+          recipient_id: string;
+          actor_id: string | null;
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          title_id: string | null;
+          ref_id: string | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          recipient_id: string;
+          actor_id?: string | null;
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          title_id?: string | null;
+          ref_id?: string | null;
+          read_at?: string | null;
+        };
+        Update: Partial<{ read_at: string | null }>;
+        Relationships: [];
+      };
       movie_nights: {
         Row: {
           id: string;

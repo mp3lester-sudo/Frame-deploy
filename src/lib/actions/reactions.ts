@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { REVIEW_REACTIONS, type ReviewReaction } from "@/lib/constants/social";
+import { notify } from "@/lib/actions/notifications";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -34,6 +35,17 @@ export async function setReviewReaction(reviewId: string, reaction: ReviewReacti
     await supabase.from("review_reactions").upsert({ review_id: reviewId, user_id: user.id, reaction });
   }
 
-  const { data: review } = await supabase.from("reviews").select("title_id").eq("id", reviewId).maybeSingle();
+  const { data: review } = await supabase.from("reviews").select("title_id, user_id").eq("id", reviewId).maybeSingle();
   if (review?.title_id) revalidatePath(`/movie/${review.title_id}`);
+  // Only notify on setting a reaction, not clearing one — nobody needs to
+  // hear "so-and-so un-reacted to your review."
+  if (reaction !== null && review?.user_id) {
+    await notify(supabase, {
+      recipientId: review.user_id,
+      actorId: user.id,
+      type: "reaction",
+      titleId: review.title_id,
+      refId: reviewId,
+    });
+  }
 }

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { notify } from "@/lib/actions/notifications";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -160,6 +161,7 @@ export async function toggleFollow(followeeId: string) {
       event_type: "followed",
       ref_id: followeeId,
     });
+    await notify(supabase, { recipientId: followeeId, actorId: user.id, type: "follow" });
   }
 
   revalidatePath(`/profile/${followeeId}`);

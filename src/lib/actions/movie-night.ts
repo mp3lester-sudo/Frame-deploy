@@ -5,6 +5,7 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { notify } from "@/lib/actions/notifications";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -74,6 +75,13 @@ export async function inviteToMovieNight(input: z.infer<typeof inviteSchema>) {
     throw new Error(error.message);
   }
 
+  await notify(supabase, {
+    recipientId: profile.id,
+    actorId: user.id,
+    type: "movie_night_invite",
+    refId: movieNightId,
+  });
+
   revalidatePath(`/movie-night/${movieNightId}`);
 }
 
@@ -137,6 +145,20 @@ export async function decideMovieNight(input: z.infer<typeof decideSchema>) {
     .update({ status: "decided", decided_title_id: titleId })
     .eq("id", movieNightId);
   if (error) throw new Error(error.message);
+
+  const { data: participants } = await supabase
+    .from("movie_night_participants")
+    .select("user_id")
+    .eq("movie_night_id", movieNightId);
+  for (const p of participants ?? []) {
+    await notify(supabase, {
+      recipientId: p.user_id,
+      actorId: user.id,
+      type: "movie_night_decided",
+      titleId,
+      refId: movieNightId,
+    });
+  }
 
   revalidatePath(`/movie-night/${movieNightId}`);
 }
