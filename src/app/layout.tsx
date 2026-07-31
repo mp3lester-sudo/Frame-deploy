@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue, Monoton } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -29,6 +29,18 @@ const playfairDisplay = Playfair_Display({
 // --font-display (Playfair) for body/heading text.
 const bebasNeue = Bebas_Neue({
   variable: "--font-bebas",
+  subsets: ["latin"],
+  weight: "400",
+});
+
+// Glowing, double-stroke neon-tube lettering — the literal "spelled out in
+// marquee light bulbs" look (see the home page greeting's first name).
+// A different font from the Bebas Neue wordmark above on purpose: the
+// wordmark is a solid, tall, condensed sign-lettering look, while this one
+// is specifically the lit/glowing-bulb treatment, reserved for that one
+// name in the greeting.
+const monoton = Monoton({
+  variable: "--font-monoton",
   subsets: ["latin"],
   weight: "400",
 });
@@ -77,7 +89,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} ${monoton.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />

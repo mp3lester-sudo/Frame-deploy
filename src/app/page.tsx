@@ -192,7 +192,15 @@ export default async function HomePage({
       </div>
 
       <h1 className="font-display mt-5 text-4xl leading-tight tracking-tight sm:text-5xl">
-        {greeting}, <span className="italic text-accent">{firstName}</span>.
+        {greeting},{" "}
+        {/* Only the name gets the marquee-light treatment (font-marquee +
+            marquee-glow) -- the greeting word itself stays on the regular
+            display font, same spirit as the wordmark's font-hollywood being
+            reserved for just "Backlot". */}
+        <span className="marquee-glow font-marquee text-3xl uppercase tracking-wide text-accent sm:text-4xl">
+          {firstName}
+        </span>
+        .
       </h1>
       {ratedCount ? (
         <p className="mt-1.5 text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
