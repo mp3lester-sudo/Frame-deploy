@@ -185,22 +185,24 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
-      <span className="font-hollywood text-xl uppercase tracking-[0.15em] text-accent">Backlot</span>
+      <span className="flex flex-col items-start gap-1">
+        <span className="font-hollywood text-xl uppercase tracking-[0.25em] text-accent">Backlot</span>
+        <span className="foil-rule w-16" />
+      </span>
 
       <div className="mt-2">
         <ContextCards day={day} time={time} location={location} weather={weather} />
       </div>
 
       <h1 className="mt-5 text-4xl leading-tight tracking-tight sm:text-5xl">
-        {/* "Good evening"/"Good morning" gets the Mulholland-Drive-poster
-            treatment (font-poster, Cinzel) -- a clean, elegant, wide-tracked
-            engraved-capital look, distinct from font-display (Playfair)
-            used elsewhere and from the name's own marquee-bulb font below. */}
-        <span className="font-poster">{greeting}</span>,{" "}
-        {/* The name gets the dotted "row of light bulbs" marquee treatment
-            (font-marquee/Monoton + marquee-bulbs) -- same spirit as the
-            wordmark's font-hollywood being reserved for just "Backlot". */}
-        <span className="marquee-bulbs font-marquee text-3xl uppercase tracking-wide sm:text-4xl">
+        {/* "Good evening"/"Good morning" is set in font-display (Playfair
+            Display), off-white -- the velvet-and-foil design's greeting
+            treatment. */}
+        <span className="font-display text-foreground">{greeting}</span>,{" "}
+        {/* The name gets the wordmark's own Cormorant Garamond, italic and
+            gold -- the same family as font-hollywood above, echoing the
+            wordmark without repeating the small-caps treatment. */}
+        <span className="font-marquee text-3xl italic text-accent sm:text-4xl">
           {firstName}
         </span>
         .

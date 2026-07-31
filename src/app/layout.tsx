@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue, Cinzel, Monoton } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -24,33 +24,15 @@ const playfairDisplay = Playfair_Display({
   style: ["normal", "italic"],
 });
 
-// Tall, condensed, bold marquee lettering — the "HOLLYWOOD sign" look.
-// Reserved for the Backlot wordmark only; everything else stays on
-// --font-display (Playfair) for body/heading text.
-const bebasNeue = Bebas_Neue({
-  variable: "--font-bebas",
+// Engraved, wide-tracked small-caps serif -- the velvet-and-foil design's
+// signature lettering. Reserved for the Backlot wordmark (upright, letter
+// spaced) and, italic, for the greeting's first name. Everything else
+// stays on --font-display (Playfair) for body/heading text.
+const cormorantGaramond = Cormorant_Garamond({
+  variable: "--font-cormorant",
   subsets: ["latin"],
-  weight: "400",
-});
-
-// Tall, elegant, wide-tracked engraved-capital serif -- the classic
-// prestige movie-poster title look (per the Mulholland Drive poster
-// reference). Reserved for the "Good evening"/"Good morning" part of the
-// home page greeting; the Bebas Neue wordmark above is untouched.
-const cinzel = Cinzel({
-  variable: "--font-cinzel",
-  subsets: ["latin"],
-  weight: ["500", "600"],
-});
-
-// Glowing, double-stroke neon-tube lettering, filled with a dotted
-// "row of light bulbs" texture (see .marquee-bulbs in globals.css) --
-// reserved for the greeting's first name specifically, distinct from the
-// Cinzel poster-title treatment on "Good evening" above.
-const monoton = Monoton({
-  variable: "--font-monoton",
-  subsets: ["latin"],
-  weight: "400",
+  weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -97,7 +79,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} ${cinzel.variable} ${monoton.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />

@@ -6,29 +6,32 @@
  * whitespace — closer to a premium editorial reading app than a dashboard.
  */
 :root {
-  --background: #0c0706;
-  --surface: #1f1215;
-  --surface-raised: #2b191d;
-  --border: rgba(205, 166, 70, 0.16);
-  --border-strong: rgba(205, 166, 70, 0.32);
-  --foreground: #f2ede6;
-  --foreground-muted: #a3958e;
+  /* Velvet & foil: deep wine background, warm gold accent. A spotlight
+     glow (--spotlight, used in the body rule below) sits behind the top
+     of each page, fading into this solid wine-black base. */
+  --background: #180a0d;
+  --surface: #2a131a;
+  --surface-raised: #3a1c22;
+  --spotlight: #4a1620;
+  --border: rgba(217, 184, 118, 0.18);
+  --border-strong: rgba(217, 184, 118, 0.34);
+  --foreground: #f2e9df;
+  --foreground-muted: #ab949a;
 
   /* One accent, used for everything that means "this is selected / rated /
-     matched" — ratings, matches, the wordmark, active states.
-     A warmer, more saturated gold than the old #c9a227 — less yellow,
-     more metal. Paired with --accent-gradient for foil/sheen treatments
-     on the wordmark and primary CTAs. */
-  --accent: #cda646;
-  --accent-soft: #e8c874;
-  --accent-deep: #9c7a29;
-  --accent-foreground: #171206;
+     matched" — ratings, matches, the wordmark, active states. Warm foil
+     gold. Paired with --accent-gradient for foil/sheen treatments on the
+     wordmark and primary CTAs. */
+  --accent: #d9b876;
+  --accent-soft: #e8cf99;
+  --accent-deep: #a9863f;
+  --accent-foreground: #2a0f14;
   --accent-gradient: linear-gradient(
     135deg,
-    #f0d78c 0%,
-    #cda646 32%,
-    #9c7a29 68%,
-    #e8c874 100%
+    #f3e3b8 0%,
+    #d9b876 32%,
+    #a9863f 68%,
+    #e8cf99 100%
   );
 
   --success: #4ade80;
@@ -61,51 +64,34 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-playfair);
-  /* Reserved for the "Frame" wordmark only — see layout.tsx. */
-  --font-hollywood: var(--font-bebas);
-  /* Prestige movie-poster title lettering for the "Good evening"/"Good
-     morning" part of the home page greeting (see layout.tsx, Cinzel) —
-     deliberately a different font from --font-hollywood above, which is
-     the wordmark's own solid sign lettering. */
-  --font-poster: var(--font-cinzel);
-  /* Base letterforms for the greeting's first name specifically — the
-     actual "row of light bulbs" look comes from the .marquee-bulbs
-     dot-fill below, not from this font alone. */
-  --font-marquee: var(--font-monoton);
+  /* Small-caps, wide-tracked engraved serif for the "Backlot" wordmark —
+     see layout.tsx (Cormorant Garamond). Also used, italic, for the home
+     page greeting's first name. */
+  --font-hollywood: var(--font-cormorant);
+  /* Same family as --font-hollywood; kept as a separate semantic name so
+     call sites can say what they mean (wordmark vs. greeting name) even
+     though both point at Cormorant Garamond. */
+  --font-marquee: var(--font-cormorant);
 }
 
 body {
-  background: var(--background);
+  /* Spotlight glow at the top of the page, fading into the solid velvet
+     background below it — same treatment behind every page's header,
+     not just the home page. */
+  background:
+    radial-gradient(ellipse 900px 480px at 50% 0%, var(--spotlight) 0%, transparent 60%),
+    var(--background);
+  background-repeat: no-repeat;
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* The literal "spelled out in marquee light bulbs" look (see the home
-   page greeting's first name) -- a genuinely DOTTED texture, not a solid
-   line/tube font. A single font can't render individual bulbs on its own,
-   so this fills the letterforms with a repeating dot pattern (each dot a
-   "bulb") via background-clip: text, then adds a warm glow behind it so
-   the bulbs read as lit rather than flat print. -webkit- prefixes are
-   load-bearing: Safari doesn't support unprefixed background-clip: text.
-   @supports fallback keeps the text a plain solid gold in any browser
-   that can't clip a background to text at all, rather than going invisible. */
-.marquee-bulbs {
-  color: var(--accent);
-  text-shadow:
-    0 0 4px rgba(232, 200, 116, 0.85),
-    0 0 14px rgba(205, 166, 70, 0.55),
-    0 0 28px rgba(205, 166, 70, 0.35);
-}
-@supports ((background-clip: text) or (-webkit-background-clip: text)) {
-  .marquee-bulbs {
-    color: transparent;
-    background-image: radial-gradient(circle, #f6dfa0 42%, transparent 46%);
-    background-size: 0.22em 0.22em;
-    background-repeat: repeat;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
+/* Thin gold foil rule — a hairline divider under the wordmark, or
+   anywhere else that wants the "this is precious" treatment without a
+   full border. */
+.foil-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent) 50%, transparent);
 }
 
 /* Skeleton shimmer for loading states */
