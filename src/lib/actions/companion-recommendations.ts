@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getCandidatesForCompanionSet, firstName } from "@/lib/recommendations/movie-night";
 import { calibrateMatchPercents } from "@/lib/recommendations/match-percent";
-import type { ReasonDetail } from "@/lib/recommendations/explain";
 import type { Recommendation } from "@/lib/recommendations/engine";
 
 const usernameSchema = z
@@ -80,24 +79,13 @@ export async function getCompanionBlendRecommendations(usernamesInput: string[])
   // fairness floor) -- same "don't show a meaningless match %" rule the
   // solo engine applies via isColdStart.
   const matchPercents = calibrateMatchPercents(candidates.map((c) => c.score));
-  const recommendations: Recommendation[] = candidates.map((c, i) => {
-    const detail: ReasonDetail = {
-      headline: c.note,
-      themes: c.title.themes ?? [],
-      tone: c.title.tone ?? [],
-      moodTags: c.title.mood_tags ?? [],
-      pacing: c.title.pacing ?? null,
-      endingType: c.title.ending_type ?? null,
-      citedTitles: [],
-    };
-    return {
-      title: c.title,
-      reason: c.note,
-      detail,
-      score: c.score,
-      matchPercent: c.score > 0 ? matchPercents[i] : null,
-    };
-  });
+  const recommendations: Recommendation[] = candidates.map((c, i) => ({
+    title: c.title,
+    reason: c.note,
+    detail: c.detail,
+    score: c.score,
+    matchPercent: c.score > 0 ? matchPercents[i] : null,
+  }));
 
   return {
     recommendations,

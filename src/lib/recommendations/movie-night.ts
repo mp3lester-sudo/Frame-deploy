@@ -1,7 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
-import { rankGroupCandidates, buildGroupConsensusNote, type ParticipantScores } from "./group-fairness";
+import {
+  rankGroupCandidates,
+  buildGroupConsensusHeadline,
+  type ParticipantScores,
+  type ParticipantCitation,
+} from "./group-fairness";
 import { computeGenreAffinity } from "./genre-affinity";
+import { CONTENT_MATCH_THRESHOLD } from "./engine";
+import type { ReasonDetail } from "./explain";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 type ParticipantRow = { user_id: string; excluded_genres: string[] | null };
@@ -9,9 +16,29 @@ type ParticipantRow = { user_id: string; excluded_genres: string[] | null };
 export interface MovieNightCandidate {
   title: Title;
   score: number;
-  /** Short, honest line on how this pick fits the group — see
-   *  group-fairness.ts's buildGroupConsensusNote. */
+  /** Short, honest line on how this pick fits the group -- now names
+   *  specific titles from each person's own rating history when a real
+   *  one clears the bar (see buildGroupConsensusHeadline), falling back
+   *  to group-fairness.ts's generic buildGroupConsensusNote otherwise. */
   note: string;
+  /** Full structured detail -- same shape the solo home page uses (themes,
+   *  tone, mood, pacing, ending, cited titles) -- for a "Why this pick"
+   *  expansion identical in spirit to the solo engine's. */
+  detail: ReasonDetail;
+}
+
+/** Plain detail with no citations -- used for the two popularity-fallback
+ *  branches below, where there's no personalized signal at all yet. */
+function genericDetail(title: Title, headline: string): ReasonDetail {
+  return {
+    headline,
+    themes: title.themes ?? [],
+    tone: title.tone ?? [],
+    moodTags: title.mood_tags ?? [],
+    pacing: title.pacing ?? null,
+    endingType: title.ending_type ?? null,
+    citedTitles: [],
+  };
 }
 
 // How many of each participant's own top matches seed the shared candidate
@@ -146,10 +173,12 @@ export async function getCandidatesForUserGroup({
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
     const filtered = (popular ?? []).filter((t) => !t.genres?.some((g) => excludedGenres.has(g)));
+    const note = "Popular right now — nobody in the group has rated enough yet to personalize this.";
     return filtered.slice(0, limit).map((title) => ({
       title,
       score: 0,
-      note: "Popular right now — nobody in the group has rated enough yet to personalize this.",
+      note,
+      detail: genericDetail(title, note),
     }));
   }
 
@@ -182,10 +211,12 @@ export async function getCandidatesForUserGroup({
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
     const filtered = (popular ?? []).filter((t) => !t.genres?.some((g) => excludedGenres.has(g)));
+    const note = "Popular right now — not enough overlap yet to find a personalized group match.";
     return filtered.slice(0, limit).map((title) => ({
       title,
       score: 0,
-      note: "Popular right now — not enough overlap yet to find a personalized group match.",
+      note,
+      detail: genericDetail(title, note),
     }));
   }
 
@@ -197,11 +228,66 @@ export async function getCandidatesForUserGroup({
     .filter((r): r is typeof r & { title: Title } => !!r.title)
     .filter((r) => !r.title.genres?.some((g) => excludedGenres.has(g)));
 
-  return filtered.slice(0, limit).map((r) => ({
-    title: r.title,
-    score: r.averageNormalized,
-    note: buildGroupConsensusNote(r, namesByUserId),
-  }));
+  const topCandidates = filtered.slice(0, limit);
+
+  // Citations ("Alice loved X; Bob loved Y") only computed for the final,
+  // already-ranked short list -- one most_similar_liked_title RPC call per
+  // (candidate, participant) pair, same "don't pay for what nobody sees"
+  // pattern the solo engine uses. Bounded (limit candidates x group size),
+  // never the whole seeded candidate pool.
+  const citationResults = await Promise.all(
+    topCandidates.flatMap((c) =>
+      userIds.map((userId) =>
+        supabase
+          .rpc("most_similar_liked_title", {
+            p_user_id: userId,
+            p_title_id: c.title.id,
+            p_min_similarity: CONTENT_MATCH_THRESHOLD,
+          })
+          .then((r) => ({
+            titleId: c.title.id,
+            userId,
+            citedIds: (r.data ?? []).map((row) => row.title_id).filter((cid): cid is string => !!cid),
+          }))
+      )
+    )
+  );
+
+  const allCitedIds = new Set<string>();
+  for (const { citedIds } of citationResults) for (const cid of citedIds) allCitedIds.add(cid);
+  const citedNameById = new Map<string, string>();
+  if (allCitedIds.size) {
+    const { data: citedTitleRows } = await supabase.from("titles").select("id, name").in("id", [...allCitedIds]);
+    for (const row of citedTitleRows ?? []) citedNameById.set(row.id, row.name);
+  }
+
+  const citationsByTitleId = new Map<string, ParticipantCitation[]>();
+  for (const { titleId, userId, citedIds } of citationResults) {
+    const citedTitles = citedIds.map((cid) => citedNameById.get(cid)).filter((n): n is string => !!n);
+    const list = citationsByTitleId.get(titleId) ?? [];
+    list.push({ userId, citedTitles });
+    citationsByTitleId.set(titleId, list);
+  }
+
+  return topCandidates.map((r) => {
+    const citations = citationsByTitleId.get(r.title.id) ?? [];
+    const note = buildGroupConsensusHeadline(r, namesByUserId, citations);
+    const allCited = [...new Set(citations.flatMap((c) => c.citedTitles))];
+    return {
+      title: r.title,
+      score: r.averageNormalized,
+      note,
+      detail: {
+        headline: note,
+        themes: r.title.themes ?? [],
+        tone: r.title.tone ?? [],
+        moodTags: r.title.mood_tags ?? [],
+        pacing: r.title.pacing ?? null,
+        endingType: r.title.ending_type ?? null,
+        citedTitles: allCited,
+      },
+    };
+  });
 }
 
 /**

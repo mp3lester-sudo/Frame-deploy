@@ -25,6 +25,18 @@ export interface Recommendation {
   matchPercent: number | null;
 }
 
+// Bar a real cited title has to clear (see most_similar_liked_title,
+// migration 0016/0032) before "Because you loved X" fires instead of a
+// generic headline. Used to be 0.85, which meant almost every
+// recommendation fell back to something generic even when a real,
+// specific film clearly drove the pick -- product direction: user
+// curation is the whole point, so a specific citation should show up for
+// any decent match, not just a near-identical one. Exported so the group
+// (Movie Night / companion-blend) engine in movie-night.ts cites titles
+// under the exact same bar, rather than drifting out of sync with its own
+// separate constant.
+export const CONTENT_MATCH_THRESHOLD = 0.5;
+
 /**
  * Hybrid recommendation: blends
  *  1) content similarity — cosine distance between the user's taste vector
@@ -158,15 +170,6 @@ export async function getRecommendationsForUser(
   // already-ranked short list — computing them for the whole over-fetched
   // candidate pool would be wasted work most of it never surfaces.
   //
-  // This used to require similarity > 0.85 before naming a specific title,
-  // which in practice meant almost every recommendation fell back to a
-  // generic headline ("Matches your taste closely...") even when a real,
-  // specific film clearly drove the pick. Product direction: user curation
-  // is the whole point, so a specific "because you loved X" should show up
-  // for any decent match, not just the rare near-identical one. Still never
-  // fabricated — most_similar_liked_title (migration 0016) only returns a
-  // hit when one genuinely exists above this bar.
-  const CONTENT_MATCH_THRESHOLD = 0.5;
   const matchFlags = new Map<string, { hasStrongContentMatch: boolean; hasCollaborativeEdge: boolean }>();
   for (const id of rankedIds) {
     const inContent = (contentMatches ?? []).find((m) => m.title_id === id);
