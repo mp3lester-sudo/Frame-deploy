@@ -30,11 +30,17 @@ export async function loadMoreWatchedTitles(username: string, page: number): Pro
 
   const from = (page - 1) * WATCHED_PAGE_SIZE;
   const to = from + WATCHED_PAGE_SIZE - 1;
+  // Secondary sort on id: a bulk import (Letterboxd, etc.) can insert dozens
+  // of rows with the same created_at timestamp, and ORDER BY on a non-unique
+  // key alone doesn't guarantee a stable row order across separate paged
+  // queries — without a tiebreaker, "Load more" could theoretically skip or
+  // repeat rows within a tied batch.
   const { data } = await supabase
     .from("ratings")
     .select("score, titles(*)")
     .eq("user_id", profile.id)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
     .range(from, to);
 
   const rows = (data ?? [])

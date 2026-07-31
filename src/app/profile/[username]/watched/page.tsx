@@ -29,11 +29,15 @@ export default async function WatchedPage({ params }: { params: Promise<{ userna
 
   const isOwnProfile = viewer?.id === profile.id;
 
+  // Same tiebreaker as loadMoreWatchedTitles (src/lib/actions/watched.ts) —
+  // must match exactly so page 1 here and page 2+ from "Load more" agree on
+  // ordering.
   const { data } = await supabase
     .from("ratings")
     .select("score, titles(*)")
     .eq("user_id", profile.id)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
     .range(0, WATCHED_PAGE_SIZE - 1);
 
   const rows = (data ?? [])
