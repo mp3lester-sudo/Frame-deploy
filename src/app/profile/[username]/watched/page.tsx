@@ -32,13 +32,22 @@ export default async function WatchedPage({ params }: { params: Promise<{ userna
   // Same tiebreaker as loadMoreWatchedTitles (src/lib/actions/watched.ts) —
   // must match exactly so page 1 here and page 2+ from "Load more" agree on
   // ordering.
-  const { data } = await supabase
-    .from("ratings")
-    .select("score, titles(*)")
-    .eq("user_id", profile.id)
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: true })
-    .range(0, WATCHED_PAGE_SIZE - 1);
+  const [{ data }, { count }] = await Promise.all([
+    supabase
+      .from("ratings")
+      .select("score, titles(*)")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(0, WATCHED_PAGE_SIZE - 1),
+    // Cheap head-only count, used purely as a cache-invalidation signal —
+    // see usePersistedPagination's `version` param. Without this, a bulk
+    // import landing after a visitor's last page view would leave the
+    // grid stuck showing whatever was cached in sessionStorage from
+    // before the import, with no way to reach the new rows short of
+    // clearing storage or opening a new tab.
+    supabase.from("ratings").select("id", { count: "exact", head: true }).eq("user_id", profile.id),
+  ]);
 
   const rows = (data ?? [])
     .map((r) => {
@@ -61,6 +70,7 @@ export default async function WatchedPage({ params }: { params: Promise<{ userna
         isOwnProfile={isOwnProfile}
         initialRows={rows}
         initialHasMore={rows.length === WATCHED_PAGE_SIZE}
+        totalCount={count ?? rows.length}
       />
     </div>
   );

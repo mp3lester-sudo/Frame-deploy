@@ -16,16 +16,22 @@ export function WatchedGrid({
   isOwnProfile,
   initialRows,
   initialHasMore,
+  totalCount,
 }: {
   username: string;
   isOwnProfile: boolean;
   initialRows: WatchedRow[];
   initialHasMore: boolean;
+  totalCount: number;
 }) {
   const { items: rows, hasMore, page, appendPage } = usePersistedPagination(
     `watched:${username}`,
     initialRows,
-    initialHasMore
+    initialHasMore,
+    // Invalidates the sessionStorage cache whenever the total number of
+    // ratings changes (e.g. a Letterboxd import lands after this visitor's
+    // last visit) — see usePersistedPagination's version param.
+    String(totalCount)
   );
   const [isPending, startTransition] = useTransition();
 
