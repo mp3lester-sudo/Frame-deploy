@@ -115,13 +115,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
       {title.backdrop_url && (
         <BackdropHero backdropUrl={title.backdrop_url} trailerKey={trailer?.key ?? null} title={title.name} />
       )}
-      <div
-        className={
-          title.backdrop_url
-            ? "relative mx-auto -mt-24 max-w-4xl px-4 pb-8 sm:-mt-32"
-            : "mx-auto max-w-4xl px-4 py-8"
-        }
-      >
+      <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-[var(--radius-lg)] bg-surface-raised shadow-[0_12px_32px_-8px_rgba(0,0,0,0.6)] sm:w-56">
           {title.poster_url && (

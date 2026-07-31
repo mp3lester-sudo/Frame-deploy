@@ -46,20 +46,6 @@ export function BackdropHero({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
-          {/* Same bottom fade the static backdrop gets below — without it,
-              the poster/title/description block that overlaps the bottom
-              of this hero (see the negative margin in movie/[id]/page.tsx)
-              was sitting directly on top of raw, un-faded video with no
-              legibility treatment at all, unlike the static-image branch.
-              The poster overlaps roughly the bottom 30% of this hero (its
-              negative margin pulls it up by a fixed 96-128px, and the
-              hero itself is 300-440px tall), so solid needs to be reached
-              by around the 35% mark — a bit past where the poster's own
-              top edge lands — not just a thin strip right at the very
-              bottom edge. Most of the hero above that still stays clear.
-              pointer-events-none so the fade doesn't swallow clicks meant
-              for YouTube's own play/pause/seek controls underneath it. */}
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,transparent_55%,transparent_100%)]" />
           <button
             type="button"
             onClick={() => setPlaying(false)}
@@ -93,15 +79,12 @@ export function BackdropHero({
             sizes="100vw"
             className="object-cover object-top"
           />
-          {/* Fade the backdrop into the page background so the poster/title
-              row below sits on solid ground, not mid-photo. The poster
-              overlaps roughly the bottom 30% of this hero (its negative
-              margin pulls it up by a fixed 96-128px, and the hero itself
-              is 300-440px tall), so solid needs to be reached by around
-              the 35% mark — a bit past where the poster's own top edge
-              lands — not just a thin strip right at the very bottom edge.
-              Most of the hero above that still stays clear. */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,transparent_55%,transparent_100%)]" />
+          {/* No bottom fade here on purpose — the poster/title row now
+              sits cleanly BELOW this hero with normal padding (see
+              movie/[id]/page.tsx, no more negative-margin overlap), so
+              there's no overlap zone left that needs fading into solid
+              ground. A subtle top scrim is still worth keeping so the
+              nav bar stays legible over a bright backdrop. */}
           <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
 
           {trailerKey && (
