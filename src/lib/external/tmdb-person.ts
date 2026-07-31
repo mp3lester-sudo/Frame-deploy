@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { tmdbUrl } from "@/lib/external/tmdb-client";
+import { tmdbUrl, TMDB_IMAGE_BASE } from "@/lib/external/tmdb-client";
 
 /**
  * Lazy fetch-on-view for person bio data, mirroring the RT score pattern:
@@ -63,4 +63,23 @@ export async function getOrFetchPersonBio(person: PersonBioLookupInput): Promise
     .eq("id", person.id);
 
   return result;
+}
+
+
+/**
+ * Extra stills beyond the single cached portrait (people.photo_url) — a
+ * small gallery of other TMDB profile shots for this person. Fetched live
+ * per-request like tmdb-reviews.ts/tmdb-videos.ts (no DB storage: this is
+ * read-only reference content, not something anything else depends on).
+ */
+export async function getTmdbPersonImages(tmdbId: number, limit = 10): Promise<string[]> {
+  try {
+    const res = await fetch(tmdbUrl(`/person/${tmdbId}/images`), { next: { revalidate: 86400 } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const profiles: Array<{ file_path: string }> = data.profiles ?? [];
+    return profiles.slice(0, limit).map((p) => `${TMDB_IMAGE_BASE}/w300${p.file_path}`);
+  } catch {
+    return [];
+  }
 }

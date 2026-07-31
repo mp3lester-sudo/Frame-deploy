@@ -9,15 +9,20 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
     <div>
       <h3 className="font-display mb-3 text-lg">{isColdStart ? "Popular right now" : "More picks for you"}</h3>
       <div className="grid grid-cols-2 gap-3">
-        {picks.map(({ title, reason, matchPercent }) => (
-          <Link key={title.id} href={`/movie/${title.id}`} className="group">
+        {picks.map(({ title, reason, matchPercent }, i) => (
+          <Link
+            key={title.id}
+            href={`/movie/${title.id}`}
+            className="stagger-card group transition-transform duration-200 hover:-translate-y-1"
+            style={{ animationDelay: `${(i % 12) * 40}ms` }}
+          >
             <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface transition-colors group-hover:border-border-strong">
               {title.poster_url && (
                 <Image
                   src={title.poster_url}
                   alt={title.name}
                   fill
-                  className="object-cover"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
                   sizes="(max-width: 640px) 50vw, 288px"
                 />
               )}

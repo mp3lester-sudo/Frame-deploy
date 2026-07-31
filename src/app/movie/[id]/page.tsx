@@ -16,8 +16,10 @@ import { aggregateReactions } from "@/lib/reactions/aggregate";
 import type { DisplayComment } from "@/components/review-comments";
 import { getOrFetchRtCriticScore } from "@/lib/external/rotten-tomatoes";
 import { getTmdbReviews } from "@/lib/external/tmdb-reviews";
+import { getTmdbTrailer } from "@/lib/external/tmdb-videos";
 import { getOrFetchWatchProviders } from "@/lib/external/tmdb-watch-providers";
 import { WhereToWatch } from "@/components/where-to-watch";
+import { BackdropHero } from "@/components/backdrop-hero";
 
 export default async function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -57,10 +59,11 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
   if (!title) notFound();
 
-  const [rtScore, tmdbReviews, watchProviders] = await Promise.all([
+  const [rtScore, tmdbReviews, watchProviders, trailer] = await Promise.all([
     getOrFetchRtCriticScore(title),
     title.tmdb_id ? getTmdbReviews(title.tmdb_id, title.type) : Promise.resolve([]),
     getOrFetchWatchProviders(title),
+    title.tmdb_id ? getTmdbTrailer(title.tmdb_id, title.type) : Promise.resolve(null),
   ]);
 
   const myListIds = (myLists ?? []).map((l) => l.id);
@@ -110,38 +113,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
   return (
     <div>
       {title.backdrop_url && (
-        <div className="relative h-[240px] w-full overflow-hidden sm:h-[360px]">
-          {/* This box's aspect ratio (up to ~5.7:1 on a wide monitor) is
-              nothing like a backdrop's native ~16:9, unlike every poster
-              box elsewhere in the app which is deliberately sized to
-              aspect-[2/3] to match its source image exactly (see
-              hero-recommendation.tsx's comment on the same class of bug).
-              object-cover's default center crop was therefore cutting
-              roughly the top and bottom quarters off the image in equal
-              amounts — and since character-forward backdrops (a person
-              standing, key art with faces near the top third) put their
-              important content well above center, that consistently cut
-              faces off on wide screens. object-top biases the crop to
-              preserve the top of the frame instead of centering it, which
-              is right far more often than dead-center for this kind of
-              art across the whole catalogue, not just one title.
-              (Pending: Movie Night's decided-pick reveal reuses this same
-              image type — worth a follow-up if it turns out to need the
-              same bias.) */}
-          <Image
-            src={title.backdrop_url}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-top"
-          />
-          {/* Fade the backdrop into the page background so the poster/title
-              row below sits on solid ground, not mid-photo. Cinematic
-              atmosphere without fighting legibility. */}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
-        </div>
+        <BackdropHero backdropUrl={title.backdrop_url} trailerKey={trailer?.key ?? null} title={title.name} />
       )}
       <div
         className={

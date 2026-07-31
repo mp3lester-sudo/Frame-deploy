@@ -36,8 +36,8 @@ export function LoadMoreGrid({
   return (
     <>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
-        {titles.map((t) => (
-          <TitleCard key={t.id} title={t} />
+        {titles.map((t, i) => (
+          <TitleCard key={t.id} title={t} index={i} />
         ))}
       </div>
       {hasMore && (

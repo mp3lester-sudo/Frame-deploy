@@ -2,9 +2,10 @@ import Image from "@/components/ui/fade-image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getOrFetchPersonBio } from "@/lib/external/tmdb-person";
+import { getOrFetchPersonBio, getTmdbPersonImages } from "@/lib/external/tmdb-person";
 import { tmdbImageAtSize } from "@/lib/external/tmdb-client";
 import { PersonHero } from "@/components/person-hero";
+import { PersonStillsGallery } from "@/components/person-stills-gallery";
 
 function formatBirthday(iso: string | null): string | null {
   if (!iso) return null;
@@ -22,7 +23,10 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   const { data: person } = await supabase.from("people").select("*").eq("id", id).single();
   if (!person) notFound();
 
-  const { bio, birthday, placeOfBirth } = await getOrFetchPersonBio(person);
+  const [{ bio, birthday, placeOfBirth }, stillImages] = await Promise.all([
+    getOrFetchPersonBio(person),
+    person.tmdb_id ? getTmdbPersonImages(person.tmdb_id) : Promise.resolve([]),
+  ]);
 
   const { data: credits } = await supabase
     .from("title_credits")
@@ -49,6 +53,8 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
         bio={bio}
       />
 
+      <PersonStillsGallery images={stillImages} />
+
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-semibold">
           Filmography <span className="text-sm font-normal text-foreground-muted">({filmography.length})</span>
@@ -56,7 +62,12 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
         {filmography.length ? (
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
             {filmography.map((c, i) => (
-              <Link href={`/movie/${c.titles!.id}`} key={i} className="group">
+              <Link
+                href={`/movie/${c.titles!.id}`}
+                key={i}
+                className="stagger-card group transition-transform duration-200 hover:-translate-y-1"
+                style={{ animationDelay: `${(i % 12) * 40}ms` }}
+              >
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-md)] bg-surface-raised">
                   {c.titles!.poster_url && (
                     <Image

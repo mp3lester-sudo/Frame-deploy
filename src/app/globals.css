@@ -94,6 +94,44 @@ body {
   background: linear-gradient(90deg, transparent, var(--accent) 50%, transparent);
 }
 
+/* Motion pass: page transitions + staggered grid reveal. Both respect
+   prefers-reduced-motion (disabled entirely for anyone who's asked for
+   less motion system-wide, rather than just making it subtler). */
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-transition {
+  animation: page-fade-in 260ms ease-out both;
+}
+
+@keyframes card-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.stagger-card {
+  animation: card-fade-up 420ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition,
+  .stagger-card {
+    animation: none;
+  }
+}
+
 /* Skeleton shimmer for loading states */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
