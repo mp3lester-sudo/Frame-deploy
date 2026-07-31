@@ -6,6 +6,7 @@ import { getOrFetchPersonBio, getTmdbPersonImages } from "@/lib/external/tmdb-pe
 import { tmdbImageAtSize } from "@/lib/external/tmdb-client";
 import { PersonHero } from "@/components/person-hero";
 import { PersonStillsGallery } from "@/components/person-stills-gallery";
+import { PersonIconicRoles, type IconicRole } from "@/components/person-iconic-roles";
 
 function formatBirthday(iso: string | null): string | null {
   if (!iso) return null;
@@ -30,18 +31,41 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
 
   const { data: credits } = await supabase
     .from("title_credits")
-    .select("credit_type, character_name, titles(id, name, poster_url, release_date, type)")
+    .select("credit_type, character_name, titles(id, name, poster_url, release_date, type, popularity)")
     .eq("person_id", id);
 
   type FilmographyRow = {
     credit_type: string;
     character_name: string | null;
-    titles: { id: string; name: string; poster_url: string | null; release_date: string | null; type: string } | null;
+    titles: {
+      id: string;
+      name: string;
+      poster_url: string | null;
+      release_date: string | null;
+      type: string;
+      popularity: number | null;
+    } | null;
   };
 
   const filmography = ((credits ?? []) as unknown as FilmographyRow[])
     .filter((c) => c.titles)
     .sort((a, b) => (b.titles!.release_date ?? "").localeCompare(a.titles!.release_date ?? ""));
+
+  // "Iconic roles" reuses this same credit data rather than a fresh TMDB
+  // call: acting credits with a named character, ranked by the title's
+  // own popularity (already backfilled across the catalogue — see Task
+  // #32) so a small early-career cameo doesn't outrank the role someone
+  // actually knows this person for.
+  const iconicRoles: IconicRole[] = filmography
+    .filter((c) => c.credit_type === "actor" && c.character_name && c.titles)
+    .sort((a, b) => (b.titles!.popularity ?? 0) - (a.titles!.popularity ?? 0))
+    .slice(0, 8)
+    .map((c) => ({
+      titleId: c.titles!.id,
+      titleName: c.titles!.name,
+      posterUrl: c.titles!.poster_url,
+      characterName: c.character_name!,
+    }));
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -53,7 +77,11 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
         bio={bio}
       />
 
-      <PersonStillsGallery images={stillImages} />
+      {iconicRoles.length >= 2 ? (
+        <PersonIconicRoles roles={iconicRoles} />
+      ) : (
+        <PersonStillsGallery images={stillImages} />
+      )}
 
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-semibold">
