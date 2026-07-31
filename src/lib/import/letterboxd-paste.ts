@@ -44,8 +44,14 @@ const TITLE_PATTERN = /<a\s+href="[^"]*\/film\/[a-z0-9-]+(?:\/\d+)?\/"[^>]*>([^<
 // not immediately after it.
 const YEAR_PATTERN = /\/films\/year\/(\d{4})\//;
 
-// A run of full-star glyphs with an optional trailing half-star glyph.
-const RATING_PATTERN = /(★+)(½)?/;
+// The rating is NOT rendered as literal star glyphs anywhere in the page
+// source — Letterboxd draws the stars with a CSS/JS widget ("rateit") and
+// keeps the actual value in a hidden 0-10 range input:
+//   <input class="rateit-field diary-rating-123" type="range" min="0"
+//    max="10" step="1" value="7" style="display: none;">
+// (confirmed against a real saved Diary page). 7/10 = 3.5 stars — the
+// scale is exactly double Letterboxd's public 0.5-5 star rating.
+const RATING_PATTERN = /class="rateit-field[^"]*"\s+type="range"\s+min="0"\s+max="10"\s+step="1"\s+value="(\d+)"/;
 
 // How far past a title match to look for its year/rating before giving up
 // (bounded so we never accidentally read the *next* entry's data, or a
@@ -92,7 +98,8 @@ export function parseLetterboxdDiaryPaste(html: string): LetterboxdRow[] {
     if (!yearMatch) continue; // no year found nearby — not confident this is a real diary entry
 
     const ratingMatch = window.match(RATING_PATTERN);
-    const rating = ratingMatch ? ratingMatch[1].length + (ratingMatch[2] ? 0.5 : 0) : null;
+    const rawValue = ratingMatch ? Number(ratingMatch[1]) : 0;
+    const rating = rawValue > 0 ? rawValue / 2 : null;
 
     rows.push({ name, year: Number(yearMatch[1]), rating });
   }

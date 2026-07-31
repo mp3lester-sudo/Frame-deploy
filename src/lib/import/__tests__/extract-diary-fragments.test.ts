@@ -2,18 +2,14 @@ import { describe, it, expect } from "vitest";
 import { extractDiaryFragments, extractDiaryFragmentsFromPages } from "@/lib/import/extract-diary-fragments";
 import { parseLetterboxdDiaryPaste } from "@/lib/import/letterboxd-paste";
 
-// Same shape as letterboxd-paste.test.ts's fixture builder.
-// Modeled on real Letterboxd diary markup (checked against a live diary
-// page): the poster is wrapped in its own <a class="frame"> pointing at
-// the same /film/slug/ URL but containing only an <img> (no text, so it
-// never matches TITLE_PATTERN's `>([^<]+)<` requirement); the real title
-// text lives in a separate anchor inside <h2 class="primaryname">; and the
-// year is a sibling <span class="releasedate"> — NOT immediately adjacent
-// to the title anchor's closing tag.
-function diaryRow(opts: { slug: string; title: string; year: number; rating?: string }): string {
-  const ratingCell = opts.rating
-    ? `<td class="td-rating"><a href="#" title="Remove rating">×</a> ${opts.rating}</td>`
-    : `<td class="td-rating"></td>`;
+// Same shape as letterboxd-paste.test.ts's fixture builder — see that
+// file's comment for the real-markup details this models, including the
+// hidden 0-10 range input Letterboxd actually uses for ratings.
+function diaryRow(opts: { slug: string; title: string; year: number; ratingValue?: number }): string {
+  const ratingCell =
+    opts.ratingValue !== undefined
+      ? `<td class="col-rating -padding-inline-large"><div class="rating-green"><div class="editable-rating shown-for-owner"><a href="#" title="Remove rating">×</a><input class="rateit-field diary-rating-1" type="range" min="0" max="10" step="1" value="${opts.ratingValue}" style="display: none;"><div class="rateit js-rateit instant-rating"></div></div></div></td>`
+      : `<td class="col-rating -padding-inline-large"></td>`;
   return `
     <tr class="diary-entry-row">
       <td class="col-production js-td-production">
@@ -34,8 +30,8 @@ function diaryRow(opts: { slug: string; title: string; year: number; rating?: st
 describe("extractDiaryFragments", () => {
   it("shrinks a page down to just the fragments the server parser needs, and the parser reconstructs the same rows", () => {
     const html = [
-      diaryRow({ slug: "the-odyssey-2026", title: "The Odyssey", year: 2026, rating: "★★★★" }),
-      diaryRow({ slug: "wet-hot-american-summer", title: "Wet Hot American Summer", year: 2001, rating: "★★★½" }),
+      diaryRow({ slug: "the-odyssey-2026", title: "The Odyssey", year: 2026, ratingValue: 8 }),
+      diaryRow({ slug: "wet-hot-american-summer", title: "Wet Hot American Summer", year: 2001, ratingValue: 7 }),
       diaryRow({ slug: "goldeneye", title: "GoldenEye", year: 1995 }), // unrated
     ].join("\n");
 
@@ -67,7 +63,7 @@ describe("extractDiaryFragments", () => {
     const bigPage =
       padding.repeat(50) +
       Array.from({ length: 50 }, (_, i) =>
-        diaryRow({ slug: `film-${i}`, title: `Film ${i}`, year: 2000 + (i % 25), rating: i % 3 === 0 ? undefined : "★★★★" })
+        diaryRow({ slug: `film-${i}`, title: `Film ${i}`, year: 2000 + (i % 25), ratingValue: i % 3 === 0 ? undefined : 8 })
       ).join("\n") +
       padding.repeat(50);
 

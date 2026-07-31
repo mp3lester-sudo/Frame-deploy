@@ -33,9 +33,9 @@
 const TITLE_PATTERN = /<a\s+href="[^"]*\/film\/[a-z0-9-]+(?:\/\d+)?\/"[^>]*>([^<]+)<\/a>/gi;
 const YEAR_PATTERN = /\/films\/year\/(\d{4})\//;
 
-// A run of full-star glyphs with an optional trailing half-star glyph —
-// identical to letterboxd-paste.ts's RATING_PATTERN.
-const RATING_PATTERN = /(★+)(½)?/;
+// Identical to letterboxd-paste.ts's RATING_PATTERN — the rating is a
+// hidden 0-10 range input's value attribute, not literal star glyphs.
+const RATING_PATTERN = /class="rateit-field[^"]*"\s+type="range"\s+min="0"\s+max="10"\s+step="1"\s+value="(\d+)"/;
 
 // How far past a title match to look for its year/rating before giving up —
 // identical to letterboxd-paste.ts's SEARCH_WINDOW.

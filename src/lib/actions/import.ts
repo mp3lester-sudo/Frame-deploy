@@ -112,6 +112,28 @@ async function matchAndUpsertRows(
     }
   }
 
+  // A rewatch shows up in a diary as two separate entries for the same
+  // film (e.g. logged again a year later) — both parse to the same
+  // title_id here. Left as-is, that puts two rows for the same
+  // (user_id, title_id) in a single insert/upsert call, which Postgres
+  // rejects outright: a plain multi-row INSERT hits the unique constraint
+  // because `now()` is evaluated once per statement (both rows get the
+  // *same* watched_at), and an upsert with two conflicting rows in one
+  // call fails with "ON CONFLICT DO UPDATE command cannot affect row a
+  // second time" regardless. Collapse each array to one row per title_id
+  // before writing — first occurrence wins, which (diary pages sort
+  // newest-first by default) is normally the most recent watch/rating.
+  const dedupeByTitleId = <T extends { title_id: string }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      if (seen.has(item.title_id)) return false;
+      seen.add(item.title_id);
+      return true;
+    });
+  };
+  const dedupedWatchUpserts = dedupeByTitleId(watchUpserts);
+  const dedupedRatingUpserts = dedupeByTitleId(ratingUpserts);
+
   // watch_history's unique constraint is (user_id, title_id, watched_at) —
   // watched_at isn't something this import captures per-row, so every
   // insert would otherwise get a fresh now() and never collide, silently
@@ -119,7 +141,7 @@ async function matchAndUpsertRows(
   // (contrary to this function's "safe to re-run" doc comment above).
   // Fetch the user's existing watched title_ids up front and skip ones
   // already on record instead.
-  const distinctTitleIds = [...new Set(watchUpserts.map((w) => w.title_id))];
+  const distinctTitleIds = [...new Set(dedupedWatchUpserts.map((w) => w.title_id))];
   const alreadyWatched = new Set<string>();
   const ID_CHUNK = 500;
   for (let i = 0; i < distinctTitleIds.length; i += ID_CHUNK) {
@@ -131,14 +153,14 @@ async function matchAndUpsertRows(
     if (error) throw new Error(`watch_history lookup failed: ${error.message}`);
     for (const row of data ?? []) alreadyWatched.add(row.title_id);
   }
-  const newWatchUpserts = watchUpserts.filter((w) => !alreadyWatched.has(w.title_id));
+  const newWatchUpserts = dedupedWatchUpserts.filter((w) => !alreadyWatched.has(w.title_id));
 
   const CHUNK = 500;
   for (let i = 0; i < newWatchUpserts.length; i += CHUNK) {
     const { error } = await supabase.from("watch_history").insert(newWatchUpserts.slice(i, i + CHUNK));
     if (error) throw new Error(`watch_history import failed: ${error.message}`);
   }
-  for (let i = 0; i < ratingUpserts.length; i += CHUNK) {
+  for (let i = 0; i < dedupedRatingUpserts.length; i += CHUNK) {
     // Without an explicit onConflict target, PostgREST resolves upsert
     // conflicts against the table's primary key (id) — which a fresh
     // insert always has a brand-new value for, so it never actually
@@ -153,7 +175,7 @@ async function matchAndUpsertRows(
     // explicitly for Postgres to UPDATE instead of erroring.
     const { error } = await supabase
       .from("ratings")
-      .upsert(ratingUpserts.slice(i, i + CHUNK), { onConflict: "user_id,title_id" });
+      .upsert(dedupedRatingUpserts.slice(i, i + CHUNK), { onConflict: "user_id,title_id" });
     if (error) throw new Error(`ratings import failed: ${error.message}`);
   }
 
