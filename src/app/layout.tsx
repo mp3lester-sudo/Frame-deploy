@@ -33,12 +33,12 @@ const bebasNeue = Bebas_Neue({
   weight: "400",
 });
 
-// Glowing, double-stroke neon-tube lettering — the literal "spelled out in
-// marquee light bulbs" look (see the home page greeting's first name).
-// A different font from the Bebas Neue wordmark above on purpose: the
-// wordmark is a solid, tall, condensed sign-lettering look, while this one
-// is specifically the lit/glowing-bulb treatment, reserved for that one
-// name in the greeting.
+// Reserved for the home page greeting's first name; the Bebas Neue
+// wordmark above is untouched. The dotted "row of light bulbs" look (per
+// the reference photo) is layered on top of this font via the
+// .marquee-bulbs radial-gradient fill in globals.css, rather than by
+// swapping fonts -- Monoton's letterforms stay, the bulb-dot texture is
+// what fills them in instead of a flat color.
 const monoton = Monoton({
   variable: "--font-monoton",
   subsets: ["latin"],

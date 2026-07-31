@@ -191,13 +191,17 @@ export default async function HomePage({
         <ContextCards day={day} time={time} location={location} weather={weather} />
       </div>
 
-      <h1 className="font-display mt-5 text-4xl leading-tight tracking-tight sm:text-5xl">
+      {/* font-sans (Geist), not font-display (Playfair) -- the ornate serif
+          read as too noisy for a plain greeting line; a clean modern sans
+          keeps the visual "loud" moment focused on the marquee-bulb name
+          right after it, instead of competing with it. */}
+      <h1 className="font-sans mt-5 text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
         {greeting},{" "}
         {/* Only the name gets the marquee-light treatment (font-marquee +
-            marquee-glow) -- the greeting word itself stays on the regular
-            display font, same spirit as the wordmark's font-hollywood being
-            reserved for just "Backlot". */}
-        <span className="marquee-glow font-marquee text-3xl uppercase tracking-wide text-accent sm:text-4xl">
+            marquee-bulbs' dotted bulb fill) -- the greeting word itself
+            stays on the regular display font, same spirit as the
+            wordmark's font-hollywood being reserved for just "Backlot". */}
+        <span className="marquee-bulbs font-marquee text-3xl uppercase tracking-wide sm:text-4xl">
           {firstName}
         </span>
         .

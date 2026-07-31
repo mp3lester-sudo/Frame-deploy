@@ -63,10 +63,11 @@
   --font-display: var(--font-playfair);
   /* Reserved for the "Frame" wordmark only — see layout.tsx. */
   --font-hollywood: var(--font-bebas);
-  /* Lit marquee-bulb lettering — reserved for the greeting's first name on
-     the home page (see layout.tsx). Deliberately a different font from
-     --font-hollywood above: that one is the wordmark's solid sign
-     lettering, this one is the glowing-bulb treatment. */
+  /* Base letterforms for the greeting's first name on the home page (see
+     layout.tsx) — the actual "row of light bulbs" look comes from the
+     .marquee-bulbs dot-fill below, not from this font alone. Deliberately
+     a different font from --font-hollywood above, which is the wordmark's
+     solid sign lettering. */
   --font-marquee: var(--font-monoton);
 }
 
@@ -76,16 +77,32 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* Warm "lit marquee bulb" glow — pairs with font-marquee (Monoton) so the
-   greeting's first name reads like it's spelled out in marquee lights
-   rather than just rendered in an unusual font. Layered, low-blur-radius-
-   first text-shadow so it reads as warm light close to the letterforms,
-   not a flat drop shadow. */
-.marquee-glow {
+/* The literal "spelled out in marquee light bulbs" look (see the home
+   page greeting's first name) -- a genuinely DOTTED texture, not a solid
+   line/tube font. A single font can't render individual bulbs on its own,
+   so this fills the letterforms with a repeating dot pattern (each dot a
+   "bulb") via background-clip: text, then adds a warm glow behind it so
+   the bulbs read as lit rather than flat print. -webkit- prefixes are
+   load-bearing: Safari doesn't support unprefixed background-clip: text.
+   @supports fallback keeps the text a plain solid gold in any browser
+   that can't clip a background to text at all, rather than going invisible. */
+.marquee-bulbs {
+  color: var(--accent);
   text-shadow:
     0 0 4px rgba(232, 200, 116, 0.85),
     0 0 14px rgba(205, 166, 70, 0.55),
     0 0 28px rgba(205, 166, 70, 0.35);
+}
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .marquee-bulbs {
+    color: transparent;
+    background-image: radial-gradient(circle, #f6dfa0 42%, transparent 46%);
+    background-size: 0.22em 0.22em;
+    background-repeat: repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 }
 
 /* Skeleton shimmer for loading states */
