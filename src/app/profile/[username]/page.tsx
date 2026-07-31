@@ -42,7 +42,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const compatibility =
     viewer && !isOwnProfile ? await computeCompatibilityForUsers(viewer.id, profile.id) : null;
 
-  const [{ count: followerCount }, { count: followingCount }, { data: recentRatings }, { data: isFollowing }, { data: favoriteRows }] =
+  const [{ count: followerCount }, { count: followingCount }, { data: recentRatings }, { count: ratingCount }, { data: isFollowing }, { data: favoriteRows }] =
     await Promise.all([
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("followee_id", profile.id),
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
@@ -52,6 +52,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         .eq("user_id", profile.id)
         .order("created_at", { ascending: false })
         .limit(12),
+      // Separate count so "See all" only shows up when there's actually
+      // more than the 12-item teaser above already covers.
+      supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
       viewer
         ? supabase
             .from("follows")
@@ -207,7 +210,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         </div>
       )}
 
-      <h2 className="mb-3 mt-8 text-lg font-semibold">Recently watched</h2>
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Recently watched</h2>
+        {(ratingCount ?? 0) > 12 && (
+          <Link href={`/profile/${profile.username}/watched`} className="text-sm text-foreground-muted hover:text-foreground">
+            See all {ratingCount} &rarr;
+          </Link>
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
         {recentRatings?.map((r) => {
           const title = (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] }).titles;
