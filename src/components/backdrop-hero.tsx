@@ -50,8 +50,12 @@ export function BackdropHero({
               visible on high-contrast trailer intros -- rating cards,
               title-card frames, black-and-white cold opens) reads as an
               intentional transition into the page rather than a video
-              getting chopped off mid-frame. */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent sm:h-32" />
+              getting chopped off mid-frame. Tall and two-stop so the
+              title row (which overlaps this zone -- see the negative
+              margin on movie/[id]/page.tsx's content wrapper) reads
+              cleanly against the image the whole way up, not just right
+              at the very bottom edge. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-64" />
           <button
             type="button"
             onClick={() => setPlaying(false)}
@@ -86,12 +90,13 @@ export function BackdropHero({
             className="object-cover object-top"
           />
           {/* Top scrim keeps the nav bar legible over a bright backdrop.
-              Bottom fade smooths the hard edge where the hero meets the
-              poster/title row below (still no overlap -- the content
-              wrapper keeps normal padding -- just a softer transition
-              than a flat cut). */}
+              Bottom fade is tall and two-stop so the title/poster row
+              (which overlaps the bottom of this hero via a negative
+              margin on the content wrapper below) reads cleanly against
+              the image the whole way up, not just right at the bottom
+              edge. */}
           <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent sm:h-32" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-64" />
 
           {trailerKey && (
             <button
