@@ -29,8 +29,18 @@ export function BackdropHero({
     <div className="group relative h-[240px] w-full overflow-hidden sm:h-[360px]">
       {playing && trailerKey ? (
         <>
+          {/* The hero box is deliberately much wider than it is tall (up to
+              ~5.7:1 on a wide monitor) -- nothing like a video's native
+              16:9, the same "wrong fit" problem the backdrop still image
+              had before object-cover. This is the iframe equivalent of
+              object-fit: cover: since this hero is full-bleed (100vw wide,
+              no side padding), sizing the iframe to 100vw wide by its true
+              16:9 height (56.25vw) and centering it always yields a height
+              taller than this box, so the parent's overflow-hidden crops
+              the vertical excess instead of letterboxing or squashing the
+              video the way a plain inset-0 fill would. */}
           <iframe
-            className="absolute inset-0 h-full w-full"
+            className="absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] -translate-x-1/2 -translate-y-1/2 border-0"
             src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&rel=0`}
             title={`${title} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

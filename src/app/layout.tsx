@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Cormorant_Garamond } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue, Monoton } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -25,15 +25,22 @@ const playfairDisplay = Playfair_Display({
   style: ["normal", "italic"],
 });
 
-// Engraved, wide-tracked small-caps serif -- the velvet-and-foil design's
-// signature lettering. Reserved for the Backlot wordmark (upright, letter
-// spaced) and, italic, for the greeting's first name. Everything else
-// stays on --font-display (Playfair) for body/heading text.
-const cormorantGaramond = Cormorant_Garamond({
-  variable: "--font-cormorant",
+// Tall, condensed, bold marquee lettering -- the "HOLLYWOOD sign" look.
+// Reserved for the Backlot wordmark only; everything else stays on
+// --font-display (Playfair) for body/heading text.
+const bebasNeue = Bebas_Neue({
+  variable: "--font-bebas",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  style: ["normal", "italic"],
+  weight: "400",
+});
+
+// Glowing, double-stroke neon-tube lettering, filled with a dotted
+// "row of light bulbs" texture (see .marquee-bulbs in globals.css) --
+// reserved for the greeting's first name specifically.
+const monoton = Monoton({
+  variable: "--font-monoton",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -80,7 +87,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} ${monoton.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />

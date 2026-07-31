@@ -23,11 +23,11 @@ export function NavBar({
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="flex flex-col items-center gap-0.5">
-          <span className="text-gold-foil font-hollywood text-2xl uppercase tracking-[0.25em]">
-            Backlot
-          </span>
-          <span className="foil-rule w-full" />
+        <Link
+          href="/"
+          className="text-gold-foil font-hollywood text-2xl uppercase tracking-[0.08em]"
+        >
+          Backlot
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
