@@ -6,13 +6,16 @@
  * whitespace — closer to a premium editorial reading app than a dashboard.
  */
 :root {
-  /* Velvet & foil: deep wine background, warm gold accent. A spotlight
-     glow (--spotlight, used in the body rule below) sits behind the top
-     of each page, fading into this solid wine-black base. */
-  --background: #180a0d;
-  --surface: #2a131a;
-  --surface-raised: #3a1c22;
-  --spotlight: #4a1620;
+  /* Velvet & foil: deep wine background, warm gold accent. Darkened and
+     desaturated from the original pass -- same "red carpet" wine family,
+     just quieter: less saturated, less bright, so the whole page reads
+     as a very dark room with a wine tint rather than an actively red
+     one. A spotlight glow (--spotlight, used in the body rule below)
+     sits behind the top of each page, fading into this solid base. */
+  --background: #120708;
+  --surface: #1f0f13;
+  --surface-raised: #2a1519;
+  --spotlight: #34121a;
   --border: rgba(217, 184, 118, 0.18);
   --border-strong: rgba(217, 184, 118, 0.34);
   --foreground: #f2e9df;
