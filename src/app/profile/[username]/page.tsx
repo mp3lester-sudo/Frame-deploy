@@ -289,7 +289,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             />
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               <div className="mb-6 flex items-baseline justify-between">
-                <h2 className="text-lg font-semibold">Favorites</h2>
+                <h2 className="text-lg font-semibold">Personal Pyramid</h2>
                 <span className="text-xs text-foreground-muted">
                   {favorites.length} all-time pick{favorites.length === 1 ? "" : "s"}
                 </span>
