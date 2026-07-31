@@ -153,6 +153,33 @@ body {
   }
 }
 
+/* Full-screen "Good morning, Name." title card (see
+   GreetingSplash) -- fade in, hold, fade out, then the component
+   unmounts itself on animation end. Percentages: ~0-15% fade in,
+   15-75% hold, 75-100% fade out, over a 2.6s total run. */
+@keyframes greeting-splash {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.greeting-splash {
+  animation: greeting-splash 2600ms ease-in-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .greeting-splash {
+    display: none;
+  }
+}
+
 /* Skeleton shimmer for loading states */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

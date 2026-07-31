@@ -13,6 +13,7 @@ import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
 import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
 import { CompanionPicker } from "@/components/home/companion-picker";
+import { GreetingSplash } from "@/components/home/greeting-splash";
 import { detectAutoContext, isCircumstantialContext } from "@/lib/context/circumstantial";
 import type { Recommendation } from "@/lib/recommendations/engine";
 
@@ -185,6 +186,7 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
+      <GreetingSplash greeting={greeting} firstName={firstName} />
       {/* Backlot wordmark removed from this header per request -- it
           already lives in the nav bar above, so repeating it here was
           redundant. The day/time/location/weather line now centers on
