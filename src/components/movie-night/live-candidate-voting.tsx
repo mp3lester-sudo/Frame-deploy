@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { castMovieNightVote, decideMovieNight } from "@/lib/actions/movie-night";
 import { createClient } from "@/lib/supabase/client";
 import type { MovieNightCandidate } from "@/lib/recommendations/movie-night";
+import { WhyThisPick } from "@/components/home/why-this-pick";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export interface InitialVote {
@@ -151,6 +152,14 @@ export function LiveCandidateVoting({
             </div>
             <p className="mt-2 line-clamp-1 text-sm font-medium">{c.title.name}</p>
             <p className="mt-0.5 line-clamp-2 text-xs text-foreground-muted">{c.note}</p>
+            {/* Same expandable themes/tone/pacing/ending chips the solo
+                home page hero uses (WhyThisPick) -- Movie Night computes
+                this exact same per-title detail already (see
+                getCandidatesForUserGroup), it just wasn't rendered
+                anywhere here, so the tie back to anyone's actual rating
+                history was invisible even though the underlying match was
+                real. */}
+            <WhyThisPick detail={c.detail} />
 
             <p className="mt-1.5 text-[11px] text-foreground-muted">
               {tally.like.size} liked{tally.pass.size > 0 ? ` · ${tally.pass.size} passed` : ""}

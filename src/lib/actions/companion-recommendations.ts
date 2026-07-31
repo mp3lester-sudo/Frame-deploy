@@ -72,7 +72,9 @@ export async function getCompanionBlendRecommendations(usernamesInput: string[])
   }
 
   const userIds = [user.id, ...companions.map((c) => c.id)];
-  const candidates = await getCandidatesForCompanionSet(userIds, namesByUserId, 6);
+  // No explicit limit here -- getCandidatesForCompanionSet scales the pool
+  // to the group size itself (see candidateLimitForGroupSize).
+  const candidates = await getCandidatesForCompanionSet(userIds, namesByUserId);
 
   // A score of exactly 0 only ever means the popularity-fallback branch
   // (nobody in the group had enough signal yet, or nothing survived the

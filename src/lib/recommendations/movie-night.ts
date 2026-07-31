@@ -59,6 +59,19 @@ export function firstName(display: string | null | undefined, username: string):
   return display?.trim()?.split(/\s+/)[0] || username;
 }
 
+// Group-recommendation count scales with how many people are actually
+// choosing together -- a fixed 6-candidate pool regardless of group size
+// meant a 2-person Movie Night saw exactly as many options as a 6-person
+// one, which felt arbitrary either way (too many for a quick 1:1 pick, too
+// few for a bigger group to find something everyone can agree on). Floor
+// of 3 (even a solo host mid-invite gets a real choice, not a single
+// forced pick); +1 per person after that so the pool grows with the
+// group; capped at 12 so a big group night doesn't turn into an
+// overwhelming wall of posters to vote on.
+export function candidateLimitForGroupSize(size: number): number {
+  return Math.max(3, Math.min(12, size + 1));
+}
+
 export interface UserGroupParams {
   userIds: string[];
   /** userId -> first name shown in consensus notes ("Leans toward Eli's
@@ -298,7 +311,7 @@ export async function getCandidatesForUserGroup({
  */
 export async function getCandidatesForMovieNight(
   movieNightId: string,
-  limit = 6
+  limit?: number
 ): Promise<MovieNightCandidate[]> {
   const supabase = await createClient();
 
@@ -321,7 +334,7 @@ export async function getCandidatesForMovieNight(
     userIds: participants.map((p) => p.user_id),
     namesByUserId,
     manualExcludedGenres,
-    limit,
+    limit: limit ?? candidateLimitForGroupSize(participants.length),
   });
 }
 
@@ -337,7 +350,11 @@ export async function getCandidatesForMovieNight(
 export async function getCandidatesForCompanionSet(
   userIds: string[],
   namesByUserId: Map<string, string>,
-  limit = 6
+  limit?: number
 ): Promise<MovieNightCandidate[]> {
-  return getCandidatesForUserGroup({ userIds, namesByUserId, limit });
+  return getCandidatesForUserGroup({
+    userIds,
+    namesByUserId,
+    limit: limit ?? candidateLimitForGroupSize(userIds.length),
+  });
 }
