@@ -271,7 +271,7 @@ export default async function HomePage({
           this renders as a single stack in the same document order as
           before (left column's content, then right column's), so mobile
           behavior is unchanged from the original single-column layout. */}
-      <div className="mt-7 lg:grid lg:grid-cols-[1.6fr_1fr] lg:items-start lg:gap-10">
+      <div className="mt-7 lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
         <div>
           {activeContext === "date_night" || activeContext === "with_friends" ? (
             <CompanionPicker context={activeContext} />
