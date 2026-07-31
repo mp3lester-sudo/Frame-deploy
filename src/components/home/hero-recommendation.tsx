@@ -19,14 +19,20 @@ type Title = Database["public"]["Tables"]["titles"]["Row"];
  * No "Featured for you" label -- removed per feedback; the glow +
  * prominent placement already read as "this is the pick" on its own.
  *
+ * The glow lives ONLY in the poster's own box-shadow (a soft blur with
+ * no spread, so it falls off smoothly on every side with no hard edge).
+ * An earlier pass paired that with a separate absolutely-positioned
+ * ambient div behind it for extra atmosphere, but that div had its own
+ * fixed rectangular height -- its bottom edge cut across the box-shadow's
+ * naturally circular falloff, showing as a visible seam/cutoff rather
+ * than one organic glow. Removed rather than fixed, since the box-shadow
+ * alone already reads as "lit from behind."
+ *
  * Deliberately NOT the literal dotted-bulb marquee treatment used for
  * the home page greeting's first name (.marquee-bulbs in globals.css)
  * -- that reads as a fun neon sign, but spelling out a real movie title
- * in individual light bulbs read as kitschy/corny here. A radial glow
- * behind the poster plus a warm text-shadow on the title gets the
- * "lit up" feeling across without the theme-park look. With no card to
- * clip it, the glow now lives in the poster's own box-shadow (visible
- * on all sides) rather than an ambient div that only showed above it.
+ * in individual light bulbs read as kitschy/corny here. A warm text-shadow
+ * on the title picks up the same glow without the theme-park look.
  *
  * Earlier version of this card used the landscape backdrop_url stretched
  * across a wide box (the streaming-dashboard "Option B" direction). This
@@ -54,15 +60,8 @@ export function HeroRecommendation({
 
   return (
     <div className="relative text-center">
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-72 sm:h-80"
-        style={{
-          background: "radial-gradient(ellipse 60% 100% at 50% 10%, rgba(217,184,118,0.35), transparent 75%)",
-        }}
-      />
-
       <Link href={`/movie/${title.id}`} className="relative block">
-        <div className="relative mx-auto h-[288px] w-48 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised shadow-[0_24px_50px_-14px_rgba(0,0,0,0.7),0_0_80px_-4px_rgba(217,184,118,0.6)] sm:h-[360px] sm:w-60">
+        <div className="relative mx-auto h-[288px] w-48 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised shadow-[0_24px_50px_-14px_rgba(0,0,0,0.7),0_0_90px_4px_rgba(217,184,118,0.55)] sm:h-[360px] sm:w-60">
           {posterImage && (
             <Image src={posterImage} alt={title.name} fill priority className="object-cover" sizes="(max-width: 640px) 192px, 240px" />
           )}
