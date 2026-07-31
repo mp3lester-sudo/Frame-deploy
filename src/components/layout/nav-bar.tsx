@@ -3,7 +3,7 @@ import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, Us
 
 const links = [
   { href: "/discover", label: "Discover", icon: Compass },
-  { href: "/taste-dna", label: "Taste DNA", icon: Dna },
+  { href: "/taste-dna", label: "Backlot DNA", icon: Dna },
   { href: "/wrapped", label: "Wrapped", icon: Gift },
   { href: "/ai", label: "Ask Backlot", icon: Sparkles },
   { href: "/feed", label: "Social", icon: Users },
