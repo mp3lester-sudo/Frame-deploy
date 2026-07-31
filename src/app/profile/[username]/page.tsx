@@ -131,9 +131,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const hasBanner = bannerImages.length > 0;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border">
-        {hasBanner && (
+    <div>
+      {hasBanner && (
           <div className="relative h-28 w-full sm:h-36">
             <div className="absolute inset-0 flex">
               {bannerImages.map((title) => (
@@ -152,7 +151,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           </div>
         )}
 
-        <div className={`relative px-4 pb-4 sm:px-6 ${hasBanner ? "-mt-10" : "pt-4"}`}>
+      <div className={`relative mx-auto max-w-4xl px-4 ${hasBanner ? "-mt-10" : "pt-8"}`}>
           <div className="flex items-end gap-4">
             <Avatar
               name={profile.display_name ?? profile.username}
@@ -232,9 +231,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           </div>
 
           {profile.bio && <p className="mt-3 text-sm leading-relaxed">{profile.bio}</p>}
-        </div>
       </div>
 
+      <div className="mx-auto max-w-4xl px-4 pb-8">
       {favorites.length > 0 && (
         <div className="mt-6">
           {/* The podium used to sit directly on the page background at a
@@ -331,6 +330,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             />
           ) : null;
         })}
+      </div>
       </div>
     </div>
   );
