@@ -53,7 +53,8 @@ export function PreferencesForm({
 }) {
   const [mood, setMood] = useState(initialMood ?? "");
   const [excluded, setExcluded] = useState<string[]>(initialExcludedGenres);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const moodTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(false);
@@ -65,8 +66,14 @@ export function PreferencesForm({
   function save(nextMood: string, nextExcluded: string[]) {
     setStatus("saving");
     startTransition(async () => {
-      await setMyMovieNightPreferences({ movieNightId, mood: nextMood, excludedGenres: nextExcluded });
-      setStatus("saved");
+      try {
+        await setMyMovieNightPreferences({ movieNightId, mood: nextMood, excludedGenres: nextExcluded });
+        setStatus("saved");
+        setErrorMessage(null);
+      } catch (err) {
+        setStatus("error");
+        setErrorMessage(err instanceof Error ? err.message : "Could not save preferences");
+      }
     });
   }
 
@@ -104,6 +111,7 @@ export function PreferencesForm({
         <span className="text-[11px] text-foreground-muted">
           {status === "saving" && "Saving…"}
           {status === "saved" && "Saved"}
+          {status === "error" && <span className="text-danger">Couldn&apos;t save</span>}
         </span>
       </div>
 
@@ -136,6 +144,9 @@ export function PreferencesForm({
           );
         })}
       </div>
+      {status === "error" && errorMessage && (
+        <p className="mt-2 text-[11px] text-danger">{errorMessage}</p>
+      )}
     </div>
   );
 }
