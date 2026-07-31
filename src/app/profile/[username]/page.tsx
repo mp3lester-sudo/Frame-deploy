@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -12,6 +13,7 @@ import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
 import { computeGenreDistribution, buildFingerprintGradient, buildTasteQuote } from "@/lib/profile/taste-fingerprint";
+import { resolveProfileTheme } from "@/lib/profile/theme-preset";
 
 /**
  * Tailwind col-start-N classes must appear literally in source for the JIT
@@ -38,6 +40,29 @@ function SelectionBadge({ index }: { index: number }) {
     <span className="absolute -left-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-accent/60 bg-background font-display text-[11px] italic text-accent shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
       {badgeNumber(index)}
     </span>
+  );
+}
+
+/**
+ * Small decorative flourish (rule + rose + rule) shown only by curated
+ * profile themes that opt into it (theme.showMotif) -- original line-art,
+ * not a reproduction of any film's marketing artwork or logo. Sits above
+ * the favorites panel like an engraved invitation card header.
+ */
+function RoseFlourish() {
+  return (
+    <div className="mb-5 flex items-center justify-center gap-4 text-accent">
+      <span className="h-px w-14 bg-gradient-to-r from-transparent to-current opacity-60" />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0 opacity-90">
+        <path d="M12 21V11.5" stroke="currentColor" strokeWidth="1" />
+        <path d="M12 15.5c-2 0-3.5-1-3.5-1s.5 2 3.5 2" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" />
+        <path d="M12 17.5c2 0 3.5-1.2 3.5-1.2s-.5 2.2-3.5 2.2" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" />
+        <circle cx="12" cy="7" r="3.2" stroke="currentColor" strokeWidth="1" />
+        <circle cx="12" cy="7" r="1.5" stroke="currentColor" strokeWidth="0.75" />
+        <path d="M9.1 5.3c.85-.95 1.95-1.5 2.9-1.5s2.05.55 2.9 1.5" stroke="currentColor" strokeWidth="0.75" fill="none" strokeLinecap="round" />
+      </svg>
+      <span className="h-px w-14 bg-gradient-to-l from-transparent to-current opacity-60" />
+    </div>
   );
 }
 
@@ -106,6 +131,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     .map((r) => (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] | null }).titles)
     .filter((t): t is Parameters<typeof TitleCard>[0]["title"] => !!t);
 
+  // Profile theme: a hand-designed palette/type/motif preset keyed to this
+  // person's #1 all-time favorite -- see resolveProfileTheme for why this
+  // is a narrow curated match rather than a general auto-theming engine.
+  const theme = resolveProfileTheme(favorites[0]?.name ?? null);
+
   // Most-watched genre across this profile's whole rating history, not
   // just the recent-ratings teaser -- a simple frequency count across
   // every genre tag on every rated title, ties broken by insertion
@@ -133,7 +163,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // taste-fingerprint.ts for why this lives as pure, tested functions
   // rather than inline JSX math.
   const genreDistribution = computeGenreDistribution(genreCounts);
-  const fingerprintGradient = buildFingerprintGradient(genreDistribution);
+  const fingerprintGradient = buildFingerprintGradient(genreDistribution, theme.accentRgb);
   const tierLabel = profile.experience_tier ? EXPERIENCE_TIER_LABEL[profile.experience_tier] : null;
   const tasteQuote = buildTasteQuote(tierLabel, genreDistribution, ratingCount ?? 0);
 
@@ -303,7 +333,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   );
 
   return (
-    <div>
+    <div style={theme.vars as CSSProperties}>
       {hasBanner ? (
         /* The nav bar is `sticky top-0` -- in normal document flow, not
            an overlay -- so it reserves its own h-14 (56px) of space
@@ -359,6 +389,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               }}
             />
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
+              {theme.showMotif && <RoseFlourish />}
               <div className="mb-6 text-center">
                 <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
                   Official selection

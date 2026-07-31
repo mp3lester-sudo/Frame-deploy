@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue, Monoton } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue, Monoton, Cinzel } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -32,6 +32,17 @@ const bebasNeue = Bebas_Neue({
   variable: "--font-bebas",
   subsets: ["latin"],
   weight: "400",
+});
+
+// Inscriptional roman serif -- reserved for profile pages themed around
+// a specific favorite film's opening title-card look (see
+// src/lib/profile/theme-preset.ts). Not used anywhere else in the app;
+// --font-display stays on Playfair everywhere by default and only a
+// themed profile's own subtree overrides it to this via inline CSS
+// custom properties.
+const cinzel = Cinzel({
+  variable: "--font-cinzel",
+  subsets: ["latin"],
 });
 
 // Glowing, double-stroke neon-tube lettering, filled with a dotted
@@ -87,7 +98,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} ${monoton.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} ${monoton.variable} ${cinzel.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
