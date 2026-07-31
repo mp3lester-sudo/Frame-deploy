@@ -190,7 +190,7 @@ export default async function HomePage({
   const firstName = rawName.split(/\s+/)[0];
 
   return (
-    <div className="mx-auto max-w-xl px-4 py-10">
+    <div className="mx-auto max-w-xl px-4 py-10 lg:max-w-5xl">
       {/* Server-rendered (not a client component) so it's part of the
           very first HTML the browser paints -- a client-mounted overlay
           would only appear after JS hydrates, by which point the home
@@ -264,74 +264,83 @@ export default async function HomePage({
         <ContextPicker active={activeContext} />
       </div>
 
-      {activeContext === "date_night" || activeContext === "with_friends" ? (
-        <div className="mt-7">
-          <CompanionPicker context={activeContext} />
+      {/* Two columns on wide screens (lg:grid below) -- personal picks on
+          the left, Director of the Day + social activity + Movie Night in
+          a persistent right rail instead of several screens further down
+          the page. Below the lg breakpoint the grid columns collapse and
+          this renders as a single stack in the same document order as
+          before (left column's content, then right column's), so mobile
+          behavior is unchanged from the original single-column layout. */}
+      <div className="mt-7 lg:grid lg:grid-cols-[1.6fr_1fr] lg:items-start lg:gap-10">
+        <div>
+          {activeContext === "date_night" || activeContext === "with_friends" ? (
+            <CompanionPicker context={activeContext} />
+          ) : (
+            <>
+              {hero && (
+                <HeroRecommendation
+                  title={hero.title}
+                  reason={hero.reason}
+                  detail={hero.detail}
+                  matchPercent={hero.matchPercent}
+                  director={heroDirector}
+                />
+              )}
+
+              {morePicks.length > 0 && (
+                <div className="mt-8">
+                  <MoodRow picks={morePicks} isColdStart={isColdStart} />
+                </div>
+              )}
+            </>
+          )}
         </div>
-      ) : (
-        <>
-          {hero && (
-            <div className="mt-7">
-              <HeroRecommendation
-                title={hero.title}
-                reason={hero.reason}
-                detail={hero.detail}
-                matchPercent={hero.matchPercent}
-                director={heroDirector}
-              />
+
+        <div className="mt-8 lg:mt-0">
+          {/* Rendered regardless of companion context (date night / with
+              friends) -- this is about the user's own rating history, not
+              whoever they're watching with tonight, so it stays independent
+              of the hero/mood-row vs. CompanionPicker branch on the left. */}
+          {directorOfTheDay && (
+            <div className="mb-8">
+              <DirectorOfTheDay director={directorOfTheDay} />
             </div>
           )}
 
-          {morePicks.length > 0 && (
-            <div className="mt-8">
-              <MoodRow picks={morePicks} isColdStart={isColdStart} />
+          {/* Social section — what people you follow are actually doing, kept
+              visually distinct from the personal picks with a divider and
+              its own eyebrow label rather than blended into one feed. */}
+          <div className="border-t border-border pt-6">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wider text-foreground-muted">Your circle</span>
+              <Link href="/hot-takes" className="text-[11px] uppercase tracking-wider text-foreground-muted hover:text-accent">
+                Hot Takes &rarr;
+              </Link>
             </div>
-          )}
-        </>
-      )}
 
-      {/* Rendered regardless of companion context (date night / with
-          friends) -- this is about the user's own rating history, not
-          whoever they're watching with tonight, so it stays independent
-          of the hero/mood-row vs. CompanionPicker branch above. */}
-      {directorOfTheDay && (
-        <div className="mt-8">
-          <DirectorOfTheDay director={directorOfTheDay} />
-        </div>
-      )}
+            {activeNight && (
+              <div className="mt-4">
+                <MovieNightCard
+                  nightId={activeNight.id}
+                  participants={activeNight.participants}
+                  isHost={activeNight.hostId === user.id}
+                />
+              </div>
+            )}
 
-      {/* Social section — what people you follow are actually doing, kept
-          visually distinct from the personal picks above with a divider and
-          its own eyebrow label rather than blended into one feed. */}
-      <div className="mt-10 border-t border-border pt-6">
-        <div className="mb-1 flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-wider text-foreground-muted">Your circle</span>
-          <Link href="/hot-takes" className="text-[11px] uppercase tracking-wider text-foreground-muted hover:text-accent">
-            Hot Takes &rarr;
-          </Link>
-        </div>
-
-        {activeNight && (
-          <div className="mt-4">
-            <MovieNightCard
-              nightId={activeNight.id}
-              participants={activeNight.participants}
-              isHost={activeNight.hostId === user.id}
-            />
+            {circleEvents.length > 0 ? (
+              <div className="mt-4">
+                <CircleFeed items={circleEvents} />
+              </div>
+            ) : (
+              !activeNight && (
+                <p className="mt-4 text-sm text-foreground-muted">
+                  Follow a few people to see what they&apos;re watching here.
+                </p>
+              )
+            )}
           </div>
-        )}
-
-        {circleEvents.length > 0 ? (
-          <div className="mt-4">
-            <CircleFeed items={circleEvents} />
-          </div>
-        ) : (
-          !activeNight && (
-            <p className="mt-4 text-sm text-foreground-muted">
-              Follow a few people to see what they&apos;re watching here.
-            </p>
-          )
-        )}
+        </div>
       </div>
     </div>
   );
