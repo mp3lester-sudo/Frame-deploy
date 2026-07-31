@@ -7,6 +7,16 @@ import { WhyThisPick } from "./why-this-pick";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
+/**
+ * Full-bleed featured banner (Option B / streaming-dashboard direction)
+ * — a landscape backdrop image with title/match overlaid via a bottom
+ * gradient, replacing the earlier side-by-side small-poster + text card.
+ * Uses backdrop_url (16:9-ish key art, same source as the movie detail
+ * page's own hero) rather than the 2:3 poster; poster_url is only a
+ * fallback for the rare title with no backdrop, since stretching a
+ * portrait poster across a wide box is exactly the crop-heavy mistake
+ * the movie page's BackdropHero comments warn about avoiding.
+ */
 export function HeroRecommendation({
   title,
   reason,
@@ -23,65 +33,43 @@ export function HeroRecommendation({
 }) {
   const year = title.release_date?.slice(0, 4);
   const meta = [year, formatRuntime(title.runtime_minutes), director].filter(Boolean).join(" · ");
+  const bannerImage = title.backdrop_url ?? title.poster_url;
 
   return (
     <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface transition-colors hover:border-border-strong">
-      {/* WhyThisPick's toggle button lives outside this Link — a <button>
-          nested inside an <a> is invalid HTML and breaks click handling. */}
       <Link href={`/movie/${title.id}`} className="block">
-        <div className="flex gap-5 p-5">
-          {/* Posters are 2:3 — the old aspect-[16/10] full-bleed banner
-              cropped most of the artwork off (and cut the title lettering
-              at the bottom entirely). This box matches the poster's own
-              ratio so the whole thing is visible, same pattern as the
-              movie/person detail pages. Sized noticeably larger than the
-              "More picks for you" grid tiles below (see mood-row.tsx) --
-              this is the single featured pick, not one tile among many,
-              and should read as clearly the biggest thing on the page. */}
-          {/* "More picks for you" grid tiles below are ~266px wide
-              (max-w-xl container minus padding, split by grid-cols-2/gap-3
-              -- see mood-row.tsx). This poster is set wider than that on
-              purpose so the single featured pick reads as unambiguously
-              bigger than any individual tile in the grid underneath it. */}
-          <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised sm:w-72">
-            {title.poster_url && (
-              <Image
-                src={title.poster_url}
-                alt={title.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 160px, 288px"
-              />
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
+        <div className="relative h-56 w-full overflow-hidden bg-surface-raised sm:h-72">
+          {bannerImage && (
+            <Image src={bannerImage} alt={title.name} fill priority className="object-cover object-top" sizes="(max-width: 640px) 100vw, 576px" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
             <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-accent">Featured for you</span>
               {title.genres?.[0] && (
-                <span className="rounded-[var(--radius-sm)] bg-background px-2 py-1 text-[11px] font-medium uppercase tracking-wider text-accent">
+                <span className="rounded-[var(--radius-sm)] bg-background/70 px-2 py-1 text-[11px] font-medium uppercase tracking-wider text-accent backdrop-blur-sm">
                   {title.genres[0]}
                 </span>
               )}
               {matchPercent !== null && (
-                <span className="rounded-[var(--radius-full)] border border-accent/50 bg-background px-3 py-1 text-xs font-semibold text-accent">
+                <span className="rounded-[var(--radius-full)] border border-accent/50 bg-background/70 px-3 py-1 text-xs font-semibold text-accent backdrop-blur-sm">
                   {matchPercent}% match
                 </span>
               )}
             </div>
-
-            <h2 className="font-display mt-2 text-3xl sm:text-4xl">{title.name}</h2>
-            {meta && (
-              <p className="mt-1 text-xs uppercase tracking-wider text-foreground-muted">{meta}</p>
-            )}
-            <p className="font-display mt-3 border-l-2 border-accent pl-3 text-base italic leading-relaxed text-foreground-muted">
-              {reason}
-            </p>
+            <h2 className="font-display mt-2 text-3xl text-foreground sm:text-4xl">{title.name}</h2>
+            {meta && <p className="mt-1 text-xs uppercase tracking-wider text-foreground-muted">{meta}</p>}
           </div>
         </div>
       </Link>
 
-      <div className="px-5 pb-5">
-        <WhyThisPick detail={detail} />
+      <div className="p-4 sm:p-5">
+        <p className="font-display border-l-2 border-accent pl-3 text-base italic leading-relaxed text-foreground-muted">
+          {reason}
+        </p>
+        <div className="mt-3">
+          <WhyThisPick detail={detail} />
+        </div>
       </div>
     </div>
   );
