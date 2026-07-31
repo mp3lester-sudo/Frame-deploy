@@ -43,37 +43,73 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const compatibility =
     viewer && !isOwnProfile ? await computeCompatibilityForUsers(viewer.id, profile.id) : null;
 
-  const [{ count: followerCount }, { count: followingCount }, { data: recentRatings }, { count: ratingCount }, { data: isFollowing }, { data: favoriteRows }] =
-    await Promise.all([
-      supabase.from("follows").select("*", { count: "exact", head: true }).eq("followee_id", profile.id),
-      supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
-      supabase
-        .from("ratings")
-        .select("score, titles(*)")
-        .eq("user_id", profile.id)
-        .order("created_at", { ascending: false })
-        .limit(12),
-      // Separate count so "See all" only shows up when there's actually
-      // more than the 12-item teaser above already covers.
-      supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
-      viewer
-        ? supabase
-            .from("follows")
-            .select("*")
-            .eq("follower_id", viewer.id)
-            .eq("followee_id", profile.id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      supabase
-        .from("favorite_titles")
-        .select("position, titles(*)")
-        .eq("user_id", profile.id)
-        .order("position", { ascending: true }),
-    ]);
+  const [
+    { count: followerCount },
+    { count: followingCount },
+    { data: recentRatings },
+    { count: ratingCount },
+    { data: isFollowing },
+    { data: favoriteRows },
+    { data: genreRows },
+  ] = await Promise.all([
+    supabase.from("follows").select("*", { count: "exact", head: true }).eq("followee_id", profile.id),
+    supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
+    supabase
+      .from("ratings")
+      .select("score, titles(*)")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(12),
+    // Separate count so "See all" only shows up when there's actually
+    // more than the 12-item teaser above already covers.
+    supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
+    viewer
+      ? supabase
+          .from("follows")
+          .select("*")
+          .eq("follower_id", viewer.id)
+          .eq("followee_id", profile.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("favorite_titles")
+      .select("position, titles(*)")
+      .eq("user_id", profile.id)
+      .order("position", { ascending: true }),
+    // Lightweight, genres-only fetch across this person's ENTIRE rating
+    // history (not just the 12-item "recently watched" teaser above) --
+    // computed fresh from ratings + titles rather than read from
+    // taste_attributes.favorite_genres, since that column is only
+    // best-effort populated once someone's visited a page that calls
+    // computeTasteDna and would otherwise leave this stat blank for a
+    // lot of profiles that clearly do have a most-watched genre.
+    supabase.from("ratings").select("titles(genres)").eq("user_id", profile.id),
+  ]);
 
   const favorites = (favoriteRows ?? [])
     .map((r) => (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] | null }).titles)
     .filter((t): t is Parameters<typeof TitleCard>[0]["title"] => !!t);
+
+  // Most-watched genre across this profile's whole rating history, not
+  // just the recent-ratings teaser -- a simple frequency count across
+  // every genre tag on every rated title, ties broken by insertion
+  // order (first genre to reach the max count wins), which is plenty
+  // for a single "top genre" banner stat.
+  const genreCounts = new Map<string, number>();
+  for (const row of genreRows ?? []) {
+    const genres = (row as unknown as { titles: { genres: string[] } | null }).titles?.genres ?? [];
+    for (const genre of genres) {
+      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
+    }
+  }
+  let topGenre: string | null = null;
+  let topGenreCount = 0;
+  for (const [genre, count] of genreCounts) {
+    if (count > topGenreCount) {
+      topGenre = genre;
+      topGenreCount = count;
+    }
+  }
 
   // Editorial cover-photo banner (Option B from the profile redesign
   // exploration): a collage of this person's own favorite titles stands
@@ -138,9 +174,23 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-foreground-muted">
-              {followerCount ?? 0} followers · {followingCount ?? 0} following
-            </p>
+            <div>
+              <p className="text-sm text-foreground-muted">
+                {followerCount ?? 0} followers · {followingCount ?? 0} following
+              </p>
+              {(ratingCount ?? 0) > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="rounded-[var(--radius-full)] border border-border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">
+                    {ratingCount} watched
+                  </span>
+                  {topGenre && (
+                    <span className="rounded-[var(--radius-full)] border border-accent/40 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-accent">
+                      Top genre: {topGenre}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
             {viewer && !isOwnProfile && (
               <div className="flex gap-2">
                 <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
