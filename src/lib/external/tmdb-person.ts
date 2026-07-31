@@ -113,11 +113,18 @@ export async function getTmdbTaggedImages(tmdbId: number, limit = 20): Promise<T
       file_path?: string;
       vote_average?: number;
       media_type?: string;
+      image_type?: string;
       media?: { id?: number; media_type?: string };
     }> = data.results ?? [];
 
     return results
-      .filter((r) => r.file_path && (r.media?.id || undefined))
+      .filter((r) => r.file_path && r.media?.id)
+      // TMDB tags people on POSTER art too (especially foreign-market
+      // one-sheets that feature an actor's face front and center) -- that's
+      // exactly the "movie poster" look this feature exists to avoid.
+      // Keep only backdrop/profile/still images, which are actual
+      // production photography rather than marketing art.
+      .filter((r) => r.image_type !== "poster")
       .slice(0, limit)
       .map((r) => ({
         imageUrl: `${TMDB_IMAGE_BASE}/w300${r.file_path}`,
