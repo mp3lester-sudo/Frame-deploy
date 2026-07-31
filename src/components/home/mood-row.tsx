@@ -20,7 +20,7 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
           <Link
             key={title.id}
             href={`/movie/${title.id}`}
-            className="stagger-card group w-32 shrink-0 transition-transform duration-200 hover:-translate-y-1 sm:w-36"
+            className="stagger-card group w-40 shrink-0 transition-transform duration-200 hover:-translate-y-1 sm:w-48"
             style={{ animationDelay: `${(i % 12) * 40}ms` }}
           >
             <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface transition-colors group-hover:border-border-strong">
@@ -30,7 +30,7 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
                   alt={title.name}
                   fill
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  sizes="144px"
+                  sizes="192px"
                 />
               )}
               {title.genres?.[0] && (

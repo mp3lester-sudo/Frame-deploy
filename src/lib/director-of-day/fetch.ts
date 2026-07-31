@@ -10,7 +10,7 @@ const SHORTLIST_SIZE = 8;
 
 // Recommended titles by this director: their films this user hasn't
 // rated yet, most popular first.
-const RECOMMENDED_TITLES_LIMIT = 3;
+const RECOMMENDED_TITLES_LIMIT = 4;
 
 export interface DirectorOfTheDay {
   id: string;
