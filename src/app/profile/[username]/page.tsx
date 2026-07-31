@@ -76,14 +76,23 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     .filter((t): t is Parameters<typeof TitleCard>[0]["title"] => !!t);
 
   // Editorial cover-photo banner (Option B from the profile redesign
-  // exploration): a blurred collage of this person's own favorite
-  // posters stands in for a "cover photo," with the avatar overlapping
-  // its bottom edge — same cover-photo-plus-overlapping-avatar pattern
-  // as the home page's featured-banner hero, just reused for identity
-  // instead of a single title. Falls back to a flat header (no banner)
-  // when there aren't any favorites yet to build a collage from.
-  const bannerPosters = favorites.slice(0, 5).filter((t) => t.poster_url);
-  const hasBanner = bannerPosters.length > 0;
+  // exploration): a collage of this person's own favorite titles stands
+  // in for a "cover photo," with the avatar overlapping its bottom edge
+  // — same cover-photo-plus-overlapping-avatar pattern as the home
+  // page's featured-banner hero, just reused for identity instead of a
+  // single title. Uses each title's backdrop art (landscape key art,
+  // same source as the movie page's own hero) rather than poster_url --
+  // the podium right below already shows every favorite as a portrait
+  // poster, so reusing that same art here would just look like a
+  // second, blurrier copy of the same image instead of a genuinely
+  // different shot of the same movie. Falls back to poster_url only
+  // for the rare title with no backdrop, and to a flat header (no
+  // banner) when there aren't enough favorites to build a collage.
+  const bannerImages = favorites
+    .map((t) => ({ id: t.id, name: t.name, image: t.backdrop_url ?? t.poster_url }))
+    .filter((t): t is { id: string; name: string; image: string } => !!t.image)
+    .slice(0, 5);
+  const hasBanner = bannerImages.length > 0;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -91,14 +100,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         {hasBanner && (
           <div className="relative h-28 w-full sm:h-36">
             <div className="absolute inset-0 flex">
-              {bannerPosters.map((title) => (
+              {bannerImages.map((title) => (
                 <div key={title.id} className="relative flex-1 overflow-hidden">
                   <Image
-                    src={title.poster_url as string}
+                    src={title.image}
                     alt=""
                     fill
                     className="object-cover object-top brightness-[0.55]"
-                    sizes="140px"
+                    sizes="200px"
                   />
                 </div>
               ))}
