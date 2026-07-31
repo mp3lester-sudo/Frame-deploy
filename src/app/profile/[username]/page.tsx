@@ -140,8 +140,16 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     .slice(0, 5);
   const hasBanner = bannerImages.length > 0;
 
+  // Editorial two-column layout (Option A): the banner overlay now only
+  // carries pure identity (avatar/name/tier/username) plus the one
+  // primary action a visitor actually needs immediately -- Follow/
+  // Message. Everything that used to compete for space in this same
+  // overlay row (watched/top-genre pills, the four-link self-service
+  // row) has moved down into the right rail below, next to bio and
+  // stats, mirroring the home page's own main-column/rail split so the
+  // two most-visited pages in the app share the same reading pattern.
   const identityBlock = (
-    <>
+    <div className="flex flex-wrap items-end justify-between gap-3">
       <div className="flex items-end gap-4">
         <Avatar
           name={profile.display_name ?? profile.username}
@@ -165,65 +173,76 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           <p className="text-sm text-foreground-muted">@{profile.username}</p>
         </div>
       </div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-foreground-muted">
-            {followerCount ?? 0} followers · {followingCount ?? 0} following
-          </p>
-          {(ratingCount ?? 0) > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              <span className="rounded-[var(--radius-full)] border border-border bg-background/70 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-foreground-muted backdrop-blur-sm">
-                {ratingCount} watched
-              </span>
-              {topGenre && (
-                <span className="rounded-[var(--radius-full)] border border-accent/40 bg-background/70 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-accent backdrop-blur-sm">
-                  Top genre: {topGenre}
-                </span>
-              )}
-            </div>
-          )}
+      {viewer && !isOwnProfile && (
+        <div className="flex gap-2 pb-1">
+          <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
+          <MessageButton userId={profile.id} />
         </div>
-        {viewer && !isOwnProfile && (
-          <div className="flex gap-2">
-            <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
-            <MessageButton userId={profile.id} />
-          </div>
-        )}
-        {isOwnProfile && (
-          // Pill row matching Discover's genre filters / the movie page's
-          // Watchlist-Add-to-list pair, rather than four bare stacked text
-          // links — the one bit of the app that hadn't picked up that
-          // language yet.
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/settings"
-              className="rounded-[var(--radius-full)] bg-accent px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-accent-foreground hover:brightness-110"
-            >
-              Edit profile
-            </Link>
-            <Link
-              href="/taste-dna"
-              className="rounded-[var(--radius-full)] border border-border bg-background/70 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted backdrop-blur-sm hover:border-border-strong hover:text-foreground"
-            >
-              Backlot DNA
-            </Link>
-            <Link
-              href="/watchlist"
-              className="rounded-[var(--radius-full)] border border-border bg-background/70 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted backdrop-blur-sm hover:border-border-strong hover:text-foreground"
-            >
-              Watchlist
-            </Link>
-            <Link
-              href="/lists"
-              className="rounded-[var(--radius-full)] border border-border bg-background/70 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted backdrop-blur-sm hover:border-border-strong hover:text-foreground"
-            >
-              Your lists
-            </Link>
-          </div>
-        )}
+      )}
+    </div>
+  );
+
+  // Right rail: bio, then a 2x2 stat grid (watched / top genre /
+  // followers / following -- previously split awkwardly between plain
+  // text and pills up in the banner overlay), then the self-service
+  // links row (Edit profile / Backlot DNA / Watchlist / Your lists),
+  // now stacked as a real vertical menu instead of squeezed pills that
+  // had to share a row with the follow-stats text.
+  const rail = (
+    <div className="mt-8 lg:mt-0">
+      {profile.bio && (
+        <div className="border-b border-border pb-6">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-foreground-muted">About</span>
+          <p className="mt-2 text-sm leading-relaxed text-foreground-muted">{profile.bio}</p>
+        </div>
+      )}
+      <div className={profile.bio ? "grid grid-cols-2 gap-3 pt-6" : "grid grid-cols-2 gap-3"}>
+        <div className="rounded-[var(--radius-md)] bg-surface-raised px-4 py-3">
+          <p className="font-display text-lg">{ratingCount ?? 0}</p>
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Watched</p>
+        </div>
+        <div className="rounded-[var(--radius-md)] bg-surface-raised px-4 py-3">
+          <p className="font-display truncate text-lg">{topGenre ?? "—"}</p>
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Top genre</p>
+        </div>
+        <div className="rounded-[var(--radius-md)] bg-surface-raised px-4 py-3">
+          <p className="font-display text-lg">{followerCount ?? 0}</p>
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Followers</p>
+        </div>
+        <div className="rounded-[var(--radius-md)] bg-surface-raised px-4 py-3">
+          <p className="font-display text-lg">{followingCount ?? 0}</p>
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Following</p>
+        </div>
       </div>
-    </>
+      {isOwnProfile && (
+        <div className="mt-6 flex flex-col gap-2">
+          <Link
+            href="/settings"
+            className="rounded-[var(--radius-full)] bg-accent px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-accent-foreground hover:brightness-110"
+          >
+            Edit profile
+          </Link>
+          <Link
+            href="/taste-dna"
+            className="rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+          >
+            Backlot DNA
+          </Link>
+          <Link
+            href="/watchlist"
+            className="rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+          >
+            Watchlist
+          </Link>
+          <Link
+            href="/lists"
+            className="rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+          >
+            Your lists
+          </Link>
+        </div>
+      )}
+    </div>
   );
 
   return (
@@ -263,15 +282,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         <div className="mx-auto max-w-4xl px-4 pt-8">{identityBlock}</div>
       )}
 
-      {profile.bio && (
-        <div className="mx-auto max-w-4xl px-4 pt-4">
-          <p className="text-sm leading-relaxed">{profile.bio}</p>
-        </div>
-      )}
-
-      <div className="mx-auto max-w-4xl px-4 pb-8">
+      <div className="mx-auto max-w-6xl px-4 pb-8 pt-6 lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
+      <div>
       {favorites.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-0">
           {/* The podium used to sit directly on the page background at a
               narrow 480px width, which read as an accidentally small
               widget stranded in a lot of empty page rather than a
@@ -367,6 +381,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           ) : null;
         })}
       </div>
+      </div>
+
+      {rail}
       </div>
     </div>
   );
