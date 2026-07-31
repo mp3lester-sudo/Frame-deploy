@@ -194,10 +194,11 @@ export default async function HomePage({
       </div>
 
       <h1 className="mt-5 text-4xl leading-tight tracking-tight sm:text-5xl">
-        {/* "Good evening"/"Good morning" is set in font-display (Playfair
-            Display), off-white -- the velvet-and-foil design's greeting
-            treatment. */}
-        <span className="font-display text-foreground">{greeting}</span>,{" "}
+        {/* "Good evening"/"Good morning" is set in font-sans (Geist) --
+            switched from Playfair Display (serif) for a cleaner, more
+            modern look. Still off-white; only the typeface changed, the
+            marquee name treatment right after it is untouched. */}
+        <span className="font-sans font-medium text-foreground">{greeting}</span>,{" "}
         {/* The name gets the dotted "row of light bulbs" marquee treatment
             (font-marquee/Monoton + marquee-bulbs) -- the Hollywood-sign
             look, distinct from the wordmark's own font-hollywood (Bebas). */}
