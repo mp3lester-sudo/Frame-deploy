@@ -26,7 +26,7 @@ export function BackdropHero({
   const [playing, setPlaying] = useState(false);
 
   return (
-    <div className="group relative h-[300px] w-full overflow-hidden sm:h-[440px]">
+    <div className="group relative h-[380px] w-full overflow-hidden sm:h-[580px]">
       {playing && trailerKey ? (
         <>
           {/* The hero box is deliberately much wider than it is tall (up to
@@ -46,6 +46,11 @@ export function BackdropHero({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+          {/* Same bottom fade as the still image, so the title row that
+              overlaps this hero (see movie/[id]/page.tsx's negative
+              margin) reads just as cleanly over a playing trailer as it
+              does over the backdrop still. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-40" />
           <button
             type="button"
             onClick={() => setPlaying(false)}
@@ -79,13 +84,14 @@ export function BackdropHero({
             sizes="100vw"
             className="object-cover object-top"
           />
-          {/* No bottom fade here on purpose — the poster/title row now
-              sits cleanly BELOW this hero with normal padding (see
-              movie/[id]/page.tsx, no more negative-margin overlap), so
-              there's no overlap zone left that needs fading into solid
-              ground. A subtle top scrim is still worth keeping so the
-              nav bar stays legible over a bright backdrop. */}
+          {/* Top scrim for nav legibility, plus a bottom fade-in so the
+              title row (which now overlaps the bottom of this hero via a
+              negative margin on the content wrapper below) reads cleanly
+              against the image instead of sitting on a hard edge. The
+              fade is sized to cover only the overlap zone -- the overview
+              paragraph sits below that zone entirely, on solid ground. */}
           <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-40" />
 
           {trailerKey && (
             <button
