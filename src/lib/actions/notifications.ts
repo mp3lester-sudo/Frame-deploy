@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
-import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 
@@ -60,7 +59,15 @@ export async function getUnreadNotificationCount(): Promise<number> {
   return count ?? 0;
 }
 
-/** Called from the /notifications page itself on every load — mirrors markConversationRead's pattern in messages.ts. */
+/**
+ * Called directly from the /notifications page's render (not a form
+ * action), so it deliberately does NOT call revalidatePath — Next 16
+ * disallows revalidating during a render pass ("Route /notifications used
+ * revalidatePath during render"), and it isn't needed here anyway: this
+ * route reads cookies for auth (via getVerifiedUser), which already makes
+ * it fully dynamic, so every request re-fetches fresh data with no cache
+ * to invalidate.
+ */
 export async function markAllNotificationsRead() {
   const supabase = await createClient();
   const user = await getVerifiedUser();
@@ -71,6 +78,4 @@ export async function markAllNotificationsRead() {
     .update({ read_at: new Date().toISOString() })
     .eq("recipient_id", user.id)
     .is("read_at", null);
-
-  revalidatePath("/notifications");
 }

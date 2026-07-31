@@ -44,32 +44,12 @@ export default async function NotificationsPage() {
   const viewer = await getVerifiedUser();
   if (!viewer) redirect("/login?next=/notifications");
 
-  // TEMP DIAGNOSTIC — whole body wrapped to surface the real 500 cause,
-  // remove once root-caused.
-  try {
-    return await renderNotifications(supabase, viewer.id);
-  } catch (err) {
-    const e = err as { message?: string; stack?: string; digest?: string };
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="mb-4 text-2xl font-semibold">Notifications (diagnostic)</h1>
-        <pre className="whitespace-pre-wrap text-xs text-danger">
-          {JSON.stringify({ message: e?.message, digest: e?.digest, stack: e?.stack }, null, 2)}
-        </pre>
-      </div>
-    );
-  }
-}
-
-async function renderNotifications(supabase: Awaited<ReturnType<typeof createClient>>, viewerId: string) {
-  const { data: rows, error: rowsError } = await supabase
+  const { data: rows } = await supabase
     .from("notifications")
     .select("id, type, actor_id, title_id, ref_id, read_at, created_at")
-    .eq("recipient_id", viewerId)
+    .eq("recipient_id", viewer.id)
     .order("created_at", { ascending: false })
     .limit(50);
-
-  if (rowsError) throw new Error(`notifications select failed: ${JSON.stringify(rowsError)}`);
 
   const notifications = rows ?? [];
 

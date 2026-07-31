@@ -84,6 +84,13 @@ export async function sendMessage(conversationId: string, rawBody: string): Prom
   return message;
 }
 
+// Called directly from /messages/[id]'s page render (not a form action),
+// so it deliberately does NOT call revalidatePath — Next 16 disallows
+// revalidating during a render pass ("Route ... used revalidatePath during
+// render"), which was silently 500-ing every conversation page. Not needed
+// anyway: this route reads cookies for auth, which already makes it fully
+// dynamic, so every request re-fetches fresh data with no cache to
+// invalidate.
 export async function markConversationRead(conversationId: string) {
   const { supabase, user } = await requireUser();
   // Column-privileges (migration 0014) mean this update can only ever touch
@@ -96,5 +103,4 @@ export async function markConversationRead(conversationId: string) {
     .eq("conversation_id", conversationId)
     .neq("sender_id", user.id)
     .is("read_at", null);
-  revalidatePath("/messages");
 }
