@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import Image from "@/components/ui/fade-image";
 import { Avatar } from "@/components/ui/avatar";
 import { TitleCard } from "@/components/title-card";
 import { WatchedTitleCard } from "@/components/profile/watched-title-card";
@@ -74,65 +75,106 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     .map((r) => (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] | null }).titles)
     .filter((t): t is Parameters<typeof TitleCard>[0]["title"] => !!t);
 
+  // Editorial cover-photo banner (Option B from the profile redesign
+  // exploration): a blurred collage of this person's own favorite
+  // posters stands in for a "cover photo," with the avatar overlapping
+  // its bottom edge — same cover-photo-plus-overlapping-avatar pattern
+  // as the home page's featured-banner hero, just reused for identity
+  // instead of a single title. Falls back to a flat header (no banner)
+  // when there aren't any favorites yet to build a collage from.
+  const bannerPosters = favorites.slice(0, 5).filter((t) => t.poster_url);
+  const hasBanner = bannerPosters.length > 0;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="flex items-center gap-4">
-        <Avatar name={profile.display_name ?? profile.username} src={profile.avatar_url} size={64} />
-        <div className="flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold">{profile.display_name ?? profile.username}</h1>
-            {profile.experience_tier && (
-              <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
-                {EXPERIENCE_TIER_LABEL[profile.experience_tier]}
-              </span>
+      <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border">
+        {hasBanner && (
+          <div className="relative h-28 w-full sm:h-36">
+            <div className="absolute inset-0 flex">
+              {bannerPosters.map((title) => (
+                <div key={title.id} className="relative flex-1 overflow-hidden">
+                  <Image
+                    src={title.poster_url as string}
+                    alt=""
+                    fill
+                    className="object-cover object-top brightness-[0.55]"
+                    sizes="140px"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/15 to-black/10" />
+          </div>
+        )}
+
+        <div className={`relative px-4 pb-4 sm:px-6 ${hasBanner ? "-mt-10" : "pt-4"}`}>
+          <div className="flex items-end gap-4">
+            <Avatar
+              name={profile.display_name ?? profile.username}
+              src={profile.avatar_url}
+              size={80}
+              className={hasBanner ? "shrink-0 border-4 border-background" : "shrink-0"}
+            />
+            <div className="min-w-0 flex-1 pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-semibold">{profile.display_name ?? profile.username}</h1>
+                {profile.experience_tier && (
+                  <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                    {EXPERIENCE_TIER_LABEL[profile.experience_tier]}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-foreground-muted">@{profile.username}</p>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-foreground-muted">
+              {followerCount ?? 0} followers · {followingCount ?? 0} following
+            </p>
+            {viewer && !isOwnProfile && (
+              <div className="flex gap-2">
+                <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
+                <MessageButton userId={profile.id} />
+              </div>
+            )}
+            {isOwnProfile && (
+              // Pill row matching Discover's genre filters / the movie page's
+              // Watchlist-Add-to-list pair, rather than four bare stacked text
+              // links — the one bit of the app that hadn't picked up that
+              // language yet.
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/settings"
+                  className="rounded-[var(--radius-full)] bg-accent px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-accent-foreground hover:brightness-110"
+                >
+                  Edit profile
+                </Link>
+                <Link
+                  href="/taste-dna"
+                  className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+                >
+                  Backlot DNA
+                </Link>
+                <Link
+                  href="/watchlist"
+                  className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+                >
+                  Watchlist
+                </Link>
+                <Link
+                  href="/lists"
+                  className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+                >
+                  Your lists
+                </Link>
+              </div>
             )}
           </div>
-          <p className="text-sm text-foreground-muted">@{profile.username}</p>
-          <p className="mt-1 text-sm text-foreground-muted">
-            {followerCount ?? 0} followers · {followingCount ?? 0} following
-          </p>
-        </div>
-        {viewer && !isOwnProfile && (
-          <div className="flex gap-2">
-            <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
-            <MessageButton userId={profile.id} />
-          </div>
-        )}
-        {isOwnProfile && (
-          // Pill row matching Discover's genre filters / the movie page's
-          // Watchlist-Add-to-list pair, rather than four bare stacked text
-          // links — the one bit of the app that hadn't picked up that
-          // language yet.
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Link
-              href="/settings"
-              className="rounded-[var(--radius-full)] bg-accent px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-accent-foreground hover:brightness-110"
-            >
-              Edit profile
-            </Link>
-            <Link
-              href="/taste-dna"
-              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
-            >
-              Backlot DNA
-            </Link>
-            <Link
-              href="/watchlist"
-              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
-            >
-              Watchlist
-            </Link>
-            <Link
-              href="/lists"
-              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
-            >
-              Your lists
-            </Link>
-          </div>
-        )}
-      </div>
 
-      {profile.bio && <p className="mt-4 text-sm leading-relaxed">{profile.bio}</p>}
+          {profile.bio && <p className="mt-3 text-sm leading-relaxed">{profile.bio}</p>}
+        </div>
+      </div>
 
       {favorites.length > 0 && (
         <div className="mt-6">
