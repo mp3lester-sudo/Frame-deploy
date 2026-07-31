@@ -25,6 +25,23 @@ function centeredColStart(count: number, index: number): string {
   return index === 0 ? "col-start-1" : index === 1 ? "col-start-3" : "col-start-5";
 }
 
+/**
+ * Softens the hard vertical seams between adjacent collage images in the
+ * profile banner. Rather than overlapping images (unpredictable with
+ * flex: 1 1 0% sizing), each image keeps its own slot and fades to
+ * transparent at the edges it shares with a neighbor, letting the plain
+ * dark page background show through as a soft gap instead of a hard cut.
+ * Returns undefined for a single-image banner, which has no seams.
+ */
+function bannerImageMask(index: number, total: number): string | undefined {
+  if (total <= 1) return undefined;
+  const isFirst = index === 0;
+  const isLast = index === total - 1;
+  if (isFirst) return "linear-gradient(to right, black 0%, black 90%, transparent 100%)";
+  if (isLast) return "linear-gradient(to right, transparent 0%, black 10%, black 100%)";
+  return "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)";
+}
+
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
   const supabase = await createClient();
@@ -231,17 +248,24 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       {hasBanner ? (
         <div className="relative h-56 w-full sm:h-72">
           <div className="absolute inset-0 flex">
-            {bannerImages.map((title) => (
-              <div key={title.id} className="relative flex-1 overflow-hidden">
-                <Image
-                  src={title.image}
-                  alt=""
-                  fill
-                  className="object-cover object-top"
-                  sizes="400px"
-                />
-              </div>
-            ))}
+            {bannerImages.map((title, index) => {
+              const mask = bannerImageMask(index, bannerImages.length);
+              return (
+                <div
+                  key={title.id}
+                  className="relative flex-1 overflow-hidden"
+                  style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
+                >
+                  <Image
+                    src={title.image}
+                    alt=""
+                    fill
+                    className="object-cover object-top"
+                    sizes="400px"
+                  />
+                </div>
+              );
+            })}
           </div>
           {/* Bottom-anchored fade only -- same via-background/70 strength
               used by the trailer hero's own fade -- so the collage stays
