@@ -67,9 +67,14 @@ export function PreferencesForm({
     setStatus("saving");
     startTransition(async () => {
       try {
-        await setMyMovieNightPreferences({ movieNightId, mood: nextMood, excludedGenres: nextExcluded });
-        setStatus("saved");
-        setErrorMessage(null);
+        const result = await setMyMovieNightPreferences({ movieNightId, mood: nextMood, excludedGenres: nextExcluded });
+        if (result.ok) {
+          setStatus("saved");
+          setErrorMessage(null);
+        } else {
+          setStatus("error");
+          setErrorMessage(result.error);
+        }
       } catch (err) {
         setStatus("error");
         setErrorMessage(err instanceof Error ? err.message : "Could not save preferences");

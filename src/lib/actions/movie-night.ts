@@ -99,29 +99,37 @@ const preferencesSchema = z.object({
   excludedGenres: z.array(z.string()).default([]),
 });
 
-export async function setMyMovieNightPreferences(input: z.infer<typeof preferencesSchema>) {
+export async function setMyMovieNightPreferences(
+  input: z.infer<typeof preferencesSchema>
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const { movieNightId, mood, excludedGenres } = preferencesSchema.parse(input);
   const { supabase, user } = await requireUser();
 
   // .select() here is deliberate, not decorative: an RLS-blocked UPDATE
   // matches zero rows and reports success with no thrown error (see
   // migration 0034's note on this exact footgun) -- .select() is what lets
-  // us actually see "0 rows" and turn it into a thrown error instead of a
+  // us actually see "0 rows" and surface it as a real failure instead of a
   // silent no-op that looks identical to a real save from the caller's side.
+  //
+  // Returned as a plain value rather than thrown: Next.js redacts thrown
+  // Server Action errors down to a generic "digest" message in production
+  // builds, which would hide the diagnostic detail this is here for.
   const { data, error } = await supabase
     .from("movie_night_participants")
     .update({ mood: mood || null, excluded_genres: excludedGenres })
     .eq("movie_night_id", movieNightId)
     .eq("user_id", user.id)
     .select("user_id");
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, error: error.message };
   if (!data || data.length === 0) {
-    throw new Error(
-      `Preference save matched 0 rows (movie_night_id=${movieNightId}, user_id=${user.id}) -- likely blocked by RLS or the participant row doesn't exist.`
-    );
+    return {
+      ok: false,
+      error: `Preference save matched 0 rows (movie_night_id=${movieNightId}, user_id=${user.id}) -- likely blocked by RLS or the participant row doesn't exist.`,
+    };
   }
 
   revalidatePath(`/movie-night/${movieNightId}`);
+  return { ok: true };
 }
 
 // Live-refresh pair for LiveCandidateVoting / LiveParticipants: whenever
