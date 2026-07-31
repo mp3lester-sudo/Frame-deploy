@@ -13,7 +13,6 @@ import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
 import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
 import { CompanionPicker } from "@/components/home/companion-picker";
-import { GreetingSplash } from "@/components/home/greeting-splash";
 import { detectAutoContext, isCircumstantialContext } from "@/lib/context/circumstantial";
 import type { Recommendation } from "@/lib/recommendations/engine";
 
@@ -186,7 +185,41 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
-      <GreetingSplash greeting={greeting} firstName={firstName} />
+      {/* Server-rendered (not a client component) so it's part of the
+          very first HTML the browser paints -- a client-mounted overlay
+          would only appear after JS hydrates, by which point the home
+          page underneath (recommendations included) has usually already
+          painted, showing the wrong thing first. This inline script runs
+          synchronously as the browser parses the page, before anything
+          below it paints: on a fresh session it marks the flag and lets
+          the splash render+animate normally; on a repeat visit within
+          the same session it flags <html> so the CSS rule right below
+          (html.splash-shown .greeting-splash) hides it instantly, no
+          animation, no flash. */}
+      <script
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{
+          __html: `try {
+  if (sessionStorage.getItem('backlot:greeting-splash-shown')) {
+    document.documentElement.classList.add('splash-shown');
+  } else {
+    sessionStorage.setItem('backlot:greeting-splash-shown', '1');
+  }
+} catch (e) {}`,
+        }}
+      />
+      <div
+        className="greeting-splash pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background"
+        aria-hidden="true"
+      >
+        <h1 className="text-4xl sm:text-5xl">
+          <span className="font-sans font-medium text-foreground">{greeting}</span>,{" "}
+          <span className="marquee-bulbs font-marquee text-3xl uppercase tracking-wide sm:text-4xl">
+            {firstName}
+          </span>
+          .
+        </h1>
+      </div>
       {/* Backlot wordmark removed from this header per request -- it
           already lives in the nav bar above, so repeating it here was
           redundant. The day/time/location/weather line now centers on
