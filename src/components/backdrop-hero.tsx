@@ -26,7 +26,7 @@ export function BackdropHero({
   const [playing, setPlaying] = useState(false);
 
   return (
-    <div className="group relative h-[240px] w-full overflow-hidden sm:h-[360px]">
+    <div className="group relative h-[300px] w-full overflow-hidden sm:h-[440px]">
       {playing && trailerKey ? (
         <>
           {/* The hero box is deliberately much wider than it is tall (up to
