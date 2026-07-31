@@ -13,6 +13,8 @@ import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
 import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
 import { CompanionPicker } from "@/components/home/companion-picker";
+import { DirectorOfTheDay } from "@/components/home/director-of-the-day";
+import { getDirectorOfTheDay } from "@/lib/director-of-day/fetch";
 import { detectAutoContext, isCircumstantialContext } from "@/lib/context/circumstantial";
 import type { Recommendation } from "@/lib/recommendations/engine";
 
@@ -99,7 +101,7 @@ export default async function HomePage({
   // nobody would see.
   const isCompanionContext = activeContext === "date_night" || activeContext === "with_friends";
 
-  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }] = await Promise.all([
+  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }, directorOfTheDay] = await Promise.all([
     isCompanionContext
       ? Promise.resolve({ recommendations: [] as Recommendation[], isColdStart: false })
       : getRecommendationsForUser(user.id, {
@@ -113,6 +115,10 @@ export default async function HomePage({
     // Recent activity from people the user follows — omitted entirely
     // rather than shown with placeholder people when there's nothing real yet.
     supabase.from("follows").select("followee_id").eq("follower_id", user.id),
+    // Independent of context/companion mode -- a director this user has
+    // rated well, rotating daily (see director-of-day/pick.ts). Returns
+    // null rather than a placeholder when there's no rating history yet.
+    getDirectorOfTheDay(user.id),
   ]);
 
   const [hero, ...morePicks] = recommendations;
@@ -282,6 +288,16 @@ export default async function HomePage({
             </div>
           )}
         </>
+      )}
+
+      {/* Rendered regardless of companion context (date night / with
+          friends) -- this is about the user's own rating history, not
+          whoever they're watching with tonight, so it stays independent
+          of the hero/mood-row vs. CompanionPicker branch above. */}
+      {directorOfTheDay && (
+        <div className="mt-8">
+          <DirectorOfTheDay director={directorOfTheDay} />
+        </div>
       )}
 
       {/* Social section — what people you follow are actually doing, kept
