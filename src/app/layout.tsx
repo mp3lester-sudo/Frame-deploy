@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue, Monoton } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue, Cinzel } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -33,16 +33,14 @@ const bebasNeue = Bebas_Neue({
   weight: "400",
 });
 
-// Reserved for the home page greeting's first name; the Bebas Neue
-// wordmark above is untouched. The dotted "row of light bulbs" look (per
-// the reference photo) is layered on top of this font via the
-// .marquee-bulbs radial-gradient fill in globals.css, rather than by
-// swapping fonts -- Monoton's letterforms stay, the bulb-dot texture is
-// what fills them in instead of a flat color.
-const monoton = Monoton({
-  variable: "--font-monoton",
+// Tall, elegant, wide-tracked engraved-capital serif -- the classic
+// prestige movie-poster title look (per the Mulholland Drive poster
+// reference). Reserved for the home page greeting's first name; the
+// Bebas Neue wordmark above is untouched.
+const cinzel = Cinzel({
+  variable: "--font-cinzel",
   subsets: ["latin"],
-  weight: "400",
+  weight: ["500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -89,7 +87,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} ${monoton.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} ${cinzel.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />

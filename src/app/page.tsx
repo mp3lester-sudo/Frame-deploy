@@ -193,15 +193,15 @@ export default async function HomePage({
 
       {/* font-sans (Geist), not font-display (Playfair) -- the ornate serif
           read as too noisy for a plain greeting line; a clean modern sans
-          keeps the visual "loud" moment focused on the marquee-bulb name
-          right after it, instead of competing with it. */}
+          keeps the visual "loud" moment focused on the name right after
+          it, instead of competing with it. */}
       <h1 className="font-sans mt-5 text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
         {greeting},{" "}
-        {/* Only the name gets the marquee-light treatment (font-marquee +
-            marquee-bulbs' dotted bulb fill) -- the greeting word itself
-            stays on the regular display font, same spirit as the
-            wordmark's font-hollywood being reserved for just "Backlot". */}
-        <span className="marquee-bulbs font-marquee text-3xl uppercase tracking-wide sm:text-4xl">
+        {/* Only the name gets the prestige movie-poster-title treatment
+            (font-marquee, Cinzel) -- the greeting word itself stays on the
+            plain sans, same spirit as the wordmark's font-hollywood being
+            reserved for just "Backlot". */}
+        <span className="font-marquee text-3xl uppercase tracking-[0.15em] text-accent sm:text-4xl">
           {firstName}
         </span>
         .
