@@ -1,33 +1,33 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { TitleCard } from "@/components/title-card";
 import { Button } from "@/components/ui/button";
+import { usePersistedPagination } from "@/lib/hooks/use-persisted-pagination";
 import type { Database } from "@/lib/supabase/types";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
 export function LoadMoreGrid({
+  storageKey,
   initialTitles,
   initialHasMore,
   loadMore,
 }: {
+  /** Unique per filter/query combo so a fresh search doesn't inherit a stale one's loaded state. */
+  storageKey: string;
   initialTitles: Title[];
   initialHasMore: boolean;
   loadMore: (page: number) => Promise<{ titles: Title[]; hasMore: boolean }>;
 }) {
-  const [titles, setTitles] = useState(initialTitles);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const [page, setPage] = useState(1);
+  const { items: titles, hasMore, page, appendPage } = usePersistedPagination(storageKey, initialTitles, initialHasMore);
   const [isPending, startTransition] = useTransition();
 
   function handleLoadMore() {
     const next = page + 1;
     startTransition(async () => {
       const result = await loadMore(next);
-      setTitles((prev) => [...prev, ...result.titles]);
-      setHasMore(result.hasMore);
-      setPage(next);
+      appendPage(result.titles, result.hasMore, next);
     });
   }
 

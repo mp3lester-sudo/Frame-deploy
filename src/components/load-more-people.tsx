@@ -1,31 +1,31 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { UserResultCard } from "@/components/user-result-card";
 import { Button } from "@/components/ui/button";
+import { usePersistedPagination } from "@/lib/hooks/use-persisted-pagination";
 import type { UserSearchResult } from "@/lib/actions/users";
 
 export function LoadMorePeople({
+  storageKey,
   initialUsers,
   initialHasMore,
   loadMore,
 }: {
+  /** Unique per query so a fresh search doesn't inherit a stale one's loaded state. */
+  storageKey: string;
   initialUsers: UserSearchResult[];
   initialHasMore: boolean;
   loadMore: (page: number) => Promise<{ users: UserSearchResult[]; hasMore: boolean }>;
 }) {
-  const [users, setUsers] = useState(initialUsers);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const [page, setPage] = useState(1);
+  const { items: users, hasMore, page, appendPage } = usePersistedPagination(storageKey, initialUsers, initialHasMore);
   const [isPending, startTransition] = useTransition();
 
   function handleLoadMore() {
     const next = page + 1;
     startTransition(async () => {
       const result = await loadMore(next);
-      setUsers((prev) => [...prev, ...result.users]);
-      setHasMore(result.hasMore);
-      setPage(next);
+      appendPage(result.users, result.hasMore, next);
     });
   }
 

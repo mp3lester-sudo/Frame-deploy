@@ -228,10 +228,14 @@ export default async function DiscoverPage({
 
       <LoadMoreGrid
         // Keyed on every active filter so switching any of them remounts the
-        // grid — otherwise its internal `useState(initialTitles)` keeps
-        // showing the previous filter's titles (only seeded on mount) until
-        // a full page reload.
-        key={`${genre ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
+        // grid — otherwise its internal state keeps showing the previous
+        // filter's titles until a full page reload. The same string doubles
+        // as the sessionStorage key the grid persists its loaded pages
+        // under (see use-persisted-pagination.ts), so browser back/forward
+        // restores exactly this filter combo's progress, not some other
+        // combo's leftover state.
+        key={`discover:${genre ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
+        storageKey={`discover:${genre ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
         initialTitles={titles ?? []}
         initialHasMore={(titles?.length ?? 0) === DISCOVER_PAGE_SIZE}
         loadMore={loadMore}
