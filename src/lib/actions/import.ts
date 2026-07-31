@@ -138,10 +138,16 @@ export async function importLetterboxdData(formData: FormData): Promise<ImportSu
   try {
     return await matchAndUpsertRows(supabase, user.id, rows);
   } catch (err) {
-    // TEMP DIAGNOSTIC — remove after root-causing the "import doesn't work" report.
-    throw new Error(
-      "TEMP_DEBUG: " + (err instanceof Error ? `${err.message}\n${err.stack}` : JSON.stringify(err))
-    );
+    // TEMP DIAGNOSTIC — return (don't throw) so the real message survives Next's
+    // production redaction of Server Action errors.
+    const debugMsg = err instanceof Error ? `${err.message}\n${err.stack}` : JSON.stringify(err);
+    return {
+      totalRows: rows.length,
+      matched: 0,
+      rated: 0,
+      watchedOnly: 0,
+      unmatchedSample: [{ name: "TEMP_DEBUG: " + debugMsg, year: null }],
+    };
   }
 }
 
