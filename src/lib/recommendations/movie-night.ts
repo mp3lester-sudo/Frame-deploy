@@ -90,8 +90,8 @@ export async function getCandidatesForMovieNight(
   }
   for (const p of participants) {
     const affinity = computeGenreAffinity(ratingsByParticipant.get(p.user_id) ?? []);
-    for (const [genre, value] of affinity) {
-      if (value <= HARD_DISLIKE_THRESHOLD) excludedGenres.add(genre);
+    for (const [genre, entry] of affinity) {
+      if (entry.affinity <= HARD_DISLIKE_THRESHOLD) excludedGenres.add(genre);
     }
   }
 

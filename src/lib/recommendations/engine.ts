@@ -4,6 +4,7 @@ import { contextMultiplier } from "./context-weighting";
 import { weatherTimeMultiplier, weatherTimeNote, type WeatherTimeSignal } from "./weather-time-weighting";
 import { qualityMultiplier } from "./quality-weighting";
 import { computeGenreAffinity, genreAffinityMultiplier } from "./genre-affinity";
+import { computeCurationConfidence, computeBlendWeights, computeAdjustmentBand } from "./curation-confidence";
 import { calibrateMatchPercents } from "./match-percent";
 import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
@@ -23,9 +24,6 @@ export interface Recommendation {
    *  Math.round(score * 100) math. */
   matchPercent: number | null;
 }
-
-const VECTOR_WEIGHT = 0.65;
-const COLLABORATIVE_WEIGHT = 0.35;
 
 /**
  * Hybrid recommendation: blends
@@ -92,13 +90,21 @@ export async function getRecommendationsForUser(
     (userRatings ?? []).map((r) => ({ score: r.score, genres: genresByRatedTitleId.get(r.title_id) ?? null }))
   );
 
+  // "User curation is the key": how much a user's own taste vector should
+  // be trusted relative to the crowd (and how much room generic signals get
+  // below) scales with how much they've actually curated — see
+  // curation-confidence.ts for the full rationale.
+  const highRatedCount = (userRatings ?? []).filter((r) => r.score >= 4).length;
+  const confidence = computeCurationConfidence(highRatedCount);
+  const { vectorWeight, collaborativeWeight } = computeBlendWeights(confidence);
+
   const blended = new Map<string, number>();
   for (const m of contentMatches ?? []) {
-    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity * VECTOR_WEIGHT);
+    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity * vectorWeight);
   }
   for (const m of collabMatches ?? []) {
     const normalized = Math.min(m.score, 1);
-    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + normalized * COLLABORATIVE_WEIGHT);
+    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + normalized * collaborativeWeight);
   }
 
   if (blended.size === 0) {
@@ -121,8 +127,7 @@ export async function getRecommendationsForUser(
   // (each signal nudges up or down independently, then the total is
   // clamped) keeps every signal meaningful without any handful of soft
   // nudges accidentally acting like a hard exclusion.
-  const MIN_TOTAL_ADJUSTMENT = 0.45;
-  const MAX_TOTAL_ADJUSTMENT = 1.6;
+  const { min: MIN_TOTAL_ADJUSTMENT, max: MAX_TOTAL_ADJUSTMENT } = computeAdjustmentBand(confidence);
   const adjusted: { id: string; score: number }[] = [];
   for (const [id, score] of blended.entries()) {
     const title = byId.get(id);
