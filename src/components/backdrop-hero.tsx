@@ -51,12 +51,15 @@ export function BackdropHero({
               of this hero (see the negative margin in movie/[id]/page.tsx)
               was sitting directly on top of raw, un-faded video with no
               legibility treatment at all, unlike the static-image branch.
-              Kept tight to just the bottom edge so the video keeps most of
-              the hero's height clear and visible — only the strip right
-              behind the overlapping poster/title needs solid ground.
+              The poster overlaps roughly the bottom 30% of this hero (its
+              negative margin pulls it up by a fixed 96-128px, and the
+              hero itself is 300-440px tall), so solid needs to be reached
+              by around the 35% mark — a bit past where the poster's own
+              top edge lands — not just a thin strip right at the very
+              bottom edge. Most of the hero above that still stays clear.
               pointer-events-none so the fade doesn't swallow clicks meant
               for YouTube's own play/pause/seek controls underneath it. */}
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_4%,transparent_20%,transparent_100%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,transparent_55%,transparent_100%)]" />
           <button
             type="button"
             onClick={() => setPlaying(false)}
@@ -91,11 +94,14 @@ export function BackdropHero({
             className="object-cover object-top"
           />
           {/* Fade the backdrop into the page background so the poster/title
-              row below sits on solid ground, not mid-photo. Kept tight to
-              just the bottom edge so the image keeps most of the hero's
-              height clear and visible — only the strip right behind the
-              overlapping poster/title needs solid ground. */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_4%,transparent_20%,transparent_100%)]" />
+              row below sits on solid ground, not mid-photo. The poster
+              overlaps roughly the bottom 30% of this hero (its negative
+              margin pulls it up by a fixed 96-128px, and the hero itself
+              is 300-440px tall), so solid needs to be reached by around
+              the 35% mark — a bit past where the poster's own top edge
+              lands — not just a thin strip right at the very bottom edge.
+              Most of the hero above that still stays clear. */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,transparent_55%,transparent_100%)]" />
           <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
 
           {trailerKey && (
