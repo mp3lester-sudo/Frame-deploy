@@ -9,6 +9,7 @@ import { FollowButton } from "@/components/follow-button";
 import { MessageButton } from "@/components/message-button";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
+import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
 
 /**
  * Tailwind col-start-N classes must appear literally in source for the JIT
@@ -75,7 +76,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       <div className="flex items-center gap-4">
         <Avatar name={profile.display_name ?? profile.username} src={profile.avatar_url} size={64} />
         <div className="flex-1">
-          <h1 className="text-xl font-semibold">{profile.display_name ?? profile.username}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold">{profile.display_name ?? profile.username}</h1>
+            {profile.experience_tier && (
+              <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                {EXPERIENCE_TIER_LABEL[profile.experience_tier]}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-foreground-muted">@{profile.username}</p>
           <p className="mt-1 text-sm text-foreground-muted">
             {followerCount ?? 0} followers · {followingCount ?? 0} following

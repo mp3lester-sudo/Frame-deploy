@@ -15,6 +15,7 @@ export interface Database {
           bio: string | null;
           is_creator: boolean;
           is_premium: boolean;
+          experience_tier: "rookie" | "intermediate" | "pro" | null;
           created_at: string;
           updated_at: string;
         };
