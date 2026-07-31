@@ -11,6 +11,7 @@ import { MessageButton } from "@/components/message-button";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
+import { computeGenreDistribution, buildFingerprintGradient, buildTasteQuote } from "@/lib/profile/taste-fingerprint";
 
 /**
  * Tailwind col-start-N classes must appear literally in source for the JIT
@@ -23,6 +24,21 @@ function centeredColStart(count: number, index: number): string {
   if (count === 1) return "col-start-3";
   if (count === 2) return index === 0 ? "col-start-2" : "col-start-4";
   return index === 0 ? "col-start-1" : index === 1 ? "col-start-3" : "col-start-5";
+}
+
+/** "01", "02", ... -- the pyramid's official-selection numbering, badge
+ *  index is the overall favorites rank (0-based), not position within its
+ *  own row, so numbering stays continuous across the 1/2/3 podium rows. */
+function badgeNumber(overallIndex: number): string {
+  return String(overallIndex + 1).padStart(2, "0");
+}
+
+function SelectionBadge({ index }: { index: number }) {
+  return (
+    <span className="absolute -left-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-accent/60 bg-background font-display text-[11px] italic text-accent shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+      {badgeNumber(index)}
+    </span>
+  );
 }
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
@@ -111,6 +127,16 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     }
   }
 
+  // Taste fingerprint: the same genreCounts feeding "top genre" above,
+  // broken into shares for the wheel graphic, plus a short auto-written
+  // line reading the shape of that back to the viewer -- see
+  // taste-fingerprint.ts for why this lives as pure, tested functions
+  // rather than inline JSX math.
+  const genreDistribution = computeGenreDistribution(genreCounts);
+  const fingerprintGradient = buildFingerprintGradient(genreDistribution);
+  const tierLabel = profile.experience_tier ? EXPERIENCE_TIER_LABEL[profile.experience_tier] : null;
+  const tasteQuote = buildTasteQuote(tierLabel, genreDistribution, ratingCount ?? 0);
+
   // Editorial cover-photo banner (Option B from the profile redesign
   // exploration, since refined for legibility/scale/cohesion): a
   // collage of this person's own favorite titles stands in for a
@@ -190,28 +216,59 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // had to share a row with the follow-stats text.
   const rail = (
     <div className="mt-8 lg:mt-0">
+      {/* Taste fingerprint: a wax-seal-style wheel sized to this person's
+          actual genre split (one accent hue at decreasing opacity per
+          slice, matching the app's single-accent restraint rather than a
+          multi-color pie chart), paired with the auto-written line that
+          reads that shape back to them. Only renders once there's real
+          rating history to draw from -- see buildTasteQuote. */}
+      {tasteQuote && (
+        <div className="mb-6 flex items-center gap-4 border-b border-border pb-6">
+          <div
+            className="relative h-20 w-20 shrink-0 rounded-full"
+            style={{ background: `conic-gradient(${fingerprintGradient})` }}
+          >
+            <div className="absolute inset-2 flex items-center justify-center rounded-full bg-background text-center">
+              <span className="font-display text-[10px] italic leading-tight text-foreground-muted">
+                {tierLabel ?? "Backlot"}
+              </span>
+            </div>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-foreground-muted">
+              Taste fingerprint
+            </p>
+            <p className="mt-1 font-display text-sm italic leading-snug text-accent">{tasteQuote}</p>
+          </div>
+        </div>
+      )}
+
       {profile.bio && (
         <div className="border-b border-border pb-6">
           <span className="text-[10px] font-medium uppercase tracking-wider text-foreground-muted">About</span>
           <p className="mt-2 text-sm leading-relaxed text-foreground-muted">{profile.bio}</p>
         </div>
       )}
-      <div className={profile.bio ? "grid grid-cols-2 gap-3 pt-6" : "grid grid-cols-2 gap-3"}>
-        <div className="rounded-[var(--radius-md)] bg-surface-raised px-4 py-3">
+
+      {/* Ticket-stub stat strip: dashed dividers instead of separate
+          boxed tiles, reading like the torn perforation on a real
+          admission ticket rather than a generic stats card grid. */}
+      <div className="flex divide-x divide-dashed divide-border rounded-[var(--radius-md)] border border-dashed border-border pt-5 pb-4">
+        <div className="flex-1 px-2 text-center">
           <p className="font-display text-lg">{ratingCount ?? 0}</p>
-          <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Watched</p>
+          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Watched</p>
         </div>
-        <div className="rounded-[var(--radius-md)] bg-surface-raised px-4 py-3">
+        <div className="flex-1 px-2 text-center">
           <p className="font-display truncate text-lg">{topGenre ?? "—"}</p>
-          <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Top genre</p>
+          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Top genre</p>
         </div>
-        <div className="rounded-[var(--radius-md)] bg-surface-raised px-4 py-3">
+        <div className="flex-1 px-2 text-center">
           <p className="font-display text-lg">{followerCount ?? 0}</p>
-          <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Followers</p>
+          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Followers</p>
         </div>
-        <div className="rounded-[var(--radius-md)] bg-surface-raised px-4 py-3">
+        <div className="flex-1 px-2 text-center">
           <p className="font-display text-lg">{followingCount ?? 0}</p>
-          <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Following</p>
+          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Following</p>
         </div>
       </div>
       {isOwnProfile && (
@@ -303,7 +360,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             />
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               <div className="mb-6 text-center">
-                <h2 className="text-lg font-semibold">Personal Pyramid</h2>
+                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
+                  Official selection
+                </p>
+                <h2 className="mt-1 text-lg font-semibold">Personal Pyramid</h2>
                 <span className="text-xs text-foreground-muted">
                   {favorites.length} all-time pick{favorites.length === 1 ? "" : "s"}
                 </span>
@@ -317,7 +377,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                   regardless of tier. */}
               <div className="mx-auto flex max-w-[560px] flex-col gap-5">
                 <div className="grid grid-cols-6 gap-5">
-                  <div className="col-span-2 col-start-3">
+                  <div className="relative col-span-2 col-start-3">
+                    <SelectionBadge index={0} />
                     <TitleCard title={favorites[0]} highlight />
                   </div>
                 </div>
@@ -326,8 +387,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                     {favorites.slice(1, 3).map((title, i, arr) => (
                       <div
                         key={title.id}
-                        className={`col-span-2 ${centeredColStart(arr.length, i)}`}
+                        className={`relative col-span-2 ${centeredColStart(arr.length, i)}`}
                       >
+                        <SelectionBadge index={1 + i} />
                         <TitleCard title={title} />
                       </div>
                     ))}
@@ -338,8 +400,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                     {favorites.slice(3, 6).map((title, i, arr) => (
                       <div
                         key={title.id}
-                        className={`col-span-2 ${centeredColStart(arr.length, i)}`}
+                        className={`relative col-span-2 ${centeredColStart(arr.length, i)}`}
                       >
+                        <SelectionBadge index={3 + i} />
                         <TitleCard title={title} />
                       </div>
                     ))}
