@@ -14,6 +14,8 @@ import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
 import { computeGenreDistribution, buildFingerprintGradient, buildTasteQuote } from "@/lib/profile/taste-fingerprint";
 import { resolveProfileTheme } from "@/lib/profile/theme-preset";
+import { AnimatedCounter } from "@/components/profile/animated-counter";
+import { Reveal } from "@/components/profile/reveal";
 
 /**
  * Tailwind col-start-N classes must appear literally in source for the JIT
@@ -35,9 +37,12 @@ function badgeNumber(overallIndex: number): string {
   return String(overallIndex + 1).padStart(2, "0");
 }
 
-function SelectionBadge({ index }: { index: number }) {
+function SelectionBadge({ index, delayMs = 0 }: { index: number; delayMs?: number }) {
   return (
-    <span className="absolute -left-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-accent/60 bg-background font-display text-[11px] italic text-accent shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+    <span
+      className="badge-pop absolute -left-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-accent/60 bg-background font-display text-[11px] italic text-accent shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+      style={{ animationDelay: `${delayMs}ms` }}
+    >
       {badgeNumber(index)}
     </span>
   );
@@ -52,8 +57,14 @@ function SelectionBadge({ index }: { index: number }) {
 function RoseFlourish() {
   return (
     <div className="mb-5 flex items-center justify-center gap-4 text-accent">
-      <span className="h-px w-14 bg-gradient-to-r from-transparent to-current opacity-60" />
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0 opacity-90">
+      <span className="rule-grow h-px w-14 bg-gradient-to-r from-transparent to-current opacity-60" />
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="rose-icon shrink-0 opacity-90"
+      >
         <path d="M12 21V11.5" stroke="currentColor" strokeWidth="1" />
         <path d="M12 15.5c-2 0-3.5-1-3.5-1s.5 2 3.5 2" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" />
         <path d="M12 17.5c2 0 3.5-1.2 3.5-1.2s-.5 2.2-3.5 2.2" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" />
@@ -61,7 +72,7 @@ function RoseFlourish() {
         <circle cx="12" cy="7" r="1.5" stroke="currentColor" strokeWidth="0.75" />
         <path d="M9.1 5.3c.85-.95 1.95-1.5 2.9-1.5s2.05.55 2.9 1.5" stroke="currentColor" strokeWidth="0.75" fill="none" strokeLinecap="round" />
       </svg>
-      <span className="h-px w-14 bg-gradient-to-l from-transparent to-current opacity-60" />
+      <span className="rule-grow h-px w-14 bg-gradient-to-l from-transparent to-current opacity-60" />
     </div>
   );
 }
@@ -212,12 +223,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           src={profile.avatar_url}
           size={88}
           className={
-            hasBanner
+            (hasBanner
               ? "shrink-0 border-8 border-black ring-2 ring-accent/70 shadow-[0_4px_18px_rgba(0,0,0,0.55)]"
-              : "shrink-0"
+              : "shrink-0") + " stagger-card"
           }
         />
-        <div className="min-w-0 flex-1 pb-1">
+        <div className="stagger-card min-w-0 flex-1 pb-1" style={{ animationDelay: "80ms" }}>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-xl">{profile.display_name ?? profile.username}</h1>
             {profile.experience_tier && (
@@ -230,9 +241,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         </div>
       </div>
       {viewer && !isOwnProfile && (
-        <div className="flex gap-2 pb-1">
-          <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
-          <MessageButton userId={profile.id} />
+        <div className="stagger-card flex gap-2 pb-1" style={{ animationDelay: "160ms" }}>
+          <div className="shine-hover rounded-[var(--radius-full)]">
+            <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
+          </div>
+          <div className="shine-hover rounded-[var(--radius-full)]">
+            <MessageButton userId={profile.id} />
+          </div>
         </div>
       )}
     </div>
@@ -255,8 +270,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       {tasteQuote && (
         <div className="mb-6 flex items-center gap-4 border-b border-border pb-6">
           <div
-            className="relative h-20 w-20 shrink-0 rounded-full"
-            style={{ background: `conic-gradient(${fingerprintGradient})` }}
+            className="wheel-in relative h-20 w-20 shrink-0 rounded-full"
+            style={{ background: `conic-gradient(${fingerprintGradient})`, animationDelay: "120ms" }}
           >
             <div className="absolute inset-2 flex items-center justify-center rounded-full bg-background text-center">
               <span className="font-display text-[10px] italic leading-tight text-foreground-muted">
@@ -264,7 +279,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               </span>
             </div>
           </div>
-          <div className="min-w-0">
+          <div className="stagger-card min-w-0" style={{ animationDelay: "300ms" }}>
             <p className="text-[10px] font-medium uppercase tracking-wider text-foreground-muted">
               Taste fingerprint
             </p>
@@ -274,7 +289,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       )}
 
       {profile.bio && (
-        <div className="border-b border-border pb-6">
+        <div className="stagger-card border-b border-border pb-6" style={{ animationDelay: "360ms" }}>
           <span className="text-[10px] font-medium uppercase tracking-wider text-foreground-muted">About</span>
           <p className="mt-2 text-sm leading-relaxed text-foreground-muted">{profile.bio}</p>
         </div>
@@ -283,9 +298,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       {/* Ticket-stub stat strip: dashed dividers instead of separate
           boxed tiles, reading like the torn perforation on a real
           admission ticket rather than a generic stats card grid. */}
-      <div className="flex divide-x divide-dashed divide-border rounded-[var(--radius-md)] border border-dashed border-border pt-5 pb-4">
+      <div
+        className="stagger-card flex divide-x divide-dashed divide-border rounded-[var(--radius-md)] border border-dashed border-border pt-5 pb-4"
+        style={{ animationDelay: "440ms" }}
+      >
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-lg">{ratingCount ?? 0}</p>
+          <p className="font-display text-lg"><AnimatedCounter value={ratingCount ?? 0} /></p>
           <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Watched</p>
         </div>
         <div className="flex-1 px-2 text-center">
@@ -293,11 +311,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Top genre</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-lg">{followerCount ?? 0}</p>
+          <p className="font-display text-lg"><AnimatedCounter value={followerCount ?? 0} /></p>
           <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Followers</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-lg">{followingCount ?? 0}</p>
+          <p className="font-display text-lg"><AnimatedCounter value={followingCount ?? 0} /></p>
           <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Following</p>
         </div>
       </div>
@@ -305,25 +323,29 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         <div className="mt-6 flex flex-col gap-2">
           <Link
             href="/settings"
-            className="rounded-[var(--radius-full)] bg-accent px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-accent-foreground hover:brightness-110"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] bg-accent px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-accent-foreground transition-transform duration-200 hover:-translate-y-0.5 hover:brightness-110"
+            style={{ animationDelay: "500ms" }}
           >
             Edit profile
           </Link>
           <Link
             href="/taste-dna"
-            className="rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
+            style={{ animationDelay: "550ms" }}
           >
             Backlot DNA
           </Link>
           <Link
             href="/watchlist"
-            className="rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
+            style={{ animationDelay: "600ms" }}
           >
             Watchlist
           </Link>
           <Link
             href="/lists"
-            className="rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
+            style={{ animationDelay: "650ms" }}
           >
             Your lists
           </Link>
@@ -343,10 +365,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
            underneath the nav's reserved space instead of stopping right
            below it, so idle-hiding the nav reveals more banner instead
            of a blank gap of page background. */
-        <div className="relative -mt-14 h-[280px] w-full sm:h-[344px]">
+        <div className="spotlight-sweep relative -mt-14 h-[280px] w-full sm:h-[344px]">
           <div className="absolute inset-0 flex">
-            {bannerImages.map((title) => (
-              <div key={title.id} className="relative flex-1 overflow-hidden">
+            {bannerImages.map((title, i) => (
+              <div
+                key={title.id}
+                className="stagger-card relative flex-1 overflow-hidden"
+                style={{ animationDelay: `${i * 90}ms` }}
+              >
                 <Image
                   src={title.image}
                   alt=""
@@ -382,7 +408,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               and widening the panel lets every tile scale up with it. */}
           <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border">
             <div
-              className="pointer-events-none absolute inset-0"
+              className="breathe-glow pointer-events-none absolute inset-0"
               style={{
                 background:
                   "radial-gradient(ellipse at 50% 30%, rgba(205,166,70,0.08), transparent 70%)",
@@ -391,7 +417,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               {theme.showMotif && <RoseFlourish />}
               <div className="mb-6 text-center">
-                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
+                <p
+                  className={`text-[10px] font-medium uppercase tracking-[0.2em] text-accent ${theme.showMotif ? "flicker-slow" : ""}`}
+                >
                   Official selection
                 </p>
                 <h2 className="mt-1 text-lg font-semibold">Personal Pyramid</h2>
@@ -408,35 +436,48 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                   regardless of tier. */}
               <div className="mx-auto flex max-w-[560px] flex-col gap-5">
                 <div className="grid grid-cols-6 gap-5">
-                  <div className="relative col-span-2 col-start-3">
-                    <SelectionBadge index={0} />
-                    <TitleCard title={favorites[0]} highlight />
+                  <div
+                    className="podium-tile shine-hover relative col-span-2 col-start-3 rounded-[var(--radius-md)]"
+                    style={{ animationDelay: "160ms" }}
+                  >
+                    <SelectionBadge index={0} delayMs={480} />
+                    <TitleCard title={favorites[0]} highlight index={0} />
                   </div>
                 </div>
                 {favorites.length > 1 && (
                   <div className="grid grid-cols-6 gap-5">
-                    {favorites.slice(1, 3).map((title, i, arr) => (
-                      <div
-                        key={title.id}
-                        className={`relative col-span-2 ${centeredColStart(arr.length, i)}`}
-                      >
-                        <SelectionBadge index={1 + i} />
-                        <TitleCard title={title} />
-                      </div>
-                    ))}
+                    {favorites.slice(1, 3).map((title, i, arr) => {
+                      const overallIndex = 1 + i;
+                      const tileDelay = 260 + overallIndex * 110;
+                      return (
+                        <div
+                          key={title.id}
+                          className={`podium-tile shine-hover relative col-span-2 rounded-[var(--radius-md)] ${centeredColStart(arr.length, i)}`}
+                          style={{ animationDelay: `${tileDelay}ms` }}
+                        >
+                          <SelectionBadge index={overallIndex} delayMs={tileDelay + 320} />
+                          <TitleCard title={title} index={overallIndex} />
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {favorites.length > 3 && (
                   <div className="grid grid-cols-6 gap-5">
-                    {favorites.slice(3, 6).map((title, i, arr) => (
-                      <div
-                        key={title.id}
-                        className={`relative col-span-2 ${centeredColStart(arr.length, i)}`}
-                      >
-                        <SelectionBadge index={3 + i} />
-                        <TitleCard title={title} />
-                      </div>
-                    ))}
+                    {favorites.slice(3, 6).map((title, i, arr) => {
+                      const overallIndex = 3 + i;
+                      const tileDelay = 260 + overallIndex * 110;
+                      return (
+                        <div
+                          key={title.id}
+                          className={`podium-tile shine-hover relative col-span-2 rounded-[var(--radius-md)] ${centeredColStart(arr.length, i)}`}
+                          style={{ animationDelay: `${tileDelay}ms` }}
+                        >
+                          <SelectionBadge index={overallIndex} delayMs={tileDelay + 320} />
+                          <TitleCard title={title} index={overallIndex} />
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -446,12 +487,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       )}
 
       {compatibility && (
-        <div className="mt-6">
+        <Reveal className="mt-6">
           <TasteCompatibilityCard
             compatibility={compatibility}
             otherName={profile.display_name ?? profile.username}
           />
-        </div>
+        </Reveal>
       )}
 
       <div className="mb-3 mt-8 flex items-center justify-between">
@@ -462,8 +503,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           </Link>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
-        {recentRatings?.map((r) => {
+      <Reveal className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
+        {recentRatings?.map((r, i) => {
           const title = (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] }).titles;
           return title ? (
             <WatchedTitleCard
@@ -471,10 +512,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               title={title}
               reason={`Rated ${r.score}/5`}
               canRemove={isOwnProfile}
+              index={i}
             />
           ) : null;
         })}
-      </div>
+      </Reveal>
       </div>
 
       {rail}
