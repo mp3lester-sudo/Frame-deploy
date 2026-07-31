@@ -9,22 +9,24 @@ type Title = Database["public"]["Tables"]["titles"]["Row"];
 
 /**
  * "Poster in lights" hero -- the movie's own natural portrait poster,
- * full-bleed (edge-to-edge against the card's own left/right/top edges,
- * clipped to the card's rounded corners by the parent's overflow-hidden)
- * under a gold spotlight glow. This reads as much larger than a poster
- * with side margins, without widening the card itself. Deliberately NOT
- * the literal dotted-bulb marquee treatment used for the home page
- * greeting's first name (.marquee-bulbs in globals.css) -- that reads
- * as a fun neon sign, but spelling out a real movie title in individual
- * light bulbs read as kitschy/corny on this card. A radial glow behind
- * the poster plus a warm text-shadow on the title gets the "lit up"
- * feeling across without the theme-park look.
+ * floating directly on the page background (no bordered card wrapper)
+ * with a gold spotlight glow radiating around it. Sized down from the
+ * earlier full-bleed-in-a-card version -- without a card to fill,
+ * stretching the poster to the page's own content width read as
+ * oversized, so it's back to a fixed, smaller centered size, but still
+ * with no side padding/border of its own.
  *
- * Because the poster is full-bleed it has no room for its own drop
- * shadow/glow ring (those would be clipped on 3 sides) -- instead a
- * short gradient fade at the poster's own bottom edge blends it into
- * the card's surface color before the padded text section below,
- * so the transition reads as deliberate rather than a hard cut.
+ * No "Featured for you" label -- removed per feedback; the glow +
+ * prominent placement already read as "this is the pick" on its own.
+ *
+ * Deliberately NOT the literal dotted-bulb marquee treatment used for
+ * the home page greeting's first name (.marquee-bulbs in globals.css)
+ * -- that reads as a fun neon sign, but spelling out a real movie title
+ * in individual light bulbs read as kitschy/corny here. A radial glow
+ * behind the poster plus a warm text-shadow on the title gets the
+ * "lit up" feeling across without the theme-park look. With no card to
+ * clip it, the glow now lives in the poster's own box-shadow (visible
+ * on all sides) rather than an ambient div that only showed above it.
  *
  * Earlier version of this card used the landscape backdrop_url stretched
  * across a wide box (the streaming-dashboard "Option B" direction). This
@@ -51,51 +53,44 @@ export function HeroRecommendation({
   const posterImage = title.poster_url ?? title.backdrop_url;
 
   return (
-    <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface text-center transition-colors hover:border-border-strong">
+    <div className="relative text-center">
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-40 sm:h-48"
+        className="pointer-events-none absolute inset-x-0 top-0 h-72 sm:h-80"
         style={{
-          background: "radial-gradient(ellipse 70% 100% at 50% 0%, rgba(217,184,118,0.4), transparent 75%)",
+          background: "radial-gradient(ellipse 60% 100% at 50% 10%, rgba(217,184,118,0.35), transparent 75%)",
         }}
       />
 
       <Link href={`/movie/${title.id}`} className="relative block">
-        <div className="relative z-10 pb-3 pt-6 sm:pt-8">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-accent">Featured for you</span>
-        </div>
-
-        <div className="relative aspect-[2/3] w-full overflow-hidden bg-surface-raised">
+        <div className="relative mx-auto h-[288px] w-48 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised shadow-[0_24px_50px_-14px_rgba(0,0,0,0.7),0_0_80px_-4px_rgba(217,184,118,0.6)] sm:h-[360px] sm:w-60">
           {posterImage && (
-            <Image src={posterImage} alt={title.name} fill priority className="object-cover" sizes="(max-width: 640px) 100vw, 576px" />
+            <Image src={posterImage} alt={title.name} fill priority className="object-cover" sizes="(max-width: 640px) 192px, 240px" />
           )}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-surface to-transparent" />
         </div>
 
-        <div className="px-4 pb-1 pt-4 sm:px-8">
-          <h2
-            className="font-display text-3xl text-foreground sm:text-4xl"
-            style={{ textShadow: "0 0 18px rgba(217,184,118,0.65), 0 0 40px rgba(217,184,118,0.4)" }}
-          >
-            {title.name}
-          </h2>
-          {meta && <p className="mt-1 text-xs uppercase tracking-wider text-foreground-muted">{meta}</p>}
+        <h2
+          className="font-display mt-5 text-3xl text-foreground sm:text-4xl"
+          style={{ textShadow: "0 0 18px rgba(217,184,118,0.65), 0 0 40px rgba(217,184,118,0.4)" }}
+        >
+          {title.name}
+        </h2>
+        {meta && <p className="mt-1 text-xs uppercase tracking-wider text-foreground-muted">{meta}</p>}
 
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-            {title.genres?.[0] && (
-              <span className="rounded-[var(--radius-sm)] border border-accent/40 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-accent">
-                {title.genres[0]}
-              </span>
-            )}
-            {matchPercent !== null && (
-              <span className="rounded-[var(--radius-full)] border border-accent/50 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
-                {matchPercent}% match
-              </span>
-            )}
-          </div>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          {title.genres?.[0] && (
+            <span className="rounded-[var(--radius-sm)] border border-accent/40 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-accent">
+              {title.genres[0]}
+            </span>
+          )}
+          {matchPercent !== null && (
+            <span className="rounded-[var(--radius-full)] border border-accent/50 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+              {matchPercent}% match
+            </span>
+          )}
         </div>
       </Link>
 
-      <div className="relative mx-auto max-w-sm px-4 pb-6 pt-6 text-left sm:px-8 sm:pb-8">
+      <div className="relative mx-auto mt-6 max-w-sm text-left">
         <p className="font-display border-l-2 border-accent pl-3 text-base italic leading-relaxed text-foreground-muted">
           {reason}
         </p>
