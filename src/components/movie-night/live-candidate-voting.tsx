@@ -77,7 +77,13 @@ export function LiveCandidateVoting({
   // nothing left in their personalized pool -- no point retrying on every
   // subsequent vote, so this latches true and the fallback ranking takes
   // over instead.
-  const [poolExhausted, setPoolExhausted] = useState(false);
+  // A fresh load can already have zero candidates if this viewer has
+  // already voted on everything the engine currently ranks for them
+  // (auto-excluded server-side) -- that's the same "exhausted" state as
+  // running out mid-session, not the true first-time-ever-loaded case,
+  // so it should go straight to the fallback ranking rather than the
+  // "invite someone" message meant for a genuinely brand-new night.
+  const [poolExhausted, setPoolExhausted] = useState(initialCandidates.length === 0 && initialVotes.length > 0);
   const [fallback, setFallback] = useState<MovieNightFallbackResult[]>([]);
 
   const refreshMatches = useCallback(() => {
