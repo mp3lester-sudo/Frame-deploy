@@ -112,126 +112,150 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   }
 
   // Editorial cover-photo banner (Option B from the profile redesign
-  // exploration): a collage of this person's own favorite titles stands
-  // in for a "cover photo," with the avatar overlapping its bottom edge
-  // — same cover-photo-plus-overlapping-avatar pattern as the home
-  // page's featured-banner hero, just reused for identity instead of a
-  // single title. Uses each title's backdrop art (landscape key art,
-  // same source as the movie page's own hero) rather than poster_url --
-  // the podium right below already shows every favorite as a portrait
-  // poster, so reusing that same art here would just look like a
-  // second, blurrier copy of the same image instead of a genuinely
-  // different shot of the same movie. Falls back to poster_url only
-  // for the rare title with no backdrop, and to a flat header (no
-  // banner) when there aren't enough favorites to build a collage.
+  // exploration, since refined for legibility/scale/cohesion): a
+  // collage of this person's own favorite titles stands in for a
+  // "cover photo," full-bleed across the page like the home page's
+  // featured-banner hero. Uses each title's backdrop art (landscape key
+  // art, same source as the movie page's own hero) rather than
+  // poster_url -- the podium right below already shows every favorite
+  // as a portrait poster, so reusing that same art here would just look
+  // like a second, blurrier copy of the same image. Falls back to
+  // poster_url only for the rare title with no backdrop, and to a flat
+  // header (no banner) when there aren't enough favorites to build a
+  // collage.
+  //
+  // Sized taller than the earlier pass (h-56/h-72 vs the original
+  // h-28/h-36) now that it spans the full page width -- at the old
+  // height it read as a thin, easy-to-miss stripe rather than a real
+  // cover photo. Identity content (avatar/name/stats/buttons) is
+  // overlaid at the bottom of the banner via the same bottom-anchored
+  // gradient-fade pattern as the home page hero, rather than sitting
+  // separately below it, so banner and header read as one unified
+  // block instead of two disconnected pieces. Bio stays below the
+  // banner in normal flow since it's variable-height text that
+  // wouldn't reliably land in the gradient's legible zone.
   const bannerImages = favorites
     .map((t) => ({ id: t.id, name: t.name, image: t.backdrop_url ?? t.poster_url }))
     .filter((t): t is { id: string; name: string; image: string } => !!t.image)
     .slice(0, 5);
   const hasBanner = bannerImages.length > 0;
 
-  return (
-    <div>
-      {hasBanner && (
-          <div className="relative h-28 w-full sm:h-36">
-            <div className="absolute inset-0 flex">
-              {bannerImages.map((title) => (
-                <div key={title.id} className="relative flex-1 overflow-hidden">
-                  <Image
-                    src={title.image}
-                    alt=""
-                    fill
-                    className="object-cover object-top brightness-[0.55]"
-                    sizes="200px"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/15 to-black/10" />
+  const identityBlock = (
+    <>
+      <div className="flex items-end gap-4">
+        <Avatar
+          name={profile.display_name ?? profile.username}
+          src={profile.avatar_url}
+          size={88}
+          className={hasBanner ? "shrink-0 border-4 border-background" : "shrink-0"}
+        />
+        <div className="min-w-0 flex-1 pb-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold">{profile.display_name ?? profile.username}</h1>
+            {profile.experience_tier && (
+              <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                {EXPERIENCE_TIER_LABEL[profile.experience_tier]}
+              </span>
+            )}
           </div>
-        )}
+          <p className="text-sm text-foreground-muted">@{profile.username}</p>
+        </div>
+      </div>
 
-      <div className={`relative mx-auto max-w-4xl px-4 ${hasBanner ? "-mt-10" : "pt-8"}`}>
-          <div className="flex items-end gap-4">
-            <Avatar
-              name={profile.display_name ?? profile.username}
-              src={profile.avatar_url}
-              size={80}
-              className={hasBanner ? "shrink-0 border-4 border-background" : "shrink-0"}
-            />
-            <div className="min-w-0 flex-1 pb-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-semibold">{profile.display_name ?? profile.username}</h1>
-                {profile.experience_tier && (
-                  <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
-                    {EXPERIENCE_TIER_LABEL[profile.experience_tier]}
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-foreground-muted">@{profile.username}</p>
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm text-foreground-muted">
-                {followerCount ?? 0} followers · {followingCount ?? 0} following
-              </p>
-              {(ratingCount ?? 0) > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="rounded-[var(--radius-full)] border border-border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">
-                    {ratingCount} watched
-                  </span>
-                  {topGenre && (
-                    <span className="rounded-[var(--radius-full)] border border-accent/40 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-accent">
-                      Top genre: {topGenre}
-                    </span>
-                  )}
-                </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-foreground-muted">
+            {followerCount ?? 0} followers · {followingCount ?? 0} following
+          </p>
+          {(ratingCount ?? 0) > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className="rounded-[var(--radius-full)] border border-border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">
+                {ratingCount} watched
+              </span>
+              {topGenre && (
+                <span className="rounded-[var(--radius-full)] border border-accent/40 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-accent">
+                  Top genre: {topGenre}
+                </span>
               )}
             </div>
-            {viewer && !isOwnProfile && (
-              <div className="flex gap-2">
-                <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
-                <MessageButton userId={profile.id} />
-              </div>
-            )}
-            {isOwnProfile && (
-              // Pill row matching Discover's genre filters / the movie page's
-              // Watchlist-Add-to-list pair, rather than four bare stacked text
-              // links — the one bit of the app that hadn't picked up that
-              // language yet.
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  href="/settings"
-                  className="rounded-[var(--radius-full)] bg-accent px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-accent-foreground hover:brightness-110"
-                >
-                  Edit profile
-                </Link>
-                <Link
-                  href="/taste-dna"
-                  className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
-                >
-                  Backlot DNA
-                </Link>
-                <Link
-                  href="/watchlist"
-                  className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
-                >
-                  Watchlist
-                </Link>
-                <Link
-                  href="/lists"
-                  className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
-                >
-                  Your lists
-                </Link>
-              </div>
-            )}
+          )}
+        </div>
+        {viewer && !isOwnProfile && (
+          <div className="flex gap-2">
+            <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
+            <MessageButton userId={profile.id} />
           </div>
-
-          {profile.bio && <p className="mt-3 text-sm leading-relaxed">{profile.bio}</p>}
+        )}
+        {isOwnProfile && (
+          // Pill row matching Discover's genre filters / the movie page's
+          // Watchlist-Add-to-list pair, rather than four bare stacked text
+          // links — the one bit of the app that hadn't picked up that
+          // language yet.
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/settings"
+              className="rounded-[var(--radius-full)] bg-accent px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-accent-foreground hover:brightness-110"
+            >
+              Edit profile
+            </Link>
+            <Link
+              href="/taste-dna"
+              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+            >
+              Backlot DNA
+            </Link>
+            <Link
+              href="/watchlist"
+              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+            >
+              Watchlist
+            </Link>
+            <Link
+              href="/lists"
+              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+            >
+              Your lists
+            </Link>
+          </div>
+        )}
       </div>
+    </>
+  );
+
+  return (
+    <div>
+      {hasBanner ? (
+        <div className="relative h-56 w-full sm:h-72">
+          <div className="absolute inset-0 flex">
+            {bannerImages.map((title) => (
+              <div key={title.id} className="relative flex-1 overflow-hidden">
+                <Image
+                  src={title.image}
+                  alt=""
+                  fill
+                  className="object-cover object-top"
+                  sizes="400px"
+                />
+              </div>
+            ))}
+          </div>
+          {/* Bottom-anchored fade only -- same via-background/70 strength
+              used by the trailer hero's own fade -- so the collage stays
+              clearly visible up top instead of the near-invisible wash
+              the first pass had, while the overlaid identity content at
+              the very bottom still lands on a fully opaque backdrop. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-48" />
+          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-4xl px-4 pb-4 sm:px-6">{identityBlock}</div>
+        </div>
+      ) : (
+        <div className="mx-auto max-w-4xl px-4 pt-8">{identityBlock}</div>
+      )}
+
+      {profile.bio && (
+        <div className="mx-auto max-w-4xl px-4 pt-4">
+          <p className="text-sm leading-relaxed">{profile.bio}</p>
+        </div>
+      )}
 
       <div className="mx-auto max-w-4xl px-4 pb-8">
       {favorites.length > 0 && (
