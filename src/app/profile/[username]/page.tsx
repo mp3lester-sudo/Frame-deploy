@@ -147,7 +147,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           name={profile.display_name ?? profile.username}
           src={profile.avatar_url}
           size={88}
-          className={hasBanner ? "shrink-0 border-4 border-background" : "shrink-0"}
+          className={
+            hasBanner
+              ? "shrink-0 border-4 border-background ring-2 ring-accent/70 shadow-[0_4px_18px_rgba(0,0,0,0.55)]"
+              : "shrink-0"
+          }
         />
         <div className="min-w-0 flex-1 pb-1">
           <div className="flex flex-wrap items-center gap-2">
