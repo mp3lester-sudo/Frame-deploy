@@ -8,33 +8,25 @@ import { formatDistanceToNow } from "@/lib/date";
 import type { Database } from "@/lib/supabase/types";
 
 type NotificationType = Database["public"]["Tables"]["notifications"]["Row"]["type"];
+type ActorInfo = { username: string; display_name: string | null; avatar_url: string | null };
 
-/** Where the notification's row should link to, and the message shown for each type. */
-function describe(
-  type: NotificationType,
-  actorName: string,
-  titleName: string | null
-): { message: string } {
+/** The message shown for each notification type. */
+function describe(type: NotificationType, actorName: string, titleName: string | null): string {
   switch (type) {
     case "follow":
-      return { message: `${actorName} started following you.` };
+      return `${actorName} started following you.`;
     case "comment":
-      return { message: `${actorName} commented on your review${titleName ? ` of ${titleName}` : ""}.` };
+      return `${actorName} commented on your review${titleName ? ` of ${titleName}` : ""}.`;
     case "reaction":
-      return { message: `${actorName} reacted to your review${titleName ? ` of ${titleName}` : ""}.` };
+      return `${actorName} reacted to your review${titleName ? ` of ${titleName}` : ""}.`;
     case "movie_night_invite":
-      return { message: `${actorName} invited you to a Movie Night.` };
+      return `${actorName} invited you to a Movie Night.`;
     case "movie_night_decided":
-      return { message: `Movie Night picked ${titleName ?? "a title"}.` };
+      return `Movie Night picked ${titleName ?? "a title"}.`;
   }
 }
 
-function linkFor(
-  type: NotificationType,
-  actorUsername: string | null,
-  titleId: string | null,
-  refId: string | null
-): string {
+function linkFor(type: NotificationType, actorUsername: string | null, titleId: string | null, refId: string | null): string {
   switch (type) {
     case "follow":
       return actorUsername ? `/profile/${actorUsername}` : "/notifications";
@@ -54,21 +46,41 @@ export default async function NotificationsPage() {
 
   const { data: rows } = await supabase
     .from("notifications")
-    .select(
-      "id, type, title_id, ref_id, read_at, created_at, actor:profiles!notifications_actor_id_fkey(username, display_name, avatar_url), title:titles(name)"
-    )
+    .select("id, type, actor_id, title_id, ref_id, read_at, created_at")
     .eq("recipient_id", viewer.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
+  const notifications = rows ?? [];
+
+  // No embedded FK select here — notifications has two valid join paths to
+  // profiles (recipient_id and actor_id), and this app's generated
+  // Database type doesn't carry Relationships metadata for embeds (every
+  // table's Relationships array is `[]`), so batch-fetching actors/titles
+  // separately and joining in JS avoids depending on a PostgREST
+  // disambiguation hint matching an exact constraint name. Same pattern
+  // hot-takes/page.tsx already uses for its sibling ratings lookup.
+  const actorIds = [...new Set(notifications.map((n) => n.actor_id).filter((id): id is string => !!id))];
+  const titleIds = [...new Set(notifications.map((n) => n.title_id).filter((id): id is string => !!id))];
+
+  const [{ data: actorRows }, { data: titleRows }] = await Promise.all([
+    actorIds.length
+      ? supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", actorIds)
+      : Promise.resolve({ data: [] as { id: string; username: string; display_name: string | null; avatar_url: string | null }[] }),
+    titleIds.length
+      ? supabase.from("titles").select("id, name").in("id", titleIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+  ]);
+
+  const actorById = new Map((actorRows ?? []).map((a) => [a.id, a as ActorInfo]));
+  const titleNameById = new Map((titleRows ?? []).map((t) => [t.id, t.name]));
+
   // Marks everything as read once the viewer has actually loaded this page
   // (mirrors markConversationRead's pattern in messages.ts) — the rows
-  // below still render with their read_at as fetched above, so the unread
+  // above still reflect their read_at as originally fetched, so the unread
   // highlight remains visible for this render even though the badge in the
   // nav will clear on the next navigation.
   await markAllNotificationsRead();
-
-  const notifications = rows ?? [];
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -81,12 +93,10 @@ export default async function NotificationsPage() {
       ) : (
         <ul className="divide-y divide-border">
           {notifications.map((n) => {
-            const actor = (n as unknown as {
-              actor: { username: string; display_name: string | null; avatar_url: string | null } | null;
-            }).actor;
-            const title = (n as unknown as { title: { name: string } | null }).title;
+            const actor = n.actor_id ? actorById.get(n.actor_id) : undefined;
+            const titleName = n.title_id ? titleNameById.get(n.title_id) ?? null : null;
             const actorName = actor?.display_name || actor?.username || "Someone";
-            const { message } = describe(n.type, actorName, title?.name ?? null);
+            const message = describe(n.type, actorName, titleName);
             const href = linkFor(n.type, actor?.username ?? null, n.title_id, n.ref_id);
             const unread = !n.read_at;
 
