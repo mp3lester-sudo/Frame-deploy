@@ -46,6 +46,12 @@ export function BackdropHero({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+          {/* Bottom fade so the hard edge at the base of the hero (very
+              visible on high-contrast trailer intros -- rating cards,
+              title-card frames, black-and-white cold opens) reads as an
+              intentional transition into the page rather than a video
+              getting chopped off mid-frame. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent sm:h-32" />
           <button
             type="button"
             onClick={() => setPlaying(false)}
@@ -79,14 +85,13 @@ export function BackdropHero({
             sizes="100vw"
             className="object-cover object-top"
           />
-          {/* No bottom fade here on purpose -- the poster/title row sits
-              cleanly BELOW this hero with normal padding (see
-              movie/[id]/page.tsx, no negative-margin overlap), matching
-              the reference layout exactly: a hard cut from image to
-              solid background, no gradient, no overlap. A subtle top
-              scrim is still worth keeping so the nav bar stays legible
-              over a bright backdrop. */}
+          {/* Top scrim keeps the nav bar legible over a bright backdrop.
+              Bottom fade smooths the hard edge where the hero meets the
+              poster/title row below (still no overlap -- the content
+              wrapper keeps normal padding -- just a softer transition
+              than a flat cut). */}
           <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent sm:h-32" />
 
           {trailerKey && (
             <button
