@@ -149,7 +149,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           size={88}
           className={
             hasBanner
-              ? "shrink-0 border-4 border-background ring-2 ring-accent/70 shadow-[0_4px_18px_rgba(0,0,0,0.55)]"
+              ? "shrink-0 border-8 border-black ring-2 ring-accent/70 shadow-[0_4px_18px_rgba(0,0,0,0.55)]"
               : "shrink-0"
           }
         />
@@ -229,7 +229,15 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   return (
     <div>
       {hasBanner ? (
-        <div className="relative h-56 w-full sm:h-72">
+        /* The nav bar is `sticky top-0` -- in normal document flow, not
+           an overlay -- so it reserves its own h-14 (56px) of space
+           above whatever comes next. Pulling this banner up by that
+           same amount (and growing its height to match, same pattern
+           as BackdropHero on the movie page) makes the collage extend
+           underneath the nav's reserved space instead of stopping right
+           below it, so idle-hiding the nav reveals more banner instead
+           of a blank gap of page background. */
+        <div className="relative -mt-14 h-[280px] w-full sm:h-[344px]">
           <div className="absolute inset-0 flex">
             {bannerImages.map((title) => (
               <div key={title.id} className="relative flex-1 overflow-hidden">
