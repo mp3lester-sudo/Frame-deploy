@@ -58,7 +58,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
   // Every participant (not just the host) sees and votes on the shared
   // candidate pool now — see LiveCandidateVoting. The host still makes the
   // final call via decideMovieNight, informed by the live tally.
-  const candidates = night.status === "collecting" ? await getCandidatesForMovieNight(id) : [];
+  const candidates = night.status === "collecting" ? await getCandidatesForMovieNight(id, { viewerId: user.id }) : [];
 
   const { data: voteRows } = night.status === "collecting"
     ? await supabase

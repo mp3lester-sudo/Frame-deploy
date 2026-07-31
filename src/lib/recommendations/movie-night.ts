@@ -83,6 +83,11 @@ export interface UserGroupParams {
    *  purely additive with the inferred hard-dislike genres below. Omit for
    *  flows (like the ad-hoc companion picker) with no such checklist. */
   manualExcludedGenres?: Set<string>;
+  /** Titles never to surface -- used for the refillable queue (a viewer's
+   *  own already-voted titles, plus whatever's already showing on their
+   *  screen this session) so "pass" can pull in something genuinely new
+   *  instead of risking the same title reappearing. */
+  excludeTitleIds?: Set<string>;
   limit?: number;
 }
 
@@ -110,10 +115,12 @@ export async function getCandidatesForUserGroup({
   userIds,
   namesByUserId,
   manualExcludedGenres,
+  excludeTitleIds,
   limit = 6,
 }: UserGroupParams): Promise<MovieNightCandidate[]> {
   const supabase = await createClient();
   if (userIds.length === 0) return [];
+  const excludeIds = excludeTitleIds ?? new Set<string>();
 
   const excludedGenres = new Set(manualExcludedGenres ?? []);
 
@@ -178,6 +185,7 @@ export async function getCandidatesForUserGroup({
     });
     for (const w of watched ?? []) candidateIds.delete(w.title_id);
   }
+  for (const id of excludeIds) candidateIds.delete(id);
 
   if (!anyoneHasMatches) {
     const { data: popular } = await supabase
@@ -185,7 +193,9 @@ export async function getCandidatesForUserGroup({
       .select("*")
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
-    const filtered = (popular ?? []).filter((t) => !t.genres?.some((g) => excludedGenres.has(g)));
+    const filtered = (popular ?? [])
+      .filter((t) => !t.genres?.some((g) => excludedGenres.has(g)))
+      .filter((t) => !excludeIds.has(t.id));
     const note = "Popular right now — nobody in the group has rated enough yet to personalize this.";
     return filtered.slice(0, limit).map((title) => ({
       title,
@@ -223,7 +233,9 @@ export async function getCandidatesForUserGroup({
       .select("*")
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
-    const filtered = (popular ?? []).filter((t) => !t.genres?.some((g) => excludedGenres.has(g)));
+    const filtered = (popular ?? [])
+      .filter((t) => !t.genres?.some((g) => excludedGenres.has(g)))
+      .filter((t) => !excludeIds.has(t.id));
     const note = "Popular right now — not enough overlap yet to find a personalized group match.";
     return filtered.slice(0, limit).map((title) => ({
       title,
@@ -239,7 +251,8 @@ export async function getCandidatesForUserGroup({
   const filtered = ranked
     .map((r) => ({ ...r, title: byId.get(r.titleId) }))
     .filter((r): r is typeof r & { title: Title } => !!r.title)
-    .filter((r) => !r.title.genres?.some((g) => excludedGenres.has(g)));
+    .filter((r) => !r.title.genres?.some((g) => excludedGenres.has(g)))
+    .filter((r) => !excludeIds.has(r.title.id));
 
   const topCandidates = filtered.slice(0, limit);
 
@@ -309,10 +322,27 @@ export async function getCandidatesForUserGroup({
  * and its per-participant excluded_genres checklist, then defers to the
  * shared getCandidatesForUserGroup engine above.
  */
+export interface MovieNightCandidateOptions {
+  limit?: number;
+  /** The person this list is being generated for. When set, anything
+   *  they've already voted on (like OR pass) is auto-excluded -- nobody
+   *  should have to look at a card they've already decided on, whether
+   *  that's a stale grid slot from before a page reload or a refill
+   *  request mid-session. Other participants' votes don't affect this;
+   *  each person's queue is their own. */
+  viewerId?: string;
+  /** Extra titles to exclude beyond the viewer's own vote history --
+   *  the refillable queue uses this for whatever's already occupying
+   *  other grid slots on the client this session, so a single refill
+   *  request can't hand back a duplicate of a card already showing. */
+  excludeTitleIds?: string[];
+}
+
 export async function getCandidatesForMovieNight(
   movieNightId: string,
-  limit?: number
+  options: MovieNightCandidateOptions = {}
 ): Promise<MovieNightCandidate[]> {
+  const { limit, viewerId, excludeTitleIds } = options;
   const supabase = await createClient();
 
   const { data: participantRows } = await supabase
@@ -330,10 +360,21 @@ export async function getCandidatesForMovieNight(
   );
   const manualExcludedGenres = new Set(participants.flatMap((p) => p.excluded_genres ?? []));
 
+  const excludeIds = new Set(excludeTitleIds ?? []);
+  if (viewerId) {
+    const { data: ownVotes } = await supabase
+      .from("movie_night_votes")
+      .select("title_id")
+      .eq("movie_night_id", movieNightId)
+      .eq("user_id", viewerId);
+    for (const v of ownVotes ?? []) excludeIds.add(v.title_id);
+  }
+
   return getCandidatesForUserGroup({
     userIds: participants.map((p) => p.user_id),
     namesByUserId,
     manualExcludedGenres,
+    excludeTitleIds: excludeIds,
     limit: limit ?? candidateLimitForGroupSize(participants.length),
   });
 }

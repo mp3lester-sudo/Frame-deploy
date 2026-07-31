@@ -7,6 +7,20 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { notify } from "@/lib/actions/notifications";
 import { getCandidatesForMovieNight, type MovieNightCandidate } from "@/lib/recommendations/movie-night";
+import { computeMatches, rankByLikeCount, type MovieNightVoteRecord } from "@/lib/recommendations/movie-night-matches";
+import type { Database } from "@/lib/supabase/types";
+
+type Title = Database["public"]["Tables"]["titles"]["Row"];
+
+export interface MovieNightMatchResult {
+  title: Title;
+  likedBy: string[];
+}
+
+export interface MovieNightFallbackResult {
+  title: Title;
+  likeCount: number;
+}
 
 export interface MovieNightParticipantRow {
   user_id: string;
@@ -141,7 +155,92 @@ export async function setMyMovieNightPreferences(
 // re-rendered the entire route (banner, taste-comparison cards, the whole
 // candidate grid) for what was really just "my genre filter changed."
 export async function getMovieNightCandidates(movieNightId: string): Promise<MovieNightCandidate[]> {
-  return getCandidatesForMovieNight(movieNightId);
+  const { user } = await requireUser();
+  return getCandidatesForMovieNight(movieNightId, { viewerId: user.id });
+}
+
+/**
+ * Refills a single grid slot in the candidate queue -- called the moment
+ * a viewer votes (like or pass) on a card, so passing on something always
+ * surfaces a fresh option instead of leaving a dead card behind. Excludes
+ * the viewer's own vote history automatically (via viewerId) plus
+ * whatever's already occupying other slots on their screen this session
+ * (excludeTitleIds), so a single refill can't hand back a duplicate.
+ * Returns null when the pool is genuinely exhausted for this viewer --
+ * the client falls back to the most-liked-so-far ranking at that point.
+ */
+export async function refillMovieNightCandidate(
+  movieNightId: string,
+  excludeTitleIds: string[]
+): Promise<MovieNightCandidate | null> {
+  const { user } = await requireUser();
+  const candidates = await getCandidatesForMovieNight(movieNightId, {
+    viewerId: user.id,
+    excludeTitleIds,
+    limit: 1,
+  });
+  return candidates[0] ?? null;
+}
+
+async function getActiveParticipantIdsAndVotes(
+  movieNightId: string
+): Promise<{ participantIds: string[]; votes: MovieNightVoteRecord[] }> {
+  const { supabase } = await requireUser();
+  const [{ data: participantRows }, { data: voteRows }] = await Promise.all([
+    supabase.from("movie_night_participants").select("user_id").eq("movie_night_id", movieNightId),
+    supabase.from("movie_night_votes").select("user_id, title_id, vote").eq("movie_night_id", movieNightId),
+  ]);
+  return {
+    participantIds: (participantRows ?? []).map((p) => p.user_id),
+    votes: (voteRows ?? []) as MovieNightVoteRecord[],
+  };
+}
+
+/**
+ * Titles every current participant has liked (and nobody's passed on) --
+ * see computeMatches for the exact rule. Surfaced as its own panel above
+ * the candidate grid rather than left buried in per-card vote tallies, so
+ * "you two agree" is an actual moment instead of something you have to
+ * notice yourself.
+ */
+export async function getMovieNightMatches(movieNightId: string): Promise<MovieNightMatchResult[]> {
+  const { supabase } = await requireUser();
+  const { participantIds, votes } = await getActiveParticipantIdsAndVotes(movieNightId);
+  const matches = computeMatches(participantIds, votes);
+  if (matches.length === 0) return [];
+
+  const { data: titles } = await supabase
+    .from("titles")
+    .select("*")
+    .in("id", matches.map((m) => m.titleId));
+  const byId = new Map((titles ?? []).map((t) => [t.id, t]));
+
+  return matches
+    .map((m) => ({ title: byId.get(m.titleId), likedBy: m.likedBy }))
+    .filter((m): m is MovieNightMatchResult => !!m.title);
+}
+
+/**
+ * Fallback for when a viewer's queue runs dry with no unanimous match --
+ * ranks whatever's been voted on by like count (most agreement first),
+ * still excluding anything anyone passed on. Capped at 10 so the host
+ * isn't handed the entire vote history to sort through by eye.
+ */
+export async function getMovieNightFallbackRanking(movieNightId: string): Promise<MovieNightFallbackResult[]> {
+  const { supabase } = await requireUser();
+  const { votes } = await getActiveParticipantIdsAndVotes(movieNightId);
+  const ranked = rankByLikeCount(votes).slice(0, 10);
+  if (ranked.length === 0) return [];
+
+  const { data: titles } = await supabase
+    .from("titles")
+    .select("*")
+    .in("id", ranked.map((r) => r.titleId));
+  const byId = new Map((titles ?? []).map((t) => [t.id, t]));
+
+  return ranked
+    .map((r) => ({ title: byId.get(r.titleId), likeCount: r.likeCount }))
+    .filter((r): r is MovieNightFallbackResult => !!r.title);
 }
 
 export async function getMovieNightParticipants(movieNightId: string): Promise<MovieNightParticipantRow[]> {
