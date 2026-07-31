@@ -3,15 +3,29 @@ import { extractDiaryFragments, extractDiaryFragmentsFromPages } from "@/lib/imp
 import { parseLetterboxdDiaryPaste } from "@/lib/import/letterboxd-paste";
 
 // Same shape as letterboxd-paste.test.ts's fixture builder.
+// Modeled on real Letterboxd diary markup (checked against a live diary
+// page): the poster is wrapped in its own <a class="frame"> pointing at
+// the same /film/slug/ URL but containing only an <img> (no text, so it
+// never matches TITLE_PATTERN's `>([^<]+)<` requirement); the real title
+// text lives in a separate anchor inside <h2 class="primaryname">; and the
+// year is a sibling <span class="releasedate"> — NOT immediately adjacent
+// to the title anchor's closing tag.
 function diaryRow(opts: { slug: string; title: string; year: number; rating?: string }): string {
   const ratingCell = opts.rating
     ? `<td class="td-rating"><a href="#" title="Remove rating">×</a> ${opts.rating}</td>`
     : `<td class="td-rating"></td>`;
   return `
     <tr class="diary-entry-row">
-      <td class="td-film-details">
-        <div class="film-poster"><img alt="${opts.title}" src="poster.png"></div>
-        <a href="/someuser/film/${opts.slug}/">${opts.title}</a><a href="/films/year/${opts.year}/">${opts.year}</a>
+      <td class="col-production js-td-production">
+        <div class="poster film-poster">
+          <a class="frame" href="/someuser/film/${opts.slug}/"><img alt="${opts.title}" src="poster.png"></a>
+        </div>
+        <h2 class="primaryname prettify">
+          <a href="/someuser/film/${opts.slug}/">${opts.title}</a>
+        </h2>
+        <span class="releasedate">
+          <a href="/films/year/${opts.year}/">${opts.year}</a>
+        </span>
       </td>
       ${ratingCell}
     </tr>`;

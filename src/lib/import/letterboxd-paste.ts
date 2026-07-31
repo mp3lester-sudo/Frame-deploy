@@ -11,8 +11,11 @@ import type { LetterboxdRow } from "./letterboxd";
  * a real, already-authenticated browser rather than from our server.
  *
  * The Diary page's server-rendered HTML links each entry's film title as
- * `<a href=".../film/<slug>/...">Title</a>` immediately followed by
- * `<a href=".../films/year/YYYY/">YYYY</a>`, and renders the member's rating
+ * `<a href=".../film/<slug>/...">Title</a>` inside an `<h2 class="primaryname">`,
+ * with the year rendered separately as `<a href=".../films/year/YYYY/">YYYY</a>`
+ * inside a sibling `<span class="releasedate">` — not immediately adjacent to
+ * the title anchor, so the two are matched independently within a bounded
+ * search window rather than as one combined pattern. Renders the member's rating
  * as literal "★" characters (one per whole star) plus an optional "½" for a
  * half star — not a CSS class, so it survives a page-source paste as plain
  * text. An entry with no rating simply has no star characters nearby.
@@ -25,15 +28,29 @@ import type { LetterboxdRow } from "./letterboxd";
  * has since changed.
  */
 
-const TITLE_YEAR_PATTERN =
-  /<a\s+href="[^"]*\/film\/[a-z0-9-]+(?:\/\d+)?\/"[^>]*>([^<]+)<\/a>\s*<a\s+href="[^"]*\/films\/year\/(\d{4})\/"[^>]*>/gi;
+// Matches the title link only — e.g. `<a href=".../film/the-odyssey-2026/">The Odyssey</a>`
+// inside the row's `<h2 class="primaryname">`. Diary rows also contain an
+// earlier anchor with the same /film/slug/ href wrapping the poster `<img>`
+// (class="frame"), but that anchor's content starts with `<img`, not text,
+// so `([^<]+)` (which requires real text immediately after the `>`) never
+// matches it — only the real title anchor does.
+const TITLE_PATTERN = /<a\s+href="[^"]*\/film\/[a-z0-9-]+(?:\/\d+)?\/"[^>]*>([^<]+)<\/a>/gi;
+
+// The year is NOT adjacent to the title anchor — Letterboxd renders it as
+// `<span class="releasedate"><a href=".../films/year/YYYY/">YYYY</a></span>`,
+// a sibling of the `<h2>` the title anchor lives in, separated by a closing
+// `</h2>` and the opening `<span>` tag. So this only needs to match the
+// year *href fragment* somewhere within the search window after the title,
+// not immediately after it.
+const YEAR_PATTERN = /\/films\/year\/(\d{4})\//;
 
 // A run of full-star glyphs with an optional trailing half-star glyph.
 const RATING_PATTERN = /(★+)(½)?/;
 
-// How far past a title+year match to look for its rating before giving up
-// (bounded so we never accidentally read the *next* entry's stars).
-const RATING_SEARCH_WINDOW = 600;
+// How far past a title match to look for its year/rating before giving up
+// (bounded so we never accidentally read the *next* entry's data, or a
+// stray /films/year/ link from the page's decade-filter sidebar).
+const SEARCH_WINDOW = 600;
 
 function decodeHtmlEntities(text: string): string {
   return text
@@ -60,22 +77,24 @@ function decodeHtmlEntities(text: string): string {
  */
 export function parseLetterboxdDiaryPaste(html: string): LetterboxdRow[] {
   const rows: LetterboxdRow[] = [];
-  const matches = [...html.matchAll(TITLE_YEAR_PATTERN)];
+  const matches = [...html.matchAll(TITLE_PATTERN)];
 
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i];
     const name = decodeHtmlEntities(match[1]);
     if (!name) continue;
-    const year = Number(match[2]);
 
     const searchStart = match.index! + match[0].length;
     const nextMatchStart = matches[i + 1]?.index ?? html.length;
-    const searchEnd = Math.min(searchStart + RATING_SEARCH_WINDOW, nextMatchStart);
-    const ratingMatch = html.slice(searchStart, searchEnd).match(RATING_PATTERN);
+    const window = html.slice(searchStart, Math.min(searchStart + SEARCH_WINDOW, nextMatchStart));
 
+    const yearMatch = window.match(YEAR_PATTERN);
+    if (!yearMatch) continue; // no year found nearby — not confident this is a real diary entry
+
+    const ratingMatch = window.match(RATING_PATTERN);
     const rating = ratingMatch ? ratingMatch[1].length + (ratingMatch[2] ? 0.5 : 0) : null;
 
-    rows.push({ name, year, rating });
+    rows.push({ name, year: Number(yearMatch[1]), rating });
   }
 
   return rows;

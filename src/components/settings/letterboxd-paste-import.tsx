@@ -57,13 +57,13 @@ export function LetterboxdPasteImport() {
     setError(null);
     setSummary(null);
     startTransition(async () => {
-      try {
-        const result = await importLetterboxdPaste(html);
-        setSummary(result);
+      const result = await importLetterboxdPaste(html);
+      if (result.ok) {
+        setSummary(result.summary);
         setFiles([]);
         setHtml("");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Import failed");
+      } else {
+        setError(result.error);
       }
     });
   }

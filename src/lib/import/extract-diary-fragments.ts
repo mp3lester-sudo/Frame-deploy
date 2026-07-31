@@ -26,16 +26,20 @@
  * they agree on every case.
  */
 
-const TITLE_YEAR_PATTERN =
-  /<a\s+href="[^"]*\/film\/[a-z0-9-]+(?:\/\d+)?\/"[^>]*>([^<]+)<\/a>\s*<a\s+href="[^"]*\/films\/year\/(\d{4})\/"[^>]*>/gi;
+// Identical to letterboxd-paste.ts's TITLE_PATTERN/YEAR_PATTERN — the title
+// anchor and the year anchor are siblings in different elements
+// (`<h2 class="primaryname">` vs `<span class="releasedate">`), not
+// adjacent, so they're matched independently within a bounded window.
+const TITLE_PATTERN = /<a\s+href="[^"]*\/film\/[a-z0-9-]+(?:\/\d+)?\/"[^>]*>([^<]+)<\/a>/gi;
+const YEAR_PATTERN = /\/films\/year\/(\d{4})\//;
 
 // A run of full-star glyphs with an optional trailing half-star glyph —
 // identical to letterboxd-paste.ts's RATING_PATTERN.
 const RATING_PATTERN = /(★+)(½)?/;
 
-// How far past a title+year match to look for its rating before giving up —
-// identical to letterboxd-paste.ts's RATING_SEARCH_WINDOW.
-const RATING_SEARCH_WINDOW = 600;
+// How far past a title match to look for its year/rating before giving up —
+// identical to letterboxd-paste.ts's SEARCH_WINDOW.
+const SEARCH_WINDOW = 600;
 
 /**
  * Pulls every "title anchor + year anchor + nearby rating" fragment out of
@@ -45,16 +49,23 @@ const RATING_SEARCH_WINDOW = 600;
  */
 export function extractDiaryFragments(html: string): string[] {
   const fragments: string[] = [];
-  const matches = [...html.matchAll(TITLE_YEAR_PATTERN)];
+  const matches = [...html.matchAll(TITLE_PATTERN)];
 
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i];
     const searchStart = match.index! + match[0].length;
     const nextMatchStart = matches[i + 1]?.index ?? html.length;
-    const searchEnd = Math.min(searchStart + RATING_SEARCH_WINDOW, nextMatchStart);
-    const ratingMatch = html.slice(searchStart, searchEnd).match(RATING_PATTERN);
+    const window = html.slice(searchStart, Math.min(searchStart + SEARCH_WINDOW, nextMatchStart));
 
-    fragments.push(match[0] + " " + (ratingMatch ? ratingMatch[0] : ""));
+    const yearMatch = window.match(YEAR_PATTERN);
+    if (!yearMatch) continue; // no year found nearby — not confident this is a real diary entry
+
+    const ratingMatch = window.match(RATING_PATTERN);
+
+    // Keep the year as a bare href fragment (not a full anchor tag) — the
+    // parser's YEAR_PATTERN only needs to find that substring, and this
+    // keeps fragments minimal.
+    fragments.push(match[0] + " " + yearMatch[0] + " " + (ratingMatch ? ratingMatch[0] : ""));
   }
 
   return fragments;
