@@ -234,7 +234,7 @@ export default async function HomePage({
         <ContextCards day={day} time={time} location={location} weather={weather} />
       </div>
 
-      <h1 className="mt-5 text-4xl leading-tight tracking-tight sm:text-5xl">
+      <h1 className="mt-5 text-center text-4xl leading-tight tracking-tight sm:text-5xl">
         {/* "Good evening"/"Good morning" is set in font-sans (Geist) --
             switched from Playfair Display (serif) for a cleaner, more
             modern look. Still off-white; only the typeface changed, the
@@ -249,9 +249,9 @@ export default async function HomePage({
         .
       </h1>
       {ratedCount ? (
-        <p className="mt-1.5 text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
+        <p className="mt-1.5 text-center text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
       ) : (
-        <p className="mt-1.5 text-sm text-foreground-muted">
+        <p className="mt-1.5 text-center text-sm text-foreground-muted">
           Rate a few titles in{" "}
           <Link href="/taste-dna" className="text-accent hover:underline">
             Taste Training
