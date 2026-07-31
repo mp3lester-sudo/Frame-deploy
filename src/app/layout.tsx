@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue, Cinzel } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue, Cinzel, Monoton } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -35,12 +35,22 @@ const bebasNeue = Bebas_Neue({
 
 // Tall, elegant, wide-tracked engraved-capital serif -- the classic
 // prestige movie-poster title look (per the Mulholland Drive poster
-// reference). Reserved for the home page greeting's first name; the
-// Bebas Neue wordmark above is untouched.
+// reference). Reserved for the "Good evening"/"Good morning" part of the
+// home page greeting; the Bebas Neue wordmark above is untouched.
 const cinzel = Cinzel({
   variable: "--font-cinzel",
   subsets: ["latin"],
   weight: ["500", "600"],
+});
+
+// Glowing, double-stroke neon-tube lettering, filled with a dotted
+// "row of light bulbs" texture (see .marquee-bulbs in globals.css) --
+// reserved for the greeting's first name specifically, distinct from the
+// Cinzel poster-title treatment on "Good evening" above.
+const monoton = Monoton({
+  variable: "--font-monoton",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -87,7 +97,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} ${cinzel.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} ${cinzel.variable} ${monoton.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
