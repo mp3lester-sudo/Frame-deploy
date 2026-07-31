@@ -135,7 +135,14 @@ export async function importLetterboxdData(formData: FormData): Promise<ImportSu
   for (const row of ratingsRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
   const rows = [...byKey.values()];
 
-  return matchAndUpsertRows(supabase, user.id, rows);
+  try {
+    return await matchAndUpsertRows(supabase, user.id, rows);
+  } catch (err) {
+    // TEMP DIAGNOSTIC — remove after root-causing the "import doesn't work" report.
+    throw new Error(
+      "TEMP_DEBUG: " + (err instanceof Error ? `${err.message}\n${err.stack}` : JSON.stringify(err))
+    );
+  }
 }
 
 const MAX_PASTE_CHARS = 3 * 1024 * 1024; // a full diary page's HTML source runs well under this
