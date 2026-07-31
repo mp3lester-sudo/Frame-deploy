@@ -26,7 +26,17 @@ export function BackdropHero({
   const [playing, setPlaying] = useState(false);
 
   return (
-    <div className="group relative h-[380px] w-full overflow-hidden sm:h-[580px]">
+    /* The nav bar is `sticky top-0` -- in normal document flow, not an
+       overlay -- so it reserves its own h-14 (56px) of space above
+       whatever comes next. Pulling this hero up by that same amount
+       (and growing its height to match) makes the backdrop image
+       extend underneath the nav's reserved space instead of stopping
+       right below it. That matters because the nav auto-hides on idle
+       (see nav-bar.tsx): without this, sliding the nav away just
+       reveals blank page background where it used to sit; with it,
+       sliding the nav away reveals more of the actual backdrop/trailer
+       instead. */
+    <div className="group relative -mt-14 h-[436px] w-full overflow-hidden sm:h-[636px]">
       {playing && trailerKey ? (
         <>
           {/* The hero box is deliberately much wider than it is tall (up to
@@ -60,7 +70,11 @@ export function BackdropHero({
             type="button"
             onClick={() => setPlaying(false)}
             aria-label="Close trailer"
-            className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-background"
+            // top offset clears the nav bar's own h-14 (56px) reserved
+            // space -- this hero now starts 56px higher (-mt-14, see the
+            // comment on the root div above) so a plain top-3 would sit
+            // right under/behind the nav instead of below it.
+            className="absolute right-3 top-[68px] z-10 flex h-9 w-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-background"
           >
             <X size={18} />
           </button>
