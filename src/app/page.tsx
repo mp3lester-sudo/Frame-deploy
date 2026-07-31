@@ -12,7 +12,9 @@ import { MovieNightCard } from "@/components/home/movie-night-card";
 import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
 import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
+import { CompanionPicker } from "@/components/home/companion-picker";
 import { detectAutoContext, isCircumstantialContext } from "@/lib/context/circumstantial";
+import type { Recommendation } from "@/lib/recommendations/engine";
 
 type Participant = { username: string; display_name: string | null; avatar_url: string | null };
 
@@ -89,12 +91,22 @@ export default async function HomePage({
   // they run concurrently; only the follow-on queries below (which director
   // for the hero pick, which specific night, whose activity) are genuinely
   // sequential, since each needs an id from the batch above.
+  // "Date night" and "With friends" hand off entirely to the ad-hoc
+  // companion picker below (CompanionPicker) -- they need a second real
+  // person's taste before any recommendation is meaningful, so the solo
+  // engine (which only ever knows about this one user) isn't run for these
+  // two contexts at all, saving the pgvector/weather work for a result
+  // nobody would see.
+  const isCompanionContext = activeContext === "date_night" || activeContext === "with_friends";
+
   const [{ recommendations, isColdStart }, { data: memberships }, { data: following }] = await Promise.all([
-    getRecommendationsForUser(user.id, {
-      limit: 5,
-      context: activeContext,
-      weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
-    }),
+    isCompanionContext
+      ? Promise.resolve({ recommendations: [] as Recommendation[], isColdStart: false })
+      : getRecommendationsForUser(user.id, {
+          limit: 5,
+          context: activeContext,
+          weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
+        }),
     // Active Movie Night (still collecting picks) that this user is part of
     // — only ever shown when real, never a placeholder invite.
     supabase.from("movie_night_participants").select("movie_night_id").eq("user_id", user.id),
@@ -198,22 +210,30 @@ export default async function HomePage({
         <ContextPicker active={activeContext} />
       </div>
 
-      {hero && (
+      {activeContext === "date_night" || activeContext === "with_friends" ? (
         <div className="mt-7">
-          <HeroRecommendation
-            title={hero.title}
-            reason={hero.reason}
-            detail={hero.detail}
-            matchPercent={hero.matchPercent}
-            director={heroDirector}
-          />
+          <CompanionPicker context={activeContext} />
         </div>
-      )}
+      ) : (
+        <>
+          {hero && (
+            <div className="mt-7">
+              <HeroRecommendation
+                title={hero.title}
+                reason={hero.reason}
+                detail={hero.detail}
+                matchPercent={hero.matchPercent}
+                director={heroDirector}
+              />
+            </div>
+          )}
 
-      {morePicks.length > 0 && (
-        <div className="mt-8">
-          <MoodRow picks={morePicks} isColdStart={isColdStart} />
-        </div>
+          {morePicks.length > 0 && (
+            <div className="mt-8">
+              <MoodRow picks={morePicks} isColdStart={isColdStart} />
+            </div>
+          )}
+        </>
       )}
 
       {/* Social section — what people you follow are actually doing, kept
