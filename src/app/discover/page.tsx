@@ -152,7 +152,7 @@ export default async function DiscoverPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="mb-4 text-2xl font-semibold">Discover</h1>
+      <h1 className="font-display mb-4 text-2xl">Discover</h1>
 
       <div className="mb-2">
         <p className="mb-1.5 text-[10px] uppercase tracking-wider text-foreground-muted">Genre</p>

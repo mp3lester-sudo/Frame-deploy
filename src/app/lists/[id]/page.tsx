@@ -38,7 +38,7 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">{list.title}</h1>
+          <h1 className="font-display text-2xl">{list.title}</h1>
           <p className="mt-1 text-sm text-foreground-muted">
             By{" "}
             <Link href={`/profile/${owner?.username ?? ""}`} className="text-accent hover:brightness-110">

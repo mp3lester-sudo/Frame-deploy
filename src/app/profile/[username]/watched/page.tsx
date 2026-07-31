@@ -61,7 +61,7 @@ export default async function WatchedPage({ params }: { params: Promise<{ userna
       <Link href={`/profile/${profile.username}`} className="text-sm text-foreground-muted hover:text-foreground">
         &larr; Back to profile
       </Link>
-      <h1 className="mt-3 text-2xl font-semibold">
+      <h1 className="font-display mt-3 text-2xl">
         {isOwnProfile ? "Everything you've watched" : `Everything ${profile.display_name ?? profile.username} has watched`}
       </h1>
 

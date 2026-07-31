@@ -130,7 +130,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
         </div>
 
         <div className="flex-1">
-          <h1 className="text-2xl font-semibold sm:text-3xl">{title.name}</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">{title.name}</h1>
           <p className="mt-1 text-sm text-foreground-muted">
             {title.release_date?.slice(0, 4)} · {formatRuntime(title.runtime_minutes)}
           </p>

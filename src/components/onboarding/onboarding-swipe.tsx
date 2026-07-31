@@ -89,7 +89,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
     return (
       <div className="mx-auto w-full max-w-sm text-center">
         <span className="font-display text-xs font-semibold uppercase text-accent">Taste training</span>
-        <h1 className="mt-2 text-2xl font-semibold">What kind of moviegoer are you?</h1>
+        <h1 className="font-display mt-2 text-2xl">What kind of moviegoer are you?</h1>
         <p className="mt-1 text-sm text-foreground-muted">
           Totally your call — this just helps set the tone. You can change it later in Settings.
         </p>
@@ -137,7 +137,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
         </p>
         {picks.length > 0 ? (
           <>
-            <h1 className="mt-2 text-2xl font-semibold">Here&apos;s what we&apos;ve got so far</h1>
+            <h1 className="font-display mt-2 text-2xl">Here&apos;s what we&apos;ve got so far</h1>
             <div className="mt-6 grid grid-cols-3 gap-4">
               {picks.map((p) => (
                 <div key={p.id}>
@@ -150,7 +150,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
             </div>
           </>
         ) : (
-          <h1 className="mt-2 text-2xl font-semibold">You&apos;re all set</h1>
+          <h1 className="font-display mt-2 text-2xl">You&apos;re all set</h1>
         )}
 
         <button

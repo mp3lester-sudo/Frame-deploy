@@ -155,7 +155,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         />
         <div className="min-w-0 flex-1 pb-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold">{profile.display_name ?? profile.username}</h1>
+            <h1 className="font-display text-xl">{profile.display_name ?? profile.username}</h1>
             {profile.experience_tier && (
               <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
                 {EXPERIENCE_TIER_LABEL[profile.experience_tier]}
