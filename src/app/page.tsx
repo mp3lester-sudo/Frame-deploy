@@ -185,9 +185,11 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
-      <span className="font-hollywood text-xl uppercase tracking-[0.15em] text-accent">Backlot</span>
-
-      <div className="mt-2">
+      {/* Backlot wordmark removed from this header per request -- it
+          already lives in the nav bar above, so repeating it here was
+          redundant. The day/time/location/weather line now centers on
+          its own at the top of the page instead of trailing a title. */}
+      <div className="flex justify-center">
         <ContextCards day={day} time={time} location={location} weather={weather} />
       </div>
 
