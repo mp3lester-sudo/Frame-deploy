@@ -46,11 +46,6 @@ export function BackdropHero({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
-          {/* Same bottom fade as the still image, so the title row that
-              overlaps this hero (see movie/[id]/page.tsx's negative
-              margin) reads just as cleanly over a playing trailer as it
-              does over the backdrop still. */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-40" />
           <button
             type="button"
             onClick={() => setPlaying(false)}
@@ -84,14 +79,14 @@ export function BackdropHero({
             sizes="100vw"
             className="object-cover object-top"
           />
-          {/* Top scrim for nav legibility, plus a bottom fade-in so the
-              title row (which now overlaps the bottom of this hero via a
-              negative margin on the content wrapper below) reads cleanly
-              against the image instead of sitting on a hard edge. The
-              fade is sized to cover only the overlap zone -- the overview
-              paragraph sits below that zone entirely, on solid ground. */}
+          {/* No bottom fade here on purpose -- the poster/title row sits
+              cleanly BELOW this hero with normal padding (see
+              movie/[id]/page.tsx, no negative-margin overlap), matching
+              the reference layout exactly: a hard cut from image to
+              solid background, no gradient, no overlap. A subtle top
+              scrim is still worth keeping so the nav bar stays legible
+              over a bright backdrop. */}
           <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-40" />
 
           {trailerKey && (
             <button
