@@ -46,6 +46,14 @@ export function BackdropHero({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+          {/* Same bottom fade the static backdrop gets below — without it,
+              the poster/title/description block that overlaps the bottom
+              of this hero (see the negative margin in movie/[id]/page.tsx)
+              was sitting directly on top of raw, un-faded video with no
+              legibility treatment at all, unlike the static-image branch.
+              pointer-events-none so the fade doesn't swallow clicks meant
+              for YouTube's own play/pause/seek controls underneath it. */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
           <button
             type="button"
             onClick={() => setPlaying(false)}
