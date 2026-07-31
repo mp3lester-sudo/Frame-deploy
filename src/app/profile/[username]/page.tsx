@@ -173,11 +173,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           </p>
           {(ratingCount ?? 0) > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
-              <span className="rounded-[var(--radius-full)] border border-border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">
+              <span className="rounded-[var(--radius-full)] border border-border bg-background/70 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-foreground-muted backdrop-blur-sm">
                 {ratingCount} watched
               </span>
               {topGenre && (
-                <span className="rounded-[var(--radius-full)] border border-accent/40 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-accent">
+                <span className="rounded-[var(--radius-full)] border border-accent/40 bg-background/70 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-accent backdrop-blur-sm">
                   Top genre: {topGenre}
                 </span>
               )}
@@ -204,19 +204,19 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             </Link>
             <Link
               href="/taste-dna"
-              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+              className="rounded-[var(--radius-full)] border border-border bg-background/70 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted backdrop-blur-sm hover:border-border-strong hover:text-foreground"
             >
               Backlot DNA
             </Link>
             <Link
               href="/watchlist"
-              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+              className="rounded-[var(--radius-full)] border border-border bg-background/70 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted backdrop-blur-sm hover:border-border-strong hover:text-foreground"
             >
               Watchlist
             </Link>
             <Link
               href="/lists"
-              className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
+              className="rounded-[var(--radius-full)] border border-border bg-background/70 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted backdrop-blur-sm hover:border-border-strong hover:text-foreground"
             >
               Your lists
             </Link>
