@@ -85,3 +85,81 @@ describe("parseLetterboxdDiaryPaste", () => {
     expect(rows).toEqual([{ name: "Jaws", year: 1975, rating: 4.5 }]);
   });
 });
+
+
+// Modeled on real Letterboxd Films/Films>Ratings grid markup (checked
+// against a live page and a real "Save Page As" export of
+// letterboxd.com/<username>/films/): every poster is a
+// `<div class="react-component" data-item-name="Title (YYYY)" ...>` — title
+// and year combined, split on the trailing " (YYYY)" — with the rating (if
+// any) in a `<span class="rating ... rated-N">` several hundred bytes later
+// inside a `<p class="poster-viewingdata">`, not literal star glyphs, and
+// entirely absent (empty <p>) for a watched-but-unrated film.
+function filmsGridItem(opts: { slug: string; title: string; year: number; ratingValue?: number }): string {
+  const ratingSpan =
+    opts.ratingValue !== undefined
+      ? `<span class="rating -micro -darker rated-${opts.ratingValue}">${"★".repeat(Math.ceil(opts.ratingValue / 2))}</span>`
+      : "";
+  return `
+    <li class="griditem">
+      <div class="react-component" data-component-class="LazyPoster" data-item-name="${opts.title} (${opts.year})" data-item-slug="${opts.slug}" data-item-link="/film/${opts.slug}/">
+        <div class="poster film-poster">
+          <img class="image" alt="Poster for ${opts.title} (${opts.year})"/>
+          <span class="frame"><span class="frame-title"></span></span>
+        </div>
+        <p class="poster-viewingdata" data-item-uid="film:1">${ratingSpan}</p>
+      </div>
+    </li>`;
+}
+
+describe("parseLetterboxdDiaryPaste (Films / Films>Ratings grid page)", () => {
+  it("extracts title, year and rating from real-shaped Films grid items", () => {
+    const html = [
+      filmsGridItem({ slug: "the-odyssey-2026", title: "The Odyssey", year: 2026, ratingValue: 10 }),
+      filmsGridItem({ slug: "him-2025", title: "HIM", year: 2025, ratingValue: 4 }),
+      filmsGridItem({ slug: "smile", title: "Smile", year: 2022 }), // watched, unrated
+    ].join("\n");
+
+    const rows = parseLetterboxdDiaryPaste(html);
+    expect(rows).toEqual([
+      { name: "The Odyssey", year: 2026, rating: 5 },
+      { name: "HIM", year: 2025, rating: 2 },
+      { name: "Smile", year: 2022, rating: null },
+    ]);
+  });
+
+  it("splits the trailing (YYYY) even when the title itself contains parentheses", () => {
+    const html = filmsGridItem({
+      slug: "birdman-or-the-unexpected-virtue-of-ignorance",
+      title: "Birdman or (The Unexpected Virtue of Ignorance)",
+      year: 2014,
+      ratingValue: 8,
+    });
+    const rows = parseLetterboxdDiaryPaste(html);
+    expect(rows).toEqual([{ name: "Birdman or (The Unexpected Virtue of Ignorance)", year: 2014, rating: 4 }]);
+  });
+
+  it("does not bleed one item's rating into the next", () => {
+    const html = [
+      filmsGridItem({ slug: "film-a", title: "Film A", year: 2020 }), // unrated
+      filmsGridItem({ slug: "film-b", title: "Film B", year: 2021, ratingValue: 10 }),
+    ].join("\n");
+    const rows = parseLetterboxdDiaryPaste(html);
+    expect(rows).toEqual([
+      { name: "Film A", year: 2020, rating: null },
+      { name: "Film B", year: 2021, rating: 5 },
+    ]);
+  });
+
+  it("combines Diary rows and Films-grid items pasted together in one blob", () => {
+    const html = [
+      diaryRow({ slug: "the-departed", title: "The Departed", year: 2006, ratingValue: 10 }),
+      filmsGridItem({ slug: "smile", title: "Smile", year: 2022, ratingValue: 6 }),
+    ].join("\n");
+    const rows = parseLetterboxdDiaryPaste(html);
+    expect(rows).toEqual([
+      { name: "The Departed", year: 2006, rating: 5 },
+      { name: "Smile", year: 2022, rating: 3 },
+    ]);
+  });
+});

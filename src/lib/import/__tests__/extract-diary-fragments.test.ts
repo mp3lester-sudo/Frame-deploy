@@ -27,6 +27,23 @@ function diaryRow(opts: { slug: string; title: string; year: number; ratingValue
     </tr>`;
 }
 
+function filmsGridItem(opts: { slug: string; title: string; year: number; ratingValue?: number }): string {
+  const ratingSpan =
+    opts.ratingValue !== undefined
+      ? `<span class="rating -micro -darker rated-${opts.ratingValue}">${"\u2605".repeat(Math.ceil(opts.ratingValue / 2))}</span>`
+      : "";
+  return `
+    <li class="griditem">
+      <div class="react-component" data-component-class="LazyPoster" data-item-name="${opts.title} (${opts.year})" data-item-slug="${opts.slug}" data-item-link="/film/${opts.slug}/">
+        <div class="poster film-poster">
+          <img class="image" alt="Poster for ${opts.title} (${opts.year})"/>
+          <span class="frame"><span class="frame-title"></span></span>
+        </div>
+        <p class="poster-viewingdata" data-item-uid="film:1">${ratingSpan}</p>
+      </div>
+    </li>`;
+}
+
 describe("extractDiaryFragments", () => {
   it("shrinks a page down to just the fragments the server parser needs, and the parser reconstructs the same rows", () => {
     const html = [
@@ -53,6 +70,43 @@ describe("extractDiaryFragments", () => {
 
   it("returns nothing for a page with no diary rows", () => {
     expect(extractDiaryFragments("<html><body>nothing here</body></html>")).toEqual([]);
+  });
+
+  it("also shrinks a Films/Films>Ratings grid page and reconstructs the same rows", () => {
+    const html = [
+      filmsGridItem({ slug: "the-odyssey-2026", title: "The Odyssey", year: 2026, ratingValue: 8 }),
+      filmsGridItem({ slug: "birdman", title: "Birdman or (The Unexpected Virtue of Ignorance)", year: 2014, ratingValue: 9 }),
+      filmsGridItem({ slug: "goldeneye", title: "GoldenEye", year: 1995 }), // unrated
+    ].join("\n");
+
+    const fragments = extractDiaryFragments(html);
+    expect(fragments).toHaveLength(3);
+
+    const shrunk = fragments.join("\n");
+    expect(shrunk.length).toBeLessThan(html.length / 2);
+
+    expect(parseLetterboxdDiaryPaste(shrunk)).toEqual(parseLetterboxdDiaryPaste(html));
+    expect(parseLetterboxdDiaryPaste(shrunk)).toEqual([
+      { name: "The Odyssey", year: 2026, rating: 4 },
+      { name: "Birdman or (The Unexpected Virtue of Ignorance)", year: 2014, rating: 4.5 },
+      { name: "GoldenEye", year: 1995, rating: null },
+    ]);
+  });
+
+  it("shrinks a combined Diary + Films-grid page (both formats in one document)", () => {
+    const html = [
+      diaryRow({ slug: "wet-hot-american-summer", title: "Wet Hot American Summer", year: 2001, ratingValue: 7 }),
+      filmsGridItem({ slug: "the-odyssey-2026", title: "The Odyssey", year: 2026, ratingValue: 8 }),
+    ].join("\n");
+
+    const fragments = extractDiaryFragments(html);
+    expect(fragments).toHaveLength(2);
+
+    const shrunk = fragments.join("\n");
+    expect(parseLetterboxdDiaryPaste(shrunk)).toEqual([
+      { name: "Wet Hot American Summer", year: 2001, rating: 3.5 },
+      { name: "The Odyssey", year: 2026, rating: 4 },
+    ]);
   });
 
   it("stays well under Next's default 1MB Server Action body cap even for a large multi-page, padded document", () => {
