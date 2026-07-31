@@ -61,8 +61,14 @@ async function claimAnonymousSwipes(
     if (error) continue; // e.g. a stale/deleted title id — skip, don't fail the whole batch
     await supabase.from("watch_history").upsert({ user_id: userId, title_id: titleId });
     await supabase.from("activity_events").insert({ user_id: userId, event_type: "rated", title_id: titleId });
-    await supabase.rpc("upsert_taste_vector_from_rating", { p_user_id: userId, p_title_id: titleId, p_score: score });
     applied++;
+  }
+  // One recompute after all swipes land, not one per swipe — recompute_taste_vector_for_user
+  // (migration 0031) rebuilds the whole vector from every 4-5 star rating each
+  // time, so calling it per-row here would just redo the same full scan
+  // repeatedly for no benefit.
+  if (applied > 0) {
+    await supabase.rpc("recompute_taste_vector_for_user", { p_user_id: userId });
   }
   return applied;
 }

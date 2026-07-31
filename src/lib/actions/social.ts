@@ -52,10 +52,11 @@ export async function rateTitle(input: z.infer<typeof rateSchema>) {
  * Undo a rating/watch (misclicks happen). Removes the rating, the
  * watch-history row, and the "rated" activity event it generated, so it
  * disappears from the profile's Recently Watched grid and the social feed
- * too. Doesn't attempt to reverse the taste-vector contribution from
- * upsert_taste_vector_from_rating — there's no inverse operation for that
- * incremental blend, though this is currently moot since no titles have
- * embeddings yet (see scripts/verify-home.ts's note on that).
+ * too. Now also recomputes the taste vector after the delete — the old
+ * incremental upsert_taste_vector_from_rating had no inverse operation, so
+ * removing a rating never used to undo its influence; recompute_taste_vector_for_user
+ * (migration 0031) rebuilds fresh from whatever ratings remain, so this is
+ * simply correct now rather than a no-op.
  */
 export async function unrateTitle(titleId: string) {
   const schema = z.object({ titleId: z.string().uuid() });
@@ -70,6 +71,7 @@ export async function unrateTitle(titleId: string) {
     .eq("user_id", user.id)
     .eq("title_id", id)
     .eq("event_type", "rated");
+  await supabase.rpc("recompute_taste_vector_for_user", { p_user_id: user.id });
 
   revalidatePath(`/movie/${id}`);
   revalidatePath("/");

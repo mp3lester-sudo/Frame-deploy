@@ -471,6 +471,10 @@ export interface Database {
         Args: { p_user_id: string; p_title_id: string; p_score: number };
         Returns: void;
       };
+      recompute_taste_vector_for_user: {
+        Args: { p_user_id: string };
+        Returns: void;
+      };
       most_similar_liked_title: {
         Args: { p_user_id: string; p_title_id: string; p_min_similarity?: number };
         Returns: { title_id: string; similarity: number }[];

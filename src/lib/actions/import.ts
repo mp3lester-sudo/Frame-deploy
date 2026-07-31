@@ -179,6 +179,24 @@ async function matchAndUpsertRows(
     if (error) throw new Error(`ratings import failed: ${error.message}`);
   }
 
+  // A bulk import is exactly the kind of curation the recommendation engine
+  // is supposed to care most about — hundreds of explicit ratings in one
+  // go — but this function used to never touch taste_vectors at all, so an
+  // imported history contributed nothing to recommendations until the user
+  // happened to rate something new inside Backlot itself. Recompute once,
+  // after all rows are written, rather than once per row (see migration
+  // 0031 — recompute_taste_vector_for_user rebuilds fresh from every 4-5
+  // star rating, so a single call already reflects the whole import).
+  if (dedupedRatingUpserts.length > 0) {
+    const { error } = await supabase.rpc("recompute_taste_vector_for_user", { p_user_id: userId });
+    if (error) {
+      // Don't fail the whole import over this — the ratings themselves are
+      // already safely written, and a stale/missing taste vector just means
+      // recommendations lag behind until the next rating or import.
+      console.error("recompute_taste_vector_for_user failed after import:", error.message);
+    }
+  }
+
   return {
     totalRows: rows.length,
     matched: ratedCount + watchedOnlyCount,

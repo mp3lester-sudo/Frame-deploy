@@ -152,13 +152,22 @@ export async function getRecommendationsForUser(
   // Citations ("Because you loved X") only make sense for the final,
   // already-ranked short list — computing them for the whole over-fetched
   // candidate pool would be wasted work most of it never surfaces.
-  const STRONG_CONTENT_THRESHOLD = 0.85;
+  //
+  // This used to require similarity > 0.85 before naming a specific title,
+  // which in practice meant almost every recommendation fell back to a
+  // generic headline ("Matches your taste closely...") even when a real,
+  // specific film clearly drove the pick. Product direction: user curation
+  // is the whole point, so a specific "because you loved X" should show up
+  // for any decent match, not just the rare near-identical one. Still never
+  // fabricated — most_similar_liked_title (migration 0016) only returns a
+  // hit when one genuinely exists above this bar.
+  const CONTENT_MATCH_THRESHOLD = 0.5;
   const matchFlags = new Map<string, { hasStrongContentMatch: boolean; hasCollaborativeEdge: boolean }>();
   for (const id of rankedIds) {
     const inContent = (contentMatches ?? []).find((m) => m.title_id === id);
     const inCollab = (collabMatches ?? []).find((m) => m.title_id === id);
     matchFlags.set(id, {
-      hasStrongContentMatch: !!inContent && inContent.similarity > STRONG_CONTENT_THRESHOLD,
+      hasStrongContentMatch: !!inContent && inContent.similarity > CONTENT_MATCH_THRESHOLD,
       hasCollaborativeEdge: !!inCollab && (!inContent || inContent.similarity < inCollab.score),
     });
   }
