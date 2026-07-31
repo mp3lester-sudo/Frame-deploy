@@ -83,3 +83,49 @@ export async function getTmdbPersonImages(tmdbId: number, limit = 10): Promise<s
     return [];
   }
 }
+
+
+/**
+ * A photo of THIS person specifically, tied to one of their acting
+ * credits — not a movie poster (which is often an ensemble/marketing
+ * shot) and not a generic real-life headshot. TMDB's tagged_images
+ * endpoint returns images from each production's own gallery that TMDB
+ * has tagged as containing this specific person, which is the closest
+ * thing to "a picture of Leo playing Jordan Belfort" rather than just
+ * the Wolf of Wall Street poster or a paparazzi photo of Leo. Each
+ * result is keyed by the TMDB id of the movie/show it came from, so the
+ * caller can match it back to our own titles table (via titles.tmdb_id)
+ * to attach the character name from title_credits.
+ */
+export interface TmdbTaggedImage {
+  imageUrl: string;
+  tmdbTitleId: number;
+  mediaType: string;
+  voteAverage: number;
+}
+
+export async function getTmdbTaggedImages(tmdbId: number, limit = 20): Promise<TmdbTaggedImage[]> {
+  try {
+    const res = await fetch(tmdbUrl(`/person/${tmdbId}/tagged_images`), { next: { revalidate: 86400 } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const results: Array<{
+      file_path?: string;
+      vote_average?: number;
+      media_type?: string;
+      media?: { id?: number; media_type?: string };
+    }> = data.results ?? [];
+
+    return results
+      .filter((r) => r.file_path && (r.media?.id || undefined))
+      .slice(0, limit)
+      .map((r) => ({
+        imageUrl: `${TMDB_IMAGE_BASE}/w300${r.file_path}`,
+        tmdbTitleId: r.media!.id!,
+        mediaType: r.media_type ?? r.media?.media_type ?? "movie",
+        voteAverage: r.vote_average ?? 0,
+      }));
+  } catch {
+    return [];
+  }
+}

@@ -4,18 +4,21 @@ import Image from "@/components/ui/fade-image";
 export interface IconicRole {
   titleId: string;
   titleName: string;
-  posterUrl: string | null;
+  /** A photo of this specific person tied to this specific production
+      (TMDB's tagged_images, not a movie poster and not a generic
+      real-life headshot) -- see getTmdbTaggedImages. */
+  imageUrl: string;
   characterName: string;
 }
 
 /**
- * "Photos" of a person, reimagined as their most iconic roles rather than
- * generic real-life headshots: each tile is the poster art for one of
- * their higher-profile credits, captioned with the character name they
- * played there — e.g. Daniel Craig's tile reads "James Bond", not just
- * another paparazzi shot. Same scrollable-rail pattern as the Discover
- * genre filters (see globals.css's .no-scrollbar). Links through to the
- * movie page, matching the filmography grid below it.
+ * "Photos" of a person, reimagined as their most iconic roles: each tile
+ * is an actual photo of THIS person from one of their productions,
+ * captioned with the character they played there — e.g. a photo of Leo
+ * on the Wolf of Wall Street set captioned "Jordan Belfort", not that
+ * movie's poster and not just another paparazzi shot. Same
+ * scrollable-rail pattern as the Discover genre filters (see
+ * globals.css's .no-scrollbar). Links through to the movie page.
  */
 export function PersonIconicRoles({ roles }: { roles: IconicRole[] }) {
   if (roles.length < 2) return null;
@@ -32,10 +35,10 @@ export function PersonIconicRoles({ roles }: { roles: IconicRole[] }) {
             style={{ animationDelay: `${(i % 12) * 40}ms` }}
           >
             <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-md)] bg-surface-raised">
-              {role.posterUrl && (
+              {role.imageUrl && (
                 <Image
-                  src={role.posterUrl}
-                  alt={role.titleName}
+                  src={role.imageUrl}
+                  alt={`${role.titleName} — ${role.characterName}`}
                   fill
                   sizes="128px"
                   className="object-cover transition group-hover:opacity-80"
