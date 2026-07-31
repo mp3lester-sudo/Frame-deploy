@@ -29,20 +29,23 @@ export function HeroRecommendation({
       {/* WhyThisPick's toggle button lives outside this Link — a <button>
           nested inside an <a> is invalid HTML and breaks click handling. */}
       <Link href={`/movie/${title.id}`} className="block">
-        <div className="flex gap-4 p-4">
+        <div className="flex gap-5 p-5">
           {/* Posters are 2:3 — the old aspect-[16/10] full-bleed banner
               cropped most of the artwork off (and cut the title lettering
               at the bottom entirely). This box matches the poster's own
               ratio so the whole thing is visible, same pattern as the
-              movie/person detail pages. */}
-          <div className="relative aspect-[2/3] w-24 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised sm:w-32">
+              movie/person detail pages. Sized noticeably larger than the
+              "More picks for you" grid tiles below (see mood-row.tsx) --
+              this is the single featured pick, not one tile among many,
+              and should read as clearly the biggest thing on the page. */}
+          <div className="relative aspect-[2/3] w-36 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised sm:w-48">
             {title.poster_url && (
               <Image
                 src={title.poster_url}
                 alt={title.name}
                 fill
                 className="object-cover"
-                sizes="(max-width: 640px) 96px, 128px"
+                sizes="(max-width: 640px) 144px, 192px"
               />
             )}
           </div>
@@ -61,11 +64,11 @@ export function HeroRecommendation({
               )}
             </div>
 
-            <h2 className="font-display mt-2 text-2xl">{title.name}</h2>
+            <h2 className="font-display mt-2 text-3xl sm:text-4xl">{title.name}</h2>
             {meta && (
-              <p className="mt-1 text-[11px] uppercase tracking-wider text-foreground-muted">{meta}</p>
+              <p className="mt-1 text-xs uppercase tracking-wider text-foreground-muted">{meta}</p>
             )}
-            <p className="font-display mt-3 border-l-2 border-accent pl-3 italic leading-relaxed text-foreground-muted">
+            <p className="font-display mt-3 border-l-2 border-accent pl-3 text-base italic leading-relaxed text-foreground-muted">
               {reason}
             </p>
           </div>

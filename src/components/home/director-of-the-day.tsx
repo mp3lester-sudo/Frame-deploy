@@ -24,15 +24,25 @@ export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData 
     <div>
       <h3 className="font-display mb-3 text-lg">Director of the Day</h3>
       <div className="rounded-[var(--radius-lg)] border border-border bg-surface p-4 transition-colors hover:border-border-strong">
-        <Link href={`/person/${director.id}`} className="flex items-center gap-3">
-          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-surface-raised">
+        <Link href={`/person/${director.id}`} className="flex items-center gap-4">
+          {/* Bigger and deliberately left-anchored -- shrink-0 keeps it
+              from being squeezed by a long name/bio next to it, and the
+              row's items-center keeps it vertically balanced against
+              however many lines the bio preview ends up wrapping to. */}
+          <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-full bg-surface-raised sm:h-32 sm:w-32">
             {director.photoUrl && (
-              <Image src={director.photoUrl} alt={director.name} fill className="object-cover" sizes="64px" />
+              <Image
+                src={director.photoUrl}
+                alt={director.name}
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 112px, 128px"
+              />
             )}
           </div>
           <div className="min-w-0">
-            <p className="text-base font-medium hover:underline">{director.name}</p>
-            {preview && <p className="mt-0.5 line-clamp-2 text-xs text-foreground-muted">{preview}</p>}
+            <p className="text-lg font-medium hover:underline">{director.name}</p>
+            {preview && <p className="mt-1 line-clamp-3 text-xs text-foreground-muted">{preview}</p>}
           </div>
         </Link>
 
