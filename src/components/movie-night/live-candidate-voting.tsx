@@ -168,7 +168,14 @@ export function LiveCandidateVoting({
   }, [movieNightId, router, poolExhausted, refreshMatches, refreshFallback]);
 
   function refillSlot(titleId: string) {
-    if (poolExhausted) return;
+    // Once the pool's confirmed exhausted for this viewer, there's no
+    // point asking the server again -- just drop the slot locally so a
+    // vote on a later card still visibly shrinks the grid instead of
+    // leaving a voted-but-still-shown card sitting there.
+    if (poolExhausted) {
+      setCandidates((prev) => prev.filter((c) => c.title.id !== titleId));
+      return;
+    }
     setRefillingIds((prev) => new Set(prev).add(titleId));
     const excludeTitleIds = candidates.map((c) => c.title.id);
     startTransition(async () => {
