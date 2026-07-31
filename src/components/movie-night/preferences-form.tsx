@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { setMyMovieNightPreferences } from "@/lib/actions/movie-night";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // `value` must match the literal genre string stored in titles.genres
@@ -24,6 +22,26 @@ const GENRE_OPTIONS: { label: string; value: string }[] = [
   { label: "Crime", value: "Crime" },
 ];
 
+// Mood is free text, so it auto-saves on a short pause after typing rather
+// than on every keystroke -- long enough that a normal typing cadence
+// never fires mid-word, short enough that it still reads as immediate.
+const MOOD_AUTOSAVE_DELAY_MS = 600;
+
+/**
+ * Auto-saves as you go -- no "Save preferences" button to remember to
+ * click. Genre toggles save the instant you click them (they're already
+ * discrete, deliberate actions); the mood field debounces briefly after
+ * you stop typing, always reading the LATEST excluded-genres list at the
+ * moment it actually fires (via a ref, not a stale closure) so a quick
+ * genre toggle right after typing can't get silently overwritten by a
+ * mood autosave that was scheduled a moment earlier.
+ *
+ * Each save writes straight to movie_night_participants, which is
+ * exactly the table LiveCandidateVoting and LiveParticipants already
+ * watch over Supabase Realtime -- so the moment this save lands, every
+ * open screen (including your own candidate grid) picks up the change in
+ * place, with no full-page reload anywhere in the loop.
+ */
 export function PreferencesForm({
   movieNightId,
   initialMood,
@@ -35,33 +53,65 @@ export function PreferencesForm({
 }) {
   const [mood, setMood] = useState(initialMood ?? "");
   const [excluded, setExcluded] = useState<string[]>(initialExcludedGenres);
-  const [saved, setSaved] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
+  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [, startTransition] = useTransition();
+  const moodTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mounted = useRef(false);
+  const excludedRef = useRef(excluded);
+  excludedRef.current = excluded;
+  const moodRef = useRef(mood);
+  moodRef.current = mood;
 
-  function toggleGenre(genre: string) {
-    setSaved(false);
-    setExcluded((prev) => (prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]));
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function save(nextMood: string, nextExcluded: string[]) {
+    setStatus("saving");
     startTransition(async () => {
-      await setMyMovieNightPreferences({ movieNightId, mood, excludedGenres: excluded });
-      setSaved(true);
-      router.refresh();
+      await setMyMovieNightPreferences({ movieNightId, mood: nextMood, excludedGenres: nextExcluded });
+      setStatus("saved");
     });
   }
 
+  // Skip the very first render -- initialMood/initialExcludedGenres are
+  // already what's saved, so there's nothing to write back yet.
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    if (moodTimer.current) clearTimeout(moodTimer.current);
+    moodTimer.current = setTimeout(() => {
+      save(moodRef.current, excludedRef.current);
+    }, MOOD_AUTOSAVE_DELAY_MS);
+    return () => {
+      if (moodTimer.current) clearTimeout(moodTimer.current);
+    };
+  }, [mood]);
+
+  function toggleGenre(genre: string) {
+    const next = excluded.includes(genre) ? excluded.filter((g) => g !== genre) : [...excluded, genre];
+    setExcluded(next);
+    excludedRef.current = next;
+    // An explicit click, not free text -- save right away rather than
+    // waiting out the mood field's debounce (and cancel any pending mood
+    // save so it can't fire afterward with a stale excluded-genres list).
+    if (moodTimer.current) clearTimeout(moodTimer.current);
+    save(moodRef.current, next);
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="rounded-[var(--radius-md)] border border-border bg-surface p-4">
-      <p className="mb-3 text-[11px] uppercase tracking-wider text-foreground-muted">Your preferences</p>
+    <div className="rounded-[var(--radius-md)] border border-border bg-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Your preferences</p>
+        <span className="text-[11px] text-foreground-muted">
+          {status === "saving" && "Saving…"}
+          {status === "saved" && "Saved"}
+        </span>
+      </div>
 
       <Input
         value={mood}
         onChange={(e) => {
+          setStatus("idle");
           setMood(e.target.value);
-          setSaved(false);
         }}
         placeholder="Mood (e.g. something calmer)"
       />
@@ -86,13 +136,6 @@ export function PreferencesForm({
           );
         })}
       </div>
-
-      <div className="mt-3 flex items-center gap-3">
-        <Button type="submit" size="sm" variant="secondary" isLoading={isPending}>
-          Save preferences
-        </Button>
-        {saved && !isPending && <span className="text-xs text-accent">Saved</span>}
-      </div>
-    </form>
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "@/components/ui/fade-image";
 import { Button } from "@/components/ui/button";
-import { castMovieNightVote, decideMovieNight } from "@/lib/actions/movie-night";
+import { castMovieNightVote, decideMovieNight, getMovieNightCandidates } from "@/lib/actions/movie-night";
 import { createClient } from "@/lib/supabase/client";
 import type { MovieNightCandidate } from "@/lib/recommendations/movie-night";
 import { WhyThisPick } from "@/components/home/why-this-pick";
@@ -29,7 +29,7 @@ interface VoteRow {
 // live consensus instead of guessing blind.
 export function LiveCandidateVoting({
   movieNightId,
-  candidates,
+  candidates: initialCandidates,
   initialVotes,
   viewerId,
   isHost,
@@ -43,6 +43,12 @@ export function LiveCandidateVoting({
   participantCount: number;
 }) {
   const router = useRouter();
+  // Candidates now live in state rather than being read straight from
+  // props -- anyone's preference change (mood/excluded genres) or the
+  // roster changing (someone invited/removed) re-scores the shared pool
+  // for everyone still on this screen, updated in place below instead of
+  // via router.refresh()'s full-route reload.
+  const [candidates, setCandidates] = useState(initialCandidates);
   const [votes, setVotes] = useState<Record<string, { like: Set<string>; pass: Set<string> }>>(() => {
     const map: Record<string, { like: Set<string>; pass: Set<string> }> = {};
     for (const v of initialVotes) {
@@ -84,12 +90,20 @@ export function LiveCandidateVoting({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "movie_nights", filter: `id=eq.${movieNightId}` },
+        // A status change (decided/cancelled/reopened) swaps which whole
+        // section of the page renders -- that's a real full-route
+        // transition, not something this component's own state can patch.
         () => router.refresh()
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "movie_night_participants", filter: `movie_night_id=eq.${movieNightId}` },
-        () => router.refresh()
+        () => {
+          startTransition(async () => {
+            const fresh = await getMovieNightCandidates(movieNightId);
+            setCandidates(fresh);
+          });
+        }
       )
       .subscribe();
 

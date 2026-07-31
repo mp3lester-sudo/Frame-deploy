@@ -6,6 +6,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { notify } from "@/lib/actions/notifications";
+import { getCandidatesForMovieNight, type MovieNightCandidate } from "@/lib/recommendations/movie-night";
+
+export interface MovieNightParticipantRow {
+  user_id: string;
+  mood: string | null;
+  excluded_genres: string[];
+  profiles: { username: string; display_name: string | null; avatar_url: string | null } | null;
+}
 
 async function requireUser() {
   const supabase = await createClient();
@@ -103,6 +111,27 @@ export async function setMyMovieNightPreferences(input: z.infer<typeof preferenc
   if (error) throw new Error(error.message);
 
   revalidatePath(`/movie-night/${movieNightId}`);
+}
+
+// Live-refresh pair for LiveCandidateVoting / LiveParticipants: whenever
+// anyone's mood, excluded genres, or the roster itself changes, every
+// participant's already-open page picks this up over the same Realtime
+// channel those components already subscribe to (see their postgres_changes
+// listeners on movie_night_participants) and calls one of these to pull
+// fresh data in place, instead of the previous router.refresh(), which
+// re-rendered the entire route (banner, taste-comparison cards, the whole
+// candidate grid) for what was really just "my genre filter changed."
+export async function getMovieNightCandidates(movieNightId: string): Promise<MovieNightCandidate[]> {
+  return getCandidatesForMovieNight(movieNightId);
+}
+
+export async function getMovieNightParticipants(movieNightId: string): Promise<MovieNightParticipantRow[]> {
+  const { supabase } = await requireUser();
+  const { data } = await supabase
+    .from("movie_night_participants")
+    .select("user_id, mood, excluded_genres, profiles(username, display_name, avatar_url)")
+    .eq("movie_night_id", movieNightId);
+  return (data ?? []) as unknown as MovieNightParticipantRow[];
 }
 
 const voteSchema = z.object({
