@@ -90,7 +90,7 @@ async function main() {
     title: fullTitleA!,
     hasStrongContentMatch: true,
     hasCollaborativeEdge: false,
-    citedTitle: titleB.name,
+    citedTitles: [titleB.name],
   });
   if (!detail.headline.includes(titleB.name)) throw new Error(`expected the headline to mention "${titleB.name}", got: ${detail.headline}`);
   console.log(`   ok — headline: "${detail.headline}"`);
@@ -108,7 +108,7 @@ async function main() {
       title: topTitle,
       hasStrongContentMatch: strongMatch,
       hasCollaborativeEdge: false,
-      citedTitle: null,
+      citedTitles: [],
     });
     if (typeof detailForTop.headline !== "string" || detailForTop.headline.length === 0) {
       throw new Error("expected a non-empty headline for the top real recommendation");

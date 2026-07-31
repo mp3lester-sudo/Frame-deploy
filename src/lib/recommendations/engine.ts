@@ -178,7 +178,12 @@ export async function getRecommendationsForUser(
   }
 
   const citationTargets = rankedIds.filter((id) => matchFlags.get(id)?.hasStrongContentMatch);
-  const citedTitleNameByRecId = new Map<string, string>(); // recommended title id -> cited title's name
+  // Up to two cited titles per recommendation, in closest-first order —
+  // most_similar_liked_title (migration 0032) returns up to 2 rows instead
+  // of just 1, so a pick that's genuinely close to two different things a
+  // user loved can say so ("Because you loved X and Y") instead of
+  // arbitrarily picking just one.
+  const citedTitleNamesByRecId = new Map<string, string[]>();
   if (citationTargets.length) {
     const citationResults = await Promise.all(
       citationTargets.map((id) =>
@@ -198,20 +203,21 @@ export async function getRecommendationsForUser(
           .then((r) => ({ id, r }))
       )
     );
-    const citedIdByRecId = new Map<string, string>();
+    const citedIdsByRecId = new Map<string, string[]>();
     for (const { id, r } of citationResults) {
-      const citedId = r.data?.[0]?.title_id;
-      if (citedId) citedIdByRecId.set(id, citedId);
+      const citedIds = (r.data ?? []).map((row) => row.title_id).filter((cid): cid is string => !!cid);
+      if (citedIds.length) citedIdsByRecId.set(id, citedIds);
     }
-    if (citedIdByRecId.size) {
-      const { data: citedTitles } = await supabase
-        .from("titles")
-        .select("id, name")
-        .in("id", [...new Set(citedIdByRecId.values())]);
-      const citedNameByTitleId = new Map((citedTitles ?? []).map((t) => [t.id, t.name]));
-      for (const [recId, citedId] of citedIdByRecId) {
-        const name = citedNameByTitleId.get(citedId);
-        if (name) citedTitleNameByRecId.set(recId, name); // drop rather than cite a blank if the name lookup failed
+    if (citedIdsByRecId.size) {
+      const allCitedIds = new Set<string>();
+      for (const ids of citedIdsByRecId.values()) for (const cid of ids) allCitedIds.add(cid);
+      const { data: citedTitleRows } = await supabase.from("titles").select("id, name").in("id", [...allCitedIds]);
+      const citedNameByTitleId = new Map((citedTitleRows ?? []).map((t) => [t.id, t.name]));
+      for (const [recId, citedIds] of citedIdsByRecId) {
+        // Drop any id whose name lookup failed rather than citing a blank —
+        // still preserves the closest-first order from the RPC.
+        const names = citedIds.map((cid) => citedNameByTitleId.get(cid)).filter((n): n is string => !!n);
+        if (names.length) citedTitleNamesByRecId.set(recId, names);
       }
     }
   }
@@ -232,7 +238,7 @@ export async function getRecommendationsForUser(
       title,
       hasStrongContentMatch: flags.hasStrongContentMatch,
       hasCollaborativeEdge: flags.hasCollaborativeEdge,
-      citedTitle: citedTitleNameByRecId.get(id) ?? null,
+      citedTitles: citedTitleNamesByRecId.get(id) ?? [],
       context,
       weatherNote,
     });
