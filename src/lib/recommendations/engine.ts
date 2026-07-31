@@ -177,7 +177,20 @@ export async function getRecommendationsForUser(
   if (citationTargets.length) {
     const citationResults = await Promise.all(
       citationTargets.map((id) =>
-        supabase.rpc("most_similar_liked_title", { p_user_id: userId, p_title_id: id }).then((r) => ({ id, r }))
+        supabase
+          .rpc("most_similar_liked_title", {
+            p_user_id: userId,
+            p_title_id: id,
+            // most_similar_liked_title (migration 0016) defaults its own
+            // internal p_min_similarity to 0.78 -- a separate, stricter bar
+            // than CONTENT_MATCH_THRESHOLD above. Without overriding it here,
+            // lowering the outer gate did nothing: more titles would attempt
+            // a citation lookup, but the lookup itself kept rejecting all of
+            // them under the old default. Passing the same threshold through
+            // keeps both checks in sync.
+            p_min_similarity: CONTENT_MATCH_THRESHOLD,
+          })
+          .then((r) => ({ id, r }))
       )
     );
     const citedIdByRecId = new Map<string, string>();
