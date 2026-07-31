@@ -51,9 +51,12 @@ export function BackdropHero({
               of this hero (see the negative margin in movie/[id]/page.tsx)
               was sitting directly on top of raw, un-faded video with no
               legibility treatment at all, unlike the static-image branch.
-              pointer-events-none so the fade doesn't swallow clicks meant
-              for YouTube's own play/pause/seek controls underneath it. */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
+              A genuine half-and-half split: the top half stays completely
+              clear, the bottom half is where the page background takes
+              over, solid by the very bottom. pointer-events-none so the
+              fade doesn't swallow clicks meant for YouTube's own
+              play/pause/seek controls underneath it. */}
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_15%,transparent_50%,transparent_100%)]" />
           <button
             type="button"
             onClick={() => setPlaying(false)}
@@ -88,9 +91,12 @@ export function BackdropHero({
             className="object-cover object-top"
           />
           {/* Fade the backdrop into the page background so the poster/title
-              row below sits on solid ground, not mid-photo. Cinematic
-              atmosphere without fighting legibility. */}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
+              row below sits on solid ground, not mid-photo. A genuine
+              half-and-half split: the top half of the image stays
+              completely clear, the bottom half is where the page
+              background takes over, solid by the very bottom — a bigger,
+              more deliberate takeover than a thin edge fade. */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_15%,transparent_50%,transparent_100%)]" />
           <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
 
           {trailerKey && (
