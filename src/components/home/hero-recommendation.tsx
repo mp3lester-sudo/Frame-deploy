@@ -38,14 +38,19 @@ export function HeroRecommendation({
               "More picks for you" grid tiles below (see mood-row.tsx) --
               this is the single featured pick, not one tile among many,
               and should read as clearly the biggest thing on the page. */}
-          <div className="relative aspect-[2/3] w-36 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised sm:w-48">
+          {/* "More picks for you" grid tiles below are ~266px wide
+              (max-w-xl container minus padding, split by grid-cols-2/gap-3
+              -- see mood-row.tsx). This poster is set wider than that on
+              purpose so the single featured pick reads as unambiguously
+              bigger than any individual tile in the grid underneath it. */}
+          <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised sm:w-72">
             {title.poster_url && (
               <Image
                 src={title.poster_url}
                 alt={title.name}
                 fill
                 className="object-cover"
-                sizes="(max-width: 640px) 144px, 192px"
+                sizes="(max-width: 640px) 160px, 288px"
               />
             )}
           </div>
