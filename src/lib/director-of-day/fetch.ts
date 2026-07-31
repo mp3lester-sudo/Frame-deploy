@@ -8,9 +8,12 @@ import { rankFavoriteDirectors, pickDirectorOfDay } from "./pick";
 // not their entire rated history down to a single 3.5-star outlier.
 const SHORTLIST_SIZE = 8;
 
-// Recommended titles by this director: their films this user hasn't
-// rated yet, most popular first.
-const RECOMMENDED_TITLES_LIMIT = 4;
+// How many of the director's films to show, most popular first. This
+// is meant to read as "their discography," not just a to-watch queue --
+// so it includes films the user has already rated (that's expected for
+// a director they clearly love) and is sized for a horizontal-scroll
+// rail rather than a handful of inline tiles.
+const FILMOGRAPHY_LIMIT = 10;
 
 export interface DirectorOfTheDay {
   id: string;
@@ -28,11 +31,11 @@ export interface DirectorOfTheDay {
  * Picks today's director for this user (see pick.ts for the ranking +
  * rotation logic) and fetches everything the home page card needs to
  * show them: photo/bio (same lazy TMDB fetch-on-view pattern as the
- * person profile page) and a few of their films this user hasn't rated
- * yet, so the card doubles as a jumping-off point rather than just
- * trivia. Returns null when there isn't enough rating history to have
- * a real favorite-directors signal yet (same "don't fake it" approach
- * as the rest of the home page's personalization).
+ * person profile page) and their most popular films overall, so the
+ * card reads as a discography rail rather than a narrow to-watch queue.
+ * Returns null when there isn't enough rating history to have a real
+ * favorite-directors signal yet (same "don't fake it" approach as the
+ * rest of the home page's personalization).
  */
 export async function getDirectorOfTheDay(userId: string): Promise<DirectorOfTheDay | null> {
   const supabase = await createClient();
@@ -102,12 +105,11 @@ export async function getDirectorOfTheDay(userId: string): Promise<DirectorOfThe
   ]);
 
   type FilmRow = { id: string; name: string; poster_url: string | null; popularity: number | null };
-  const ratedTitleIds = new Set(titleIds);
   const films = ((titlesResult.data ?? []) as unknown as { titles: FilmRow | null }[])
     .map((r) => r.titles)
-    .filter((t): t is FilmRow => !!t && !ratedTitleIds.has(t.id))
+    .filter((t): t is FilmRow => !!t)
     .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
-    .slice(0, RECOMMENDED_TITLES_LIMIT);
+    .slice(0, FILMOGRAPHY_LIMIT);
 
   return {
     id: pick.id,

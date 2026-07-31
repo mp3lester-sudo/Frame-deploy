@@ -9,7 +9,7 @@ export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData 
       <div className="rounded-[var(--radius-lg)] border border-border bg-surface p-4 transition-colors hover:border-border-strong">
         {/* Square headshot rather than the earlier circular avatar -- a
             face crop reads more like a film-still/poster treatment,
-            which matches the filmography row it now leads into. */}
+            which matches the filmography rail it now leads into. */}
         <Link href={`/person/${director.id}`} className="flex items-center gap-4">
           <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised sm:h-28 sm:w-28">
             {director.photoUrl && (
@@ -26,7 +26,11 @@ export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData 
         </Link>
 
         {director.titles.length > 0 && (
-          <div className="mt-4 flex gap-3">
+          // Horizontal-scroll rail (same .no-scrollbar pattern as
+          // MoodRow / PersonIconicRoles) rather than a fixed inline row
+          // -- the discography is up to 10 films now, most popular
+          // first, and won't all fit in the card's width.
+          <div className="no-scrollbar -mx-4 mt-4 flex gap-3 overflow-x-auto px-4 pb-1">
             {director.titles.map((title) => (
               <Link
                 key={title.id}
