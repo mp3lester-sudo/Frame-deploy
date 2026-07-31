@@ -9,15 +9,23 @@ export async function GET(req: NextRequest) {
   const { data: person } = await supabase.from("people").select("*").eq("id", id).single();
   if (!person) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const url = tmdbUrl(`/person/${person.tmdb_id}/tagged_images`);
+  const url = tmdbUrl(`/person/${person.tmdb_id}/tagged_images`, { page: "1" });
   const res = await fetch(url, { cache: "no-store" });
-  const status = res.status;
-  const text = await res.text();
+  const data = await res.json();
+  const results: Array<{ image_type?: string; media?: { id?: number; title?: string; name?: string } }> = data.results ?? [];
+
+  const byType: Record<string, number> = {};
+  for (const r of results) {
+    const t = r.image_type ?? "unknown";
+    byType[t] = (byType[t] ?? 0) + 1;
+  }
 
   return NextResponse.json({
-    personTmdbId: person.tmdb_id,
-    urlUsed: url.replace(/api_key=[^&]+/, "api_key=REDACTED"),
-    status,
-    bodyPreview: text.slice(0, 2000),
+    page: data.page,
+    total_pages: data.total_pages,
+    total_results: data.total_results,
+    resultsOnThisPage: results.length,
+    byType,
+    sampleNonPoster: results.filter((r) => r.image_type !== "poster").slice(0, 5),
   });
 }
