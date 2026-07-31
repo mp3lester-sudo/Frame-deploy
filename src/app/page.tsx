@@ -190,7 +190,7 @@ export default async function HomePage({
   const firstName = rawName.split(/\s+/)[0];
 
   return (
-    <div className="mx-auto max-w-xl px-4 py-10 lg:max-w-5xl">
+    <div className="mx-auto max-w-xl px-4 py-10 lg:max-w-6xl">
       {/* Server-rendered (not a client component) so it's part of the
           very first HTML the browser paints -- a client-mounted overlay
           would only appear after JS hydrates, by which point the home
@@ -271,7 +271,12 @@ export default async function HomePage({
           this renders as a single stack in the same document order as
           before (left column's content, then right column's), so mobile
           behavior is unchanged from the original single-column layout. */}
-      <div className="mt-7 lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
+      {/* Container now matches the nav bar's own max-w-6xl (nav-bar.tsx)
+          so the right rail's outer edge lines up with the nav's right-most
+          icon (profile) instead of stopping short of it. Right column also
+          widened from 1fr-vs-1.6fr to 1fr-vs-1.4fr -- wider on its own, not
+          just wider because the container grew. */}
+      <div className="mt-7 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
         <div>
           {activeContext === "date_night" || activeContext === "with_friends" ? (
             <CompanionPicker context={activeContext} />
