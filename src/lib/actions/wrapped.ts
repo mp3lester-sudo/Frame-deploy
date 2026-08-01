@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
-import { computeWrapped } from "@/lib/taste-dna/compute";
+import { computeWrapped, computeMonthlyWrapped } from "@/lib/taste-dna/compute";
 import type { WrappedResult } from "@/lib/taste-dna/wrapped";
 
 /**
@@ -16,6 +16,33 @@ export async function getMyWrapped(year: number): Promise<WrappedResult | null> 
   const user = await getVerifiedUser();
   if (!user) return null;
   return computeWrapped(user.id, year);
+}
+
+export interface MonthlyWrappedState {
+  /** false for a free account -- the page shows a Premium upsell instead
+   *  of a "keep rating" placeholder, since the real blocker isn't rating
+   *  volume. */
+  isPremium: boolean;
+  result: WrappedResult | null;
+}
+
+/**
+ * Monthly recap is a Premium-only perk (task #140) -- checked here rather
+ * than in computeMonthlyWrapped itself, same "gating lives in the action,
+ * not the query" split already used for Discover's advanced filters and
+ * the Ask Backlot concierge's daily cap.
+ */
+export async function getMyMonthlyWrapped(): Promise<MonthlyWrappedState> {
+  const user = await getVerifiedUser();
+  if (!user) return { isPremium: false, result: null };
+
+  const supabase = await createClient();
+  const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
+  const isPremium = profile?.is_premium ?? false;
+  if (!isPremium) return { isPremium: false, result: null };
+
+  const result = await computeMonthlyWrapped(user.id);
+  return { isPremium: true, result };
 }
 
 export interface WrappedShareResult {

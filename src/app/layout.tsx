@@ -8,6 +8,7 @@ import { ensureProfile } from "@/lib/actions/ensure-profile";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getUnreadNotificationCount } from "@/lib/actions/notifications";
 import { PageTransition } from "@/components/page-transition";
+import { PromoBanner } from "@/components/layout/promo-banner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -115,10 +116,16 @@ export default async function RootLayout({
   // even reaching the destination page's own data fetching; running them
   // concurrently shaves one full round trip off every click.
   let unreadMessageCount = 0;
+  let isPremium = false;
   if (user) {
-    const [, { data: conversations }] = await Promise.all([
+    const [, { data: conversations }, { data: profile }] = await Promise.all([
       ensureProfile(supabase, user),
       supabase.from("conversations").select("id").or(`user_a.eq.${user.id},user_b.eq.${user.id}`),
+      // Drives the house promo banner below (task #141) -- "ad-free" only
+      // means something if free accounts see something to go ad-free
+      // from. Cheap enough (single boolean column) to fetch unconditionally
+      // alongside the other per-request lookups this layout already does.
+      supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle(),
     ]);
     const conversationIds = (conversations ?? []).map((c) => c.id);
     if (conversationIds.length) {
@@ -130,9 +137,13 @@ export default async function RootLayout({
         .is("read_at", null);
       unreadMessageCount = count ?? 0;
     }
+    isPremium = profile?.is_premium ?? false;
   }
 
   const unreadNotificationCount = user ? await getUnreadNotificationCount() : 0;
+  // Logged-out visitors get the landing page's own conversion funnel
+  // instead of a banner; Premium accounts never see it at all.
+  const showPromoBanner = !!user && !isPremium;
 
   return (
     <html
@@ -141,6 +152,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
+        {showPromoBanner && <PromoBanner />}
         <main className="flex-1 pb-16 md:pb-0"><PageTransition>{children}</PageTransition></main>
         <BottomNav />
       </body>
