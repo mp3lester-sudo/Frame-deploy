@@ -61,7 +61,7 @@ export async function getOrFetchWatchProviders(title: WatchProviderLookupInput):
 
   const path = title.type === "tv" ? `/tv/${title.tmdb_id}/watch/providers` : `/movie/${title.tmdb_id}/watch/providers`;
 
-  let offers: WatchProviderOffer[] = [];
+  const offers: WatchProviderOffer[] = [];
   try {
     const res = await fetch(tmdbUrl(path), {
       // Provider lineups shift occasionally but not daily — a day's

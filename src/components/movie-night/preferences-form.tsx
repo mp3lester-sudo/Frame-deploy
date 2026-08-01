@@ -59,9 +59,16 @@ export function PreferencesForm({
   const moodTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(false);
   const excludedRef = useRef(excluded);
-  excludedRef.current = excluded;
   const moodRef = useRef(mood);
-  moodRef.current = mood;
+  // Mirrors state into refs after every render (not during render itself,
+  // which the react-hooks/refs rule now flags) -- these only exist so the
+  // debounced save() below can read the LATEST mood/excluded values from
+  // inside a timeout callback without adding them as effect dependencies
+  // (which would restart the debounce timer on every keystroke).
+  useEffect(() => {
+    excludedRef.current = excluded;
+    moodRef.current = mood;
+  });
 
   function save(nextMood: string, nextExcluded: string[]) {
     setStatus("saving");

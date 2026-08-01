@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { computeTasteDna } from "@/lib/taste-dna/compute";
 import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
@@ -11,7 +10,6 @@ import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
 import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
 
 export default async function TasteDnaPage() {
-  const supabase = await createClient();
   const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/taste-dna");
 

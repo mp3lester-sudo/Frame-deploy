@@ -1,6 +1,5 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
 
@@ -21,7 +20,6 @@ export interface OnboardingCompletionPick {
 const COMPLETION_PICK_COUNT = 3;
 
 export async function getOnboardingCompletionPicks(): Promise<OnboardingCompletionPick[]> {
-  const supabase = await createClient();
   const user = await getVerifiedUser();
   if (!user) return [];
 

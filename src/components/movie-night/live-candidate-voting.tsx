@@ -390,7 +390,7 @@ export function LiveCandidateVoting({
           )}
           {poolExhausted && fallback.length === 0 && isHost && (
             <p className="mt-3 text-xs text-foreground-muted">
-              Nobody's liked anything yet either — try loosening a genre exclusion in preferences above, or invite
+              Nobody&apos;s liked anything yet either — try loosening a genre exclusion in preferences above, or invite
               someone new.
             </p>
           )}

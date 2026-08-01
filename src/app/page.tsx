@@ -241,7 +241,6 @@ export default async function HomePage({
           (html.splash-shown .greeting-splash) hides it instantly, no
           animation, no flash. */}
       <script
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{
           __html: `try {
   if (sessionStorage.getItem('backlot:greeting-splash-shown')) {

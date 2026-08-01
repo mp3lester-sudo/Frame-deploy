@@ -14,6 +14,13 @@ export function AnimatedCounter({ value, durationMs = 900 }: { value: number; du
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      // Deliberately in an effect, not a lazy useState initializer -- the
+      // latter would run during SSR too (no window, so it'd always take
+      // the "assume motion" branch) and then disagree with the client's
+      // first hydration render whenever a real user actually prefers
+      // reduced motion, which is exactly the hydration-mismatch class of
+      // bug effects here are meant to avoid.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplay(value);
       return;
     }
