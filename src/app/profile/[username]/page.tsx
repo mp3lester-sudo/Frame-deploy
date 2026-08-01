@@ -38,25 +38,38 @@ function badgeNumber(overallIndex: number): string {
   return String(overallIndex + 1).padStart(2, "0");
 }
 
+/**
+ * Selection badge lands like a wax seal being pressed -- a quick
+ * overshoot-and-settle stamp (stamp-in) plus a one-shot expanding ring
+ * at the moment of impact (seal-ring), instead of a plain pop-in.
+ * Reads well regardless of theme, so it's not gated behind
+ * theme.showMotif the way the rose/atmosphere flourishes are.
+ */
 function SelectionBadge({ index, delayMs = 0 }: { index: number; delayMs?: number }) {
   return (
-    <span
-      className="badge-pop absolute -left-2 -top-2 z-30 flex h-7 w-7 items-center justify-center rounded-full border border-accent/60 bg-background font-display text-[11px] italic text-accent shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
-      style={{ animationDelay: `${delayMs}ms` }}
-    >
-      <svg className="absolute inset-0 -rotate-90" width="28" height="28" viewBox="0 0 28 28">
-        <circle
-          cx="14"
-          cy="14"
-          r="12.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.2"
-          className="badge-ring"
-          style={{ animationDelay: `${delayMs + 260}ms` }}
-        />
-      </svg>
-      {badgeNumber(index)}
+    <span className="absolute -left-2 -top-2 z-30 block h-7 w-7">
+      <span
+        className="seal-ring pointer-events-none absolute inset-0 rounded-full border border-accent/70"
+        style={{ animationDelay: `${delayMs + 260}ms` }}
+      />
+      <span
+        className="stamp-in absolute inset-0 flex items-center justify-center rounded-full border border-accent/60 bg-background font-display text-[11px] italic text-accent shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+        style={{ animationDelay: `${delayMs}ms` }}
+      >
+        <svg className="absolute inset-0 -rotate-90" width="28" height="28" viewBox="0 0 28 28">
+          <circle
+            cx="14"
+            cy="14"
+            r="12.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.2"
+            className="badge-ring"
+            style={{ animationDelay: `${delayMs + 260}ms` }}
+          />
+        </svg>
+        {badgeNumber(index)}
+      </span>
     </span>
   );
 }
@@ -86,6 +99,40 @@ function RoseFlourish() {
         <path d="M9.1 5.3c.85-.95 1.95-1.5 2.9-1.5s2.05.55 2.9 1.5" stroke="currentColor" strokeWidth="0.75" fill="none" strokeLinecap="round" />
       </svg>
       <span className="rule-grow h-px w-14 bg-gradient-to-l from-transparent to-current opacity-60" />
+    </div>
+  );
+}
+
+/**
+ * Background atmosphere for the Godfather theme -- object and light
+ * motifs only, deliberately stopping short of any human silhouette or
+ * character depiction: a fedora outline resting in the corner, and a
+ * cigar with smoke wisps and embers drifting up past it. Positioned
+ * low-opacity in the favorites panel's bottom-right corner as texture,
+ * not a focal illustration. Purely decorative -- pointer-events-none,
+ * aria-hidden.
+ */
+function PeriodAtmosphere() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute bottom-3 right-4 h-24 w-28 text-accent/25 sm:bottom-4 sm:right-6"
+    >
+      {/* Fedora outline -- brim + crown, no face or body. */}
+      <svg width="64" height="40" viewBox="0 0 64 40" fill="currentColor" className="absolute bottom-0 right-0">
+        <ellipse cx="32" cy="30" rx="30" ry="6" />
+        <path d="M16 27c0-10 7-19 16-19s16 9 16 19c-4-3-11-4-16-4s-12 1-16 4z" />
+      </svg>
+      {/* Cigar resting at an angle, ember tip glowing. */}
+      <div className="absolute bottom-8 right-8 h-1.5 w-8 -rotate-[24deg] rounded-full bg-current opacity-70" />
+      <div className="absolute bottom-[38px] right-[27px] h-1.5 w-1.5 rounded-full bg-[#e8a33d] shadow-[0_0_5px_2px_rgba(232,163,61,0.6)]" />
+      {/* Smoke wisps + embers rising from the cigar tip. */}
+      <div className="smoke-wisp absolute bottom-10 right-8 h-6 w-2 rounded-full bg-current" style={{ animationDelay: "0s" }} />
+      <div className="smoke-wisp absolute bottom-10 right-6 h-5 w-1.5 rounded-full bg-current" style={{ animationDelay: "2s" }} />
+      <div className="smoke-wisp absolute bottom-10 right-9 h-4 w-1.5 rounded-full bg-current" style={{ animationDelay: "4s" }} />
+      <div className="ember-particle absolute bottom-10 right-7 h-1 w-1 rounded-full bg-[#e8a33d]" style={{ animationDelay: "0.6s" }} />
+      <div className="ember-particle absolute bottom-10 right-8 h-1 w-1 rounded-full bg-[#e8a33d]" style={{ animationDelay: "1.8s" }} />
+      <div className="ember-particle absolute bottom-10 right-6 h-1 w-1 rounded-full bg-[#e8a33d]" style={{ animationDelay: "2.7s" }} />
     </div>
   );
 }
@@ -419,7 +466,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               faint gold glow behind it) gives the surrounding space a
               reason to exist — it's the panel's padding, not dead air —
               and widening the panel lets every tile scale up with it. */}
-          <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border">
+          <div
+            className={`relative overflow-hidden rounded-[var(--radius-lg)] border border-border ${theme.showMotif ? "candle-flicker-panel" : ""}`}
+          >
             <div
               className="breathe-glow pointer-events-none absolute inset-0"
               style={{
@@ -427,6 +476,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                   "radial-gradient(ellipse at 50% 30%, rgba(205,166,70,0.08), transparent 70%)",
               }}
             />
+            {theme.showMotif && <PeriodAtmosphere />}
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               {theme.showMotif && <RoseFlourish />}
               <div className="mb-6 text-center">
