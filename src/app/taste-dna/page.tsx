@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { computeTasteDna } from "@/lib/taste-dna/compute";
+import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
+import { SignaturePickCard } from "@/components/taste-dna/signature-pick-card";
 import { Button } from "@/components/ui/button";
 
 const MIN_SAMPLE_SIZE = 3;
@@ -18,7 +20,10 @@ export default async function TasteDnaPage() {
   const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/taste-dna");
 
-  const dna = await computeTasteDna(user.id);
+  const [dna, signaturePick] = await Promise.all([
+    computeTasteDna(user.id),
+    computeSignaturePick(user.id),
+  ]);
 
   if (dna.sampleSize < MIN_SAMPLE_SIZE) {
     return (
@@ -62,6 +67,12 @@ export default async function TasteDnaPage() {
           See your Wrapped &rarr;
         </Link>
       </div>
+
+      {signaturePick && (
+        <div className="mt-8">
+          <SignaturePickCard pick={signaturePick} />
+        </div>
+      )}
 
       <div className="mt-8 flex flex-col gap-4">
         {topArchetypes.map((a) => (
