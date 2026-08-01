@@ -31,7 +31,7 @@ export default async function TasteDnaPage() {
   // guarantees this page always resolves.
   const [dna, signaturePick] = await Promise.all([
     computeTasteDna(user.id),
-    withTimeout(computeSignaturePick(user.id), 6000, null),
+    withTimeout(computeSignaturePick(user.id), 25000, null),
   ]);
 
   if (dna.sampleSize < MIN_SAMPLE_SIZE) {
