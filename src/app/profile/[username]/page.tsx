@@ -470,6 +470,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
 
       <div className="mx-auto max-w-6xl px-4 pb-8 pt-6 lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
       <div>
+      {/* Personal Pyramid and Backlot DNA sit side by side as a pair --
+          the pyramid is what you picked, the DNA panel is what the app
+          reads out of everything you've rated, so showing them together
+          reads as "here's my taste, in my own words and in the data."
+          Stacks on narrower screens (own column width shrinks fast once
+          this nests inside the page's own left/right split) since two
+          half-width panels get too cramped below that. */}
+      <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
       {favorites.length > 0 && (
         <div className="mt-0">
           {/* The podium used to sit directly on the page background at a
@@ -585,7 +593,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           same reason the standalone page hides it: a mostly-empty
           breakdown reads as broken, not "not enough data yet." */}
       {dna.sampleSize >= MIN_SAMPLE_SIZE && (
-        <Reveal className="mt-6">
+        <Reveal>
           <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border">
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               <div className="mb-6 text-center">
@@ -685,6 +693,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           </div>
         </Reveal>
       )}
+
+      </div>
 
       {compatibility && (
         <Reveal className="mt-6">
