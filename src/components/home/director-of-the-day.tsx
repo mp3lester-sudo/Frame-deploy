@@ -15,6 +15,13 @@ const DISCOGRAPHY_TILE_COUNT = 4;
  * unlike the previous six-tile grid). Still matches
  * SpotlightRecommendation's fixed height and sits beside it in the same
  * paired row.
+ *
+ * Each poster carries a one-line title caption underneath it. Without
+ * one there was no way to tell which film a tile actually was -- some
+ * TMDB poster art reads as pure imagery with no visible title text, so
+ * a mismatched or unfamiliar poster just looked like a formatting bug.
+ * The caption also gives a text fallback for the (rare) case where
+ * posterUrl is null, instead of an unlabeled empty tile.
  */
 export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData }) {
   const films = director.titles.slice(0, DISCOGRAPHY_TILE_COUNT);
@@ -44,22 +51,27 @@ export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData 
       )}
 
       {films.length > 0 && (
-        <div className="mt-4 grid grid-cols-4 gap-2">
+        <div className="mt-4 grid flex-1 grid-cols-4 gap-2.5">
           {films.map((title) => (
-            <Link
-              key={title.id}
-              href={`/movie/${title.id}`}
-              className="group relative aspect-[2/3] overflow-hidden rounded-[var(--radius-sm)] bg-surface-raised"
-            >
-              {title.posterUrl && (
-                <Image
-                  src={title.posterUrl}
-                  alt={title.name}
-                  fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  sizes="80px"
-                />
-              )}
+            <Link key={title.id} href={`/movie/${title.id}`} className="group flex min-w-0 flex-col gap-1">
+              <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-sm)] border border-border bg-surface-raised">
+                {title.posterUrl ? (
+                  <Image
+                    src={title.posterUrl}
+                    alt={title.name}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    sizes="80px"
+                  />
+                ) : (
+                  <span className="flex h-full items-center justify-center p-1 text-center text-[9px] leading-tight text-foreground-muted">
+                    {title.name}
+                  </span>
+                )}
+              </div>
+              <p className="truncate text-center text-[10px] leading-tight text-foreground-muted group-hover:text-foreground">
+                {title.name}
+              </p>
             </Link>
           ))}
         </div>

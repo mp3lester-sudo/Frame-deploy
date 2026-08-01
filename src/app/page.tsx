@@ -126,7 +126,7 @@ export default async function HomePage({
     isCompanionContext
       ? Promise.resolve({ recommendations: [] as Recommendation[], isColdStart: false })
       : getRecommendationsForUser(user.id, {
-          limit: 5,
+          limit: 7,
           context: activeContext,
           weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
         }),
@@ -305,7 +305,6 @@ export default async function HomePage({
         >
           {firstName}
         </span>
-        .
       </h1>
       {ratedCount ? (
         <p className="mt-1.5 text-center text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
