@@ -13,6 +13,10 @@ import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
 import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
 import { detectAutoContext, isCircumstantialContext } from "@/lib/context/circumstantial";
+import { getLastReviewedOrWatchedTitle } from "@/lib/poster-font/last-title";
+import { getOrFetchPosterFont } from "@/lib/poster-font/detect";
+import { getPosterFontClassName } from "@/lib/poster-font/fonts";
+import { PreciseLocation } from "@/components/home/precise-location";
 
 type Participant = { username: string; display_name: string | null; avatar_url: string | null };
 
@@ -89,7 +93,7 @@ export default async function HomePage({
   // they run concurrently; only the follow-on queries below (which director
   // for the hero pick, which specific night, whose activity) are genuinely
   // sequential, since each needs an id from the batch above.
-  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }] = await Promise.all([
+  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }, lastTitle] = await Promise.all([
     getRecommendationsForUser(user.id, {
       limit: 5,
       context: activeContext,
@@ -101,13 +105,18 @@ export default async function HomePage({
     // Recent activity from people the user follows — omitted entirely
     // rather than shown with placeholder people when there's nothing real yet.
     supabase.from("follows").select("followee_id").eq("follower_id", user.id),
+    // Whichever title this user most recently reviewed or watched — drives
+    // the greeting's poster-matched font below. Independent of everything
+    // else in this batch, so it rides along here instead of adding its own
+    // sequential stage.
+    getLastReviewedOrWatchedTitle(user.id),
   ]);
 
   const [hero, ...morePicks] = recommendations;
   const nightIds = (memberships ?? []).map((m) => m.movie_night_id);
   const followeeIds = (following ?? []).map((f) => f.followee_id);
 
-  const [heroDirectorResult, night, events] = await Promise.all([
+  const [heroDirectorResult, night, events, posterFontName] = await Promise.all([
     hero
       ? supabase
           .from("title_credits")
@@ -136,10 +145,16 @@ export default async function HomePage({
           .limit(SOCIAL_EVENTS_LIMIT)
           .then((r) => r.data ?? [])
       : Promise.resolve([]),
+    // Lazy-fetch-on-view-then-cache-forever, same pattern as RT scores — see
+    // src/lib/poster-font/detect.ts. Only ever hits OpenAI on the very first
+    // time any user's greeting needs this specific title's font; every
+    // subsequent view (this user or anyone else) is a free DB read.
+    lastTitle ? getOrFetchPosterFont(lastTitle) : Promise.resolve(null),
   ]);
 
   const heroDirector =
     (heroDirectorResult?.data as unknown as { people: { name: string } | null } | null)?.people?.name ?? null;
+  const greetingFontClassName = getPosterFontClassName(posterFontName);
 
   let activeNight: { id: string; hostId: string; participants: Participant[] } | null = null;
   if (night) {
@@ -173,13 +188,16 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
+      <PreciseLocation />
       <span className="font-hollywood text-xl uppercase tracking-[0.15em] text-accent">Backlot</span>
 
       <div className="mt-2">
         <ContextCards day={day} time={time} location={location} weather={weather} />
       </div>
 
-      <h1 className="font-display mt-5 text-4xl leading-tight tracking-tight sm:text-5xl">
+      <h1
+        className={`${greetingFontClassName ?? "font-display"} mt-5 text-4xl leading-tight tracking-tight sm:text-5xl`}
+      >
         {greeting}, <span className="italic text-accent">{firstName}</span>.
       </h1>
       {ratedCount ? (

@@ -54,6 +54,8 @@ export interface Database {
           rt_critic_score: number | null;
           rt_checked_at: string | null;
           streaming_checked_at: string | null;
+          poster_font: string | null;
+          poster_font_checked_at: string | null;
           created_at: string;
           updated_at: string;
         };

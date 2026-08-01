@@ -36,6 +36,8 @@ function makeTitle(overrides: Partial<Title> = {}): Title {
     rt_critic_score: null,
     rt_checked_at: null,
     streaming_checked_at: null,
+    poster_font: null,
+    poster_font_checked_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...overrides,

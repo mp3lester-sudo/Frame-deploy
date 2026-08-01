@@ -103,7 +103,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               href="/taste-dna"
               className="rounded-[var(--radius-full)] border border-border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted hover:border-border-strong hover:text-foreground"
             >
-              Taste DNA
+              Backlot DNA
             </Link>
             <Link
               href="/watchlist"

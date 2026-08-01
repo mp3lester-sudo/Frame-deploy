@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { computeTasteDna } from "@/lib/taste-dna/compute";
 import { Button } from "@/components/ui/button";
+import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
 
 const MIN_SAMPLE_SIZE = 3;
 
@@ -23,7 +24,7 @@ export default async function TasteDnaPage() {
   if (dna.sampleSize < MIN_SAMPLE_SIZE) {
     return (
       <section className="mx-auto max-w-xl px-4 py-16 text-center">
-        <h1 className="font-display text-3xl">Your Taste DNA</h1>
+        <h1 className="font-display text-3xl">Your Backlot DNA</h1>
         <p className="mt-3 text-sm text-foreground-muted">
           Rate a few more titles and this fills in — nobody wants recommendations because you
           liked one movie. Backlot learns the throughline: morally gray protagonists, atmospheric
@@ -46,7 +47,7 @@ export default async function TasteDnaPage() {
     <section className="mx-auto max-w-2xl px-4 py-10">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl">Your Taste DNA</h1>
+          <h1 className="font-display text-3xl">Your Backlot DNA</h1>
           <p className="mt-2 text-sm text-foreground-muted">
             Based on {dna.sampleSize} rated title{dna.sampleSize === 1 ? "" : "s"}
             {hasEnrichedData
@@ -64,19 +65,8 @@ export default async function TasteDnaPage() {
       </div>
 
       <div className="mt-8 flex flex-col gap-4">
-        {topArchetypes.map((a) => (
-          <div key={a.name}>
-            <div className="mb-1.5 flex items-baseline justify-between">
-              <span className="font-display text-sm">{a.name}</span>
-              <span className="text-sm font-medium text-accent">{a.percent}%</span>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
-              <div
-                className="h-full rounded-full bg-accent transition-all"
-                style={{ width: `${a.percent}%` }}
-              />
-            </div>
-          </div>
+        {topArchetypes.map((a, i) => (
+          <ArchetypeBar key={a.name} name={a.name} percent={a.percent} delayMs={i * 80} />
         ))}
       </div>
 
