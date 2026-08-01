@@ -73,14 +73,18 @@ export default async function RootLayout({
   // server. See src/lib/auth/verified-user.ts.
   const user = await getVerifiedUser();
 
-  if (user) await ensureProfile(supabase, user);
-
+  // ensureProfile and the conversations lookup below don't depend on each
+  // other — this layout wraps every single page, so this async work re-runs
+  // on every navigation across the whole app. It used to run as two
+  // sequential round trips (ensureProfile, *then* conversations) before
+  // even reaching the destination page's own data fetching; running them
+  // concurrently shaves one full round trip off every click.
   let unreadMessageCount = 0;
   if (user) {
-    const { data: conversations } = await supabase
-      .from("conversations")
-      .select("id")
-      .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+    const [, { data: conversations }] = await Promise.all([
+      ensureProfile(supabase, user),
+      supabase.from("conversations").select("id").or(`user_a.eq.${user.id},user_b.eq.${user.id}`),
+    ]);
     const conversationIds = (conversations ?? []).map((c) => c.id);
     if (conversationIds.length) {
       const { count } = await supabase

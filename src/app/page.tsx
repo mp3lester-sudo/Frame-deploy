@@ -16,6 +16,10 @@ import { CompanionPicker } from "@/components/home/companion-picker";
 import { DirectorOfTheDay } from "@/components/home/director-of-the-day";
 import { getDirectorOfTheDay } from "@/lib/director-of-day/fetch";
 import { detectAutoContext, isCircumstantialContext } from "@/lib/context/circumstantial";
+import { getLastReviewedOrWatchedTitle } from "@/lib/poster-font/last-title";
+import { getOrFetchPosterFont } from "@/lib/poster-font/detect";
+import { getPosterFontClassName } from "@/lib/poster-font/fonts";
+import { PreciseLocation } from "@/components/home/precise-location";
 import type { Recommendation } from "@/lib/recommendations/engine";
 
 type Participant = { username: string; display_name: string | null; avatar_url: string | null };
@@ -101,7 +105,7 @@ export default async function HomePage({
   // nobody would see.
   const isCompanionContext = activeContext === "date_night" || activeContext === "with_friends";
 
-  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }, directorOfTheDay] = await Promise.all([
+  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }, directorOfTheDay, lastTitle] = await Promise.all([
     isCompanionContext
       ? Promise.resolve({ recommendations: [] as Recommendation[], isColdStart: false })
       : getRecommendationsForUser(user.id, {
@@ -119,13 +123,18 @@ export default async function HomePage({
     // rated well, rotating daily (see director-of-day/pick.ts). Returns
     // null rather than a placeholder when there's no rating history yet.
     getDirectorOfTheDay(user.id),
+    // Whichever title this user most recently reviewed or watched — drives
+    // the greeting's poster-matched font below. Independent of everything
+    // else in this batch, so it rides along here instead of adding its own
+    // sequential stage.
+    getLastReviewedOrWatchedTitle(user.id),
   ]);
 
   const [hero, ...morePicks] = recommendations;
   const nightIds = (memberships ?? []).map((m) => m.movie_night_id);
   const followeeIds = (following ?? []).map((f) => f.followee_id);
 
-  const [heroDirectorResult, night, events] = await Promise.all([
+  const [heroDirectorResult, night, events, posterFontName] = await Promise.all([
     hero
       ? supabase
           .from("title_credits")
@@ -154,10 +163,16 @@ export default async function HomePage({
           .limit(SOCIAL_EVENTS_LIMIT)
           .then((r) => r.data ?? [])
       : Promise.resolve([]),
+    // Lazy-fetch-on-view-then-cache-forever, same pattern as RT scores — see
+    // src/lib/poster-font/detect.ts. Only ever hits OpenAI on the very first
+    // time any user's greeting needs this specific title's font; every
+    // subsequent view (this user or anyone else) is a free DB read.
+    lastTitle ? getOrFetchPosterFont(lastTitle) : Promise.resolve(null),
   ]);
 
   const heroDirector =
     (heroDirectorResult?.data as unknown as { people: { name: string } | null } | null)?.people?.name ?? null;
+  const greetingFontClassName = getPosterFontClassName(posterFontName);
 
   let activeNight: { id: string; hostId: string; participants: Participant[] } | null = null;
   if (night) {
@@ -191,6 +206,7 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10 lg:max-w-6xl">
+      <PreciseLocation />
       {/* Server-rendered (not a client component) so it's part of the
           very first HTML the browser paints -- a client-mounted overlay
           would only appear after JS hydrates, by which point the home
@@ -220,7 +236,13 @@ export default async function HomePage({
       >
         <h1 className="text-4xl sm:text-5xl">
           <span className="font-sans font-medium text-foreground">{greeting}</span>,{" "}
-          <span className="marquee-bulbs font-marquee text-3xl uppercase tracking-wide sm:text-4xl">
+          <span
+            className={
+              greetingFontClassName
+                ? `${greetingFontClassName} text-3xl uppercase tracking-wide sm:text-4xl`
+                : "marquee-bulbs font-marquee text-3xl uppercase tracking-wide sm:text-4xl"
+            }
+          >
             {firstName}
           </span>
           .
@@ -241,9 +263,18 @@ export default async function HomePage({
             marquee name treatment right after it is untouched. */}
         <span className="font-sans font-medium text-foreground">{greeting}</span>,{" "}
         {/* The name gets the dotted "row of light bulbs" marquee treatment
-            (font-marquee/Monoton + marquee-bulbs) -- the Hollywood-sign
-            look, distinct from the wordmark's own font-hollywood (Bebas). */}
-        <span className="marquee-bulbs font-marquee text-3xl uppercase tracking-wide sm:text-4xl">
+            (font-marquee/Monoton + marquee-bulbs) by default -- but when
+            this user's most recently reviewed/watched title has a
+            poster-matched font on file (see lib/poster-font), that takes
+            over instead, so the greeting reflects something specific to
+            them rather than always the same house treatment. */}
+        <span
+          className={
+            greetingFontClassName
+              ? `${greetingFontClassName} text-3xl uppercase tracking-wide sm:text-4xl`
+              : "marquee-bulbs font-marquee text-3xl uppercase tracking-wide sm:text-4xl"
+          }
+        >
           {firstName}
         </span>
         .

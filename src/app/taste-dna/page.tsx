@@ -6,6 +6,7 @@ import { computeTasteDna } from "@/lib/taste-dna/compute";
 import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
 import { SignaturePickCard } from "@/components/taste-dna/signature-pick-card";
 import { Button } from "@/components/ui/button";
+import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
 
 const MIN_SAMPLE_SIZE = 3;
 
@@ -75,19 +76,8 @@ export default async function TasteDnaPage() {
       )}
 
       <div className="mt-8 flex flex-col gap-4">
-        {topArchetypes.map((a) => (
-          <div key={a.name}>
-            <div className="mb-1.5 flex items-baseline justify-between">
-              <span className="font-display text-sm">{a.name}</span>
-              <span className="text-sm font-medium text-accent">{a.percent}%</span>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
-              <div
-                className="h-full rounded-full bg-accent transition-all"
-                style={{ width: `${a.percent}%` }}
-              />
-            </div>
-          </div>
+        {topArchetypes.map((a, i) => (
+          <ArchetypeBar key={a.name} name={a.name} percent={a.percent} delayMs={i * 80} />
         ))}
       </div>
 
