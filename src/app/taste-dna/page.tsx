@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { computeTasteDna } from "@/lib/taste-dna/compute";
 import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
+import { withTimeout } from "@/lib/with-timeout";
 import { SignaturePickCard } from "@/components/taste-dna/signature-pick-card";
 import { Button } from "@/components/ui/button";
 import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
@@ -21,9 +22,16 @@ export default async function TasteDnaPage() {
   const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/taste-dna");
 
+  // computeSignaturePick makes several sequential DB round trips on top of
+  // computeTasteDna's own queries; it's a nice-to-have section, not core to
+  // the page, so a slow or stuck call there (e.g. a query queued behind DB
+  // connection pressure, with no timeout of its own on the underlying
+  // fetch) must never hold up the rest of the page forever. Racing it
+  // against a timeout and falling back to null (silently hiding the card)
+  // guarantees this page always resolves.
   const [dna, signaturePick] = await Promise.all([
     computeTasteDna(user.id),
-    computeSignaturePick(user.id),
+    withTimeout(computeSignaturePick(user.id), 6000, null),
   ]);
 
   if (dna.sampleSize < MIN_SAMPLE_SIZE) {
