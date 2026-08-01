@@ -18,12 +18,26 @@ const DISCOGRAPHY_TILE_COUNT = 4;
  * so the two still match) was raised from 380px to 440px on desktop to
  * give the bigger avatar room without squeezing the discography row.
  *
+ * Photo treatment: grayscale, cropped centered rather than object-top.
+ * TMDB profile photos vary a lot in framing -- some are tight headshots,
+ * some are half-body shots with the face lower in the frame -- and
+ * object-top assumed the face always sat at the very top, which cut off
+ * chins/foreheads on anything that wasn't a tight headshot. Centered
+ * cropping is a safer default across the whole catalogue of director
+ * photos. Grayscale gives every director a consistent, editorial
+ * black-and-white treatment regardless of the source photo's color
+ * cast, rather than a wall of inconsistently color-graded headshots.
+ *
  * Each poster carries a one-line title caption underneath it. Without
  * one there was no way to tell which film a tile actually was -- some
  * TMDB poster art reads as pure imagery with no visible title text, so
  * a mismatched or unfamiliar poster just looked like a formatting bug.
  * The caption also gives a text fallback for the (rare) case where
- * posterUrl is null, instead of an unlabeled empty tile.
+ * posterUrl is null, instead of an unlabeled empty tile. The row is a
+ * centered flex-wrap rather than a rigid 4-column grid so a director
+ * with fewer than DISCOGRAPHY_TILE_COUNT known films still reads as a
+ * centered group instead of tiles packed against the left edge with an
+ * empty gap on the right.
  */
 export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData }) {
   const films = director.titles.slice(0, DISCOGRAPHY_TILE_COUNT);
@@ -37,7 +51,7 @@ export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData 
               src={director.photoUrl}
               alt={director.name}
               fill
-              className="object-cover object-top"
+              className="object-cover grayscale"
               sizes="128px"
             />
           )}
@@ -53,9 +67,13 @@ export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData 
       )}
 
       {films.length > 0 && (
-        <div className="mt-4 grid flex-1 grid-cols-4 gap-2.5">
+        <div className="mt-4 flex flex-1 flex-wrap justify-center gap-x-2.5 gap-y-3">
           {films.map((title) => (
-            <Link key={title.id} href={`/movie/${title.id}`} className="group flex min-w-0 flex-col gap-1">
+            <Link
+              key={title.id}
+              href={`/movie/${title.id}`}
+              className="group flex w-[104px] shrink-0 flex-col gap-1 sm:w-[116px]"
+            >
               <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-sm)] border border-border bg-surface-raised">
                 {title.posterUrl ? (
                   <Image
@@ -63,7 +81,7 @@ export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData 
                     alt={title.name}
                     fill
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    sizes="80px"
+                    sizes="116px"
                   />
                 ) : (
                   <span className="flex h-full items-center justify-center p-1 text-center text-[9px] leading-tight text-foreground-muted">
