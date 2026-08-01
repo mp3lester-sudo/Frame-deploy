@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Poiret_One } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
@@ -6,7 +7,7 @@ import { getLandingSwipeDeck } from "@/lib/actions/landing-teaser";
 import { TasteTeaser } from "@/components/landing/taste-teaser";
 import { getRequestGeo } from "@/lib/geo";
 import { getCurrentWeather } from "@/lib/weather";
-import { HeroRecommendation } from "@/components/home/hero-recommendation";
+import { SpotlightRecommendation } from "@/components/home/spotlight-recommendation";
 import { MoodRow } from "@/components/home/mood-row";
 import { MovieNightCard } from "@/components/home/movie-night-card";
 import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
@@ -29,6 +30,8 @@ type Participant = { username: string; display_name: string | null; avatar_url: 
 // (what people you follow are actually doing) — two distinct sections
 // rather than one blended feed, so each stays legible on its own.
 const SOCIAL_EVENTS_LIMIT = 5;
+
+const poiretOne = Poiret_One({ subsets: ["latin"], weight: "400" });
 
 export default async function HomePage({
   searchParams,
@@ -233,23 +236,31 @@ export default async function HomePage({
 } catch (e) {}`,
         }}
       />
+      {/* Screen-centered marquee card -- both axes, via fixed inset-0
+          flex centering -- rather than the inline "Good evening, Name."
+          sentence the persistent in-page heading below still uses.
+          Thin rule lines above and below the name (same accent-deep
+          hairline both times) frame it like a vintage title card. Name
+          defaults to Poiret One, an art-deco marquee face in the vein
+          of La La Land's own poster lettering; greetingFontClassName
+          still takes over instead when this user's last-watched title
+          has its own detected poster font. */}
       <div
-        className="greeting-splash pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background"
+        className="greeting-splash pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background"
         aria-hidden="true"
       >
-        <h1 className="text-4xl sm:text-5xl">
-          <span className="font-sans font-medium text-foreground">{greeting}</span>,{" "}
-          <span
-            className={
-              greetingFontClassName
-                ? `${greetingFontClassName} text-3xl uppercase tracking-wide sm:text-4xl`
-                : "font-greeting text-3xl uppercase tracking-wide sm:text-4xl"
-            }
-          >
-            {firstName}
-          </span>
-          .
-        </h1>
+        <span className="font-sans text-sm text-foreground-muted sm:text-base">{greeting}</span>
+        <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
+        <span
+          className={
+            greetingFontClassName
+              ? `${greetingFontClassName} text-4xl uppercase tracking-[0.14em] text-accent-soft sm:text-6xl`
+              : `${poiretOne.className} text-4xl uppercase tracking-[0.14em] text-accent-soft sm:text-6xl`
+          }
+        >
+          {firstName}
+        </span>
+        <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
       </div>
       {/* Backlot wordmark removed from this header per request -- it
           already lives in the nav bar above, so repeating it here was
@@ -297,57 +308,13 @@ export default async function HomePage({
         <ContextPicker active={activeContext} />
       </div>
 
-      {/* Two columns on wide screens (lg:grid below) -- personal picks on
-          the left, Director of the Day + social activity + Movie Night in
-          a persistent right rail instead of several screens further down
-          the page. Below the lg breakpoint the grid columns collapse and
-          this renders as a single stack in the same document order as
-          before (left column's content, then right column's), so mobile
-          behavior is unchanged from the original single-column layout. */}
-      {/* Container now matches the nav bar's own max-w-6xl (nav-bar.tsx)
-          so the right rail's outer edge lines up with the nav's right-most
-          icon (profile) instead of stopping short of it. Right column also
-          widened from 1fr-vs-1.6fr to 1fr-vs-1.4fr -- wider on its own, not
-          just wider because the container grew. */}
-      <div className="mt-7 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
-        <div>
-          {activeContext === "date_night" || activeContext === "with_friends" ? (
-            <CompanionPicker context={activeContext} />
-          ) : (
-            <>
-              {hero && (
-                <HeroRecommendation
-                  title={hero.title}
-                  reason={hero.reason}
-                  detail={hero.detail}
-                  matchPercent={hero.matchPercent}
-                  director={heroDirector}
-                />
-              )}
-
-              {morePicks.length > 0 && (
-                <div className="mt-8">
-                  <MoodRow picks={morePicks} isColdStart={isColdStart} />
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="mt-8 lg:mt-0">
-          {/* Rendered regardless of companion context (date night / with
-              friends) -- this is about the user's own rating history, not
-              whoever they're watching with tonight, so it stays independent
-              of the hero/mood-row vs. CompanionPicker branch on the left. */}
-          {directorOfTheDay && (
-            <div className="mb-8">
-              <DirectorOfTheDay director={directorOfTheDay} />
-            </div>
-          )}
-
-          {/* Social section — what people you follow are actually doing, kept
-              visually distinct from the personal picks with a divider and
-              its own eyebrow label rather than blended into one feed. */}
+      {/* Social rail content is identical either way -- only the top of
+          the page (recommendation vs. companion picker, and where
+          Director of the Day sits) differs between the two modes, so
+          it's built once here and dropped into whichever layout below
+          applies. */}
+      {(() => {
+        const socialRail = (
           <div className="border-t border-border pt-6">
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-wider text-foreground-muted">Your circle</span>
@@ -378,8 +345,63 @@ export default async function HomePage({
               )
             )}
           </div>
-        </div>
-      </div>
+        );
+
+        return isCompanionContext ? (
+          /* Date night / with friends: unchanged from before -- picks
+             hand off entirely to CompanionPicker (no solo "hero" to
+             pair Director of the Day with), so Director of the Day
+             stays up top of the right rail alongside the social feed,
+             same as it always has. */
+          <div className="mt-7 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
+            <div>
+              <CompanionPicker context={activeContext} />
+            </div>
+            <div className="mt-8 lg:mt-0">
+              {directorOfTheDay && (
+                <div className="mb-8">
+                  <DirectorOfTheDay director={directorOfTheDay} />
+                </div>
+              )}
+              {socialRail}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-7">
+            {/* Front and center: the recommendation and Director of the
+                Day paired side by side at a matching height, rather than
+                a compact poster+text card next to a narrow rail item.
+                Ratio collapses to a single column when only one of the
+                two exists (e.g. cold start with no rating history yet
+                for Director of the Day). */}
+            {(hero || directorOfTheDay) && (
+              <div
+                className={`grid gap-5 lg:items-stretch ${
+                  hero && directorOfTheDay ? "lg:grid-cols-[1.6fr_1fr]" : "lg:grid-cols-1"
+                }`}
+              >
+                {hero && (
+                  <SpotlightRecommendation
+                    title={hero.title}
+                    reason={hero.reason}
+                    detail={hero.detail}
+                    matchPercent={hero.matchPercent}
+                    director={heroDirector}
+                  />
+                )}
+                {directorOfTheDay && <DirectorOfTheDay director={directorOfTheDay} />}
+              </div>
+            )}
+
+            <div className="mt-8 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
+              <div>
+                {morePicks.length > 0 && <MoodRow picks={morePicks} isColdStart={isColdStart} />}
+              </div>
+              <div className="mt-8 lg:mt-0">{socialRail}</div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
