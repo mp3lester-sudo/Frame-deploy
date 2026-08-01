@@ -42,7 +42,7 @@ export function SpotlightRecommendation({
   const href = `/movie/${title.id}`;
 
   return (
-    <div className="relative h-[320px] overflow-hidden rounded-[var(--radius-lg)] bg-surface-raised sm:h-[380px]">
+    <div className="relative h-[368px] overflow-hidden rounded-[var(--radius-lg)] bg-surface-raised sm:h-[440px]">
       {backdropImage && (
         <Link href={href} className="absolute inset-0" tabIndex={-1} aria-hidden="true">
           <Image

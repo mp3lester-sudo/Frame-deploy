@@ -7,14 +7,16 @@ import type { DirectorOfTheDay as DirectorOfTheDayData } from "@/lib/director-of
 const DISCOGRAPHY_TILE_COUNT = 4;
 
 /**
- * Toned-down from the full-bleed backdrop-photo version: a round avatar
- * sized just under the settings page's own "profile picture" (72px) --
- * bigger than a byline avatar, still nowhere near a face filling the
- * card -- plus name, a short bio line, and four small discography
- * posters at their natural 2:3 size (not stretched to fill the card,
- * unlike the previous six-tile grid). Still matches
- * SpotlightRecommendation's fixed height and sits beside it in the same
- * paired row.
+ * Avatar bumped from 64px to 128px with a thin gold ring (the same
+ * "this is a highlighted moment" ring language as the #1 favorite
+ * podium tile) -- picked over a same-size bump-only or a square
+ * editorial-photo treatment because it keeps the round shape already
+ * used everywhere else in the app (nav, profile) while still reading as
+ * a real size jump rather than a marginal one. Name, a short bio line,
+ * and four small discography posters at their natural 2:3 size fill
+ * out the rest of the card. Card height (and SpotlightRecommendation's,
+ * so the two still match) was raised from 380px to 440px on desktop to
+ * give the bigger avatar room without squeezing the discography row.
  *
  * Each poster carries a one-line title caption underneath it. Without
  * one there was no way to tell which film a tile actually was -- some
@@ -27,22 +29,22 @@ export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData 
   const films = director.titles.slice(0, DISCOGRAPHY_TILE_COUNT);
 
   return (
-    <div className="flex h-[320px] flex-col rounded-[var(--radius-lg)] border border-border bg-surface p-4 transition-colors hover:border-border-strong sm:h-[380px]">
-      <Link href={`/person/${director.id}`} className="group flex items-center gap-3">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-surface-raised">
+    <div className="flex h-[368px] flex-col rounded-[var(--radius-lg)] border border-border bg-surface p-4 transition-colors hover:border-border-strong sm:h-[440px]">
+      <Link href={`/person/${director.id}`} className="group flex items-center gap-4">
+        <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-full border-2 border-accent bg-surface-raised">
           {director.photoUrl && (
             <Image
               src={director.photoUrl}
               alt={director.name}
               fill
               className="object-cover object-top"
-              sizes="64px"
+              sizes="128px"
             />
           )}
         </div>
         <div className="min-w-0">
           <p className="text-[10px] font-medium uppercase tracking-wider text-accent">Director of the day</p>
-          <p className="truncate text-base font-medium text-foreground group-hover:underline">{director.name}</p>
+          <p className="truncate text-lg font-medium text-foreground group-hover:underline">{director.name}</p>
         </div>
       </Link>
 
