@@ -88,13 +88,19 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
   if (phase === "tier") {
     return (
       <div className="mx-auto w-full max-w-sm text-center">
-        <span className="font-display text-xs font-semibold uppercase text-accent">Taste training</span>
-        <h1 className="font-display mt-2 text-2xl">What kind of moviegoer are you?</h1>
-        <p className="mt-1 text-sm text-foreground-muted">
-          Totally your call — this just helps set the tone. You can change it later in Settings.
-        </p>
+        {/* Centered within its own top-third-of-viewport band, rather than
+            just flowing from the very top of the page or centering across
+            the whole viewport -- puts the greeting roughly a sixth of the
+            way down, with the tier buttons starting right after. */}
+        <div className="flex h-[33vh] flex-col items-center justify-center">
+          <span className="font-display text-xs font-semibold uppercase text-accent">Taste training</span>
+          <h1 className="font-display mt-2 text-2xl">What kind of moviegoer are you?</h1>
+          <p className="mt-1 text-sm text-foreground-muted">
+            Totally your call — this just helps set the tone. You can change it later in Settings.
+          </p>
+        </div>
 
-        <div className="mt-6 flex flex-col gap-3">
+        <div className="mt-4 flex flex-col gap-3">
           {EXPERIENCE_TIERS.map((tier) => (
             <button
               key={tier.value}
