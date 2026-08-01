@@ -356,6 +356,53 @@ body {
   transform: translateX(130%) skewX(-12deg);
 }
 
+/* Podium-only, pyramid-specific upgrades ------------------------------ */
+
+/* One-shot "polish" pass across each podium poster right after it lands
+   -- not hover-triggered, plays once automatically so the tile reads as
+   freshly revealed rather than needing a mouse to earn its shine. */
+@keyframes polish-sweep {
+  0% {
+    transform: translateX(-160%) skewX(-12deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  55% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(220%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+.polish-sweep {
+  background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, 0.35) 50%, transparent 58%);
+  animation: polish-sweep 1000ms ease-out both;
+}
+
+/* Selection-badge ring traces itself in just after the badge pops --
+   a full stroke-dashoffset draw around the badge's own circle. */
+@keyframes draw-ring {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.badge-ring {
+  stroke-dasharray: 79;
+  stroke-dashoffset: 79;
+  animation: draw-ring 650ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .polish-sweep,
+  .badge-ring {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .podium-tile,
   .badge-pop,

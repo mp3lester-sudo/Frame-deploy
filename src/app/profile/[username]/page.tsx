@@ -16,6 +16,7 @@ import { computeGenreDistribution, buildFingerprintGradient, buildTasteQuote } f
 import { resolveProfileTheme } from "@/lib/profile/theme-preset";
 import { AnimatedCounter } from "@/components/profile/animated-counter";
 import { Reveal } from "@/components/profile/reveal";
+import { TiltCard } from "@/components/profile/tilt-card";
 
 /**
  * Tailwind col-start-N classes must appear literally in source for the JIT
@@ -40,9 +41,21 @@ function badgeNumber(overallIndex: number): string {
 function SelectionBadge({ index, delayMs = 0 }: { index: number; delayMs?: number }) {
   return (
     <span
-      className="badge-pop absolute -left-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-accent/60 bg-background font-display text-[11px] italic text-accent shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+      className="badge-pop absolute -left-2 -top-2 z-30 flex h-7 w-7 items-center justify-center rounded-full border border-accent/60 bg-background font-display text-[11px] italic text-accent shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
       style={{ animationDelay: `${delayMs}ms` }}
     >
+      <svg className="absolute inset-0 -rotate-90" width="28" height="28" viewBox="0 0 28 28">
+        <circle
+          cx="14"
+          cy="14"
+          r="12.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          className="badge-ring"
+          style={{ animationDelay: `${delayMs + 260}ms` }}
+        />
+      </svg>
       {badgeNumber(index)}
     </span>
   );
@@ -437,11 +450,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               <div className="mx-auto flex max-w-[560px] flex-col gap-5">
                 <div className="grid grid-cols-6 gap-5">
                   <div
-                    className="podium-tile shine-hover relative col-span-2 col-start-3 rounded-[var(--radius-md)]"
+                    className="podium-tile relative col-span-2 col-start-3"
                     style={{ animationDelay: "160ms" }}
                   >
-                    <SelectionBadge index={0} delayMs={480} />
-                    <TitleCard title={favorites[0]} highlight index={0} />
+                    <TiltCard className="relative rounded-[var(--radius-md)]">
+                      <SelectionBadge index={0} delayMs={480} />
+                      <div className="polish-sweep pointer-events-none absolute inset-x-0 top-0 z-10 aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)]" style={{ animationDelay: "980ms" }} />
+                      <TitleCard title={favorites[0]} highlight index={0} />
+                    </TiltCard>
                   </div>
                 </div>
                 {favorites.length > 1 && (
@@ -452,11 +468,17 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                       return (
                         <div
                           key={title.id}
-                          className={`podium-tile shine-hover relative col-span-2 rounded-[var(--radius-md)] ${centeredColStart(arr.length, i)}`}
+                          className={`podium-tile relative col-span-2 ${centeredColStart(arr.length, i)}`}
                           style={{ animationDelay: `${tileDelay}ms` }}
                         >
-                          <SelectionBadge index={overallIndex} delayMs={tileDelay + 320} />
-                          <TitleCard title={title} index={overallIndex} />
+                          <TiltCard className="relative rounded-[var(--radius-md)]">
+                            <SelectionBadge index={overallIndex} delayMs={tileDelay + 320} />
+                            <div
+                              className="polish-sweep pointer-events-none absolute inset-x-0 top-0 z-10 aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)]"
+                              style={{ animationDelay: `${tileDelay + 800}ms` }}
+                            />
+                            <TitleCard title={title} index={overallIndex} />
+                          </TiltCard>
                         </div>
                       );
                     })}
@@ -470,11 +492,17 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                       return (
                         <div
                           key={title.id}
-                          className={`podium-tile shine-hover relative col-span-2 rounded-[var(--radius-md)] ${centeredColStart(arr.length, i)}`}
+                          className={`podium-tile relative col-span-2 ${centeredColStart(arr.length, i)}`}
                           style={{ animationDelay: `${tileDelay}ms` }}
                         >
-                          <SelectionBadge index={overallIndex} delayMs={tileDelay + 320} />
-                          <TitleCard title={title} index={overallIndex} />
+                          <TiltCard className="relative rounded-[var(--radius-md)]">
+                            <SelectionBadge index={overallIndex} delayMs={tileDelay + 320} />
+                            <div
+                              className="polish-sweep pointer-events-none absolute inset-x-0 top-0 z-10 aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)]"
+                              style={{ animationDelay: `${tileDelay + 800}ms` }}
+                            />
+                            <TitleCard title={title} index={overallIndex} />
+                          </TiltCard>
                         </div>
                       );
                     })}
