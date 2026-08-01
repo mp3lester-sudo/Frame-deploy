@@ -88,17 +88,23 @@ export async function computeSignaturePick(userId: string): Promise<SignaturePic
   const winner = pickSignatureCandidate(candidates, ratedTitleIds);
   if (!winner) return null;
 
-  const { data: title } = await supabase.from("titles").select("*").eq("id", winner.titleId).maybeSingle();
+  // The title row and its citations don't depend on each other, so fetch
+  // both in parallel rather than paying for two sequential round trips --
+  // this chain already has one unavoidable sequential step after (cited
+  // titles' names depend on citedIds), no need to add a second.
+  const [{ data: title }, { data: citationRows }] = await Promise.all([
+    supabase.from("titles").select("*").eq("id", winner.titleId).maybeSingle(),
+    // Same citation RPC engine.ts uses for "Because you loved X" -- up to
+    // two titles from this person's own history that are closest to the
+    // pick, in closest-first order.
+    supabase.rpc("most_similar_liked_title", {
+      p_user_id: userId,
+      p_title_id: winner.titleId,
+      p_min_similarity: SIMILARITY_FLOOR,
+    }),
+  ]);
   if (!title) return null;
 
-  // Same citation RPC engine.ts uses for "Because you loved X" -- up to
-  // two titles from this person's own history that are closest to the
-  // pick, in closest-first order.
-  const { data: citationRows } = await supabase.rpc("most_similar_liked_title", {
-    p_user_id: userId,
-    p_title_id: winner.titleId,
-    p_min_similarity: SIMILARITY_FLOOR,
-  });
   const citedIds = (citationRows ?? []).map((r) => r.title_id).filter((id): id is string => !!id);
 
   let citedTitles: string[] = [];
