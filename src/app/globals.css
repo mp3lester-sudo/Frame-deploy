@@ -455,44 +455,6 @@ body {
   animation: seal-ring 620ms ease-out both;
 }
 
-@keyframes smoke-rise {
-  0% {
-    transform: translate(0, 0) scale(1);
-    opacity: 0;
-  }
-  15% {
-    opacity: 0.4;
-  }
-  100% {
-    transform: translate(6px, -60px) scale(2.4);
-    opacity: 0;
-  }
-}
-.smoke-wisp {
-  animation: smoke-rise 6s ease-out infinite;
-  filter: blur(3px);
-}
-
-@keyframes ember-rise {
-  0% {
-    transform: translate(0, 0);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  80% {
-    opacity: 0.55;
-  }
-  100% {
-    transform: translate(4px, -38px);
-    opacity: 0;
-  }
-}
-.ember-particle {
-  animation: ember-rise 3.2s ease-in infinite;
-}
-
 @keyframes candle-flicker-panel {
   0%,
   100% {
@@ -524,8 +486,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .stamp-in,
   .seal-ring,
-  .smoke-wisp,
-  .ember-particle,
   .candle-flicker-panel {
     animation: none;
   }

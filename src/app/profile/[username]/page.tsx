@@ -109,40 +109,6 @@ function RoseFlourish() {
   );
 }
 
-/**
- * Background atmosphere for the Godfather theme -- object and light
- * motifs only, deliberately stopping short of any human silhouette or
- * character depiction: a fedora outline resting in the corner, and a
- * cigar with smoke wisps and embers drifting up past it. Positioned
- * low-opacity in the favorites panel's bottom-right corner as texture,
- * not a focal illustration. Purely decorative -- pointer-events-none,
- * aria-hidden.
- */
-function PeriodAtmosphere() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute bottom-3 right-4 h-24 w-28 text-accent/25 sm:bottom-4 sm:right-6"
-    >
-      {/* Fedora outline -- brim + crown, no face or body. */}
-      <svg width="64" height="40" viewBox="0 0 64 40" fill="currentColor" className="absolute bottom-0 right-0">
-        <ellipse cx="32" cy="30" rx="30" ry="6" />
-        <path d="M16 27c0-10 7-19 16-19s16 9 16 19c-4-3-11-4-16-4s-12 1-16 4z" />
-      </svg>
-      {/* Cigar resting at an angle, ember tip glowing. */}
-      <div className="absolute bottom-8 right-8 h-1.5 w-8 -rotate-[24deg] rounded-full bg-current opacity-70" />
-      <div className="absolute bottom-[38px] right-[27px] h-1.5 w-1.5 rounded-full bg-[#e8a33d] shadow-[0_0_5px_2px_rgba(232,163,61,0.6)]" />
-      {/* Smoke wisps + embers rising from the cigar tip. */}
-      <div className="smoke-wisp absolute bottom-10 right-8 h-6 w-2 rounded-full bg-current" style={{ animationDelay: "0s" }} />
-      <div className="smoke-wisp absolute bottom-10 right-6 h-5 w-1.5 rounded-full bg-current" style={{ animationDelay: "2s" }} />
-      <div className="smoke-wisp absolute bottom-10 right-9 h-4 w-1.5 rounded-full bg-current" style={{ animationDelay: "4s" }} />
-      <div className="ember-particle absolute bottom-10 right-7 h-1 w-1 rounded-full bg-[#e8a33d]" style={{ animationDelay: "0.6s" }} />
-      <div className="ember-particle absolute bottom-10 right-8 h-1 w-1 rounded-full bg-[#e8a33d]" style={{ animationDelay: "1.8s" }} />
-      <div className="ember-particle absolute bottom-10 right-6 h-1 w-1 rounded-full bg-[#e8a33d]" style={{ animationDelay: "2.7s" }} />
-    </div>
-  );
-}
-
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
   const supabase = await createClient();
@@ -340,7 +306,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // now stacked as a real vertical menu instead of squeezed pills that
   // had to share a row with the follow-stats text.
   const rail = (
-    <div className="mt-8 lg:mt-0">
+    <div>
       {/* Taste fingerprint: a wax-seal-style wheel sized to this person's
           actual genre split (one accent hue at decreasing opacity per
           slice, matching the app's single-accent restraint rather than a
@@ -468,16 +434,127 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         <div className="mx-auto max-w-4xl px-4 pt-8">{identityBlock}</div>
       )}
 
-      <div className="mx-auto max-w-6xl px-4 pb-8 pt-6 lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
-      <div>
-      {/* Personal Pyramid and Backlot DNA sit side by side as a pair --
-          the pyramid is what you picked, the DNA panel is what the app
-          reads out of everything you've rated, so showing them together
-          reads as "here's my taste, in my own words and in the data."
-          Stacks on narrower screens (own column width shrinks fast once
-          this nests inside the page's own left/right split) since two
-          half-width panels get too cramped below that. */}
-      <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
+      <div className="mx-auto max-w-6xl px-4 pb-8 pt-6">
+      {/* Three panels, widest in the middle: Backlot DNA (what the app
+          reads out of your ratings) on the left, Personal Pyramid (what
+          you picked yourself) as the visual centerpiece, profile info
+          (avatar/bio/stats/self-service links) on the right. DNA and
+          profile stay equal width so the pyramid is the one thing that
+          reads as "bigger" rather than everything just being unevenly
+          sized. Stacks to a single column, same top-to-bottom order,
+          below xl -- three unevenly-sized columns need real width to
+          not feel cramped. */}
+      <div className="grid gap-6 xl:grid-cols-[0.85fr_1.5fr_0.85fr] xl:items-start">
+      {/* Backlot DNA, inline: used to be a link out to a separate page
+          (/taste-dna), now sits directly beside the Personal Pyramid as
+          this profile's own analytics -- same public visibility as the
+          pyramid and stat strip above, scoped to whoever's profile this
+          is rather than the viewer. Hidden below MIN_SAMPLE_SIZE for the
+          same reason the standalone page hides it: a mostly-empty
+          breakdown reads as broken, not "not enough data yet." */}
+      {dna.sampleSize >= MIN_SAMPLE_SIZE && (
+        <Reveal>
+          <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border">
+            <div className="relative px-6 py-8 sm:px-10 sm:py-10">
+              <div className="mb-6 text-center">
+                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
+                  Backlot Analysis
+                </p>
+                <h2 className="mt-1 text-lg font-semibold">Backlot DNA</h2>
+                <span className="text-xs text-foreground-muted">
+                  Based on {dna.sampleSize} rated title{dna.sampleSize === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {dna.archetypes.slice(0, 6).map((a, i) => (
+                  <ArchetypeBar key={a.name} name={a.name} percent={a.percent} delayMs={i * 80} />
+                ))}
+              </div>
+
+              <div className="mt-8 grid gap-6 sm:grid-cols-2">
+                {dna.favoriteGenres.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                      Favorite genres
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {dna.favoriteGenres.map((g) => (
+                        <span
+                          key={g}
+                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
+                        >
+                          {g}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {dna.favoriteDecades.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                      Favorite decades
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {dna.favoriteDecades.map((d) => (
+                        <span
+                          key={d}
+                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
+                        >
+                          {d}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {dna.favoriteDirectors.length > 0 && (
+                <div className="mt-8">
+                  <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                    Favorite directors
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {dna.favoriteDirectors.map((d) => (
+                      <span
+                        key={d.id}
+                        className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
+                      >
+                        {d.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {signaturePick && (
+                <div className="mt-8">
+                  <SignaturePickCard pick={signaturePick} compact />
+                </div>
+              )}
+
+              {(dna.pacingPreference || dna.violenceTolerance != null || dna.comedyTolerance != null) && (
+                <div className="mt-8">
+                  <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                    Sensibility
+                  </p>
+                  <ul className="flex flex-col gap-1 text-sm text-foreground-muted">
+                    {dna.pacingPreference && <li>{PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}</li>}
+                    {dna.violenceTolerance != null && <li>Violence tolerance: {dna.violenceTolerance}/5</li>}
+                    {dna.comedyTolerance != null && <li>Comedy tolerance: {dna.comedyTolerance}/5</li>}
+                    {dna.emotionalIntensityPreference != null && (
+                      <li>Emotional intensity: {dna.emotionalIntensityPreference}/5</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </Reveal>
+      )}
+
+
       {favorites.length > 0 && (
         <div className="mt-0">
           {/* The podium used to sit directly on the page background at a
@@ -497,7 +574,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                   "radial-gradient(ellipse at 50% 30%, rgba(205,166,70,0.08), transparent 70%)",
               }}
             />
-            {theme.showMotif && <PeriodAtmosphere />}
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               {theme.showMotif && <RoseFlourish />}
               <div className="mb-6 text-center">
@@ -585,114 +661,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         </div>
       )}
 
-      {/* Backlot DNA, inline: used to be a link out to a separate page
-          (/taste-dna), now sits directly beside the Personal Pyramid as
-          this profile's own analytics -- same public visibility as the
-          pyramid and stat strip above, scoped to whoever's profile this
-          is rather than the viewer. Hidden below MIN_SAMPLE_SIZE for the
-          same reason the standalone page hides it: a mostly-empty
-          breakdown reads as broken, not "not enough data yet." */}
-      {dna.sampleSize >= MIN_SAMPLE_SIZE && (
-        <Reveal>
-          <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border">
-            <div className="relative px-6 py-8 sm:px-10 sm:py-10">
-              <div className="mb-6 text-center">
-                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
-                  Backlot Analysis
-                </p>
-                <h2 className="mt-1 text-lg font-semibold">Backlot DNA</h2>
-                <span className="text-xs text-foreground-muted">
-                  Based on {dna.sampleSize} rated title{dna.sampleSize === 1 ? "" : "s"}
-                </span>
-              </div>
-
-              {signaturePick && (
-                <div className="mb-8">
-                  <SignaturePickCard pick={signaturePick} compact />
-                </div>
-              )}
-
-              <div className="flex flex-col gap-4">
-                {dna.archetypes.slice(0, 6).map((a, i) => (
-                  <ArchetypeBar key={a.name} name={a.name} percent={a.percent} delayMs={i * 80} />
-                ))}
-              </div>
-
-              <div className="mt-8 grid gap-6 sm:grid-cols-2">
-                {dna.favoriteGenres.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                      Favorite genres
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {dna.favoriteGenres.map((g) => (
-                        <span
-                          key={g}
-                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
-                        >
-                          {g}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {dna.favoriteDecades.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                      Favorite decades
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {dna.favoriteDecades.map((d) => (
-                        <span
-                          key={d}
-                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
-                        >
-                          {d}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {dna.favoriteDirectors.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                      Favorite directors
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {dna.favoriteDirectors.map((d) => (
-                        <span
-                          key={d.id}
-                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
-                        >
-                          {d.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {(dna.pacingPreference || dna.violenceTolerance != null || dna.comedyTolerance != null) && (
-                  <div>
-                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                      Sensibility
-                    </p>
-                    <ul className="flex flex-col gap-1 text-sm text-foreground-muted">
-                      {dna.pacingPreference && <li>{PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}</li>}
-                      {dna.violenceTolerance != null && <li>Violence tolerance: {dna.violenceTolerance}/5</li>}
-                      {dna.comedyTolerance != null && <li>Comedy tolerance: {dna.comedyTolerance}/5</li>}
-                      {dna.emotionalIntensityPreference != null && (
-                        <li>Emotional intensity: {dna.emotionalIntensityPreference}/5</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      )}
+      {rail}
 
       </div>
 
@@ -727,9 +696,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           ) : null;
         })}
       </Reveal>
-      </div>
-
-      {rail}
       </div>
     </div>
   );
