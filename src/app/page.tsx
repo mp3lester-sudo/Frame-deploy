@@ -393,12 +393,18 @@ export default async function HomePage({
               </div>
             )}
 
-            <div className="mt-8 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
-              <div>
-                {morePicks.length > 0 && <MoodRow picks={morePicks} isColdStart={isColdStart} />}
+            {/* Mood Row and Your Circle both used to share this same
+                narrow 1.4fr/1fr split with each other, which left neither
+                much room -- full width for each instead, stacked, gives
+                Mood Row's poster tiles more room and lets the social
+                feed (Movie Night card, circle activity) breathe rather
+                than living in a cramped sidebar. */}
+            {morePicks.length > 0 && (
+              <div className="mt-8">
+                <MoodRow picks={morePicks} isColdStart={isColdStart} />
               </div>
-              <div className="mt-8 lg:mt-0">{socialRail}</div>
-            </div>
+            )}
+            <div className="mt-8">{socialRail}</div>
           </div>
         );
       })()}
