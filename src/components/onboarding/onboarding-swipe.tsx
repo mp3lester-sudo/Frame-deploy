@@ -4,7 +4,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "@/components/ui/fade-image";
 import { rateTitle } from "@/lib/actions/social";
+import { setExperienceTier } from "@/lib/actions/profile";
 import { getOnboardingCompletionPicks, type OnboardingCompletionPick } from "@/lib/actions/onboarding";
+import { EXPERIENCE_TIERS, type ExperienceTier } from "@/lib/constants/experience-tier";
 import { formatRuntime } from "@/lib/utils";
 
 export interface SwipeTitle {
@@ -20,14 +22,31 @@ export interface SwipeTitle {
 
 const RATING_FOR = { not_for_me: 1, its_fine: 3, love_it: 5 } as const;
 
-type Phase = "swiping" | "loading" | "done";
+type Phase = "tier" | "swiping" | "loading" | "done";
 
 export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
   const [index, setIndex] = useState(0);
-  const [phase, setPhase] = useState<Phase>("swiping");
+  const [phase, setPhase] = useState<Phase>("tier");
   const [picks, setPicks] = useState<OnboardingCompletionPick[]>([]);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  // Best-effort — a failed write here shouldn't strand the user on the
+  // tier screen, same philosophy as handleRate below.
+  function chooseTier(tier: ExperienceTier | null) {
+    if (tier === null) {
+      setPhase("swiping");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await setExperienceTier(tier);
+      } catch {
+        // non-fatal — still advance
+      }
+      setPhase("swiping");
+    });
+  }
 
   const current = titles[index];
   const progress = ((index + 1) / titles.length) * 100;
@@ -66,6 +85,42 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
     });
   }
 
+  if (phase === "tier") {
+    return (
+      <div className="mx-auto w-full max-w-sm text-center">
+        <span className="font-display text-xs font-semibold uppercase text-accent">Taste training</span>
+        <h1 className="font-display mt-2 text-2xl">What kind of moviegoer are you?</h1>
+        <p className="mt-1 text-sm text-foreground-muted">
+          Totally your call — this just helps set the tone. You can change it later in Settings.
+        </p>
+
+        <div className="mt-6 flex flex-col gap-3">
+          {EXPERIENCE_TIERS.map((tier) => (
+            <button
+              key={tier.value}
+              type="button"
+              disabled={isPending}
+              onClick={() => chooseTier(tier.value)}
+              className="rounded-[var(--radius-md)] border border-border bg-surface p-4 text-left transition-colors hover:border-accent disabled:opacity-50"
+            >
+              <p className="font-display text-lg">{tier.label}</p>
+              <p className="mt-0.5 text-xs text-foreground-muted">{tier.description}</p>
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => chooseTier(null)}
+          className="mt-6 text-xs text-foreground-muted hover:underline disabled:opacity-50"
+        >
+          Skip for now
+        </button>
+      </div>
+    );
+  }
+
   if (phase === "loading") {
     return (
       <div className="mx-auto flex h-72 max-w-sm items-center justify-center text-sm text-foreground-muted">
@@ -82,7 +137,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
         </p>
         {picks.length > 0 ? (
           <>
-            <h1 className="mt-2 text-2xl font-semibold">Here&apos;s what we&apos;ve got so far</h1>
+            <h1 className="font-display mt-2 text-2xl">Here&apos;s what we&apos;ve got so far</h1>
             <div className="mt-6 grid grid-cols-3 gap-4">
               {picks.map((p) => (
                 <div key={p.id}>
@@ -95,7 +150,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
             </div>
           </>
         ) : (
-          <h1 className="mt-2 text-2xl font-semibold">You&apos;re all set</h1>
+          <h1 className="font-display mt-2 text-2xl">You&apos;re all set</h1>
         )}
 
         <button

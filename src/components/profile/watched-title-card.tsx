@@ -19,10 +19,14 @@ export function WatchedTitleCard({
   title,
   reason,
   canRemove,
+  index = 0,
 }: {
   title: Title;
   reason?: string;
   canRemove: boolean;
+  /** Position within the grid -- staggers this card's entrance the same
+   *  way TitleCard does, wrapped modulo 12 for the same reason. */
+  index?: number;
 }) {
   const [removed, setRemoved] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -43,7 +47,11 @@ export function WatchedTitleCard({
   }
 
   return (
-    <Link href={`/movie/${title.id}`} className="group relative block">
+    <Link
+      href={`/movie/${title.id}`}
+      className="stagger-card shine-hover group relative block transition-transform duration-200 hover:-translate-y-1"
+      style={{ animationDelay: `${(index % 12) * 40}ms` }}
+    >
       {canRemove && (
         <button
           type="button"

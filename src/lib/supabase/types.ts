@@ -15,6 +15,7 @@ export interface Database {
           bio: string | null;
           is_creator: boolean;
           is_premium: boolean;
+          experience_tier: "rookie" | "intermediate" | "pro" | null;
           created_at: string;
           updated_at: string;
         };
@@ -205,6 +206,28 @@ export interface Database {
           ref_id?: string | null;
         };
         Update: never;
+        Relationships: [];
+      };
+      notifications: {
+        Row: {
+          id: string;
+          recipient_id: string;
+          actor_id: string | null;
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          title_id: string | null;
+          ref_id: string | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          recipient_id: string;
+          actor_id?: string | null;
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          title_id?: string | null;
+          ref_id?: string | null;
+          read_at?: string | null;
+        };
+        Update: Partial<{ read_at: string | null }>;
         Relationships: [];
       };
       movie_nights: {
@@ -448,6 +471,10 @@ export interface Database {
       };
       upsert_taste_vector_from_rating: {
         Args: { p_user_id: string; p_title_id: string; p_score: number };
+        Returns: void;
+      };
+      recompute_taste_vector_for_user: {
+        Args: { p_user_id: string };
         Returns: void;
       };
       most_similar_liked_title: {

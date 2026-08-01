@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { EXPERIENCE_TIERS, type ExperienceTier } from "@/lib/constants/experience-tier";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -31,6 +32,28 @@ export async function updateProfile(input: z.infer<typeof profileSchema>) {
     .from("profiles")
     .update({ display_name: displayName || null, bio: bio || null })
     .eq("id", user.id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings");
+  revalidatePath("/profile/me");
+  revalidatePath(`/profile/${user.id}`);
+}
+
+const TIER_VALUES = EXPERIENCE_TIERS.map((t) => t.value) as [ExperienceTier, ...ExperienceTier[]];
+const experienceTierSchema = z.enum(TIER_VALUES);
+
+// Called both from the onboarding flow's first step (a one-time choice)
+// and from Settings (freely editable afterward — no reason to lock someone
+// into how they self-identified on day one). Both call sites are client
+// event handlers (a button click / form submit), never a direct call
+// during a Server Component's render — see the revalidatePath-during-render
+// bug fixed on /notifications and /messages/[id] for why that distinction
+// matters.
+export async function setExperienceTier(tier: ExperienceTier) {
+  const parsed = experienceTierSchema.parse(tier);
+  const { supabase, user } = await requireUser();
+
+  const { error } = await supabase.from("profiles").update({ experience_tier: parsed }).eq("id", user.id);
   if (error) throw new Error(error.message);
 
   revalidatePath("/settings");

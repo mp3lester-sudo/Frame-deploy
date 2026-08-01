@@ -4,6 +4,7 @@ import { contextMultiplier } from "./context-weighting";
 import { weatherTimeMultiplier, weatherTimeNote, type WeatherTimeSignal } from "./weather-time-weighting";
 import { qualityMultiplier } from "./quality-weighting";
 import { computeGenreAffinity, genreAffinityMultiplier } from "./genre-affinity";
+import { computeCurationConfidence, computeBlendWeights, computeAdjustmentBand } from "./curation-confidence";
 import { calibrateMatchPercents } from "./match-percent";
 import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
@@ -24,8 +25,17 @@ export interface Recommendation {
   matchPercent: number | null;
 }
 
-const VECTOR_WEIGHT = 0.65;
-const COLLABORATIVE_WEIGHT = 0.35;
+// Bar a real cited title has to clear (see most_similar_liked_title,
+// migration 0016/0032) before "Because you loved X" fires instead of a
+// generic headline. Used to be 0.85, which meant almost every
+// recommendation fell back to something generic even when a real,
+// specific film clearly drove the pick -- product direction: user
+// curation is the whole point, so a specific citation should show up for
+// any decent match, not just a near-identical one. Exported so the group
+// (Movie Night / companion-blend) engine in movie-night.ts cites titles
+// under the exact same bar, rather than drifting out of sync with its own
+// separate constant.
+export const CONTENT_MATCH_THRESHOLD = 0.5;
 
 /**
  * Hybrid recommendation: blends
@@ -92,13 +102,21 @@ export async function getRecommendationsForUser(
     (userRatings ?? []).map((r) => ({ score: r.score, genres: genresByRatedTitleId.get(r.title_id) ?? null }))
   );
 
+  // "User curation is the key": how much a user's own taste vector should
+  // be trusted relative to the crowd (and how much room generic signals get
+  // below) scales with how much they've actually curated — see
+  // curation-confidence.ts for the full rationale.
+  const highRatedCount = (userRatings ?? []).filter((r) => r.score >= 4).length;
+  const confidence = computeCurationConfidence(highRatedCount);
+  const { vectorWeight, collaborativeWeight } = computeBlendWeights(confidence);
+
   const blended = new Map<string, number>();
   for (const m of contentMatches ?? []) {
-    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity * VECTOR_WEIGHT);
+    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity * vectorWeight);
   }
   for (const m of collabMatches ?? []) {
     const normalized = Math.min(m.score, 1);
-    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + normalized * COLLABORATIVE_WEIGHT);
+    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + normalized * collaborativeWeight);
   }
 
   if (blended.size === 0) {
@@ -121,8 +139,7 @@ export async function getRecommendationsForUser(
   // (each signal nudges up or down independently, then the total is
   // clamped) keeps every signal meaningful without any handful of soft
   // nudges accidentally acting like a hard exclusion.
-  const MIN_TOTAL_ADJUSTMENT = 0.45;
-  const MAX_TOTAL_ADJUSTMENT = 1.6;
+  const { min: MIN_TOTAL_ADJUSTMENT, max: MAX_TOTAL_ADJUSTMENT } = computeAdjustmentBand(confidence);
   const adjusted: { id: string; score: number }[] = [];
   for (const [id, score] of blended.entries()) {
     const title = byId.get(id);
@@ -152,39 +169,58 @@ export async function getRecommendationsForUser(
   // Citations ("Because you loved X") only make sense for the final,
   // already-ranked short list — computing them for the whole over-fetched
   // candidate pool would be wasted work most of it never surfaces.
-  const STRONG_CONTENT_THRESHOLD = 0.85;
+  //
   const matchFlags = new Map<string, { hasStrongContentMatch: boolean; hasCollaborativeEdge: boolean }>();
   for (const id of rankedIds) {
     const inContent = (contentMatches ?? []).find((m) => m.title_id === id);
     const inCollab = (collabMatches ?? []).find((m) => m.title_id === id);
     matchFlags.set(id, {
-      hasStrongContentMatch: !!inContent && inContent.similarity > STRONG_CONTENT_THRESHOLD,
+      hasStrongContentMatch: !!inContent && inContent.similarity > CONTENT_MATCH_THRESHOLD,
       hasCollaborativeEdge: !!inCollab && (!inContent || inContent.similarity < inCollab.score),
     });
   }
 
   const citationTargets = rankedIds.filter((id) => matchFlags.get(id)?.hasStrongContentMatch);
-  const citedTitleNameByRecId = new Map<string, string>(); // recommended title id -> cited title's name
+  // Up to two cited titles per recommendation, in closest-first order —
+  // most_similar_liked_title (migration 0032) returns up to 2 rows instead
+  // of just 1, so a pick that's genuinely close to two different things a
+  // user loved can say so ("Because you loved X and Y") instead of
+  // arbitrarily picking just one.
+  const citedTitleNamesByRecId = new Map<string, string[]>();
   if (citationTargets.length) {
     const citationResults = await Promise.all(
       citationTargets.map((id) =>
-        supabase.rpc("most_similar_liked_title", { p_user_id: userId, p_title_id: id }).then((r) => ({ id, r }))
+        supabase
+          .rpc("most_similar_liked_title", {
+            p_user_id: userId,
+            p_title_id: id,
+            // most_similar_liked_title (migration 0016) defaults its own
+            // internal p_min_similarity to 0.78 -- a separate, stricter bar
+            // than CONTENT_MATCH_THRESHOLD above. Without overriding it here,
+            // lowering the outer gate did nothing: more titles would attempt
+            // a citation lookup, but the lookup itself kept rejecting all of
+            // them under the old default. Passing the same threshold through
+            // keeps both checks in sync.
+            p_min_similarity: CONTENT_MATCH_THRESHOLD,
+          })
+          .then((r) => ({ id, r }))
       )
     );
-    const citedIdByRecId = new Map<string, string>();
+    const citedIdsByRecId = new Map<string, string[]>();
     for (const { id, r } of citationResults) {
-      const citedId = r.data?.[0]?.title_id;
-      if (citedId) citedIdByRecId.set(id, citedId);
+      const citedIds = (r.data ?? []).map((row) => row.title_id).filter((cid): cid is string => !!cid);
+      if (citedIds.length) citedIdsByRecId.set(id, citedIds);
     }
-    if (citedIdByRecId.size) {
-      const { data: citedTitles } = await supabase
-        .from("titles")
-        .select("id, name")
-        .in("id", [...new Set(citedIdByRecId.values())]);
-      const citedNameByTitleId = new Map((citedTitles ?? []).map((t) => [t.id, t.name]));
-      for (const [recId, citedId] of citedIdByRecId) {
-        const name = citedNameByTitleId.get(citedId);
-        if (name) citedTitleNameByRecId.set(recId, name); // drop rather than cite a blank if the name lookup failed
+    if (citedIdsByRecId.size) {
+      const allCitedIds = new Set<string>();
+      for (const ids of citedIdsByRecId.values()) for (const cid of ids) allCitedIds.add(cid);
+      const { data: citedTitleRows } = await supabase.from("titles").select("id, name").in("id", [...allCitedIds]);
+      const citedNameByTitleId = new Map((citedTitleRows ?? []).map((t) => [t.id, t.name]));
+      for (const [recId, citedIds] of citedIdsByRecId) {
+        // Drop any id whose name lookup failed rather than citing a blank —
+        // still preserves the closest-first order from the RPC.
+        const names = citedIds.map((cid) => citedNameByTitleId.get(cid)).filter((n): n is string => !!n);
+        if (names.length) citedTitleNamesByRecId.set(recId, names);
       }
     }
   }
@@ -205,7 +241,7 @@ export async function getRecommendationsForUser(
       title,
       hasStrongContentMatch: flags.hasStrongContentMatch,
       hasCollaborativeEdge: flags.hasCollaborativeEdge,
-      citedTitle: citedTitleNameByRecId.get(id) ?? null,
+      citedTitles: citedTitleNamesByRecId.get(id) ?? [],
       context,
       weatherNote,
     });

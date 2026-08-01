@@ -1,7 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
-import { rankGroupCandidates, buildGroupConsensusNote, type ParticipantScores } from "./group-fairness";
+import {
+  rankGroupCandidates,
+  buildGroupConsensusHeadline,
+  type ParticipantScores,
+  type ParticipantCitation,
+} from "./group-fairness";
 import { computeGenreAffinity } from "./genre-affinity";
+import { CONTENT_MATCH_THRESHOLD } from "./engine";
+import type { ReasonDetail } from "./explain";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 type ParticipantRow = { user_id: string; excluded_genres: string[] | null };
@@ -9,9 +16,29 @@ type ParticipantRow = { user_id: string; excluded_genres: string[] | null };
 export interface MovieNightCandidate {
   title: Title;
   score: number;
-  /** Short, honest line on how this pick fits the group — see
-   *  group-fairness.ts's buildGroupConsensusNote. */
+  /** Short, honest line on how this pick fits the group -- now names
+   *  specific titles from each person's own rating history when a real
+   *  one clears the bar (see buildGroupConsensusHeadline), falling back
+   *  to group-fairness.ts's generic buildGroupConsensusNote otherwise. */
   note: string;
+  /** Full structured detail -- same shape the solo home page uses (themes,
+   *  tone, mood, pacing, ending, cited titles) -- for a "Why this pick"
+   *  expansion identical in spirit to the solo engine's. */
+  detail: ReasonDetail;
+}
+
+/** Plain detail with no citations -- used for the two popularity-fallback
+ *  branches below, where there's no personalized signal at all yet. */
+function genericDetail(title: Title, headline: string): ReasonDetail {
+  return {
+    headline,
+    themes: title.themes ?? [],
+    tone: title.tone ?? [],
+    moodTags: title.mood_tags ?? [],
+    pacing: title.pacing ?? null,
+    endingType: title.ending_type ?? null,
+    citedTitles: [],
+  };
 }
 
 // How many of each participant's own top matches seed the shared candidate
@@ -28,43 +55,74 @@ const PER_PARTICIPANT_SEED_COUNT = 40;
 // letting the group average paper over a guaranteed miss for them.
 const HARD_DISLIKE_THRESHOLD = -0.5;
 
-function firstName(display: string | null | undefined, username: string): string {
+export function firstName(display: string | null | undefined, username: string): string {
   return display?.trim()?.split(/\s+/)[0] || username;
 }
 
+// Group-recommendation count scales with how many people are actually
+// choosing together -- a fixed 6-candidate pool regardless of group size
+// meant a 2-person Movie Night saw exactly as many options as a 6-person
+// one, which felt arbitrary either way (too many for a quick 1:1 pick, too
+// few for a bigger group to find something everyone can agree on). Floor
+// of 3 (even a solo host mid-invite gets a real choice, not a single
+// forced pick); +1 per person after that so the pool grows with the
+// group; capped at 12 so a big group night doesn't turn into an
+// overwhelming wall of posters to vote on.
+export function candidateLimitForGroupSize(size: number): number {
+  return Math.max(3, Math.min(12, size + 1));
+}
+
+export interface UserGroupParams {
+  userIds: string[];
+  /** userId -> first name shown in consensus notes ("Leans toward Eli's
+   *  taste..."). Callers own how these are resolved — Movie Night pulls
+   *  from `movie_night_participants`' joined profiles, the ad-hoc home-page
+   *  companion picker resolves them from whichever usernames were typed in. */
+  namesByUserId: Map<string, string>;
+  /** Manually-set exclusions (Movie Night's per-participant checklist) —
+   *  purely additive with the inferred hard-dislike genres below. Omit for
+   *  flows (like the ad-hoc companion picker) with no such checklist. */
+  manualExcludedGenres?: Set<string>;
+  /** Titles never to surface -- used for the refillable queue (a viewer's
+   *  own already-voted titles, plus whatever's already showing on their
+   *  screen this session) so "pass" can pull in something genuinely new
+   *  instead of risking the same title reappearing. */
+  excludeTitleIds?: Set<string>;
+  limit?: number;
+}
+
 /**
- * Group pick for a movie night — finds a genuine "happy medium" rather than
- * just summing/averaging raw content-similarity scores, which can quietly
- * let whoever's taste vector runs "hot" dominate even when the math looks
- * even-handed (see group-fairness.ts's module doc for the full reasoning).
- * Hard rule (product decision): a title never surfaces if it's a clear miss
- * for even one participant, even if the group average looks great —
- * relaxed automatically only if a group's tastes are divergent enough that
- * nothing would otherwise pass at all.
+ * Core group-blend engine: finds a genuine "happy medium" across whatever
+ * set of user ids is passed in, rather than just summing/averaging raw
+ * content-similarity scores, which can quietly let whoever's taste vector
+ * runs "hot" dominate even when the math looks even-handed (see
+ * group-fairness.ts's module doc for the full reasoning). Hard rule
+ * (product decision): a title never surfaces if it's a clear miss for even
+ * one participant, even if the group average looks great — relaxed
+ * automatically only if a group's tastes are divergent enough that nothing
+ * would otherwise pass at all.
+ *
+ * Deliberately participant-agnostic — it doesn't know or care whether the
+ * group came from a persisted Movie Night session (movie_night_participants)
+ * or an ad-hoc "who am I with tonight" pick on the home page. Both
+ * getCandidatesForMovieNight and getCandidatesForCompanionSet below are thin
+ * wrappers that resolve their own participant list, then defer here.
  *
  * Falls back to popularity when nobody in the group has a taste vector yet
  * (cold start / no ratings) — same resilience pattern as the solo engine.
  */
-export async function getCandidatesForMovieNight(
-  movieNightId: string,
-  limit = 6
-): Promise<MovieNightCandidate[]> {
+export async function getCandidatesForUserGroup({
+  userIds,
+  namesByUserId,
+  manualExcludedGenres,
+  excludeTitleIds,
+  limit = 6,
+}: UserGroupParams): Promise<MovieNightCandidate[]> {
   const supabase = await createClient();
+  if (userIds.length === 0) return [];
+  const excludeIds = excludeTitleIds ?? new Set<string>();
 
-  const { data: participantRows } = await supabase
-    .from("movie_night_participants")
-    .select("user_id, excluded_genres, profiles(username, display_name)")
-    .eq("movie_night_id", movieNightId);
-  if (!participantRows?.length) return [];
-
-  const participants = participantRows as unknown as (ParticipantRow & {
-    profiles: { username: string; display_name: string | null } | null;
-  })[];
-
-  const excludedGenres = new Set(participants.flatMap((p) => p.excluded_genres ?? []));
-  const participantNames = new Map(
-    participants.map((p) => [p.user_id, firstName(p.profiles?.display_name, p.profiles?.username ?? "someone")])
-  );
+  const excludedGenres = new Set(manualExcludedGenres ?? []);
 
   // Infer additional hard-excludes from each participant's own rating
   // history (ratings are public-read, so this needs no RLS workaround).
@@ -72,11 +130,10 @@ export async function getCandidatesForMovieNight(
   // of these genres" set, so adding one participant's clear dislikes here
   // means nobody in the group sees a pick built around a genre someone
   // else has repeatedly rated badly.
-  const participantIds = participants.map((p) => p.user_id);
   const { data: groupRatings } = await supabase
     .from("ratings")
     .select("user_id, score, title_id")
-    .in("user_id", participantIds);
+    .in("user_id", userIds);
   const ratedTitleIds = [...new Set((groupRatings ?? []).map((r) => r.title_id))];
   const { data: ratedTitles } = ratedTitleIds.length
     ? await supabase.from("titles").select("id, genres").in("id", ratedTitleIds)
@@ -88,10 +145,10 @@ export async function getCandidatesForMovieNight(
     list.push({ score: r.score, genres: genresByRatedTitle.get(r.title_id) ?? [] });
     ratingsByParticipant.set(r.user_id, list);
   }
-  for (const p of participants) {
-    const affinity = computeGenreAffinity(ratingsByParticipant.get(p.user_id) ?? []);
-    for (const [genre, value] of affinity) {
-      if (value <= HARD_DISLIKE_THRESHOLD) excludedGenres.add(genre);
+  for (const userId of userIds) {
+    const affinity = computeGenreAffinity(ratingsByParticipant.get(userId) ?? []);
+    for (const [genre, entry] of affinity) {
+      if (entry.affinity <= HARD_DISLIKE_THRESHOLD) excludedGenres.add(genre);
     }
   }
 
@@ -103,9 +160,9 @@ export async function getCandidatesForMovieNight(
   // making the request — see that migration for the RLS bug this fixes.)
   const candidateIds = new Set<string>();
   let anyoneHasMatches = false;
-  for (const p of participants) {
+  for (const userId of userIds) {
     const { data: matches } = await supabase.rpc("match_titles_for_user", {
-      p_user_id: p.user_id,
+      p_user_id: userId,
       p_match_count: PER_PARTICIPANT_SEED_COUNT,
       p_exclude_watched: true,
     });
@@ -123,11 +180,12 @@ export async function getCandidatesForMovieNight(
   // 0027) and drops anything anyone in the group has already seen.
   if (candidateIds.size > 0) {
     const { data: watched } = await supabase.rpc("titles_watched_by_users", {
-      p_user_ids: participantIds,
+      p_user_ids: userIds,
       p_title_ids: [...candidateIds],
     });
     for (const w of watched ?? []) candidateIds.delete(w.title_id);
   }
+  for (const id of excludeIds) candidateIds.delete(id);
 
   if (!anyoneHasMatches) {
     const { data: popular } = await supabase
@@ -135,11 +193,15 @@ export async function getCandidatesForMovieNight(
       .select("*")
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
-    const filtered = (popular ?? []).filter((t) => !t.genres?.some((g) => excludedGenres.has(g)));
+    const filtered = (popular ?? [])
+      .filter((t) => !t.genres?.some((g) => excludedGenres.has(g)))
+      .filter((t) => !excludeIds.has(t.id));
+    const note = "Popular right now — nobody in the group has rated enough yet to personalize this.";
     return filtered.slice(0, limit).map((title) => ({
       title,
       score: 0,
-      note: "Popular right now — nobody in the group has rated enough yet to personalize this.",
+      note,
+      detail: genericDetail(title, note),
     }));
   }
 
@@ -150,13 +212,13 @@ export async function getCandidatesForMovieNight(
   // migration 0023).
   const allIds = [...candidateIds];
   const participantScores: ParticipantScores[] = [];
-  for (const p of participants) {
+  for (const userId of userIds) {
     const { data: sims } = await supabase.rpc("title_similarity_for_user", {
-      p_user_id: p.user_id,
+      p_user_id: userId,
       p_title_ids: allIds,
     });
     participantScores.push({
-      userId: p.user_id,
+      userId,
       scores: new Map((sims ?? []).map((s) => [s.title_id, s.similarity])),
     });
   }
@@ -171,11 +233,15 @@ export async function getCandidatesForMovieNight(
       .select("*")
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
-    const filtered = (popular ?? []).filter((t) => !t.genres?.some((g) => excludedGenres.has(g)));
+    const filtered = (popular ?? [])
+      .filter((t) => !t.genres?.some((g) => excludedGenres.has(g)))
+      .filter((t) => !excludeIds.has(t.id));
+    const note = "Popular right now — not enough overlap yet to find a personalized group match.";
     return filtered.slice(0, limit).map((title) => ({
       title,
       score: 0,
-      note: "Popular right now — not enough overlap yet to find a personalized group match.",
+      note,
+      detail: genericDetail(title, note),
     }));
   }
 
@@ -185,11 +251,151 @@ export async function getCandidatesForMovieNight(
   const filtered = ranked
     .map((r) => ({ ...r, title: byId.get(r.titleId) }))
     .filter((r): r is typeof r & { title: Title } => !!r.title)
-    .filter((r) => !r.title.genres?.some((g) => excludedGenres.has(g)));
+    .filter((r) => !r.title.genres?.some((g) => excludedGenres.has(g)))
+    .filter((r) => !excludeIds.has(r.title.id));
 
-  return filtered.slice(0, limit).map((r) => ({
-    title: r.title,
-    score: r.averageNormalized,
-    note: buildGroupConsensusNote(r, participantNames),
-  }));
+  const topCandidates = filtered.slice(0, limit);
+
+  // Citations ("Alice loved X; Bob loved Y") only computed for the final,
+  // already-ranked short list -- one most_similar_liked_title RPC call per
+  // (candidate, participant) pair, same "don't pay for what nobody sees"
+  // pattern the solo engine uses. Bounded (limit candidates x group size),
+  // never the whole seeded candidate pool.
+  const citationResults = await Promise.all(
+    topCandidates.flatMap((c) =>
+      userIds.map((userId) =>
+        supabase
+          .rpc("most_similar_liked_title", {
+            p_user_id: userId,
+            p_title_id: c.title.id,
+            p_min_similarity: CONTENT_MATCH_THRESHOLD,
+          })
+          .then((r) => ({
+            titleId: c.title.id,
+            userId,
+            citedIds: (r.data ?? []).map((row) => row.title_id).filter((cid): cid is string => !!cid),
+          }))
+      )
+    )
+  );
+
+  const allCitedIds = new Set<string>();
+  for (const { citedIds } of citationResults) for (const cid of citedIds) allCitedIds.add(cid);
+  const citedNameById = new Map<string, string>();
+  if (allCitedIds.size) {
+    const { data: citedTitleRows } = await supabase.from("titles").select("id, name").in("id", [...allCitedIds]);
+    for (const row of citedTitleRows ?? []) citedNameById.set(row.id, row.name);
+  }
+
+  const citationsByTitleId = new Map<string, ParticipantCitation[]>();
+  for (const { titleId, userId, citedIds } of citationResults) {
+    const citedTitles = citedIds.map((cid) => citedNameById.get(cid)).filter((n): n is string => !!n);
+    const list = citationsByTitleId.get(titleId) ?? [];
+    list.push({ userId, citedTitles });
+    citationsByTitleId.set(titleId, list);
+  }
+
+  return topCandidates.map((r) => {
+    const citations = citationsByTitleId.get(r.title.id) ?? [];
+    const note = buildGroupConsensusHeadline(r, namesByUserId, citations);
+    const allCited = [...new Set(citations.flatMap((c) => c.citedTitles))];
+    return {
+      title: r.title,
+      score: r.averageNormalized,
+      note,
+      detail: {
+        headline: note,
+        themes: r.title.themes ?? [],
+        tone: r.title.tone ?? [],
+        moodTags: r.title.mood_tags ?? [],
+        pacing: r.title.pacing ?? null,
+        endingType: r.title.ending_type ?? null,
+        citedTitles: allCited,
+      },
+    };
+  });
+}
+
+/**
+ * Group pick for a Movie Night — a persisted session with invited
+ * participants (movie_night_participants). Resolves that session's roster
+ * and its per-participant excluded_genres checklist, then defers to the
+ * shared getCandidatesForUserGroup engine above.
+ */
+export interface MovieNightCandidateOptions {
+  limit?: number;
+  /** The person this list is being generated for. When set, anything
+   *  they've already voted on (like OR pass) is auto-excluded -- nobody
+   *  should have to look at a card they've already decided on, whether
+   *  that's a stale grid slot from before a page reload or a refill
+   *  request mid-session. Other participants' votes don't affect this;
+   *  each person's queue is their own. */
+  viewerId?: string;
+  /** Extra titles to exclude beyond the viewer's own vote history --
+   *  the refillable queue uses this for whatever's already occupying
+   *  other grid slots on the client this session, so a single refill
+   *  request can't hand back a duplicate of a card already showing. */
+  excludeTitleIds?: string[];
+}
+
+export async function getCandidatesForMovieNight(
+  movieNightId: string,
+  options: MovieNightCandidateOptions = {}
+): Promise<MovieNightCandidate[]> {
+  const { limit, viewerId, excludeTitleIds } = options;
+  const supabase = await createClient();
+
+  const { data: participantRows } = await supabase
+    .from("movie_night_participants")
+    .select("user_id, excluded_genres, profiles(username, display_name)")
+    .eq("movie_night_id", movieNightId);
+  if (!participantRows?.length) return [];
+
+  const participants = participantRows as unknown as (ParticipantRow & {
+    profiles: { username: string; display_name: string | null } | null;
+  })[];
+
+  const namesByUserId = new Map(
+    participants.map((p) => [p.user_id, firstName(p.profiles?.display_name, p.profiles?.username ?? "someone")])
+  );
+  const manualExcludedGenres = new Set(participants.flatMap((p) => p.excluded_genres ?? []));
+
+  const excludeIds = new Set(excludeTitleIds ?? []);
+  if (viewerId) {
+    const { data: ownVotes } = await supabase
+      .from("movie_night_votes")
+      .select("title_id")
+      .eq("movie_night_id", movieNightId)
+      .eq("user_id", viewerId);
+    for (const v of ownVotes ?? []) excludeIds.add(v.title_id);
+  }
+
+  return getCandidatesForUserGroup({
+    userIds: participants.map((p) => p.user_id),
+    namesByUserId,
+    manualExcludedGenres,
+    excludeTitleIds: excludeIds,
+    limit: limit ?? candidateLimitForGroupSize(participants.length),
+  });
+}
+
+/**
+ * Group pick for the home page's ad-hoc "Date night" / "With friends"
+ * companion picker — no persisted session, just whichever real Backlot
+ * users were picked just now (see src/lib/actions/companion-recommendations.ts
+ * for how usernames get resolved into ids + names before calling this).
+ * Same strict fairness rule as Movie Night: nobody sees a pick that's a
+ * clear miss for anyone in the room, even if it's a great match for
+ * everyone else.
+ */
+export async function getCandidatesForCompanionSet(
+  userIds: string[],
+  namesByUserId: Map<string, string>,
+  limit?: number
+): Promise<MovieNightCandidate[]> {
+  return getCandidatesForUserGroup({
+    userIds,
+    namesByUserId,
+    limit: limit ?? candidateLimitForGroupSize(userIds.length),
+  });
 }

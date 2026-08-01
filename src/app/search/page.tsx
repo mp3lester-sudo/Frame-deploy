@@ -69,7 +69,11 @@ export default async function SearchPage({
               // Keyed on the query so a new search remounts the grid instead
               // of reusing the previous query's cached state (see
               // discover/page.tsx for the same fix and why it's needed).
+              // storageKey namespaced separately from Discover's so browser
+              // back/forward restores this query's loaded pages specifically
+              // (see use-persisted-pagination.ts).
               key={q}
+              storageKey={`search-titles:${q}`}
               initialTitles={titles ?? []}
               initialHasMore={(titles?.length ?? 0) === SEARCH_PAGE_SIZE}
               loadMore={loadMoreTitles}
@@ -82,7 +86,13 @@ export default async function SearchPage({
         <>
           {q && !users.length && <p className="text-sm text-foreground-muted">No one found for &ldquo;{q}&rdquo;.</p>}
           {q && (
-            <LoadMorePeople key={q} initialUsers={users} initialHasMore={usersHaveMore} loadMore={loadMorePeople} />
+            <LoadMorePeople
+              key={q}
+              storageKey={`search-people:${q}`}
+              initialUsers={users}
+              initialHasMore={usersHaveMore}
+              loadMore={loadMorePeople}
+            />
           )}
           {!q && <p className="text-sm text-foreground-muted">Search by username or display name.</p>}
         </>

@@ -3,3 +3,4 @@
 // Next.js treat the whole module as having no exports at build time.
 export const DISCOVER_PAGE_SIZE = 30;
 export const SEARCH_PAGE_SIZE = 24;
+export const WATCHED_PAGE_SIZE = 30;

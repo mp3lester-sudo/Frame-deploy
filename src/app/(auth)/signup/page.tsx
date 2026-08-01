@@ -50,7 +50,7 @@ export default function SignUpPage() {
 
   return (
     <div className="mx-auto flex min-h-[80vh] max-w-sm flex-col justify-center px-6">
-      <h1 className="mb-1 text-2xl font-semibold">Create your account</h1>
+      <h1 className="font-display mb-1 text-2xl">Create your account</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         We&apos;ll start learning your taste from your very first rating.
       </p>

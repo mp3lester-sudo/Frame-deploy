@@ -57,13 +57,13 @@ export function LetterboxdPasteImport() {
     setError(null);
     setSummary(null);
     startTransition(async () => {
-      try {
-        const result = await importLetterboxdPaste(html);
-        setSummary(result);
+      const result = await importLetterboxdPaste(html);
+      if (result.ok) {
+        setSummary(result.summary);
         setFiles([]);
         setHtml("");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Import failed");
+      } else {
+        setError(result.error);
       }
     });
   }
@@ -83,15 +83,15 @@ export function LetterboxdPasteImport() {
     <div>
       <p className="mb-1 text-[11px] uppercase tracking-wider text-foreground-muted">Import from Letterboxd (free accounts)</p>
       <p className="mb-3 text-sm text-foreground-muted">
-        Free Letterboxd accounts don&apos;t have the CSV export (that&apos;s Pro-only), so this reads your Diary page
-        the way any browser can see it — no login sharing, no extensions.
+        Free Letterboxd accounts don&apos;t have the CSV export (that&apos;s Pro-only), so this reads your pages the
+        way any browser can see them — no login sharing, no extensions.
       </p>
 
       <div className="mb-4 rounded-[var(--radius-md)] border border-accent/30 bg-surface-raised p-3">
         <ol className="list-decimal space-y-1 pl-4 text-sm text-foreground-muted">
           <li>
-            Open your own Diary on Letterboxd, signed in — e.g.{" "}
-            <code className="text-foreground">letterboxd.com/your-username/films/diary/</code>
+            Open your Diary — e.g. <code className="text-foreground">letterboxd.com/your-username/films/diary/</code>
+            . This has watch dates and covers your diary-logged history.
           </li>
           <li>
             Press <code className="text-foreground">Ctrl+S</code> (Windows) or{" "}
@@ -99,9 +99,14 @@ export function LetterboxdPasteImport() {
           </li>
           <li>
             Diary pages show ~50 films at a time — if you have more, click &quot;Older&quot; at the bottom, save that
-            page too, and repeat. Every saved page can be dropped in at once below.
+            page too, and repeat.
           </li>
-          <li>Drag the saved file(s) into the box below, then click Import.</li>
+          <li>
+            Rated a film without logging it to your Diary? Those won&apos;t show up above. Also save your Films page
+            — e.g. <code className="text-foreground">letterboxd.com/your-username/films/</code> — the same way. It
+            covers every film you&apos;ve watched or rated, diary or not.
+          </li>
+          <li>Drag all the saved file(s) into the box below at once, then click Import.</li>
         </ol>
       </div>
 
@@ -117,7 +122,7 @@ export function LetterboxdPasteImport() {
           isDraggingOver ? "border-accent bg-accent/10" : "border-border hover:border-border-strong"
         }`}
       >
-        <p className="text-sm text-foreground-muted">Drop your saved Diary page(s) here, or click to choose files</p>
+        <p className="text-sm text-foreground-muted">Drop your saved Diary and/or Films page(s) here, or click to choose files</p>
         <p className="text-xs text-foreground-muted/70">Accepts the .html file(s) from &quot;Save Page As&quot;</p>
         <input
           ref={fileInputRef}
@@ -158,9 +163,9 @@ export function LetterboxdPasteImport() {
           Can&apos;t save a file? Paste the page source instead
         </summary>
         <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-foreground-muted">
-          <li>Right-click anywhere on the Diary page and choose &quot;View Page Source&quot; (or press Ctrl+U / Cmd+Option+U)</li>
+          <li>Right-click anywhere on the Diary or Films page and choose &quot;View Page Source&quot; (or press Ctrl+U / Cmd+Option+U)</li>
           <li>Select all (Ctrl/Cmd+A), copy (Ctrl/Cmd+C), then paste it into the box below</li>
-          <li>Repeat for each page if you have more than ~50 films — pasting more text just adds to what&apos;s already there</li>
+          <li>Repeat for each page — pasting more text just adds to what&apos;s already there</li>
         </ol>
         <form onSubmit={handlePasteSubmit} className="mt-2 flex flex-col gap-3">
           <textarea

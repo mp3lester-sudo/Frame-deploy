@@ -18,16 +18,29 @@ function title(overrides: Partial<ExplainableTitle> = {}): ExplainableTitle {
 }
 
 describe("buildReasonDetail", () => {
-  it("cites the source title and its traits when there's a strong content match with a citation", () => {
+  it("cites the source title and its traits when there's a strong content match with one citation", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
       hasCollaborativeEdge: false,
-      citedTitle: "Se7en",
+      citedTitles: ["Se7en"],
     });
     expect(detail.headline).toContain("Se7en");
     expect(detail.headline).toContain("betrayal");
-    expect(detail.citedTitle).toBe("Se7en");
+    expect(detail.citedTitles).toEqual(["Se7en"]);
+  });
+
+  it("cites both titles, without trait clutter, when there are two citations", () => {
+    const detail = buildReasonDetail({
+      title: title(),
+      hasStrongContentMatch: true,
+      hasCollaborativeEdge: false,
+      citedTitles: ["Se7en", "Zodiac"],
+    });
+    expect(detail.headline).toContain("Se7en");
+    expect(detail.headline).toContain("Zodiac");
+    expect(detail.headline).toContain("and");
+    expect(detail.citedTitles).toEqual(["Se7en", "Zodiac"]);
   });
 
   it("falls back to a generic content-match line when there's no citation", () => {
@@ -35,7 +48,7 @@ describe("buildReasonDetail", () => {
       title: title(),
       hasStrongContentMatch: true,
       hasCollaborativeEdge: false,
-      citedTitle: null,
+      citedTitles: [],
     });
     expect(detail.headline).toContain("Matches your taste closely");
   });
@@ -45,7 +58,7 @@ describe("buildReasonDetail", () => {
       title: title(),
       hasStrongContentMatch: false,
       hasCollaborativeEdge: true,
-      citedTitle: null,
+      citedTitles: [],
     });
     expect(detail.headline).toContain("Loved by people");
   });
@@ -55,7 +68,7 @@ describe("buildReasonDetail", () => {
       title: title({ mood_tags: ["cozy", "nostalgic"] }),
       hasStrongContentMatch: false,
       hasCollaborativeEdge: false,
-      citedTitle: null,
+      citedTitles: [],
     });
     expect(detail.headline).toContain("cozy");
   });
@@ -65,7 +78,7 @@ describe("buildReasonDetail", () => {
       title: title({ mood_tags: [] }),
       hasStrongContentMatch: false,
       hasCollaborativeEdge: false,
-      citedTitle: null,
+      citedTitles: [],
     });
     expect(detail.headline).toContain("Taste Graph");
   });
@@ -75,7 +88,7 @@ describe("buildReasonDetail", () => {
       title: title({ runtime_minutes: 87 }),
       hasStrongContentMatch: false,
       hasCollaborativeEdge: false,
-      citedTitle: null,
+      citedTitles: [],
       context: "something_short",
     });
     expect(detail.headline).toContain("87 minutes");
@@ -86,7 +99,7 @@ describe("buildReasonDetail", () => {
       title: title(),
       hasStrongContentMatch: true,
       hasCollaborativeEdge: false,
-      citedTitle: "Se7en",
+      citedTitles: ["Se7en"],
     });
     expect(detail.themes).toEqual(["betrayal", "redemption"]);
     expect(detail.tone).toEqual(["dark", "tense"]);

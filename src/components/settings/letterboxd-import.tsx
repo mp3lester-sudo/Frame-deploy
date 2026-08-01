@@ -28,12 +28,9 @@ export function LetterboxdImport() {
     if (watchedFile) formData.set("watchedFile", watchedFile);
 
     startTransition(async () => {
-      try {
-        const result = await importLetterboxdData(formData);
-        setSummary(result);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Import failed");
-      }
+      const result = await importLetterboxdData(formData);
+      if (result.ok) setSummary(result.summary);
+      else setError(result.error);
     });
   }
 

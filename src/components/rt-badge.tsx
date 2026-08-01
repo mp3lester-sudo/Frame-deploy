@@ -8,7 +8,7 @@ export function RtBadge({ score }: { score: number }) {
       className={cn(
         "inline-flex items-center gap-1 rounded-[var(--radius-full)] border px-2.5 py-0.5 text-xs font-semibold",
         fresh
-          ? "border-red-800/40 bg-red-950/30 text-red-400"
+          ? "border-red-900/30 bg-red-950/20 text-red-400/70"
           : "border-emerald-800/40 bg-emerald-950/30 text-emerald-500"
       )}
       title="Rotten Tomatoes critic score"

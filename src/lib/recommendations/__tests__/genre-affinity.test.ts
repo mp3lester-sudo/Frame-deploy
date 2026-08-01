@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeGenreAffinity, genreAffinityMultiplier } from "@/lib/recommendations/genre-affinity";
+import { computeGenreAffinity, genreAffinityMultiplier, type GenreAffinityEntry } from "@/lib/recommendations/genre-affinity";
 
 describe("computeGenreAffinity", () => {
   it("returns nothing for genres seen fewer than 2 times", () => {
@@ -13,7 +13,8 @@ describe("computeGenreAffinity", () => {
       { score: 1, genres: ["Horror"] },
       { score: 0.5, genres: ["Horror"] },
     ]);
-    expect(affinity.get("Horror")).toBeLessThan(-0.5);
+    expect(affinity.get("Horror")!.affinity).toBeLessThan(-0.5);
+    expect(affinity.get("Horror")!.count).toBe(3);
   });
 
   it("is strongly positive for a genre consistently rated high", () => {
@@ -21,7 +22,8 @@ describe("computeGenreAffinity", () => {
       { score: 5, genres: ["Drama"] },
       { score: 4.5, genres: ["Drama"] },
     ]);
-    expect(affinity.get("Drama")).toBeGreaterThan(0.5);
+    expect(affinity.get("Drama")!.affinity).toBeGreaterThan(0.5);
+    expect(affinity.get("Drama")!.count).toBe(2);
   });
 
   it("nets out a mixed genre close to zero", () => {
@@ -31,7 +33,7 @@ describe("computeGenreAffinity", () => {
     ]);
     // (5 -> +1) averaged with (0.5 -> -0.8) is +0.1 — nowhere near the
     // strongly-negative/positive results above, which is the actual point.
-    expect(Math.abs(affinity.get("Comedy")!)).toBeLessThan(0.15);
+    expect(Math.abs(affinity.get("Comedy")!.affinity)).toBeLessThan(0.15);
   });
 
   it("credits a title's rating to every genre it has", () => {
@@ -40,49 +42,75 @@ describe("computeGenreAffinity", () => {
       { score: 4.5, genres: ["Drama"] },
       { score: 4.8, genres: ["Crime"] },
     ]);
-    expect(affinity.get("Drama")).toBeGreaterThan(0.5);
-    expect(affinity.get("Crime")).toBeGreaterThan(0.5);
+    expect(affinity.get("Drama")!.affinity).toBeGreaterThan(0.5);
+    expect(affinity.get("Crime")!.affinity).toBeGreaterThan(0.5);
   });
 
   it("ignores titles with no genres", () => {
     const affinity = computeGenreAffinity([{ score: 5, genres: null }]);
     expect(affinity.size).toBe(0);
   });
+
+  it("tracks a higher count for a genre seen more often, feeding confidence", () => {
+    const ratings = Array.from({ length: 12 }, () => ({ score: 5, genres: ["Drama"] }));
+    const affinity = computeGenreAffinity(ratings);
+    expect(affinity.get("Drama")!.count).toBe(12);
+  });
 });
+
+function entry(affinity: number, count: number): GenreAffinityEntry {
+  return { affinity, count };
+}
 
 describe("genreAffinityMultiplier", () => {
   it("returns 1 (neutral) when the genre is unknown", () => {
-    const affinity = new Map<string, number>();
+    const affinity = new Map<string, GenreAffinityEntry>();
     expect(genreAffinityMultiplier(["Horror"], affinity)).toBe(1);
   });
 
   it("returns 1 when the candidate has no genres", () => {
-    const affinity = new Map([["Horror", -1]]);
+    const affinity = new Map([["Horror", entry(-1, 10)]]);
     expect(genreAffinityMultiplier(null, affinity)).toBe(1);
   });
 
-  it("penalizes a candidate whose genre the user hates", () => {
-    const affinity = new Map([["Horror", -1]]);
+  it("applies only a light swing at the minimum occurrence count (low confidence)", () => {
+    const affinity = new Map([["Horror", entry(-1, 2)]]);
     const mult = genreAffinityMultiplier(["Horror"], affinity);
-    expect(mult).toBeCloseTo(0.7, 5);
+    expect(mult).toBeCloseTo(0.88, 5); // 1 + (-1 * 0.12)
   });
 
-  it("boosts a candidate whose genre the user loves", () => {
-    const affinity = new Map([["Drama", 1]]);
+  it("applies the full swing once a genre has enough occurrences (high confidence)", () => {
+    const affinity = new Map([["Horror", entry(-1, 10)]]);
+    const mult = genreAffinityMultiplier(["Horror"], affinity);
+    expect(mult).toBeCloseTo(0.7, 5); // 1 + (-1 * 0.3)
+  });
+
+  it("boosts a candidate whose genre the user loves with high confidence", () => {
+    const affinity = new Map([["Drama", entry(1, 10)]]);
     const mult = genreAffinityMultiplier(["Drama"], affinity);
     expect(mult).toBeCloseTo(1.3, 5);
   });
 
+  it("scales the swing between the min and max bounds for in-between confidence", () => {
+    const affinity = new Map([["Drama", entry(1, 6)]]);
+    // count 6 of 2..10 range is 50% confidence -> swing halfway between 0.12 and 0.3 = 0.21
+    const mult = genreAffinityMultiplier(["Drama"], affinity);
+    expect(mult).toBeCloseTo(1.21, 5);
+  });
+
   it("averages across known genres and skips unknown ones", () => {
-    const affinity = new Map([["Drama", 1]]);
+    const affinity = new Map([["Drama", entry(1, 10)]]);
     // "Crime" has no data — should be skipped, not treated as 0, so the
     // average is just Drama's own affinity, not diluted by an assumed-0.
     const mult = genreAffinityMultiplier(["Drama", "Crime"], affinity);
     expect(mult).toBeCloseTo(1.3, 5);
   });
 
-  it("clamps combined affinity to +/-1 before applying the swing", () => {
-    const affinity = new Map([["Horror", -1], ["Slasher", -1]]);
+  it("clamps combined affinity to +/-1 worth of swing across multiple confident genres", () => {
+    const affinity = new Map([
+      ["Horror", entry(-1, 10)],
+      ["Slasher", entry(-1, 10)],
+    ]);
     const mult = genreAffinityMultiplier(["Horror", "Slasher"], affinity);
     expect(mult).toBeCloseTo(0.7, 5);
   });

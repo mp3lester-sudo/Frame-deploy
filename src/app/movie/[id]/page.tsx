@@ -16,8 +16,10 @@ import { aggregateReactions } from "@/lib/reactions/aggregate";
 import type { DisplayComment } from "@/components/review-comments";
 import { getOrFetchRtCriticScore } from "@/lib/external/rotten-tomatoes";
 import { getTmdbReviews } from "@/lib/external/tmdb-reviews";
+import { getTmdbTrailer } from "@/lib/external/tmdb-videos";
 import { getOrFetchWatchProviders } from "@/lib/external/tmdb-watch-providers";
 import { WhereToWatch } from "@/components/where-to-watch";
+import { BackdropHero } from "@/components/backdrop-hero";
 
 export default async function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -57,10 +59,11 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
   if (!title) notFound();
 
-  const [rtScore, tmdbReviews, watchProviders] = await Promise.all([
+  const [rtScore, tmdbReviews, watchProviders, trailer] = await Promise.all([
     getOrFetchRtCriticScore(title),
     title.tmdb_id ? getTmdbReviews(title.tmdb_id, title.type) : Promise.resolve([]),
     getOrFetchWatchProviders(title),
+    title.tmdb_id ? getTmdbTrailer(title.tmdb_id, title.type) : Promise.resolve(null),
   ]);
 
   const myListIds = (myLists ?? []).map((l) => l.id);
@@ -110,29 +113,15 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
   return (
     <div>
       {title.backdrop_url && (
-        <div className="relative h-[240px] w-full overflow-hidden sm:h-[360px]">
-          <Image
-            src={title.backdrop_url}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-          {/* Fade the backdrop into the page background so the poster/title
-              row below sits on solid ground, not mid-photo. Cinematic
-              atmosphere without fighting legibility. */}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
-        </div>
+        <BackdropHero backdropUrl={title.backdrop_url} trailerKey={trailer?.key ?? null} title={title.name} />
       )}
-      <div
-        className={
-          title.backdrop_url
-            ? "relative mx-auto -mt-24 max-w-4xl px-4 pb-8 sm:-mt-32"
-            : "mx-auto max-w-4xl px-4 py-8"
-        }
-      >
+      {/* Negative top margin pulls the poster/title row up into the
+          hero's bottom fade (see backdrop-hero.tsx) so the title reads
+          as sitting on top of the backdrop, matching the reference
+          layout. The offset is sized to the title/rating/badge stack --
+          by the time we reach the overview paragraph we're clear of the
+          hero and on solid background. */}
+      <div className={`relative mx-auto max-w-4xl px-4 pb-8 ${title.backdrop_url ? "-mt-20 sm:-mt-28" : "py-8"}`}>
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-[var(--radius-lg)] bg-surface-raised shadow-[0_12px_32px_-8px_rgba(0,0,0,0.6)] sm:w-56">
           {title.poster_url && (
@@ -141,7 +130,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
         </div>
 
         <div className="flex-1">
-          <h1 className="text-2xl font-semibold sm:text-3xl">{title.name}</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">{title.name}</h1>
           <p className="mt-1 text-sm text-foreground-muted">
             {title.release_date?.slice(0, 4)} · {formatRuntime(title.runtime_minutes)}
           </p>

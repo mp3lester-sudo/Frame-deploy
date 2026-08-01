@@ -4,7 +4,9 @@ import {
   aggregateGroupScores,
   rankGroupCandidates,
   buildGroupConsensusNote,
+  buildGroupConsensusHeadline,
   type ParticipantScores,
+  type ParticipantCitation,
 } from "../group-fairness";
 
 describe("normalizeParticipantScores", () => {
@@ -144,5 +146,91 @@ describe("buildGroupConsensusNote", () => {
       perParticipant: [{ userId: "alice", normalized: 0.5 }],
     };
     expect(buildGroupConsensusNote(candidate, names)).toBe("A strong match based on what's rated so far.");
+  });
+});
+
+describe("buildGroupConsensusHeadline", () => {
+  const names = new Map([["alice", "Alice"], ["bob", "Bob"]]);
+  const twoPersonCandidate = {
+    titleId: "x",
+    averageNormalized: 0.5,
+    passesFloor: true,
+    perParticipant: [
+      { userId: "alice", normalized: 0.9 },
+      { userId: "bob", normalized: 0.4 },
+    ],
+  };
+
+  it("falls back to the generic consensus note when nobody has a citation", () => {
+    const headline = buildGroupConsensusHeadline(twoPersonCandidate, names, []);
+    expect(headline).toBe(buildGroupConsensusNote(twoPersonCandidate, names));
+  });
+
+  it("calls out a shared title when both participants cited the same one", () => {
+    const citations: ParticipantCitation[] = [
+      { userId: "alice", citedTitles: ["Se7en", "Zodiac"] },
+      { userId: "bob", citedTitles: ["Se7en"] },
+    ];
+    const headline = buildGroupConsensusHeadline(twoPersonCandidate, names, citations);
+    expect(headline).toBe("Because you both loved Se7en.");
+  });
+
+  it("names each person's own citation when they differ", () => {
+    const citations: ParticipantCitation[] = [
+      { userId: "alice", citedTitles: ["Lost Highway"] },
+      { userId: "bob", citedTitles: ["Zodiac"] },
+    ];
+    const headline = buildGroupConsensusHeadline(twoPersonCandidate, names, citations);
+    expect(headline).toBe("Alice loved Lost Highway; Bob loved Zodiac.");
+  });
+
+  it("folds a single citation into the existing consensus framing", () => {
+    const citations: ParticipantCitation[] = [{ userId: "alice", citedTitles: ["Lost Highway"] }];
+    const headline = buildGroupConsensusHeadline(twoPersonCandidate, names, citations);
+    expect(headline).toContain("Alice loved Lost Highway");
+    expect(headline.toLowerCase()).toContain("leans toward alice's taste");
+  });
+
+  it("uses the solo single-citation phrasing for a movie night of one", () => {
+    const soloCandidate = {
+      titleId: "x",
+      averageNormalized: 0.9,
+      passesFloor: true,
+      perParticipant: [{ userId: "alice", normalized: 0.9 }],
+    };
+    const citations: ParticipantCitation[] = [{ userId: "alice", citedTitles: ["Se7en"] }];
+    expect(buildGroupConsensusHeadline(soloCandidate, names, citations)).toBe("Because you loved Se7en.");
+  });
+
+  it("uses the two-title solo phrasing when there are two citations for one person", () => {
+    const soloCandidate = {
+      titleId: "x",
+      averageNormalized: 0.9,
+      passesFloor: true,
+      perParticipant: [{ userId: "alice", normalized: 0.9 }],
+    };
+    const citations: ParticipantCitation[] = [{ userId: "alice", citedTitles: ["Se7en", "Zodiac"] }];
+    expect(buildGroupConsensusHeadline(soloCandidate, names, citations)).toBe("Because you loved Se7en and Zodiac.");
+  });
+
+  it("says 'everyone' rather than 'you both' for a shared title across more than two people", () => {
+    const threePersonCandidate = {
+      titleId: "x",
+      averageNormalized: 0.7,
+      passesFloor: true,
+      perParticipant: [
+        { userId: "alice", normalized: 0.8 },
+        { userId: "bob", normalized: 0.7 },
+        { userId: "carol", normalized: 0.6 },
+      ],
+    };
+    const namesWithCarol = new Map([...names, ["carol", "Carol"]]);
+    const citations: ParticipantCitation[] = [
+      { userId: "alice", citedTitles: ["Se7en"] },
+      { userId: "bob", citedTitles: ["Se7en"] },
+      { userId: "carol", citedTitles: ["Se7en"] },
+    ];
+    const headline = buildGroupConsensusHeadline(threePersonCandidate, namesWithCarol, citations);
+    expect(headline).toBe("Because everyone loved Se7en.");
   });
 });

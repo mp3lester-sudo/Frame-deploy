@@ -29,6 +29,20 @@ export interface ImportSummary {
   unmatchedSample: { name: string; year: number | null }[];
 }
 
+/**
+ * Next.js redacts any error *thrown* from a Server Action in production
+ * down to a generic "An error occurred in the Server Components render"
+ * message with no detail — by design, to avoid leaking internals, but it
+ * also means a real bug (or even an expected validation message like
+ * "upload at least one file") is completely invisible to the user and to
+ * us. This return type sidesteps that: known failures are returned as a
+ * normal value instead of thrown, so their message actually reaches the
+ * client. Only a handful of truly-unexpected throws (e.g. auth failing
+ * outright) still go through Next's generic path, which is an acceptable
+ * fallback for cases we can't label with a useful message anyway.
+ */
+export type ImportResult = { ok: true; summary: ImportSummary } | { ok: false; error: string };
+
 function readCsvFile(file: FormDataEntryValue | null): Promise<string> {
   if (!(file instanceof File)) return Promise.resolve("");
   if (file.size === 0) return Promise.resolve("");
@@ -98,14 +112,89 @@ async function matchAndUpsertRows(
     }
   }
 
+  // A rewatch shows up in a diary as two separate entries for the same
+  // film (e.g. logged again a year later) — both parse to the same
+  // title_id here. Left as-is, that puts two rows for the same
+  // (user_id, title_id) in a single insert/upsert call, which Postgres
+  // rejects outright: a plain multi-row INSERT hits the unique constraint
+  // because `now()` is evaluated once per statement (both rows get the
+  // *same* watched_at), and an upsert with two conflicting rows in one
+  // call fails with "ON CONFLICT DO UPDATE command cannot affect row a
+  // second time" regardless. Collapse each array to one row per title_id
+  // before writing — first occurrence wins, which (diary pages sort
+  // newest-first by default) is normally the most recent watch/rating.
+  const dedupeByTitleId = <T extends { title_id: string }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      if (seen.has(item.title_id)) return false;
+      seen.add(item.title_id);
+      return true;
+    });
+  };
+  const dedupedWatchUpserts = dedupeByTitleId(watchUpserts);
+  const dedupedRatingUpserts = dedupeByTitleId(ratingUpserts);
+
+  // watch_history's unique constraint is (user_id, title_id, watched_at) —
+  // watched_at isn't something this import captures per-row, so every
+  // insert would otherwise get a fresh now() and never collide, silently
+  // creating a duplicate "watched" row every time an import is re-run
+  // (contrary to this function's "safe to re-run" doc comment above).
+  // Fetch the user's existing watched title_ids up front and skip ones
+  // already on record instead.
+  const distinctTitleIds = [...new Set(dedupedWatchUpserts.map((w) => w.title_id))];
+  const alreadyWatched = new Set<string>();
+  const ID_CHUNK = 500;
+  for (let i = 0; i < distinctTitleIds.length; i += ID_CHUNK) {
+    const { data, error } = await supabase
+      .from("watch_history")
+      .select("title_id")
+      .eq("user_id", userId)
+      .in("title_id", distinctTitleIds.slice(i, i + ID_CHUNK));
+    if (error) throw new Error(`watch_history lookup failed: ${error.message}`);
+    for (const row of data ?? []) alreadyWatched.add(row.title_id);
+  }
+  const newWatchUpserts = dedupedWatchUpserts.filter((w) => !alreadyWatched.has(w.title_id));
+
   const CHUNK = 500;
-  for (let i = 0; i < watchUpserts.length; i += CHUNK) {
-    const { error } = await supabase.from("watch_history").upsert(watchUpserts.slice(i, i + CHUNK));
+  for (let i = 0; i < newWatchUpserts.length; i += CHUNK) {
+    const { error } = await supabase.from("watch_history").insert(newWatchUpserts.slice(i, i + CHUNK));
     if (error) throw new Error(`watch_history import failed: ${error.message}`);
   }
-  for (let i = 0; i < ratingUpserts.length; i += CHUNK) {
-    const { error } = await supabase.from("ratings").upsert(ratingUpserts.slice(i, i + CHUNK));
+  for (let i = 0; i < dedupedRatingUpserts.length; i += CHUNK) {
+    // Without an explicit onConflict target, PostgREST resolves upsert
+    // conflicts against the table's primary key (id) — which a fresh
+    // insert always has a brand-new value for, so it never actually
+    // matches. That silently turns this into a plain INSERT, which then
+    // hits the *real* unique constraint on (user_id, title_id) — the one
+    // that fires for anyone importing a title they already have a rating
+    // for from any source (onboarding, a prior partial import, manually
+    // rating it in Backlot) — and throws a raw Postgres duplicate-key
+    // error instead of updating the score like the "safe to re-run" doc
+    // comment above promises. This was the actual cause of every real
+    // import failing: onConflict has to name the constraint's columns
+    // explicitly for Postgres to UPDATE instead of erroring.
+    const { error } = await supabase
+      .from("ratings")
+      .upsert(dedupedRatingUpserts.slice(i, i + CHUNK), { onConflict: "user_id,title_id" });
     if (error) throw new Error(`ratings import failed: ${error.message}`);
+  }
+
+  // A bulk import is exactly the kind of curation the recommendation engine
+  // is supposed to care most about — hundreds of explicit ratings in one
+  // go — but this function used to never touch taste_vectors at all, so an
+  // imported history contributed nothing to recommendations until the user
+  // happened to rate something new inside Backlot itself. Recompute once,
+  // after all rows are written, rather than once per row (see migration
+  // 0031 — recompute_taste_vector_for_user rebuilds fresh from every 4-5
+  // star rating, so a single call already reflects the whole import).
+  if (dedupedRatingUpserts.length > 0) {
+    const { error } = await supabase.rpc("recompute_taste_vector_for_user", { p_user_id: userId });
+    if (error) {
+      // Don't fail the whole import over this — the ratings themselves are
+      // already safely written, and a stale/missing taste vector just means
+      // recommendations lag behind until the next rating or import.
+      console.error("recompute_taste_vector_for_user failed after import:", error.message);
+    }
   }
 
   return {
@@ -117,25 +206,32 @@ async function matchAndUpsertRows(
   };
 }
 
-export async function importLetterboxdData(formData: FormData): Promise<ImportSummary> {
-  const { supabase, user } = await requireUser();
+export async function importLetterboxdData(formData: FormData): Promise<ImportResult> {
+  try {
+    const { supabase, user } = await requireUser();
 
-  const [ratingsCsv, watchedCsv] = await Promise.all([
-    readCsvFile(formData.get("ratingsFile")),
-    readCsvFile(formData.get("watchedFile")),
-  ]);
-  if (!ratingsCsv && !watchedCsv) throw new Error("Upload at least one file (ratings.csv or watched.csv)");
+    const [ratingsCsv, watchedCsv] = await Promise.all([
+      readCsvFile(formData.get("ratingsFile")),
+      readCsvFile(formData.get("watchedFile")),
+    ]);
+    if (!ratingsCsv && !watchedCsv) {
+      return { ok: false, error: "Upload at least one file (ratings.csv or watched.csv)" };
+    }
 
-  const ratingsRows = ratingsCsv ? parseLetterboxdCsv(ratingsCsv) : [];
-  const watchedRows = watchedCsv ? parseLetterboxdCsv(watchedCsv) : [];
+    const ratingsRows = ratingsCsv ? parseLetterboxdCsv(ratingsCsv) : [];
+    const watchedRows = watchedCsv ? parseLetterboxdCsv(watchedCsv) : [];
 
-  // ratings.csv takes precedence when a film appears in both files.
-  const byKey = new Map<string, LetterboxdRow>();
-  for (const row of watchedRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
-  for (const row of ratingsRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
-  const rows = [...byKey.values()];
+    // ratings.csv takes precedence when a film appears in both files.
+    const byKey = new Map<string, LetterboxdRow>();
+    for (const row of watchedRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
+    for (const row of ratingsRows) byKey.set(`${row.name.toLowerCase()}|${row.year}`, row);
+    const rows = [...byKey.values()];
 
-  return matchAndUpsertRows(supabase, user.id, rows);
+    const summary = await matchAndUpsertRows(supabase, user.id, rows);
+    return { ok: true, summary };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Import failed" };
+  }
 }
 
 const MAX_PASTE_CHARS = 3 * 1024 * 1024; // a full diary page's HTML source runs well under this
@@ -153,18 +249,27 @@ const MAX_PASTE_CHARS = 3 * 1024 * 1024; // a full diary page's HTML source runs
  * (same upsert-on-conflict behavior as the CSV path), so re-pasting a page
  * or pasting overlapping pages is harmless.
  */
-export async function importLetterboxdPaste(html: string): Promise<ImportSummary> {
-  const { supabase, user } = await requireUser();
+export async function importLetterboxdPaste(html: string): Promise<ImportResult> {
+  try {
+    const { supabase, user } = await requireUser();
 
-  if (!html || !html.trim()) throw new Error("Paste your Diary page's HTML source first");
-  if (html.length > MAX_PASTE_CHARS) throw new Error("That's a lot of HTML — try pasting one Diary page at a time");
+    if (!html || !html.trim()) return { ok: false, error: "Paste your Diary page's HTML source first" };
+    if (html.length > MAX_PASTE_CHARS) {
+      return { ok: false, error: "That's a lot of HTML — try pasting one Diary page at a time" };
+    }
 
-  const rows = parseLetterboxdDiaryPaste(html);
-  if (rows.length === 0) {
-    throw new Error(
-      "Couldn't find any diary entries in that paste — make sure you copied the page source (View Page Source) of your Letterboxd Diary page, not just the visible text"
-    );
+    const rows = parseLetterboxdDiaryPaste(html);
+    if (rows.length === 0) {
+      return {
+        ok: false,
+        error:
+          "Couldn't find any diary entries in that paste — make sure you copied the page source (View Page Source or Ctrl/Cmd+S) of your Letterboxd Diary page, not just the visible text",
+      };
+    }
+
+    const summary = await matchAndUpsertRows(supabase, user.id, rows);
+    return { ok: true, summary };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Import failed" };
   }
-
-  return matchAndUpsertRows(supabase, user.id, rows);
 }

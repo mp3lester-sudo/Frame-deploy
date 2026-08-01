@@ -120,3 +120,77 @@ export function buildGroupConsensusNote(
   const topName = participantNames.get(sorted[0].userId) ?? "one of you";
   return `Leans toward ${topName}'s taste, but still clears the bar for everyone.`;
 }
+
+export interface ParticipantCitation {
+  userId: string;
+  /** Up to 2, closest-first (see most_similar_liked_title, migration
+   *  0016/0032) -- this participant's own highly-rated titles closest to
+   *  the candidate. Empty when nothing cleared the citation bar for them
+   *  on this particular candidate -- never fabricated. */
+  citedTitles: string[];
+}
+
+/**
+ * Names the SPECIFIC titles from each person's own rating history driving
+ * a group pick -- "Because you both loved Se7en" or "Michael loved Lost
+ * Highway; Eli loved Zodiac" -- instead of buildGroupConsensusNote's
+ * generic "strong match for everyone" / "leans toward X" lines. Same
+ * "user curation is the key" specificity the solo home page already has
+ * (see explain.ts's citedTitles). Falls back to buildGroupConsensusNote
+ * whenever nobody in the group has a close-enough citation for this
+ * candidate, so a real film is never named unless it's genuinely there.
+ */
+export function buildGroupConsensusHeadline(
+  candidate: GroupCandidateScore,
+  participantNames: Map<string, string>,
+  citations: ParticipantCitation[]
+): string {
+  const citedByUser = new Map(
+    citations.filter((c) => c.citedTitles.length > 0).map((c) => [c.userId, c.citedTitles])
+  );
+  if (citedByUser.size === 0) return buildGroupConsensusNote(candidate, participantNames);
+
+  // A "movie night" of one (or the rare group candidate with only one
+  // active participant) -- same phrasing the solo engine uses.
+  if (candidate.perParticipant.length <= 1) {
+    const titles = [...citedByUser.values()][0];
+    return titles.length > 1
+      ? `Because you loved ${titles[0]} and ${titles[1]}.`
+      : `Because you loved ${titles[0]}.`;
+  }
+
+  // A title every citing participant loved in common is the strongest
+  // possible signal a compromise pick can have -- surfaced even if not
+  // literally every participant has a citation (someone with too little
+  // rating history yet still benefits from seeing why it clicked for the
+  // others).
+  const citationLists = [...citedByUser.values()];
+  const sharedTitle = citationLists[0]?.find((t) => citationLists.every((list) => list.includes(t)));
+  if (sharedTitle && citedByUser.size >= 2) {
+    const subject = citedByUser.size > 2 ? "everyone" : "you both";
+    return `Because ${subject} loved ${sharedTitle}.`;
+  }
+
+  // Different people, different titles -- name each person's own closest
+  // match rather than picking one arbitrarily.
+  const perPersonLines = candidate.perParticipant
+    .map((p) => {
+      const titles = citedByUser.get(p.userId);
+      if (!titles?.length) return null;
+      const name = participantNames.get(p.userId) ?? "someone";
+      return `${name} loved ${titles[0]}`;
+    })
+    .filter((line): line is string => !!line);
+
+  if (perPersonLines.length >= 2) return `${perPersonLines.join("; ")}.`;
+
+  if (perPersonLines.length === 1) {
+    // Only one person has a citation -- fold in the existing "leans
+    // toward"/"strong match" framing so it's still clear how the rest of
+    // the group fits, rather than implying unanimous enthusiasm.
+    const consensus = buildGroupConsensusNote(candidate, participantNames);
+    return `${perPersonLines[0]} — ${consensus.charAt(0).toLowerCase()}${consensus.slice(1)}`;
+  }
+
+  return buildGroupConsensusNote(candidate, participantNames);
+}

@@ -1,0 +1,11 @@
+-- Fixes live preference sync (LiveCandidateVoting / LiveParticipants):
+-- both components subscribe to postgres_changes on
+-- public.movie_night_participants, but that table was never added to the
+-- supabase_realtime publication (only movie_night_votes and movie_nights
+-- were, in migration 0030). Without this, Postgres never broadcasts row
+-- changes on this table at all -- saving a preference (mood/excluded_genres)
+-- or inviting someone updates the row correctly, but no subscribed client
+-- ever receives an event to trigger its candidate/roster refetch. This is
+-- the actual root cause of "new recommendations don't populate after
+-- saving preferences" -- the save itself was always working.
+alter publication supabase_realtime add table public.movie_night_participants;

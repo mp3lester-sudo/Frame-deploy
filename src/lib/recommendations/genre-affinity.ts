@@ -23,15 +23,32 @@ const RATING_SPAN = 2.5;
  *  genre. Below the threshold it's treated as unknown (neutral). */
 const MIN_OCCURRENCES = 2;
 
-/** How strongly affinity can move a candidate's score: a genre the user
- *  clearly hates (affinity -1) knocks it down to 0.7x; a genre they clearly
- *  love (affinity +1) lifts it to 1.3x. Kept in the same soft-nudge range
- *  as the other multipliers so no single signal dominates on its own. */
+/** How strongly affinity can move a candidate's score, scaled by how much
+ *  evidence backs it up: a genre seen only MIN_OCCURRENCES times swings at
+ *  most MIN_MULTIPLIER_SWING (a light nudge — two data points could still
+ *  be a fluke); a genre seen FULL_CONFIDENCE_COUNT+ times swings up to
+ *  MAX_MULTIPLIER_SWING (a genre you've clearly, repeatedly hated or loved
+ *  should pull harder than a hunch based on two ratings). This used to be
+ *  one flat cap regardless of sample size — someone who's rated 40 Horror
+ *  titles 1/5 and someone who's rated 2 Horror titles 1/5 got an identical
+ *  ceiling, which under-weights exactly the kind of deep, consistent
+ *  curation this product is supposed to trust most. */
+const MIN_MULTIPLIER_SWING = 0.12;
 const MAX_MULTIPLIER_SWING = 0.3;
+const FULL_CONFIDENCE_COUNT = 10;
 
 export interface RatedTitleForAffinity {
   score: number;
   genres: string[] | null;
+}
+
+export interface GenreAffinityEntry {
+  /** Signed affinity in [-1, 1] — negative means "rates this genre below
+   *  average," positive means above. */
+  affinity: number;
+  /** How many rated titles fed this genre's affinity — the confidence
+   *  signal genreAffinityMultiplier uses to scale its swing. */
+  count: number;
 }
 
 /**
@@ -40,7 +57,7 @@ export interface RatedTitleForAffinity {
  * Genres with fewer than MIN_OCCURRENCES ratings are omitted entirely
  * (treated as unknown, not neutral-zero, so they don't get invented data).
  */
-export function computeGenreAffinity(ratings: RatedTitleForAffinity[]): Map<string, number> {
+export function computeGenreAffinity(ratings: RatedTitleForAffinity[]): Map<string, GenreAffinityEntry> {
   const sums = new Map<string, number>();
   const counts = new Map<string, number>();
 
@@ -52,10 +69,11 @@ export function computeGenreAffinity(ratings: RatedTitleForAffinity[]): Map<stri
     }
   }
 
-  const affinity = new Map<string, number>();
+  const affinity = new Map<string, GenreAffinityEntry>();
   for (const [genre, count] of counts) {
     if (count < MIN_OCCURRENCES) continue;
-    affinity.set(genre, Math.max(-1, Math.min(1, (sums.get(genre) ?? 0) / count)));
+    const avg = Math.max(-1, Math.min(1, (sums.get(genre) ?? 0) / count));
+    affinity.set(genre, { affinity: avg, count });
   }
   return affinity;
 }
@@ -66,11 +84,25 @@ export function computeGenreAffinity(ratings: RatedTitleForAffinity[]): Map<stri
  * with one known-hated genre and two unrated genres still gets the full
  * penalty rather than it being diluted by unknowns). No known genres at all
  * returns 1 (no opinion, no adjustment).
+ *
+ * Each known genre's own swing is scaled by its own confidence (occurrence
+ * count) before averaging, so a well-established genre preference pulls
+ * harder than a genre a candidate barely overlaps with a two-rating hunch.
  */
-export function genreAffinityMultiplier(titleGenres: string[] | null, affinity: Map<string, number>): number {
-  const known = (titleGenres ?? []).map((g) => affinity.get(g)).filter((a): a is number => a != null);
+export function genreAffinityMultiplier(titleGenres: string[] | null, affinity: Map<string, GenreAffinityEntry>): number {
+  const known = (titleGenres ?? [])
+    .map((g) => affinity.get(g))
+    .filter((a): a is GenreAffinityEntry => a != null);
   if (known.length === 0) return 1;
 
-  const avg = known.reduce((sum, a) => sum + a, 0) / known.length;
-  return 1 + avg * MAX_MULTIPLIER_SWING;
+  const perGenreMultipliers = known.map(({ affinity: a, count }) => {
+    const confidence = Math.max(
+      0,
+      Math.min(1, (count - MIN_OCCURRENCES) / (FULL_CONFIDENCE_COUNT - MIN_OCCURRENCES))
+    );
+    const swing = MIN_MULTIPLIER_SWING + (MAX_MULTIPLIER_SWING - MIN_MULTIPLIER_SWING) * confidence;
+    return 1 + a * swing;
+  });
+
+  return perGenreMultipliers.reduce((sum, m) => sum + m, 0) / perGenreMultipliers.length;
 }

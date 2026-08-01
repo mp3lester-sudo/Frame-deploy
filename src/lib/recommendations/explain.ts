@@ -19,10 +19,11 @@ export interface ReasonDetail {
   moodTags: string[];
   pacing: string | null;
   endingType: string | null;
-  /** "Because you loved <this>" — set only when a real, close-enough match
-   *  was found in the user's own rating history (see most_similar_liked_title,
-   *  migration 0016). Never fabricated. */
-  citedTitle: string | null;
+  /** "Because you loved X" or "Because you loved X and Y" — up to two
+   *  titles from the user's own rating history that are the closest match
+   *  to this pick (see most_similar_liked_title, migrations 0016/0032).
+   *  Empty when nothing was a close enough match. Never fabricated. */
+  citedTitles: string[];
 }
 
 function determineMatchKind(
@@ -40,7 +41,7 @@ export function buildReasonDetail(params: {
   title: ExplainableTitle;
   hasStrongContentMatch: boolean;
   hasCollaborativeEdge: boolean;
-  citedTitle: string | null;
+  citedTitles: string[];
   context?: CircumstantialContext;
   /** Set by the engine when weather/time materially nudged this pick (see
    *  weather-time-weighting.ts) — kept as a plain string rather than a
@@ -48,7 +49,7 @@ export function buildReasonDetail(params: {
    *  codes or hours, just the sentence fragment to fold in. */
   weatherNote?: string | null;
 }): ReasonDetail {
-  const { title, hasStrongContentMatch, hasCollaborativeEdge, citedTitle, context, weatherNote } = params;
+  const { title, hasStrongContentMatch, hasCollaborativeEdge, citedTitles, context, weatherNote } = params;
   const themes = title.themes ?? [];
   const tone = title.tone ?? [];
   const moodTags = title.mood_tags ?? [];
@@ -60,11 +61,18 @@ export function buildReasonDetail(params: {
   const suffix = notes.length ? ` (${notes.join("; ")})` : "";
 
   let headline: string;
-  if (matchKind === "content" && citedTitle) {
-    const traits = [themes[0], tone[0]].filter(Boolean).join(", ");
-    headline = traits
-      ? `Because you loved ${citedTitle} — similar ${traits}.${suffix}`
-      : `Because you loved ${citedTitle}.${suffix}`;
+  if (matchKind === "content" && citedTitles.length > 0) {
+    if (citedTitles.length === 1) {
+      // A single citation still gets a bit of extra texture from the
+      // pick's own themes/tone — with two citations that reads as
+      // clutter, so the two-title branch below keeps it to just the names.
+      const traits = [themes[0], tone[0]].filter(Boolean).join(", ");
+      headline = traits
+        ? `Because you loved ${citedTitles[0]} — similar ${traits}.${suffix}`
+        : `Because you loved ${citedTitles[0]}.${suffix}`;
+    } else {
+      headline = `Because you loved ${citedTitles[0]} and ${citedTitles[1]}.${suffix}`;
+    }
   } else if (matchKind === "content") {
     headline = `Matches your taste closely — similar tone and pacing to what you love.${suffix}`;
   } else if (matchKind === "collaborative") {
@@ -82,7 +90,7 @@ export function buildReasonDetail(params: {
     moodTags,
     pacing: title.pacing ?? null,
     endingType: title.ending_type ?? null,
-    citedTitle,
+    citedTitles,
   };
 }
 
@@ -97,6 +105,6 @@ export function buildColdStartDetail(title: ExplainableTitle): ReasonDetail {
     moodTags: title.mood_tags ?? [],
     pacing: title.pacing ?? null,
     endingType: title.ending_type ?? null,
-    citedTitle: null,
+    citedTitles: [],
   };
 }

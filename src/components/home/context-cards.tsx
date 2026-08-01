@@ -54,7 +54,7 @@ export function ContextCards({
   weather: { tempF: number; description: string; code: number } | null;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground-muted">
+    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-foreground-muted">
       <span className="inline-flex items-center gap-1">
         <Clock size={13} className="text-accent" />
         {day} &middot; {time}

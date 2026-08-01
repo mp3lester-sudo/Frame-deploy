@@ -4,21 +4,16 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getCandidatesForMovieNight } from "@/lib/recommendations/movie-night";
-import { reopenMovieNight, cancelMovieNight } from "@/lib/actions/movie-night";
-import { Avatar } from "@/components/ui/avatar";
+import { reopenMovieNight, cancelMovieNight, type MovieNightParticipantRow } from "@/lib/actions/movie-night";
 import { Button } from "@/components/ui/button";
 import { InviteForm } from "@/components/movie-night/invite-form";
 import { PreferencesForm } from "@/components/movie-night/preferences-form";
 import { LiveCandidateVoting } from "@/components/movie-night/live-candidate-voting";
+import { LiveParticipants } from "@/components/movie-night/live-participants";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 
-interface ParticipantRow {
-  user_id: string;
-  mood: string | null;
-  excluded_genres: string[];
-  profiles: { username: string; display_name: string | null; avatar_url: string | null } | null;
-}
+type ParticipantRow = MovieNightParticipantRow;
 
 export default async function MovieNightDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -63,7 +58,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
   // Every participant (not just the host) sees and votes on the shared
   // candidate pool now — see LiveCandidateVoting. The host still makes the
   // final call via decideMovieNight, informed by the live tally.
-  const candidates = night.status === "collecting" ? await getCandidatesForMovieNight(id) : [];
+  const candidates = night.status === "collecting" ? await getCandidatesForMovieNight(id, { viewerId: user.id }) : [];
 
   const { data: voteRows } = night.status === "collecting"
     ? await supabase
@@ -88,22 +83,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
         </span>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        {participants.map((p) => (
-          <div key={p.user_id} className="flex items-center gap-2 rounded-[var(--radius-full)] border border-border bg-surface py-1.5 pl-1.5 pr-3">
-            <Avatar
-              name={p.profiles?.display_name ?? p.profiles?.username ?? "?"}
-              src={p.profiles?.avatar_url}
-              size={24}
-            />
-            <span className="text-xs">
-              {p.profiles?.display_name ?? p.profiles?.username ?? "Unknown"}
-              {p.user_id === night.host_id && " (host)"}
-            </span>
-            {p.mood && <span className="text-[11px] text-foreground-muted">&middot; {p.mood}</span>}
-          </div>
-        ))}
-      </div>
+      <LiveParticipants movieNightId={id} hostId={night.host_id} initialParticipants={participants} />
 
       {comparisons.length > 0 && (
         <div className="mt-6 space-y-3">

@@ -77,7 +77,7 @@ export function PersonHero({
       </div>
 
       <div className="flex-1">
-        <h1 className="text-2xl font-semibold sm:text-3xl">{name}</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">{name}</h1>
         {(birthdayLabel || placeOfBirth) && (
           <p className="mt-1 text-sm text-foreground-muted">
             {birthdayLabel}
