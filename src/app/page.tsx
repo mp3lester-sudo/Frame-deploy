@@ -243,7 +243,7 @@ export default async function HomePage({
             className={
               greetingFontClassName
                 ? `${greetingFontClassName} text-3xl uppercase tracking-wide sm:text-4xl`
-                : "marquee-bulbs font-marquee text-3xl uppercase tracking-wide sm:text-4xl"
+                : "font-greeting text-3xl uppercase tracking-wide sm:text-4xl"
             }
           >
             {firstName}
@@ -265,17 +265,16 @@ export default async function HomePage({
             modern look. Still off-white; only the typeface changed, the
             marquee name treatment right after it is untouched. */}
         <span className="font-sans font-medium text-foreground">{greeting}</span>,{" "}
-        {/* The name gets the dotted "row of light bulbs" marquee treatment
-            (font-marquee/Monoton + marquee-bulbs) by default -- but when
-            this user's most recently reviewed/watched title has a
-            poster-matched font on file (see lib/poster-font), that takes
-            over instead, so the greeting reflects something specific to
-            them rather than always the same house treatment. */}
+        {/* The name gets a bold, minimal Syne treatment (--font-greeting)
+            by default -- but when this user's most recently reviewed/watched
+            title has a poster-matched font on file (see lib/poster-font),
+            that takes over instead, so the greeting reflects something
+            specific to them rather than always the same house treatment. */}
         <span
           className={
             greetingFontClassName
               ? `${greetingFontClassName} text-3xl uppercase tracking-wide sm:text-4xl`
-              : "marquee-bulbs font-marquee text-3xl uppercase tracking-wide sm:text-4xl"
+              : "font-greeting text-3xl uppercase tracking-wide sm:text-4xl"
           }
         >
           {firstName}
