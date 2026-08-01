@@ -21,6 +21,9 @@ import { getLastReviewedOrWatchedTitle } from "@/lib/poster-font/last-title";
 import { getOrFetchPosterFont } from "@/lib/poster-font/detect";
 import { getPosterFontClassName } from "@/lib/poster-font/fonts";
 import { PreciseLocation } from "@/components/home/precise-location";
+import { IndieSpotlight } from "@/components/home/indie-spotlight";
+import { getIndieReleases } from "@/lib/news/tmdb-releases";
+import { getIndieNews } from "@/lib/news/indie-news";
 import type { Recommendation } from "@/lib/recommendations/engine";
 
 type Participant = { username: string; display_name: string | null; avatar_url: string | null };
@@ -111,7 +114,15 @@ export default async function HomePage({
   // nobody would see.
   const isCompanionContext = activeContext === "date_night" || activeContext === "with_friends";
 
-  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }, directorOfTheDay, lastTitle] = await Promise.all([
+  const [
+    { recommendations, isColdStart },
+    { data: memberships },
+    { data: following },
+    directorOfTheDay,
+    lastTitle,
+    indieReleases,
+    indieNews,
+  ] = await Promise.all([
     isCompanionContext
       ? Promise.resolve({ recommendations: [] as Recommendation[], isColdStart: false })
       : getRecommendationsForUser(user.id, {
@@ -134,6 +145,11 @@ export default async function HomePage({
     // else in this batch, so it rides along here instead of adding its own
     // sequential stage.
     getLastReviewedOrWatchedTitle(user.id),
+    // Indie Spotlight data (release calendar + IndieWire headlines) is the
+    // same for every visitor, not scoped to this user at all -- rides
+    // along in this same batch rather than adding a sequential fetch.
+    getIndieReleases(),
+    getIndieNews(),
   ]);
 
   const [hero, ...morePicks] = recommendations;
@@ -408,6 +424,12 @@ export default async function HomePage({
           </div>
         );
       })()}
+
+      {/* Same section either way (solo or companion context) -- it's not
+          personalized at all, just a live release calendar + news pull,
+          so it sits outside the IIFE above rather than being duplicated
+          in both branches. */}
+      <IndieSpotlight releases={indieReleases} news={indieNews} />
     </div>
   );
 }

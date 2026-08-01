@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { PostCard } from "@/components/social/post-card";
+import { IndieBuzzStrip } from "@/components/social/indie-buzz-strip";
 import { FAKE_POSTS } from "@/lib/social/fake-posts";
+import { getIndieReleases } from "@/lib/news/tmdb-releases";
+import { getIndieNews } from "@/lib/news/indie-news";
 
 export default async function FeedPage() {
   const user = await getVerifiedUser();
@@ -17,6 +20,12 @@ export default async function FeedPage() {
     );
   }
 
+  // Same live release calendar + IndieWire headlines as the home page's
+  // Indie Spotlight section (lib/news/*), condensed into a strip for this
+  // single-column layout -- not scoped to this user, so it's fetched
+  // alongside rather than blocking on anything user-specific.
+  const [indieReleases, indieNews] = await Promise.all([getIndieReleases(), getIndieNews()]);
+
   return (
     <div className="mx-auto max-w-2xl pb-12">
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/90 px-4 py-4 backdrop-blur sm:px-5">
@@ -25,6 +34,8 @@ export default async function FeedPage() {
           Hot Takes &rarr;
         </Link>
       </div>
+
+      <IndieBuzzStrip releases={indieReleases} news={indieNews} />
 
       <div className="flex flex-col">
         {FAKE_POSTS.map((post) => (
