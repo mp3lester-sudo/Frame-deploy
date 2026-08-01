@@ -8,14 +8,7 @@ import { withTimeout } from "@/lib/with-timeout";
 import { SignaturePickCard } from "@/components/taste-dna/signature-pick-card";
 import { Button } from "@/components/ui/button";
 import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
-
-const MIN_SAMPLE_SIZE = 3;
-
-const PACING_LABEL: Record<string, string> = {
-  slow: "You favor slow, deliberate pacing",
-  moderate: "You favor a moderate, balanced pace",
-  fast: "You favor fast, propulsive pacing",
-};
+import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
 
 export default async function TasteDnaPage() {
   const supabase = await createClient();

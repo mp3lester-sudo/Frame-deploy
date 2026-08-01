@@ -17,6 +17,12 @@ import { resolveProfileTheme } from "@/lib/profile/theme-preset";
 import { AnimatedCounter } from "@/components/profile/animated-counter";
 import { Reveal } from "@/components/profile/reveal";
 import { TiltCard } from "@/components/profile/tilt-card";
+import { computeTasteDna } from "@/lib/taste-dna/compute";
+import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
+import { withTimeout } from "@/lib/with-timeout";
+import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
+import { SignaturePickCard } from "@/components/taste-dna/signature-pick-card";
+import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
 
 /**
  * Tailwind col-start-N classes must appear literally in source for the JIT
@@ -155,6 +161,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const compatibility =
     viewer && !isOwnProfile ? await computeCompatibilityForUsers(viewer.id, profile.id) : null;
 
+  // Backlot DNA used to live behind its own link in the self-service menu
+  // (viewer's own DNA only, at /taste-dna); it now renders inline right
+  // next to the Personal Pyramid instead, scoped to THIS profile (not the
+  // viewer) so it's public the same way the pyramid and stats already are.
+  // Kicked off here (not awaited yet) so it runs concurrently with the big
+  // Promise.all below rather than adding its own sequential round trip.
+  // computeSignaturePick is timeout-guarded (see its own comment in
+  // taste-dna/page.tsx) since this panel is now on a far more frequently
+  // visited page than the standalone Taste DNA page ever was.
+  const dnaPromise = computeTasteDna(profile.id);
+  const signaturePickPromise = withTimeout(computeSignaturePick(profile.id), 10000, null);
+
   const [
     { count: followerCount },
     { count: followingCount },
@@ -197,6 +215,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     // lot of profiles that clearly do have a most-watched genre.
     supabase.from("ratings").select("titles(genres)").eq("user_id", profile.id),
   ]);
+
+  const [dna, signaturePick] = await Promise.all([dnaPromise, signaturePickPromise]);
 
   const favorites = (favoriteRows ?? [])
     .map((r) => (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] | null }).titles)
@@ -389,13 +409,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             Edit profile
           </Link>
           <Link
-            href="/taste-dna"
-            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
-            style={{ animationDelay: "550ms" }}
-          >
-            Backlot DNA
-          </Link>
-          <Link
             href="/watchlist"
             className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
             style={{ animationDelay: "600ms" }}
@@ -562,6 +575,115 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             </div>
           </div>
         </div>
+      )}
+
+      {/* Backlot DNA, inline: used to be a link out to a separate page
+          (/taste-dna), now sits directly beside the Personal Pyramid as
+          this profile's own analytics -- same public visibility as the
+          pyramid and stat strip above, scoped to whoever's profile this
+          is rather than the viewer. Hidden below MIN_SAMPLE_SIZE for the
+          same reason the standalone page hides it: a mostly-empty
+          breakdown reads as broken, not "not enough data yet." */}
+      {dna.sampleSize >= MIN_SAMPLE_SIZE && (
+        <Reveal className="mt-6">
+          <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border">
+            <div className="relative px-6 py-8 sm:px-10 sm:py-10">
+              <div className="mb-6 text-center">
+                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
+                  Backlot Analysis
+                </p>
+                <h2 className="mt-1 text-lg font-semibold">Backlot DNA</h2>
+                <span className="text-xs text-foreground-muted">
+                  Based on {dna.sampleSize} rated title{dna.sampleSize === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              {signaturePick && (
+                <div className="mb-8">
+                  <SignaturePickCard pick={signaturePick} />
+                </div>
+              )}
+
+              <div className="flex flex-col gap-4">
+                {dna.archetypes.slice(0, 6).map((a, i) => (
+                  <ArchetypeBar key={a.name} name={a.name} percent={a.percent} delayMs={i * 80} />
+                ))}
+              </div>
+
+              <div className="mt-8 grid gap-6 sm:grid-cols-2">
+                {dna.favoriteGenres.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                      Favorite genres
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {dna.favoriteGenres.map((g) => (
+                        <span
+                          key={g}
+                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
+                        >
+                          {g}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {dna.favoriteDecades.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                      Favorite decades
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {dna.favoriteDecades.map((d) => (
+                        <span
+                          key={d}
+                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
+                        >
+                          {d}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {dna.favoriteDirectors.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                      Favorite directors
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {dna.favoriteDirectors.map((d) => (
+                        <span
+                          key={d.id}
+                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
+                        >
+                          {d.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(dna.pacingPreference || dna.violenceTolerance != null || dna.comedyTolerance != null) && (
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                      Sensibility
+                    </p>
+                    <ul className="flex flex-col gap-1 text-sm text-foreground-muted">
+                      {dna.pacingPreference && <li>{PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}</li>}
+                      {dna.violenceTolerance != null && <li>Violence tolerance: {dna.violenceTolerance}/5</li>}
+                      {dna.comedyTolerance != null && <li>Comedy tolerance: {dna.comedyTolerance}/5</li>}
+                      {dna.emotionalIntensityPreference != null && (
+                        <li>Emotional intensity: {dna.emotionalIntensityPreference}/5</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Reveal>
       )}
 
       {compatibility && (
