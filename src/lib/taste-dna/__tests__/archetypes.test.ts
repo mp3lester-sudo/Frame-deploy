@@ -103,4 +103,82 @@ describe("computeTasteDnaFromRatings", () => {
     const result = computeTasteDnaFromRatings(rated);
     expect(result.violenceTolerance).toBe(3);
   });
+
+  it("cites the highest-weight titles and matched keywords behind an archetype score", () => {
+    const rated: RatedTitleFeatures[] = [
+      makeRated({
+        titleId: "t1",
+        titleName: "Chinatown",
+        genres: ["Crime", "Mystery"],
+        tone: ["noir", "morally gray"],
+        weight: 2.5,
+      }),
+      makeRated({
+        titleId: "t2",
+        titleName: "The Long Goodbye",
+        genres: ["Crime"],
+        tone: ["cynical"],
+        weight: 2,
+      }),
+      makeRated({
+        titleId: "t3",
+        titleName: "Paddington",
+        genres: ["Comedy", "Family"],
+        weight: 1,
+      }),
+    ];
+
+    const result = computeTasteDnaFromRatings(rated);
+    const neoNoir = result.archetypes.find((a) => a.name === "Neo-Noir")!;
+
+    expect(neoNoir.citedTitles.map((t) => t.name)).toEqual(["Chinatown", "The Long Goodbye"]);
+    expect(neoNoir.matchedKeywords).toEqual(expect.arrayContaining(["noir", "morally gray", "cynical"]));
+
+    const horror = result.archetypes.find((a) => a.name === "Horror & Dread")!;
+    expect(horror.citedTitles).toEqual([]);
+  });
+
+  it("leaves citedTitles empty when rows have no titleId/titleName (e.g. existing callers)", () => {
+    const rated: RatedTitleFeatures[] = [makeRated({ genres: ["Horror"], tone: ["dread"], weight: 2 })];
+    const result = computeTasteDnaFromRatings(rated);
+    expect(result.archetypes.find((a) => a.name === "Horror & Dread")!.citedTitles).toEqual([]);
+  });
+
+  it("builds a weighted mood/tone/theme breakdown across enriched titles only", () => {
+    const rated: RatedTitleFeatures[] = [
+      makeRated({ genres: ["Horror"], tone: ["dread"], weight: 3 }),
+      makeRated({ genres: ["Horror"], tone: ["dread"], themes: ["isolation"], weight: 1 }),
+      makeRated({ genres: ["Comedy"], weight: 5 }), // not enriched -- excluded from the breakdown's total
+    ];
+    const result = computeTasteDnaFromRatings(rated);
+    expect(result.moodBreakdown[0]).toEqual({ tag: "dread", percent: 100 });
+    expect(result.moodBreakdown.find((m) => m.tag === "isolation")).toEqual({ tag: "isolation", percent: 25 });
+  });
+
+  it("builds a full language breakdown with human-readable labels, not just the top pick", () => {
+    const rated: RatedTitleFeatures[] = [
+      makeRated({ originalLanguage: "en", weight: 3 }),
+      makeRated({ originalLanguage: "ko", weight: 1 }),
+    ];
+    const result = computeTasteDnaFromRatings(rated);
+    expect(result.languageBreakdown).toEqual([
+      { label: "English", percent: 75 },
+      { label: "Korean", percent: 25 },
+    ]);
+  });
+
+  it("builds a chronologically-sorted full era distribution, not just the top 3 decades", () => {
+    const rated: RatedTitleFeatures[] = [
+      makeRated({ decade: "1970s", weight: 1 }),
+      makeRated({ decade: "1990s", weight: 1 }),
+      makeRated({ decade: "1990s", weight: 1 }),
+      makeRated({ decade: "2020s", weight: 2 }),
+    ];
+    const result = computeTasteDnaFromRatings(rated);
+    expect(result.eraDistribution).toEqual([
+      { decade: "1970s", percent: 20 },
+      { decade: "1990s", percent: 40 },
+      { decade: "2020s", percent: 40 },
+    ]);
+  });
 });

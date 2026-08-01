@@ -52,7 +52,7 @@ export async function computeTasteDna(userId: string): Promise<TasteDnaWithEvolu
     supabase
       .from("titles")
       .select(
-        "id, genres, tone, themes, mood_tags, pacing, violence_level, comedy_level, emotional_intensity, release_date, original_language"
+        "id, name, genres, tone, themes, mood_tags, pacing, violence_level, comedy_level, emotional_intensity, release_date, original_language"
       )
       .in("id", titleIds),
     supabase
@@ -76,6 +76,8 @@ export async function computeTasteDna(userId: string): Promise<TasteDnaWithEvolu
       const director = directorByTitle.get(r.title_id);
       const feature: RatedTitleFeaturesWithTime = {
         weight: Math.max(r.score - 2.5, 0),
+        titleId: title.id,
+        titleName: title.name,
         genres: title.genres ?? [],
         tone: title.tone ?? [],
         themes: title.themes ?? [],

@@ -11,12 +11,25 @@
  * archetype blends the two dimensions and re-weights automatically toward
  * whichever one actually has data — a user's DNA gets sharper on its own as
  * more of the catalogue gets enriched, with no code change required.
+ *
+ * Each archetype score also carries its own receipts (citedTitles,
+ * matchedKeywords) rather than landing as a bare name + percent — "Neo-Noir
+ * 62%" asserted with no evidence reads as a black box; "driven by Chinatown,
+ * The Long Goodbye — morally gray, cynical" reads as something the app
+ * actually noticed. Titles are attributed by whichever match (genre or
+ * keyword) is present; a title can back multiple archetypes at once, same
+ * as one movie can genuinely be both Neo-Noir and Prestige Drama.
  */
 
 export interface RatedTitleFeatures {
   /** Positive-only affinity weight, e.g. max(score - 2.5, 0). Titles you
    * disliked don't count toward a "taste for" anything. */
   weight: number;
+  /** Optional -- only used to cite specific titles behind an archetype
+   * score. Omitted in most existing unit tests, which only assert on
+   * percentages; citations simply come back empty in that case. */
+  titleId?: string;
+  titleName?: string;
   genres: string[];
   tone: string[];
   themes: string[];
@@ -94,10 +107,57 @@ const ARCHETYPES: ArchetypeDef[] = [
   },
 ];
 
+/** ISO 639-1 codes actually seen in the TMDB catalogue -- falls back to the
+ *  raw uppercased code for anything not listed rather than guessing. */
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: "English",
+  fr: "French",
+  ja: "Japanese",
+  ko: "Korean",
+  es: "Spanish",
+  it: "Italian",
+  de: "German",
+  zh: "Mandarin",
+  cn: "Chinese",
+  hi: "Hindi",
+  pt: "Portuguese",
+  ru: "Russian",
+  sv: "Swedish",
+  da: "Danish",
+  no: "Norwegian",
+  fi: "Finnish",
+  pl: "Polish",
+  tr: "Turkish",
+  th: "Thai",
+  nl: "Dutch",
+  ar: "Arabic",
+  he: "Hebrew",
+  cs: "Czech",
+  el: "Greek",
+  hu: "Hungarian",
+  ro: "Romanian",
+};
+
+export function languageLabel(code: string): string {
+  return LANGUAGE_LABELS[code] ?? code.toUpperCase();
+}
+
+export interface ArchetypeScore {
+  name: string;
+  percent: number;
+  /** Up to 3 rated titles that most drove this score, highest-weight
+   *  first. Empty if the input rows didn't include titleId/titleName. */
+  citedTitles: { id: string; name: string }[];
+  /** Up to 3 tone/theme/mood keywords that actually matched, most
+   *  frequent first. Empty when this archetype scored purely on genre
+   *  (no enriched rows matched its keyword list). */
+  matchedKeywords: string[];
+}
+
 export interface TasteDnaResult {
   sampleSize: number;
   enrichedSampleSize: number;
-  archetypes: { name: string; percent: number }[];
+  archetypes: ArchetypeScore[];
   favoriteGenres: string[];
   favoriteDecades: string[];
   favoriteDirectors: { id: string; name: string }[];
@@ -105,12 +165,24 @@ export interface TasteDnaResult {
   violenceTolerance: number | null;
   comedyTolerance: number | null;
   emotionalIntensityPreference: number | null;
+  /** Top tone/theme/mood tags across all enriched positively-rated titles,
+   *  weighted the same way archetypes are -- a finer-grained read than the
+   *  10 fixed archetype buckets above. Empty until enough titles are
+   *  AI-enriched. */
+  moodBreakdown: { tag: string; percent: number }[];
+  /** Original-language split across ALL positively-rated titles (not just
+   *  the top 3), so "mostly English, with a Korean streak" is visible
+   *  rather than collapsed into a single "favorite" language. */
+  languageBreakdown: { label: string; percent: number }[];
+  /** Full decade distribution (not just the top 3 favoriteDecades),
+   *  chronologically sorted, meant for a chart rather than a pill list. */
+  eraDistribution: { decade: string; percent: number }[];
 }
 
-function textMatchesKeywords(haystack: string[], keywords: string[]): boolean {
-  if (!keywords.length || !haystack.length) return false;
+function matchingKeywords(haystack: string[], keywords: string[]): string[] {
+  if (!keywords.length || !haystack.length) return [];
   const joined = haystack.join(" ").toLowerCase();
-  return keywords.some((kw) => joined.includes(kw));
+  return keywords.filter((kw) => joined.includes(kw));
 }
 
 function topEntries(map: Map<string, number>, n: number): string[] {
@@ -124,6 +196,28 @@ function weightedAverage(values: { value: number; weight: number }[]): number | 
   const totalWeight = values.reduce((sum, v) => sum + v.weight, 0);
   if (totalWeight === 0) return null;
   return values.reduce((sum, v) => sum + v.value * v.weight, 0) / totalWeight;
+}
+
+/** Weighted percent-of-total breakdown over an arbitrary per-row tag list
+ *  (used for both the mood/tone breakdown and, via a 1-tag picker, the
+ *  language breakdown) -- shared so both dimensions round and sort the
+ *  same way. */
+function weightedBreakdown(
+  rows: RatedTitleFeatures[],
+  tagsOf: (r: RatedTitleFeatures) => string[],
+  totalWeight: number,
+  n: number
+): { tag: string; percent: number }[] {
+  const scores = new Map<string, number>();
+  for (const r of rows) {
+    for (const tag of tagsOf(r)) {
+      scores.set(tag, (scores.get(tag) ?? 0) + r.weight);
+    }
+  }
+  return [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([tag, weight]) => ({ tag, percent: totalWeight > 0 ? Math.round((weight / totalWeight) * 100) : 0 }));
 }
 
 export function computeTasteDnaFromRatings(rated: RatedTitleFeatures[]): TasteDnaResult {
@@ -146,24 +240,58 @@ export function computeTasteDnaFromRatings(rated: RatedTitleFeatures[]): TasteDn
     }
   }
 
-  const archetypes = ARCHETYPES.map((archetype) => {
+  const archetypes: ArchetypeScore[] = ARCHETYPES.map((archetype) => {
     let genreHitWeight = 0;
+    const citedByWeight = new Map<string, { name: string; weight: number }>();
+
     for (const r of positivelyRated) {
       const genreHit = archetype.genres.length > 0 && r.genres.some((g) => archetype.genres.includes(g));
       const extraHit = archetype.extraMatch?.(r) ?? false;
-      if (genreHit || extraHit) genreHitWeight += r.weight;
+      if (genreHit || extraHit) {
+        genreHitWeight += r.weight;
+        if (r.titleId && r.titleName) {
+          const existing = citedByWeight.get(r.titleId);
+          if (!existing || r.weight > existing.weight) {
+            citedByWeight.set(r.titleId, { name: r.titleName, weight: r.weight });
+          }
+        }
+      }
     }
     const genreShare = totalWeight > 0 ? genreHitWeight / totalWeight : 0;
 
     let tagHitWeight = 0;
+    const keywordCounts = new Map<string, number>();
     for (const r of enriched) {
       const haystack = [...r.tone, ...r.themes, ...r.moodTags];
-      if (textMatchesKeywords(haystack, archetype.keywords)) tagHitWeight += r.weight;
+      const matched = matchingKeywords(haystack, archetype.keywords);
+      if (matched.length > 0) {
+        tagHitWeight += r.weight;
+        if (r.titleId && r.titleName) {
+          const existing = citedByWeight.get(r.titleId);
+          if (!existing || r.weight > existing.weight) {
+            citedByWeight.set(r.titleId, { name: r.titleName, weight: r.weight });
+          }
+        }
+        for (const kw of matched) keywordCounts.set(kw, (keywordCounts.get(kw) ?? 0) + 1);
+      }
     }
     const tagShare = totalTaggedWeight > 0 ? tagHitWeight / totalTaggedWeight : 0;
 
     const blended = totalTaggedWeight > 0 ? 0.55 * genreShare + 0.45 * tagShare : genreShare;
-    return { name: archetype.name, percent: Math.round(Math.min(blended, 1) * 100) };
+
+    const citedTitles = [...citedByWeight.entries()]
+      .sort((a, b) => b[1].weight - a[1].weight)
+      .slice(0, 3)
+      .map(([id, { name }]) => ({ id, name }));
+
+    const matchedKeywords = topEntries(keywordCounts, 3);
+
+    return {
+      name: archetype.name,
+      percent: Math.round(Math.min(blended, 1) * 100),
+      citedTitles,
+      matchedKeywords,
+    };
   }).sort((a, b) => b.percent - a.percent);
 
   const pacingCounts = new Map<string, number>();
@@ -184,6 +312,27 @@ export function computeTasteDnaFromRatings(rated: RatedTitleFeatures[]): TasteDn
       .map((r) => ({ value: r.emotionalIntensity!, weight: r.weight }))
   );
 
+  const moodBreakdown = weightedBreakdown(
+    enriched,
+    (r) => [...r.tone, ...r.themes, ...r.moodTags],
+    totalTaggedWeight,
+    6
+  ).map(({ tag, percent }) => ({ tag, percent }));
+
+  const languageBreakdown = weightedBreakdown(
+    positivelyRated,
+    (r) => (r.originalLanguage ? [r.originalLanguage] : []),
+    totalWeight,
+    5
+  ).map(({ tag, percent }) => ({ label: languageLabel(tag), percent }));
+
+  const eraDistribution = [...decadeScore.entries()]
+    .sort((a, b) => parseInt(a[0], 10) - parseInt(b[0], 10))
+    .map(([decade, weight]) => ({
+      decade,
+      percent: totalWeight > 0 ? Math.round((weight / totalWeight) * 100) : 0,
+    }));
+
   return {
     sampleSize: positivelyRated.length,
     enrichedSampleSize: enriched.length,
@@ -199,5 +348,8 @@ export function computeTasteDnaFromRatings(rated: RatedTitleFeatures[]): TasteDn
     comedyTolerance: comedyTolerance != null ? Math.round(comedyTolerance) : null,
     emotionalIntensityPreference:
       emotionalIntensityPreference != null ? Math.round(emotionalIntensityPreference) : null,
+    moodBreakdown,
+    languageBreakdown,
+    eraDistribution,
   };
 }

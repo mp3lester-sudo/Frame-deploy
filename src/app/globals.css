@@ -395,22 +395,8 @@ body {
   animation: polish-sweep 1000ms ease-out both;
 }
 
-/* Selection-badge ring traces itself in just after the badge pops --
-   a full stroke-dashoffset draw around the badge's own circle. */
-@keyframes draw-ring {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-.badge-ring {
-  stroke-dasharray: 79;
-  stroke-dashoffset: 79;
-  animation: draw-ring 650ms ease-out both;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .polish-sweep,
-  .badge-ring {
+  .polish-sweep {
     animation: none;
     stroke-dashoffset: 0;
   }
@@ -421,46 +407,8 @@ body {
    silhouettes of people (see theme-preset.ts / RoseFlourish for the
    same restraint) -- just objects and light: a fedora outline, a
    resting cigar with rising smoke and embers, and an irregular
-   candlelight flicker across the favorites panel. Also upgrades the
-   selection badges from a plain pop-in to a wax-seal "stamp" with an
-   impact ring, which reads well regardless of theme so it's left
-   enabled sitewide rather than gated to showMotif.
+   candlelight flicker across the favorites panel.
    ============================================================ */
-
-@keyframes stamp-in {
-  0% {
-    opacity: 0;
-    transform: scale(1.9) rotate(-8deg);
-  }
-  55% {
-    opacity: 1;
-    transform: scale(0.88) rotate(2deg);
-  }
-  75% {
-    transform: scale(1.08) rotate(-1deg);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
-}
-.stamp-in {
-  animation: stamp-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes seal-ring {
-  0% {
-    transform: scale(0.5);
-    opacity: 0.9;
-  }
-  100% {
-    transform: scale(2.1);
-    opacity: 0;
-  }
-}
-.seal-ring {
-  animation: seal-ring 620ms ease-out both;
-}
 
 @keyframes candle-flicker-panel {
   0%,
@@ -491,8 +439,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stamp-in,
-  .seal-ring,
   .candle-flicker-panel {
     animation: none;
   }

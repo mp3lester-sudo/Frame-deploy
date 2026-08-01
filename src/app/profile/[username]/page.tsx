@@ -37,49 +37,6 @@ function centeredColStart(count: number, index: number): string {
   return index === 0 ? "col-start-1" : index === 1 ? "col-start-3" : "col-start-5";
 }
 
-/** "01", "02", ... -- the pyramid's official-selection numbering, badge
- *  index is the overall favorites rank (0-based), not position within its
- *  own row, so numbering stays continuous across the 1/2/3 podium rows. */
-function badgeNumber(overallIndex: number): string {
-  return String(overallIndex + 1).padStart(2, "0");
-}
-
-/**
- * Selection badge lands like a wax seal being pressed -- a quick
- * overshoot-and-settle stamp (stamp-in) plus a one-shot expanding ring
- * at the moment of impact (seal-ring), instead of a plain pop-in.
- * Reads well regardless of theme, so it's not gated behind
- * theme.showMotif the way the rose/atmosphere flourishes are.
- */
-function SelectionBadge({ index, delayMs = 0 }: { index: number; delayMs?: number }) {
-  return (
-    <span className="absolute -left-2 -top-2 z-30 block h-7 w-7">
-      <span
-        className="seal-ring pointer-events-none absolute inset-0 rounded-full border border-accent/70"
-        style={{ animationDelay: `${delayMs + 260}ms` }}
-      />
-      <span
-        className="stamp-in absolute inset-0 flex items-center justify-center rounded-full border border-accent/60 bg-background font-display text-[11px] italic text-accent shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
-        style={{ animationDelay: `${delayMs}ms` }}
-      >
-        <svg className="absolute inset-0 -rotate-90" width="28" height="28" viewBox="0 0 28 28">
-          <circle
-            cx="14"
-            cy="14"
-            r="12.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            className="badge-ring"
-            style={{ animationDelay: `${delayMs + 260}ms` }}
-          />
-        </svg>
-        {badgeNumber(index)}
-      </span>
-    </span>
-  );
-}
-
 /**
  * Small decorative flourish (rule + rose + rule) shown only by curated
  * profile themes that opt into it (theme.showMotif) -- original line-art,
@@ -487,15 +444,22 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                 <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
                   Backlot Analysis
                 </p>
-                <h2 className="mt-1 text-lg font-semibold">Backlot DNA</h2>
-                <span className="text-xs text-foreground-muted">
+                <h2 className="font-section-heading mt-1 text-xl">Backlot DNA</h2>
+                <span className="font-section-body text-xs text-foreground-muted">
                   Based on {dna.sampleSize} rated title{dna.sampleSize === 1 ? "" : "s"}
                 </span>
               </div>
 
               <div className="flex flex-col gap-4">
                 {dna.archetypes.slice(0, 6).map((a, i) => (
-                  <ArchetypeBar key={a.name} name={a.name} percent={a.percent} delayMs={i * 80} />
+                  <ArchetypeBar
+                    key={a.name}
+                    name={a.name}
+                    percent={a.percent}
+                    delayMs={i * 80}
+                    citedTitles={a.citedTitles}
+                    matchedKeywords={a.matchedKeywords}
+                  />
                 ))}
               </div>
 
@@ -518,24 +482,66 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                   </div>
                 )}
 
-                {dna.favoriteDecades.length > 0 && (
+                {/* Language split, not just a single "favorite" -- a user
+                    who's 70% English / 30% Korean reads very differently
+                    from one who's simply "into Korean cinema." */}
+                {dna.languageBreakdown.length > 0 && (
                   <div>
                     <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                      Favorite decades
+                      Languages
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {dna.favoriteDecades.map((d) => (
+                      {dna.languageBreakdown.map((l) => (
                         <span
-                          key={d}
+                          key={l.label}
                           className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
                         >
-                          {d}
+                          {l.label} {l.percent}%
                         </span>
                       ))}
                     </div>
                   </div>
                 )}
               </div>
+
+              {/* Tone/theme/mood breakdown -- a finer-grained read than the
+                  10 fixed archetype buckets above, sourced from the same
+                  AI-tagged data but not folded into any single archetype
+                  name. Only present once enough titles are enriched. */}
+              {dna.moodBreakdown.length > 0 && (
+                <div className="mt-8">
+                  <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                    Mood &amp; tone
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {dna.moodBreakdown.map((m) => (
+                      <span
+                        key={m.tag}
+                        className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs capitalize"
+                      >
+                        {m.tag} {m.percent}%
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Full era distribution (every decade with a rated title),
+                  not just the top 3 -- reuses ArchetypeBar's fill-bar
+                  renderer since a decade + percent row is the same shape
+                  as an archetype + percent row. */}
+              {dna.eraDistribution.length > 0 && (
+                <div className="mt-8">
+                  <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                    Era distribution
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    {dna.eraDistribution.map((e, i) => (
+                      <ArchetypeBar key={e.decade} name={e.decade} percent={e.percent} delayMs={i * 60} />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {dna.favoriteDirectors.length > 0 && (
                 <div className="mt-8">
@@ -628,7 +634,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                     style={{ animationDelay: "160ms" }}
                   >
                     <TiltCard className="relative rounded-[var(--radius-md)]">
-                      <SelectionBadge index={0} delayMs={480} />
                       <div className="polish-sweep pointer-events-none absolute inset-x-0 top-0 z-10 aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)]" style={{ animationDelay: "980ms" }} />
                       <TitleCard title={favorites[0]} highlight index={0} />
                     </TiltCard>
@@ -646,7 +651,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                           style={{ animationDelay: `${tileDelay}ms` }}
                         >
                           <TiltCard className="relative rounded-[var(--radius-md)]">
-                            <SelectionBadge index={overallIndex} delayMs={tileDelay + 320} />
                             <div
                               className="polish-sweep pointer-events-none absolute inset-x-0 top-0 z-10 aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)]"
                               style={{ animationDelay: `${tileDelay + 800}ms` }}
@@ -670,7 +674,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                           style={{ animationDelay: `${tileDelay}ms` }}
                         >
                           <TiltCard className="relative rounded-[var(--radius-md)]">
-                            <SelectionBadge index={overallIndex} delayMs={tileDelay + 320} />
                             <div
                               className="polish-sweep pointer-events-none absolute inset-x-0 top-0 z-10 aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)]"
                               style={{ animationDelay: `${tileDelay + 800}ms` }}
