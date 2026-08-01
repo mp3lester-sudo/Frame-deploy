@@ -252,39 +252,34 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     .filter((t): t is { id: string; name: string; image: string } => !!t.image)
     .slice(0, 5);
   const hasBanner = bannerImages.length > 0;
+  // The collage's own middle slot is left plain (just the app's
+  // background, no movie still) so the avatar can sit centered in the
+  // banner without competing with a title image directly behind it.
+  const bannerAvatarIndex = Math.floor(bannerImages.length / 2);
 
-  // Editorial two-column layout (Option A): the banner overlay now only
-  // carries pure identity (avatar/name/tier/username) plus the one
-  // primary action a visitor actually needs immediately -- Follow/
-  // Message. Everything that used to compete for space in this same
-  // overlay row (watched/top-genre pills, the four-link self-service
-  // row) has moved down into the right rail below, next to bio and
-  // stats, mirroring the home page's own main-column/rail split so the
-  // two most-visited pages in the app share the same reading pattern.
+  // Editorial two-column layout (Option A): the banner overlay carries
+  // pure identity (name/tier/username) plus the one primary action a
+  // visitor actually needs immediately -- Follow/Message. The avatar no
+  // longer rides along in this row -- when there's a banner it sits
+  // centered on the banner's own plain middle slot instead (see below),
+  // so this text stays anchored bottom-left on its own. Everything that
+  // used to compete for space in this same overlay row (watched/top-
+  // genre pills, the four-link self-service row) has moved down into
+  // the right rail below, next to bio and stats, mirroring the home
+  // page's own main-column/rail split so the two most-visited pages in
+  // the app share the same reading pattern.
   const identityBlock = (
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div className="flex items-end gap-4">
-        <Avatar
-          name={profile.display_name ?? profile.username}
-          src={profile.avatar_url}
-          size={88}
-          className={
-            (hasBanner
-              ? "shrink-0 border-8 border-black ring-2 ring-accent/70 shadow-[0_4px_18px_rgba(0,0,0,0.55)]"
-              : "shrink-0") + " stagger-card"
-          }
-        />
-        <div className="stagger-card min-w-0 flex-1 pb-1" style={{ animationDelay: "80ms" }}>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-display text-xl">{profile.display_name ?? profile.username}</h1>
-            {profile.experience_tier && (
-              <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
-                {EXPERIENCE_TIER_LABEL[profile.experience_tier]}
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-foreground-muted">@{profile.username}</p>
+      <div className="stagger-card min-w-0" style={{ animationDelay: "80ms" }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="font-display text-xl">{profile.display_name ?? profile.username}</h1>
+          {profile.experience_tier && (
+            <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+              {EXPERIENCE_TIER_LABEL[profile.experience_tier]}
+            </span>
+          )}
         </div>
+        <p className="text-sm text-foreground-muted">@{profile.username}</p>
       </div>
       {viewer && !isOwnProfile && (
         <div className="stagger-card flex gap-2 pb-1" style={{ animationDelay: "160ms" }}>
@@ -406,21 +401,32 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
            of a blank gap of page background. */
         <div className="spotlight-sweep relative -mt-14 h-[280px] w-full sm:h-[344px]">
           <div className="absolute inset-0 flex">
-            {bannerImages.map((title, i) => (
-              <div
-                key={title.id}
-                className="stagger-card relative flex-1 overflow-hidden"
-                style={{ animationDelay: `${i * 90}ms` }}
-              >
-                <Image
-                  src={title.image}
-                  alt=""
-                  fill
-                  className="object-cover object-top"
-                  sizes="400px"
+            {bannerImages.map((title, i) =>
+              i === bannerAvatarIndex ? (
+                /* Middle collage slot: plain background instead of a
+                   movie still -- the avatar sits centered on top of it
+                   just below. */
+                <div
+                  key={title.id}
+                  className="stagger-card relative flex-1 overflow-hidden bg-background"
+                  style={{ animationDelay: `${i * 90}ms` }}
                 />
-              </div>
-            ))}
+              ) : (
+                <div
+                  key={title.id}
+                  className="stagger-card relative flex-1 overflow-hidden"
+                  style={{ animationDelay: `${i * 90}ms` }}
+                >
+                  <Image
+                    src={title.image}
+                    alt=""
+                    fill
+                    className="object-cover object-top"
+                    sizes="400px"
+                  />
+                </div>
+              )
+            )}
           </div>
           {/* Bottom-anchored fade only -- same via-background/70 strength
               used by the trailer hero's own fade -- so the collage stays
@@ -428,10 +434,31 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               the first pass had, while the overlaid identity content at
               the very bottom still lands on a fully opaque backdrop. */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-48" />
+          {/* Avatar set into the banner's own plain middle slot, centered
+              both ways -- a portrait inlaid in the cover photo rather
+              than a small corner badge. */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Avatar
+              name={profile.display_name ?? profile.username}
+              src={profile.avatar_url}
+              size={132}
+              className="stagger-card shrink-0 border-8 border-black ring-2 ring-accent/70 shadow-[0_4px_18px_rgba(0,0,0,0.55)]"
+            />
+          </div>
           <div className="absolute inset-x-0 bottom-0 mx-auto max-w-4xl px-4 pb-4 sm:px-6">{identityBlock}</div>
         </div>
       ) : (
-        <div className="mx-auto max-w-4xl px-4 pt-8">{identityBlock}</div>
+        <div className="mx-auto max-w-4xl px-4 pt-8">
+          <div className="flex items-end gap-4">
+            <Avatar
+              name={profile.display_name ?? profile.username}
+              src={profile.avatar_url}
+              size={88}
+              className="stagger-card shrink-0"
+            />
+            <div className="min-w-0 flex-1">{identityBlock}</div>
+          </div>
+        </div>
       )}
 
       <div className="mx-auto max-w-6xl px-4 pb-8 pt-6">
@@ -439,12 +466,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           reads out of your ratings) on the left, Personal Pyramid (what
           you picked yourself) as the visual centerpiece, profile info
           (avatar/bio/stats/self-service links) on the right. DNA and
-          profile stay equal width so the pyramid is the one thing that
-          reads as "bigger" rather than everything just being unevenly
-          sized. Stacks to a single column, same top-to-bottom order,
-          below xl -- three unevenly-sized columns need real width to
-          not feel cramped. */}
-      <div className="grid gap-6 xl:grid-cols-[0.85fr_1.5fr_0.85fr] xl:items-start">
+          profile stay equal width to each other and close in size to
+          the pyramid -- wide enough that neither panel feels like a
+          narrow sidebar, while the pyramid still reads as the largest
+          of the three. Stacks to a single column, same top-to-bottom
+          order, below xl. */}
+      <div className="grid gap-6 xl:grid-cols-[1fr_1.3fr_1fr] xl:items-start">
       {/* Backlot DNA, inline: used to be a link out to a separate page
           (/taste-dna), now sits directly beside the Personal Pyramid as
           this profile's own analytics -- same public visibility as the
