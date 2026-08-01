@@ -2,35 +2,67 @@ import Image from "@/components/ui/fade-image";
 import Link from "next/link";
 import type { DirectorOfTheDay as DirectorOfTheDayData } from "@/lib/director-of-day/fetch";
 
+// Discography grid is 3 columns -- 6 tiles reads as "here's their work"
+// without the card needing to grow past the hero's own fixed height.
+const DISCOGRAPHY_TILE_COUNT = 6;
+
 /**
- * Front-and-center backdrop card, matching SpotlightRecommendation's
- * fixed height so the two read as one paired row on the Solo home view
- * -- name anchored at the bottom on a gradient scrim over the
- * director's own photo, same treatment as the hero beside it. The
- * filmography rail the old square-headshot card used to lead into is
- * dropped here so the two cards stay exactly level; the discography is
- * still one tap away on the director's own /person page.
+ * Toned-down from the full-bleed backdrop-photo version: a small round
+ * avatar + name (not a giant face filling the card), a short bio line,
+ * and a discography grid filling the rest of the card -- back in line
+ * with the original square-headshot-plus-filmography design, just with
+ * the bio restored too. Still matches SpotlightRecommendation's fixed
+ * height and sits beside it in the same paired row, but the photo no
+ * longer dominates the card the way the backdrop treatment did.
  */
 export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData }) {
+  const films = director.titles.slice(0, DISCOGRAPHY_TILE_COUNT);
+
   return (
-    <Link
-      href={`/person/${director.id}`}
-      className="group relative block h-[320px] overflow-hidden rounded-[var(--radius-lg)] bg-surface-raised sm:h-[380px]"
-    >
-      {director.photoUrl && (
-        <Image
-          src={director.photoUrl}
-          alt={director.name}
-          fill
-          className="object-cover object-top transition-transform duration-300 group-hover:scale-105"
-          sizes="(max-width: 1024px) 100vw, 30vw"
-        />
+    <div className="flex h-[320px] flex-col rounded-[var(--radius-lg)] border border-border bg-surface p-4 transition-colors hover:border-border-strong sm:h-[380px]">
+      <Link href={`/person/${director.id}`} className="group flex items-center gap-3">
+        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-surface-raised">
+          {director.photoUrl && (
+            <Image
+              src={director.photoUrl}
+              alt={director.name}
+              fill
+              className="object-cover object-top"
+              sizes="44px"
+            />
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-accent">Director of the day</p>
+          <p className="truncate text-sm font-medium text-foreground group-hover:underline">{director.name}</p>
+        </div>
+      </Link>
+
+      {director.bio && (
+        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-foreground-muted">{director.bio}</p>
       )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-background via-background/80 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-accent">Director of the day</p>
-        <p className="font-display mt-1 text-lg text-foreground group-hover:underline sm:text-xl">{director.name}</p>
-      </div>
-    </Link>
+
+      {films.length > 0 && (
+        <div className="mt-3 grid flex-1 auto-rows-fr grid-cols-3 gap-2">
+          {films.map((title) => (
+            <Link
+              key={title.id}
+              href={`/movie/${title.id}`}
+              className="group relative h-full w-full overflow-hidden rounded-[var(--radius-sm)] bg-surface-raised"
+            >
+              {title.posterUrl && (
+                <Image
+                  src={title.posterUrl}
+                  alt={title.name}
+                  fill
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  sizes="120px"
+                />
+              )}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
