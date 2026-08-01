@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { MIN_SWIPES_FOR_TEASER } from "@/lib/recommendations/teaser";
 
@@ -134,4 +135,75 @@ export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+const forgotPasswordSchema = z.object({ email: z.string().email() });
+
+const resetPasswordSchema = z
+  .object({
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your new password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+/**
+ * Derives the site origin from the incoming request's headers rather than
+ * a hardcoded env var — this app has no NEXT_PUBLIC_SITE_URL configured,
+ * and Vercel gives every branch/preview deploy its own hostname, so the
+ * only origin that's reliably correct for the recovery-link redirect is
+ * whatever the browser actually connected to.
+ */
+async function getOrigin() {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? (host?.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+/**
+ * Kicks off Supabase's built-in "forgot password" email. Always returns a
+ * generic success message regardless of whether the email matches an
+ * account -- confirming or denying that an email is registered is a user
+ * enumeration leak, and Supabase's own API already declines to reveal
+ * that distinction (resetPasswordForEmail doesn't error on an unknown
+ * address), so this just mirrors that at the UI layer too.
+ */
+export async function requestPasswordReset(
+  _prev: { error?: string; success?: boolean } | null,
+  formData: FormData
+): Promise<{ error?: string; success?: boolean }> {
+  const parsed = forgotPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Enter a valid email" };
+  }
+
+  const supabase = await createClient();
+  const origin = await getOrigin();
+  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+  });
+
+  return { success: true };
+}
+
+/**
+ * Sets a new password for the currently-recovering session. Only works
+ * when called with the temporary session Supabase establishes after the
+ * user clicks their recovery-email link and /auth/callback exchanges the
+ * code -- with no such session, updateUser() itself rejects the call.
+ */
+export async function updatePassword(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  const parsed = resetPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) return { error: error.message };
+
+  redirect("/login?reset=success");
 }
