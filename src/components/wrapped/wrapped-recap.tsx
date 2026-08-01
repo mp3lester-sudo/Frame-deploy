@@ -18,8 +18,8 @@ export function WrappedRecap({
   return (
     <div>
       <p className="font-display text-xs font-semibold uppercase tracking-wide text-accent">Backlot Wrapped</p>
-      <h1 className="mt-1 font-display text-3xl">{headline}</h1>
-      <p className="mt-3 text-lg text-foreground-muted">{result.summary}</p>
+      <h1 className="font-section-heading mt-1 text-3xl">{headline}</h1>
+      <p className="font-section-body mt-3 text-lg text-foreground-muted">{result.summary}</p>
 
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatTile label="Films rated" value={String(result.totalRated)} />

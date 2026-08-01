@@ -40,8 +40,8 @@ export default async function WrappedPage({
 
       {!result ? (
         <div className="text-center">
-          <h1 className="font-display text-3xl">Your {isCurrentYear ? `${year} So Far` : `${year} Wrapped`}</h1>
-          <p className="mt-3 text-sm text-foreground-muted">
+          <h1 className="font-section-heading text-3xl">Your {isCurrentYear ? `${year} So Far` : `${year} Wrapped`}</h1>
+          <p className="font-section-body mt-3 text-sm text-foreground-muted">
             Rate at least {MIN_RATINGS_FOR_WRAPPED} titles from {year} and this fills in — your recap, built from
             the same Taste Graph as the rest of Backlot, not just a tally.
           </p>

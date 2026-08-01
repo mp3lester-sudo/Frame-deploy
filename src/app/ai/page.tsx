@@ -46,8 +46,8 @@ export default function AskBacklotPage() {
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="font-display mb-1 text-2xl">Ask Backlot</h1>
-      <p className="mb-6 text-sm text-foreground-muted">
+      <h1 className="font-section-heading mb-1 text-2xl">Ask Backlot</h1>
+      <p className="font-section-body mb-6 text-sm text-foreground-muted">
         &ldquo;I want something that feels lonely.&rdquo; &ldquo;A movie where the villain wins.&rdquo;
         Describe the feeling, not the genre.
       </p>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Bebas_Neue, Monoton, Cinzel } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif, Bebas_Neue, Monoton, Cinzel, Big_Shoulders, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -19,9 +19,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const playfairDisplay = Playfair_Display({
-  variable: "--font-playfair",
+// Minimal, luxurious display serif -- house heading font across the whole
+// app (movie titles, page headers, section labels, everything that used to
+// be Playfair Display via --font-display). Only ships weight 400/italic
+// (no true bold cut), which is the intended look: quiet, editorial
+// restraint rather than a heavy headline face.
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
   subsets: ["latin"],
+  weight: "400",
   style: ["normal", "italic"],
 });
 
@@ -52,6 +58,25 @@ const monoton = Monoton({
   variable: "--font-monoton",
   subsets: ["latin"],
   weight: "400",
+});
+
+// Bold condensed poster-title sans + a clean editorial-grotesque body --
+// reserved for the header/small-text pair on the seven section pages
+// (Discover, Backlot DNA, Wrapped, Ask Backlot, Social/Feed, Movie Night,
+// Clubs), via --font-section-heading / --font-section-body in globals.css.
+// Deliberately distinct from --font-display (Instrument Serif) so those
+// pages read as a related but separate typographic register, not a copy
+// of the home page's treatment.
+const bigShouldersDisplay = Big_Shoulders({
+  variable: "--font-big-shoulders-display",
+  subsets: ["latin"],
+  weight: ["600", "700"],
+});
+
+const ibmPlexSans = IBM_Plex_Sans({
+  variable: "--font-ibm-plex-sans",
+  subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -102,7 +127,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bebasNeue.variable} ${monoton.variable} ${cinzel.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${monoton.variable} ${cinzel.variable} ${bigShouldersDisplay.variable} ${ibmPlexSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />

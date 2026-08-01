@@ -27,12 +27,12 @@ export default async function ClubsPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-display text-2xl">Clubs</h1>
+        <h1 className="font-section-heading text-2xl">Clubs</h1>
         {viewer && <CreateClubForm />}
       </div>
 
       {!clubs?.length ? (
-        <p className="text-sm text-foreground-muted">No clubs yet — start one.</p>
+        <p className="font-section-body text-sm text-foreground-muted">No clubs yet — start one.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {clubs.map((club) => (
