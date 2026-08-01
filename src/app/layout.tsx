@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif, Bebas_Neue, Monoton, Cinzel, Big_Shoulders, IBM_Plex_Sans } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif, Bebas_Neue, Monoton, Cinzel, Big_Shoulders, IBM_Plex_Sans, Syne } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -79,6 +79,16 @@ const ibmPlexSans = IBM_Plex_Sans({
   weight: ["400", "500"],
 });
 
+// Bold, minimal geometric display -- the home page greeting's first name,
+// replacing the Monoton "marquee bulbs" treatment as the default look when
+// no poster-matched font is on file for this user's last title (see
+// --font-greeting in globals.css and lib/poster-font).
+const syne = Syne({
+  variable: "--font-syne",
+  subsets: ["latin"],
+  weight: ["700", "800"],
+});
+
 export const metadata: Metadata = {
   title: "Backlot — The Operating System for Entertainment",
   description: "Personalized movie and TV recommendations that actually get your taste.",
@@ -127,7 +137,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${monoton.variable} ${cinzel.variable} ${bigShouldersDisplay.variable} ${ibmPlexSans.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${monoton.variable} ${cinzel.variable} ${bigShouldersDisplay.variable} ${ibmPlexSans.variable} ${syne.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />

@@ -71,8 +71,15 @@
   --font-hollywood: var(--font-bebas);
   /* Base letterforms for the greeting's first name specifically — the
      actual "row of light bulbs" look comes from the .marquee-bulbs
-     dot-fill below, not from this font alone. */
+     dot-fill below, not from this font alone. Superseded as the default
+     treatment by --font-greeting (Syne) below; kept only for the themed
+     Godfather-style marquee look if that's ever revived deliberately. */
   --font-marquee: var(--font-monoton);
+  /* Default treatment for the home page greeting's first name -- bold,
+     minimal geometric sans. Overridden per-user by a poster-matched font
+     (see lib/poster-font) whenever their most recently reviewed/watched
+     title has one on file; this is just the fallback everyone starts on. */
+  --font-greeting: var(--font-syne);
   /* Header + smaller-text pair reserved for the seven section pages
      (Discover, Backlot DNA, Wrapped, Ask Backlot, Social, Movie Night,
      Clubs) — see layout.tsx. Copy on those pages is unchanged; only the
