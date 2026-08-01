@@ -608,7 +608,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
 
               {signaturePick && (
                 <div className="mb-8">
-                  <SignaturePickCard pick={signaturePick} />
+                  <SignaturePickCard pick={signaturePick} compact />
                 </div>
               )}
 
