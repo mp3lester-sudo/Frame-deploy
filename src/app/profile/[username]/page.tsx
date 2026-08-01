@@ -315,24 +315,24 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             style={{ background: `conic-gradient(${fingerprintGradient})`, animationDelay: "120ms" }}
           >
             <div className="absolute inset-2 flex items-center justify-center rounded-full bg-background text-center">
-              <span className="font-display text-[10px] italic leading-tight text-foreground-muted">
+              <span className="font-display text-xs italic leading-tight text-foreground-muted">
                 {tierLabel ?? "Backlot"}
               </span>
             </div>
           </div>
           <div className="stagger-card min-w-0" style={{ animationDelay: "300ms" }}>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-foreground-muted">
+            <p className="text-xs font-medium uppercase tracking-wider text-foreground-muted">
               Taste fingerprint
             </p>
-            <p className="mt-1 font-display text-sm italic leading-snug text-accent">{tasteQuote}</p>
+            <p className="mt-1 font-display text-base italic leading-snug text-accent">{tasteQuote}</p>
           </div>
         </div>
       )}
 
       {profile.bio && (
         <div className="stagger-card border-b border-border pb-6" style={{ animationDelay: "360ms" }}>
-          <span className="text-[10px] font-medium uppercase tracking-wider text-foreground-muted">About</span>
-          <p className="mt-2 text-sm leading-relaxed text-foreground-muted">{profile.bio}</p>
+          <span className="text-xs font-medium uppercase tracking-wider text-foreground-muted">About</span>
+          <p className="mt-2 text-base leading-relaxed text-foreground-muted">{profile.bio}</p>
         </div>
       )}
 
@@ -344,41 +344,41 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         style={{ animationDelay: "440ms" }}
       >
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-lg"><AnimatedCounter value={ratingCount ?? 0} /></p>
-          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Watched</p>
+          <p className="font-display text-2xl"><AnimatedCounter value={ratingCount ?? 0} /></p>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Watched</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display truncate text-lg">{topGenre ?? "—"}</p>
-          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Top genre</p>
+          <p className="font-display truncate text-2xl">{topGenre ?? "—"}</p>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Top genre</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-lg"><AnimatedCounter value={followerCount ?? 0} /></p>
-          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Followers</p>
+          <p className="font-display text-2xl"><AnimatedCounter value={followerCount ?? 0} /></p>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Followers</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-lg"><AnimatedCounter value={followingCount ?? 0} /></p>
-          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Following</p>
+          <p className="font-display text-2xl"><AnimatedCounter value={followingCount ?? 0} /></p>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Following</p>
         </div>
       </div>
       {isOwnProfile && (
         <div className="mt-6 flex flex-col gap-2">
           <Link
             href="/settings"
-            className="stagger-card shine-hover rounded-[var(--radius-full)] bg-accent px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-accent-foreground transition-transform duration-200 hover:-translate-y-0.5 hover:brightness-110"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] bg-accent px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-accent-foreground transition-transform duration-200 hover:-translate-y-0.5 hover:brightness-110"
             style={{ animationDelay: "500ms" }}
           >
             Edit profile
           </Link>
           <Link
             href="/watchlist"
-            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
             style={{ animationDelay: "600ms" }}
           >
             Watchlist
           </Link>
           <Link
             href="/lists"
-            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
             style={{ animationDelay: "650ms" }}
           >
             Your lists
