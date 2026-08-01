@@ -72,7 +72,7 @@ export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData 
             <Link
               key={title.id}
               href={`/movie/${title.id}`}
-              className="group flex w-[104px] shrink-0 flex-col gap-1 sm:w-[116px]"
+              className="group flex w-[calc((100%-30px)/4)] min-w-[64px] shrink-0 flex-col gap-1"
             >
               <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-sm)] border border-border bg-surface-raised">
                 {title.posterUrl ? (
@@ -81,7 +81,7 @@ export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData 
                     alt={title.name}
                     fill
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    sizes="116px"
+                    sizes="120px"
                   />
                 ) : (
                   <span className="flex h-full items-center justify-center p-1 text-center text-[9px] leading-tight text-foreground-muted">
