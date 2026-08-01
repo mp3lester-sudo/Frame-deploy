@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, UsersRound, Mail, Gift, Bell } from "lucide-react";
+import { Search, Sparkles, Users, Compass, User, Clapperboard, Settings, UsersRound, Mail, Gift, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** How long the nav bar stays visible with no scroll/mouse/touch/key
@@ -12,9 +12,13 @@ import { cn } from "@/lib/utils";
     there like an ordinary sticky header. */
 const IDLE_HIDE_MS = 4000;
 
+// Backlot DNA no longer gets its own persistent nav entry -- it now
+// lives inline on the profile page (see profile/[username]/page.tsx),
+// which people already visit far more often than a standalone page.
+// The route itself (/taste-dna) is untouched and still linked from the
+// home page's cold-start "sharpen these picks" prompt.
 const links = [
   { href: "/discover", label: "Discover", icon: Compass },
-  { href: "/taste-dna", label: "Backlot DNA", icon: Dna },
   { href: "/wrapped", label: "Wrapped", icon: Gift },
   { href: "/ai", label: "Ask Backlot", icon: Sparkles },
   { href: "/feed", label: "Social", icon: Users },
