@@ -42,32 +42,3 @@ export function isRoughWeather(weatherCode: number | null | undefined): boolean 
   );
 }
 
-/**
- * Auto-detected default context, so the home page always has a sensible
- * starting point without forcing every visitor to pick one manually first.
- * Deliberately only ever resolves to solo / with_friends / background —
- * date_night and something_short are things a person chooses on purpose,
- * not states you can infer from a clock, so they're picker-only.
- *
- * dayOfWeek follows JS Date#getDay(): 0 = Sunday ... 6 = Saturday.
- */
-export function detectAutoContext({
-  hour,
-  dayOfWeek,
-  weatherCode,
-}: {
-  hour: number;
-  dayOfWeek: number;
-  weatherCode?: number | null;
-}): CircumstantialContext {
-  const isLateNight = hour >= 23 || hour < 5;
-  if (isLateNight) return "background";
-
-  if (isRoughWeather(weatherCode) && hour >= 12) return "background";
-
-  const isFridayOrSaturday = dayOfWeek === 5 || dayOfWeek === 6;
-  const isPrimeEvening = hour >= 18 && hour < 23;
-  if (isFridayOrSaturday && isPrimeEvening) return "with_friends";
-
-  return "solo";
-}

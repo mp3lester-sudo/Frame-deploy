@@ -12,9 +12,10 @@
  * from the catalogue, gives a fresh test user a taste vector via
  * upsert_taste_vector_from_rating, then confirms:
  *  1. something_short excludes the long title from the ranked candidate set.
- *  2. detectAutoContext resolves sensibly for a few fixed inputs (already
- *     unit-tested, but this confirms the export surface is what page.tsx
- *     actually imports).
+ *  2. isCircumstantialContext resolves sensibly for valid/invalid inputs
+ *     (already unit-tested, but this confirms the export surface is what
+ *     page.tsx actually imports -- page.tsx no longer auto-detects a
+ *     context from the clock/weather, it always defaults "/" to solo).
  *  3. contextMultiplier(null) exclusions actually remove a title from a
  *     blended candidate map the same way engine.ts's filter does.
  * Cleans up after itself.
@@ -22,7 +23,7 @@
 import { createClient as createServiceClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import { contextMultiplier } from "../src/lib/recommendations/context-weighting";
-import { detectAutoContext, isCircumstantialContext } from "../src/lib/context/circumstantial";
+import { isCircumstantialContext } from "../src/lib/context/circumstantial";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -118,11 +119,10 @@ async function main() {
   }
   console.log("   ok — solo applies no filtering");
 
-  console.log("5. Confirming the auto-detect + validity-check exports page.tsx relies on behave sanely...");
-  if (detectAutoContext({ hour: 2, dayOfWeek: 3 }) !== "background") throw new Error("expected late night to auto-detect as background");
+  console.log("5. Confirming the validity-check export page.tsx relies on behaves sanely...");
   if (!isCircumstantialContext("date_night")) throw new Error("expected date_night to be recognized as valid");
   if (isCircumstantialContext("literally anything else")) throw new Error("expected garbage input to be rejected");
-  console.log("   ok — auto-detection and validation both behave as page.tsx expects");
+  console.log("   ok — validation behaves as page.tsx expects");
 
   console.log("6. Cleaning up...");
   await admin.from("taste_vectors").delete().eq("user_id", user.id);

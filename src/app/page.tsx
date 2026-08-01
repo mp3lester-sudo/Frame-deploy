@@ -15,7 +15,7 @@ import { ContextPicker } from "@/components/home/context-picker";
 import { CompanionPicker } from "@/components/home/companion-picker";
 import { DirectorOfTheDay } from "@/components/home/director-of-the-day";
 import { getDirectorOfTheDay } from "@/lib/director-of-day/fetch";
-import { detectAutoContext, isCircumstantialContext } from "@/lib/context/circumstantial";
+import { isCircumstantialContext } from "@/lib/context/circumstantial";
 import { getLastReviewedOrWatchedTitle } from "@/lib/poster-font/last-title";
 import { getOrFetchPosterFont } from "@/lib/poster-font/detect";
 import { getPosterFontClassName } from "@/lib/poster-font/fonts";
@@ -77,17 +77,20 @@ export default async function HomePage({
 
   // Real time in the visitor's own timezone (from Vercel's edge geolocation),
   // computed here (rather than lower down, where it used to live) because
-  // the circumstantial context auto-detection needs it before recommendations
-  // are fetched.
+  // getRecommendationsForUser's weather/time weighting needs the hour before
+  // recommendations are fetched.
   const now = new Date();
   const zonedNow = geo?.timezone ? new Date(now.toLocaleString("en-US", { timeZone: geo.timezone })) : now;
 
-  const autoContext = detectAutoContext({
-    hour: zonedNow.getHours(),
-    dayOfWeek: zonedNow.getDay(),
-    weatherCode: weather?.code ?? null,
-  });
-  const activeContext = contextParam && isCircumstantialContext(contextParam) ? contextParam : autoContext;
+  // "/" (tapping Home/the logo, with no ?context=) always lands on Solo --
+  // used to auto-detect a context from the clock/weather instead (evenings
+  // on Fri/Sat defaulted to With friends, late night or rough weather
+  // defaulted to Background), but that meant the same tap on Home could
+  // land somewhere different depending on when you happened to open the
+  // app, which read as unpredictable rather than helpful. Solo is always
+  // the first destination now; the other contexts are still one tap away
+  // via ContextPicker for whoever actually wants them.
+  const activeContext = contextParam && isCircumstantialContext(contextParam) ? contextParam : "solo";
 
   // These three don't depend on each other's results (recommendations,
   // this user's Movie Night membership, and who they follow are all
