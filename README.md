@@ -71,3 +71,29 @@ Typecheck, lint, unit tests, and `next build` all pass as of this commit.
 - **Stripe webhook**: point it at `https://<domain>/api/stripe/webhook`, subscribe to
   `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
 - **CI**: `.github/workflows/ci.yml` runs typecheck/lint/test/build on every PR and push to `main`.
+- **PostHog** (optional): set `NEXT_PUBLIC_POSTHOG_KEY` (and `NEXT_PUBLIC_POSTHOG_HOST` if
+  self-hosting) to activate analytics capture in `src/lib/analytics/`. No-ops without it.
+- **Resend** (optional): set `RESEND_API_KEY` to activate the welcome email in
+  `src/lib/email/resend.ts`. Also set `RESEND_FROM_EMAIL` once a sending domain is verified
+  in Resend — until then it falls back to a shared address that only delivers to the Resend
+  account owner's own inbox.
+
+## Operational notes (run by hand, not automated)
+
+A few maintenance operations are deliberately **not** wired into CI or app startup, because
+they either cost real API money per run or touch production data directly. They're scripts
+the project owner runs manually, when they decide to:
+
+- **`npm run enrich:titles`** — backfills AI taste metadata + embeddings for any title
+  missing them (see `scripts/enrich-titles.ts`). Each title costs a small OpenAI charge
+  (chat completion + embedding call), so running this against the full pending backlog is
+  a real cost decision, not something that should fire automatically as the catalogue grows
+  via `ingest:tmdb`. Check `pending_enrichment_titles` count first, then run with
+  `--limit=N` for a bounded batch, or omit `--limit` to drain the whole backlog in one go.
+- **New Supabase migrations** (e.g. `supabase/migrations/00NN_*.sql`) — this repo's sandbox
+  has no standing DB credentials, so migrations are written as files here but must be
+  run by hand in the Supabase SQL Editor (Project → SQL Editor → paste → Run) before the
+  feature that depends on them will work against production data.
+- **Credential rotation** — the Supabase DB password and TMDB/OpenAI/Vercel tokens should be
+  rotated periodically from each service's own dashboard; this can't be done from the app
+  side.
