@@ -9,6 +9,14 @@ import { siteOrigin } from "@/lib/seo/site";
 // This also means the URL matches what robots.ts already advertises
 // (`${origin}/sitemap.xml`) instead of Next's chunked `/sitemap/[id].xml`
 // convention, which requires its own (unneeded) index.
+//
+// PostgREST (Supabase's REST layer) caps every response at 1000 rows by
+// default regardless of an explicit .limit() above that -- so pulling
+// the full catalogue means paging through with .range() rather than a
+// single big query.
+const PAGE_SIZE = 1000;
+const MAX_TITLES = 45_000;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = siteOrigin();
 
@@ -34,18 +42,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // deploy picks up the titles.
   try {
     const supabase = createServiceRoleClient();
-    const { data: titles } = await supabase
-      .from("titles")
-      .select("id, updated_at")
-      .order("id", { ascending: true })
-      .limit(45_000);
+    const titleEntries: MetadataRoute.Sitemap = [];
 
-    const titleEntries: MetadataRoute.Sitemap = (titles ?? []).map((t) => ({
-      url: `${origin}/movie/${t.id}`,
-      lastModified: t.updated_at ?? undefined,
-      changeFrequency: "monthly",
-      priority: 0.5,
-    }));
+    for (let offset = 0; offset < MAX_TITLES; offset += PAGE_SIZE) {
+      const { data: page } = await supabase
+        .from("titles")
+        .select("id, updated_at")
+        .order("id", { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (!page || page.length === 0) break;
+
+      for (const t of page) {
+        titleEntries.push({
+          url: `${origin}/movie/${t.id}`,
+          lastModified: t.updated_at ?? undefined,
+          changeFrequency: "monthly",
+          priority: 0.5,
+        });
+      }
+
+      if (page.length < PAGE_SIZE) break;
+    }
 
     return [...staticEntries, ...titleEntries];
   } catch {
