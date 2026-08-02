@@ -6,21 +6,28 @@
  * (see getOrigin() in actions/auth.ts for why -- Vercel gives every
  * branch/preview its own hostname).
  *
- * VERCEL_URL is NOT what you want for the canonical production origin --
- * it's set to a unique per-deployment hostname (e.g.
- * taste-<hash>-<team>.vercel.app) on every single deployment, including
- * production ones, not the stable production alias users actually visit.
- * VERCEL_ENV tells us whether this build is "production", and
- * VERCEL_PROJECT_PRODUCTION_URL (also auto-set by Vercel) is the actual
- * stable production domain -- that combination is what correctly
- * distinguishes "this is a preview deploy, use its throwaway URL" from
- * "this is production, use the real domain everyone links to."
+ * The known stable production domain is the correct default for
+ * everything this is used for -- OG metadata, sitemap, robots.txt all
+ * need to point at the URL real users and crawlers actually see, not a
+ * per-deployment hostname.
+ *
+ * VERCEL_URL is deliberately NOT used as the default: it's set to a
+ * unique per-deployment hostname on *every* deploy, production included
+ * (confirmed live -- robots.txt's Sitemap line briefly pointed at
+ * taste-<hash>-<team>.vercel.app instead of taste-green-tau.vercel.app
+ * before this was caught). VERCEL_PROJECT_PRODUCTION_URL would be the
+ * "correct" system var for this, but it requires a project-level toggle
+ * ("Automatically expose System Environment Variables") this project
+ * doesn't have enabled, so it's simply unavailable at runtime -- rather
+ * than depend on a setting that has to be manually turned on in the
+ * Vercel dashboard, VERCEL_URL is only consulted for genuine preview
+ * deployments (VERCEL_ENV === "preview"), which is reliably set without
+ * that toggle.
  */
 export function siteOrigin(): string {
-  if (process.env.VERCEL_ENV === "production" && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
   }
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "https://taste-green-tau.vercel.app";
 }
 
