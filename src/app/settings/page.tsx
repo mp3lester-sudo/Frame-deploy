@@ -8,19 +8,22 @@ import { ExperienceTierEditor } from "@/components/settings/experience-tier-edit
 import { FavoriteTitlesEditor } from "@/components/settings/favorite-titles-editor";
 import { LetterboxdImport } from "@/components/settings/letterboxd-import";
 import { LetterboxdPasteImport } from "@/components/settings/letterboxd-paste-import";
+import { ReferralCard } from "@/components/settings/referral-card";
+import { siteOrigin } from "@/lib/seo/site";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
   const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/settings");
 
-  const [{ data: profile }, { data: favoriteRows }] = await Promise.all([
+  const [{ data: profile }, { data: favoriteRows }, { count: referralCount }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     supabase
       .from("favorite_titles")
       .select("position, titles(id, name, release_date, poster_url)")
       .eq("user_id", user.id)
       .order("position", { ascending: true }),
+    supabase.from("referrals").select("*", { count: "exact", head: true }).eq("referrer_id", user.id),
   ]);
 
   const favorites = (favoriteRows ?? [])
@@ -59,6 +62,16 @@ export default async function SettingsPage() {
       <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
         <LetterboxdImport />
       </section>
+
+      {profile?.referral_code && (
+        <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+          <ReferralCard
+            referralLink={`${siteOrigin()}/signup?ref=${profile.referral_code}`}
+            referralCount={referralCount ?? 0}
+            bonusPremiumUntil={profile.bonus_premium_until}
+          />
+        </section>
+      )}
 
       <section className="flex flex-wrap gap-4 px-1 text-xs text-foreground-muted">
         <Link href="/privacy" className="hover:text-accent hover:underline">

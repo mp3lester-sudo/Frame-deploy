@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { isPremiumActive } from "@/lib/premium/is-premium";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { LoadMoreGrid } from "@/components/load-more-grid";
@@ -101,9 +102,9 @@ export default async function DiscoverPage({
   // hand-edited to unlock them for a free account. See CLAUDE.md's product
   // principles and /premium.
   const { data: profile } = viewer
-    ? await supabase.from("profiles").select("is_premium").eq("id", viewer.id).maybeSingle()
+    ? await supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", viewer.id).maybeSingle()
     : { data: null };
-  const isPremium = profile?.is_premium ?? false;
+  const isPremium = isPremiumActive(profile);
 
   const effectiveEra = isPremium ? era : undefined;
   const effectivePacing = isPremium ? pacing : undefined;

@@ -67,7 +67,8 @@ Typecheck, lint, unit tests, and `next build` all pass as of this commit.
 ## Deploying
 
 - **Vercel**: import the repo, set the env vars from `.env.example` as project env vars,
-  deploy. `vercel.json` isn't needed — Next.js is auto-detected.
+  deploy. Next.js is auto-detected; `vercel.json` now only exists to declare the daily
+  re-engagement-email cron job (see below).
 - **Stripe webhook**: point it at `https://<domain>/api/stripe/webhook`, subscribe to
   `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
 - **CI**: `.github/workflows/ci.yml` runs typecheck/lint/test/build on every PR and push to `main`.
@@ -85,6 +86,18 @@ Typecheck, lint, unit tests, and `next build` all pass as of this commit.
 - **Admin dashboard** (`/admin/reports`): gated by `src/lib/admin/is-admin.ts`, which checks
   the signed-in user's email against `ADMIN_EMAILS` (comma-separated) with `mp3lester@gmail.com`
   as a built-in fallback so it works without any setup.
+- **Re-engagement email cron** (`/api/cron/reengagement`, `src/lib/reengagement/campaign.ts`):
+  runs daily via the Vercel Cron declared in `vercel.json`. Set `CRON_SECRET` as a project env
+  var (any random string, at least 16 characters) — Vercel automatically sends it back as
+  `Authorization: Bearer $CRON_SECRET` on cron-triggered requests, and the route 401s without
+  it configured rather than running unauthenticated. Requires `RESEND_API_KEY` to actually send
+  (no-ops otherwise, same as the welcome email). Vercel's Hobby plan caps cron jobs at one
+  run/day, which this already respects.
+- **Referral loop**: every account gets a shareable link (`/signup?ref=<code>`, shown in
+  Settings → Invite friends). A successful signup through that link grants the referrer
+  `REFERRAL_BONUS_DAYS` (`src/lib/referrals/constants.ts`, currently 14) of bonus Premium via
+  `record_referral()` (migration 0036) — tracked separately from Stripe's `is_premium` in
+  `profiles.bonus_premium_until`, combined at read time by `src/lib/premium/is-premium.ts`.
 
 ## Operational notes (run by hand, not automated)
 

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { isPremiumActive } from "@/lib/premium/is-premium";
 import { computeWrapped, computeMonthlyWrapped } from "@/lib/taste-dna/compute";
 import type { WrappedResult } from "@/lib/taste-dna/wrapped";
 
@@ -37,8 +38,8 @@ export async function getMyMonthlyWrapped(): Promise<MonthlyWrappedState> {
   if (!user) return { isPremium: false, result: null };
 
   const supabase = await createClient();
-  const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
-  const isPremium = profile?.is_premium ?? false;
+  const { data: profile } = await supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", user.id).maybeSingle();
+  const isPremium = isPremiumActive(profile);
   if (!isPremium) return { isPremium: false, result: null };
 
   const result = await computeMonthlyWrapped(user.id);

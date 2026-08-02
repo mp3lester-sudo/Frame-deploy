@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/actions/ensure-profile";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getUnreadNotificationCount } from "@/lib/actions/notifications";
+import { isPremiumActive } from "@/lib/premium/is-premium";
 import { PageTransition } from "@/components/page-transition";
 import { PromoBanner } from "@/components/layout/promo-banner";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
@@ -160,7 +161,7 @@ export default async function RootLayout({
       // means something if free accounts see something to go ad-free
       // from. Cheap enough (single boolean column) to fetch unconditionally
       // alongside the other per-request lookups this layout already does.
-      supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle(),
+      supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", user.id).maybeSingle(),
     ]);
     const conversationIds = (conversations ?? []).map((c) => c.id);
     if (conversationIds.length) {
@@ -172,7 +173,7 @@ export default async function RootLayout({
         .is("read_at", null);
       unreadMessageCount = count ?? 0;
     }
-    isPremium = profile?.is_premium ?? false;
+    isPremium = isPremiumActive(profile);
   }
 
   const unreadNotificationCount = user ? await getUnreadNotificationCount() : 0;

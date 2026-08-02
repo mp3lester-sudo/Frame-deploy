@@ -16,6 +16,10 @@ export interface Database {
           is_creator: boolean;
           is_premium: boolean;
           experience_tier: "rookie" | "intermediate" | "pro" | null;
+          last_reengagement_email_at: string | null;
+          referral_code: string;
+          referred_by: string | null;
+          bonus_premium_until: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -151,6 +155,17 @@ export interface Database {
       review_comments: {
         Row: { id: string; review_id: string; user_id: string; body: string; created_at: string };
         Insert: { review_id: string; user_id: string; body: string };
+        Update: never;
+        Relationships: [];
+      };
+      referrals: {
+        Row: {
+          id: string;
+          referrer_id: string;
+          referred_id: string;
+          created_at: string;
+        };
+        Insert: { referrer_id: string; referred_id: string };
         Update: never;
         Relationships: [];
       };
@@ -459,6 +474,14 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      record_referral: {
+        Args: { p_referrer_id: string; p_referred_id: string; p_bonus_days?: number };
+        Returns: boolean;
+      };
+      reengagement_candidates: {
+        Args: { p_inactive_days?: number; p_cooldown_days?: number };
+        Returns: { user_id: string }[];
+      };
       check_and_complete_game_pass: {
         Args: { p_season_id: string; p_user_id: string };
         Returns: boolean;

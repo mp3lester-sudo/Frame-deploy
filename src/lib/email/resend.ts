@@ -1,5 +1,6 @@
 import "server-only";
 import { Resend } from "resend";
+import { siteOrigin } from "@/lib/seo/site";
 
 /**
  * Lazily-constructed Resend client, mirroring the posthog-server.ts
@@ -38,6 +39,51 @@ export async function sendWelcomeEmail(to: string, username: string) {
 
   if (error) return { sent: false as const, reason: error.message };
   return { sent: true as const };
+}
+
+export interface ReengagementPick {
+  name: string;
+  year: string | null;
+  posterUrl: string | null;
+}
+
+export async function sendReengagementEmail(to: string, username: string, pick: ReengagementPick) {
+  const resend = getClient();
+  if (!resend) return { sent: false as const, reason: "no RESEND_API_KEY configured" };
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `${pick.name} is waiting for you on Backlot`,
+    html: reengagementEmailHtml(username, pick),
+  });
+
+  if (error) return { sent: false as const, reason: error.message };
+  return { sent: true as const };
+}
+
+function reengagementEmailHtml(username: string, pick: ReengagementPick): string {
+  const titleLine = pick.year ? `${escapeHtml(pick.name)} (${escapeHtml(pick.year)})` : escapeHtml(pick.name);
+  return `
+    <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color: #1a1512; background: #faf7f2;">
+      <h1 style="font-size: 22px; letter-spacing: 0.02em; margin-bottom: 4px;">It's been a while, ${escapeHtml(username)}.</h1>
+      <p style="font-size: 15px; line-height: 1.6; color: #4a4038;">
+        Based on your Taste DNA, we think you'd love:
+      </p>
+      ${
+        pick.posterUrl
+          ? `<img src="${escapeHtml(pick.posterUrl)}" alt="${titleLine}" style="width: 160px; border-radius: 8px; margin: 12px 0; display: block;" />`
+          : ""
+      }
+      <p style="font-size: 17px; font-weight: bold; margin: 8px 0 16px;">${titleLine}</p>
+      <p style="font-size: 15px; line-height: 1.6; color: #4a4038;">
+        <a href="${siteOrigin()}" style="color: #9a7b2f;">Open Backlot</a> to see the full pick and why we chose it.
+      </p>
+      <p style="font-size: 12px; color: #8a8078; margin-top: 32px;">
+        You're receiving this because you have a Backlot account. We only send these occasionally.
+      </p>
+    </div>
+  `;
 }
 
 function welcomeEmailHtml(username: string): string {

@@ -6,6 +6,9 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { MIN_SWIPES_FOR_TEASER } from "@/lib/recommendations/teaser";
 import { sendWelcomeEmail } from "@/lib/email/resend";
+import { generateReferralCode } from "@/lib/referrals/code";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import { REFERRAL_BONUS_DAYS } from "@/lib/referrals/constants";
 
 const signUpSchema = z.object({
   email: z.string().email(),
@@ -102,11 +105,52 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
 
   let seededSwipes = 0;
   if (data.user) {
+    // Every account gets its own shareable referral code, generated here
+    // (rather than a DB default/trigger) so a rare collision can just
+    // retry with a fresh random code instead of failing the whole signup.
+    // The "profiles are public" select policy (0002_rls.sql) means this
+    // uniqueness check works pre-insert regardless of auth state.
+    let referralCode = generateReferralCode();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data: clash } = await supabase.from("profiles").select("id").eq("referral_code", referralCode).maybeSingle();
+      if (!clash) break;
+      referralCode = generateReferralCode();
+    }
+
+    // Resolves ?ref=CODE (see the hidden field on the signup form) to the
+    // referring account, if any -- an unknown/stale/tampered code just
+    // means no referrer, never a signup failure.
+    const refCode = (formData.get("ref") as string | null)?.trim();
+    let referredByProfileId: string | null = null;
+    if (refCode) {
+      const { data: referrer } = await supabase.from("profiles").select("id").eq("referral_code", refCode).maybeSingle();
+      referredByProfileId = referrer?.id ?? null;
+    }
+
     await supabase.from("profiles").insert({
       id: data.user.id,
       username,
       display_name: username,
+      referral_code: referralCode,
+      referred_by: referredByProfileId,
     });
+
+    if (referredByProfileId) {
+      // Service-role client: granting the *referrer's* bonus_premium_until
+      // is a write to someone else's profile row, which the newly-created
+      // user (the one actually running this action) has no RLS access to
+      // otherwise. record_referral() is itself idempotent (unique
+      // referred_id), so a retried request can't double-grant.
+      createServiceRoleClient()
+        .rpc("record_referral", {
+          p_referrer_id: referredByProfileId,
+          p_referred_id: data.user.id,
+          p_bonus_days: REFERRAL_BONUS_DAYS,
+        })
+        .then(({ error }) => {
+          if (error) console.error("record_referral failed:", error.message);
+        });
+    }
 
     seededSwipes = await claimAnonymousSwipes(supabase, data.user.id, formData.get("anonymousSwipes") as string | null);
 

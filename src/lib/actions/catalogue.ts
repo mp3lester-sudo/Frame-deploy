@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { isPremiumActive } from "@/lib/premium/is-premium";
 import { DISCOVER_PAGE_SIZE, SEARCH_PAGE_SIZE } from "@/lib/constants/catalogue";
 import { ERA_DECADES, type AdvancedDiscoverFilters } from "@/lib/constants/discover-filters";
 
@@ -28,8 +29,8 @@ export async function loadMoreDiscoverTitles(
   if (era || pacing || tone || mood) {
     const viewer = await getVerifiedUser();
     if (viewer) {
-      const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", viewer.id).maybeSingle();
-      isPremium = profile?.is_premium ?? false;
+      const { data: profile } = await supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", viewer.id).maybeSingle();
+      isPremium = isPremiumActive(profile);
     }
   }
 
