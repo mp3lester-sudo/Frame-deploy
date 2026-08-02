@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -66,6 +67,40 @@ function RoseFlourish() {
       <span className="rule-grow h-px w-14 bg-gradient-to-l from-transparent to-current opacity-60" />
     </div>
   );
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
+  const { username } = await params;
+  // The "/profile/me" alias is viewer-relative and not a stable, shareable
+  // URL, so it's excluded from search indexing rather than generating
+  // metadata for whoever happens to be logged in when a crawler hits it.
+  if (username === "me") return { robots: { index: false, follow: false } };
+
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username, display_name, bio, avatar_url")
+    .eq("username", username)
+    .maybeSingle();
+  if (!profile) return { title: "Profile not found" };
+
+  const name = profile.display_name ?? profile.username;
+  const description = profile.bio?.slice(0, 200) || `${name}'s taste profile on Backlot.`;
+
+  return {
+    title: `${name} (@${profile.username})`,
+    description,
+    openGraph: {
+      title: `${name} (@${profile.username})`,
+      description,
+      images: profile.avatar_url ? [{ url: profile.avatar_url }] : undefined,
+    },
+    twitter: {
+      card: "summary",
+      title: `${name} (@${profile.username})`,
+      description,
+    },
+  };
 }
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {

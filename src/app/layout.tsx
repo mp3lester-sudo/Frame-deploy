@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { siteOrigin, SITE_NAME, SITE_DESCRIPTION } from "@/lib/seo/site";
 import { Geist, Geist_Mono, Instrument_Serif, Bebas_Neue, Monoton, Cinzel, Big_Shoulders, IBM_Plex_Sans, Syne } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
@@ -92,8 +93,24 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: "Backlot — The Operating System for Entertainment",
-  description: "Personalized movie and TV recommendations that actually get your taste.",
+  metadataBase: new URL(siteOrigin()),
+  title: {
+    default: "Backlot — The Operating System for Entertainment",
+    template: `%s — ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    siteName: SITE_NAME,
+    type: "website",
+    title: "Backlot — The Operating System for Entertainment",
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Backlot — The Operating System for Entertainment",
+    description: SITE_DESCRIPTION,
+  },
+  robots: { index: true, follow: true },
 };
 
 export default async function RootLayout({

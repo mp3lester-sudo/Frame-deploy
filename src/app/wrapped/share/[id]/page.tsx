@@ -4,6 +4,33 @@ import { createClient } from "@/lib/supabase/server";
 import { WrappedRecap } from "@/components/wrapped/wrapped-recap";
 import { Button } from "@/components/ui/button";
 import type { WrappedResult } from "@/lib/taste-dna/wrapped";
+import type { Metadata } from "next";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: share } = await supabase
+    .from("wrapped_shares")
+    .select("year, profiles(username, display_name)")
+    .eq("id", id)
+    .maybeSingle();
+  if (!share) return { title: "Wrapped not found" };
+
+  const owner = (share as unknown as { profiles: { username: string; display_name: string | null } | null }).profiles;
+  const ownerName = owner?.display_name ?? owner?.username ?? "A Backlot user";
+  const title = `${ownerName}'s ${share.year} Wrapped`;
+  const description = `See ${ownerName}'s year in movies and TV, powered by Backlot's Taste Graph.`;
+
+  return {
+    title,
+    description,
+    // opengraph-image.tsx in this route already renders a per-share image
+    // dynamically, so this only needs to supply the surrounding title/
+    // description -- Next.js wires the file-convention image in automatically.
+    openGraph: { title, description },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 /**
  * Public, no-auth share page — reads a frozen snapshot from wrapped_shares
