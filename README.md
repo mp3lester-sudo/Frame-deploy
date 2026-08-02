@@ -77,6 +77,14 @@ Typecheck, lint, unit tests, and `next build` all pass as of this commit.
   `src/lib/email/resend.ts`. Also set `RESEND_FROM_EMAIL` once a sending domain is verified
   in Resend — until then it falls back to a shared address that only delivers to the Resend
   account owner's own inbox.
+- **Sentry** (optional): set `NEXT_PUBLIC_SENTRY_DSN` (client) and `SENTRY_DSN` (server,
+  falls back to the public one if unset) to activate error capture in `src/lib/monitoring/`.
+  Server errors are caught automatically via `src/instrumentation.ts`'s `onRequestError` hook;
+  client-side render errors are reported from `error.tsx`/`global-error.tsx`. No-ops without
+  a DSN.
+- **Admin dashboard** (`/admin/reports`): gated by `src/lib/admin/is-admin.ts`, which checks
+  the signed-in user's email against `ADMIN_EMAILS` (comma-separated) with `mp3lester@gmail.com`
+  as a built-in fallback so it works without any setup.
 
 ## Operational notes (run by hand, not automated)
 

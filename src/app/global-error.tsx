@@ -11,12 +11,20 @@
 // --accent-gradient values. Rare in practice, but the alternative
 // (Next's default unstyled crash page with zero navigation back into
 // the app) is worse than a little duplicated color literals.
+import { useEffect } from "react";
+import { captureClientError } from "@/lib/monitoring/sentry-client";
+
 export default function GlobalError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    captureClientError(error, { digest: error.digest, boundary: "root-layout" });
+  }, [error]);
+
   return (
     <html>
       <body

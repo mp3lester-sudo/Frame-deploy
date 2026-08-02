@@ -33,6 +33,8 @@
     "verify:anonymous-taste-teaser": "tsx --env-file=.env.local scripts/verify-anonymous-taste-teaser.ts"
   },
   "dependencies": {
+    "@sentry/browser": "^10.69.0",
+    "@sentry/node": "^10.69.0",
     "@stripe/stripe-js": "^9.12.1",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.9",

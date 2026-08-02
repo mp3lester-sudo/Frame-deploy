@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { captureClientError } from "@/lib/monitoring/sentry-client";
 
 // Route-segment error boundary -- catches render/data-fetch errors thrown
 // anywhere below the root layout (a page's server component throwing, a
@@ -22,6 +23,7 @@ export default function Error({
     // covers client-side render errors, which otherwise vanish once React
     // unmounts the broken tree.
     console.error(error);
+    captureClientError(error, { digest: error.digest, boundary: "route-segment" });
   }, [error]);
 
   return (
