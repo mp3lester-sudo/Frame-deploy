@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { REFERRAL_BONUS_DAYS } from "@/lib/referrals/constants";
 import { isBonusWindowActive } from "@/lib/premium/is-premium";
+import { useToast } from "@/components/ui/toast";
 
 export function ReferralCard({
   referralLink,
@@ -14,13 +14,12 @@ export function ReferralCard({
   referralCount: number;
   bonusPremiumUntil: string | null;
 }) {
-  const [copied, setCopied] = useState(false);
+  const { showToast } = useToast();
 
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(referralLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      showToast("Copied to clipboard");
     } catch {
       // Clipboard API blocked (permissions/insecure context) — the link is
       // still shown as selectable text below, so this is non-fatal.
@@ -44,7 +43,7 @@ export function ReferralCard({
           className="h-10 min-w-0 flex-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 text-xs text-foreground-muted"
         />
         <Button type="button" size="sm" variant="secondary" onClick={handleCopy}>
-          {copied ? "Copied!" : "Copy link"}
+          Copy link
         </Button>
       </div>
 

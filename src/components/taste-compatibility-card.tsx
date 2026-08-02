@@ -1,4 +1,5 @@
 import type { CompatibilityWithNames } from "@/lib/matchmaking/compute";
+import { Card } from "@/components/ui/card";
 
 /**
  * Shared rendering for computeCompatibilityForUsers' output — originally
@@ -21,7 +22,7 @@ export function TasteCompatibilityCard({
   }
 
   return (
-    <div className="rounded-[var(--radius-md)] border border-border bg-surface p-4">
+    <Card>
       <p className="font-display text-lg">
         You and {otherName} are <span className="text-accent">{compatibility.percent}%</span> compatible
       </p>
@@ -41,6 +42,6 @@ export function TasteCompatibilityCard({
           Your biggest disagreement: {compatibility.biggestDisagreementGenre}
         </p>
       )}
-    </div>
+    </Card>
   );
 }

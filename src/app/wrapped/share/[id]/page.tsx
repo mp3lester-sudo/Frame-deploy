@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { WrappedRecap } from "@/components/wrapped/wrapped-recap";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import type { WrappedResult } from "@/lib/taste-dna/wrapped";
 import type { Metadata } from "next";
 
@@ -56,12 +57,12 @@ export default async function WrappedSharePage({ params }: { params: Promise<{ i
     <section className="mx-auto max-w-2xl px-4 py-10">
       <WrappedRecap result={result} headline={`${ownerName}'s ${share.year} Wrapped`} />
 
-      <div className="mt-10 rounded-[var(--radius-md)] border border-border bg-surface p-4 text-center">
+      <Card className="mt-10 text-center">
         <p className="text-sm text-foreground-muted">Want your own Taste Graph-powered recap?</p>
         <Link href="/signup" className="mt-3 inline-block">
           <Button>Create your own Wrapped</Button>
         </Link>
-      </div>
+      </Card>
     </section>
   );
 }

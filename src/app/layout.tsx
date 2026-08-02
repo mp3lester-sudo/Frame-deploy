@@ -13,6 +13,7 @@ import { PageTransition } from "@/components/page-transition";
 import { PromoBanner } from "@/components/layout/promo-banner";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
+import { ToastProvider } from "@/components/ui/toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -76,6 +77,15 @@ const bigShouldersDisplay = Big_Shoulders({
   variable: "--font-big-shoulders-display",
   subsets: ["latin"],
   weight: ["600", "700"],
+  // Google's "Big Shoulders" ships as a single variable font with named
+  // instances (Display/Text/Inline/Stencil) for what used to be separate
+  // families -- next/font's automatic fallback-metrics lookup keys off
+  // those instance names and can't resolve the bare family, so it already
+  // silently skips generating a fallback font. This just says so
+  // explicitly instead of leaving a "Failed to find font override values"
+  // warning on every build for a no-op. See
+  // https://github.com/vercel/next.js/issues/47115.
+  adjustFontFallback: false,
 });
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -188,11 +198,13 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <PostHogProvider userId={user?.id ?? null}>
-          <ServiceWorkerRegistration />
-          <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
-          {showPromoBanner && <PromoBanner />}
-          <main className="flex-1 pb-16 md:pb-0"><PageTransition>{children}</PageTransition></main>
-          <BottomNav />
+          <ToastProvider>
+            <ServiceWorkerRegistration />
+            <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
+            {showPromoBanner && <PromoBanner />}
+            <main className="flex-1 pb-16 md:pb-0"><PageTransition>{children}</PageTransition></main>
+            <BottomNav />
+          </ToastProvider>
         </PostHogProvider>
       </body>
     </html>
