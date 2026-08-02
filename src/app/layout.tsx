@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { siteOrigin, SITE_NAME, SITE_DESCRIPTION } from "@/lib/seo/site";
 import { Geist, Geist_Mono, Instrument_Serif, Bebas_Neue, Monoton, Cinzel, Big_Shoulders, IBM_Plex_Sans, Syne } from "next/font/google";
 import "./globals.css";
@@ -11,6 +11,7 @@ import { getUnreadNotificationCount } from "@/lib/actions/notifications";
 import { PageTransition } from "@/components/page-transition";
 import { PromoBanner } from "@/components/layout/promo-banner";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -111,6 +112,22 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
   },
   robots: { index: true, follow: true },
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+};
+
+// themeColor/colorScheme live in a separate `viewport` export (moved out
+// of `metadata` in Next 14+) -- this is what colors the mobile browser
+// chrome/status bar and the PWA splash screen background.
+export const viewport: Viewport = {
+  themeColor: "#120708",
+  colorScheme: "dark",
 };
 
 export default async function RootLayout({
@@ -170,6 +187,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <PostHogProvider userId={user?.id ?? null}>
+          <ServiceWorkerRegistration />
           <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
           {showPromoBanner && <PromoBanner />}
           <main className="flex-1 pb-16 md:pb-0"><PageTransition>{children}</PageTransition></main>
