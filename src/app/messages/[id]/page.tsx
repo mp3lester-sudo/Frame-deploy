@@ -5,6 +5,9 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageThread, type DisplayMessage } from "@/components/messages/message-thread";
 import { markConversationRead } from "@/lib/actions/messages";
+import { ReportButton } from "@/components/moderation/report-button";
+import { BlockUserButton } from "@/components/moderation/block-user-button";
+import { getBlockStatus } from "@/lib/actions/moderation";
 
 export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -39,6 +42,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   }));
 
   await markConversationRead(id);
+  const { blocked } = await getBlockStatus(otherId);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -50,6 +54,10 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
         <Link href={`/profile/${otherProfile?.username ?? ""}`} className="font-medium hover:text-accent">
           {otherProfile?.display_name ?? otherProfile?.username ?? "Unknown"}
         </Link>
+        <div className="ml-auto flex items-center gap-3">
+          <ReportButton contentType="profile" contentId={otherId} />
+          <BlockUserButton userId={otherId} initiallyBlocked={blocked} />
+        </div>
       </div>
 
       <MessageThread conversationId={id} initialMessages={messages} viewerId={viewer.id} />

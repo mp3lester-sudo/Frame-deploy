@@ -154,6 +154,33 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      reports: {
+        Row: {
+          id: string;
+          reporter_id: string;
+          content_type: "review" | "review_comment" | "message" | "club_post" | "profile";
+          content_id: string;
+          reason: "spam" | "harassment" | "hate_speech" | "sexual_content" | "spoilers" | "other";
+          note: string | null;
+          status: "open" | "reviewed" | "dismissed";
+          created_at: string;
+        };
+        Insert: {
+          reporter_id: string;
+          content_type: "review" | "review_comment" | "message" | "club_post" | "profile";
+          content_id: string;
+          reason: "spam" | "harassment" | "hate_speech" | "sexual_content" | "spoilers" | "other";
+          note?: string | null;
+        };
+        Update: Partial<{ status: "open" | "reviewed" | "dismissed" }>;
+        Relationships: [];
+      };
+      user_blocks: {
+        Row: { blocker_id: string; blocked_id: string; created_at: string };
+        Insert: { blocker_id: string; blocked_id: string };
+        Update: never;
+        Relationships: [];
+      };
       clubs: {
         Row: { id: string; name: string; description: string; created_by: string; created_at: string };
         Insert: { name: string; description?: string; created_by: string };

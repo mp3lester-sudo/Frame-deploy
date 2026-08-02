@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { addComment, deleteComment, type NewComment } from "@/lib/actions/comments";
 import { validateCommentBody } from "@/lib/comments/validate";
 import { formatDistanceToNow } from "@/lib/date";
+import { ReportButton } from "@/components/moderation/report-button";
 
 export interface DisplayComment {
   id: string;
@@ -105,6 +106,7 @@ export function ReviewComments({
                   Delete
                 </button>
               )}
+              {viewerId && viewerId !== c.userId && <ReportButton contentType="review_comment" contentId={c.id} />}
             </div>
           ))}
         </div>

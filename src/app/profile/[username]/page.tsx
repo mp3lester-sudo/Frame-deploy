@@ -9,6 +9,8 @@ import { TitleCard } from "@/components/title-card";
 import { WatchedTitleCard } from "@/components/profile/watched-title-card";
 import { FollowButton } from "@/components/follow-button";
 import { MessageButton } from "@/components/message-button";
+import { BlockUserButton } from "@/components/moderation/block-user-button";
+import { ReportButton } from "@/components/moderation/report-button";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
@@ -104,6 +106,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     { data: isFollowing },
     { data: favoriteRows },
     { data: genreRows },
+    { data: blockRow },
   ] = await Promise.all([
     supabase.from("follows").select("*", { count: "exact", head: true }).eq("followee_id", profile.id),
     supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
@@ -137,6 +140,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     // computeTasteDna and would otherwise leave this stat blank for a
     // lot of profiles that clearly do have a most-watched genre.
     supabase.from("ratings").select("titles(genres)").eq("user_id", profile.id),
+    viewer
+      ? supabase
+          .from("user_blocks")
+          .select("blocker_id")
+          .eq("blocker_id", viewer.id)
+          .eq("blocked_id", profile.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const [dna, signaturePick] = await Promise.all([dnaPromise, signaturePickPromise]);
@@ -239,13 +250,15 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         <p className="text-sm text-foreground-muted">@{profile.username}</p>
       </div>
       {viewer && !isOwnProfile && (
-        <div className="stagger-card flex gap-2" style={{ animationDelay: "160ms" }}>
+        <div className="stagger-card flex items-center gap-2" style={{ animationDelay: "160ms" }}>
           <div className="shine-hover rounded-[var(--radius-full)]">
             <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
           </div>
           <div className="shine-hover rounded-[var(--radius-full)]">
             <MessageButton userId={profile.id} />
           </div>
+          <BlockUserButton userId={profile.id} initiallyBlocked={!!blockRow} />
+          <ReportButton contentType="profile" contentId={profile.id} />
         </div>
       )}
     </div>

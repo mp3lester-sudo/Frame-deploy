@@ -36,7 +36,25 @@ export async function getOrCreateConversation(otherUserId: string): Promise<stri
     .eq("user_a", userA)
     .eq("user_b", userB)
     .maybeSingle();
+  // The MessageButton on a profile calls this every time someone clicks
+  // "Message," including to re-open a conversation that already exists --
+  // so an existing thread is returned unconditionally, block or no block.
+  // The block check below only ever gates a genuinely NEW conversation.
   if (existing) return existing.id;
+
+  // Blocking is directional but checked both ways here: neither side
+  // should be able to force a brand-new conversation into existence with
+  // the other once either has blocked, even though only one of them chose
+  // to block.
+  const { data: blockRows } = await supabase
+    .from("user_blocks")
+    .select("blocker_id, blocked_id")
+    .or(
+      `and(blocker_id.eq.${user.id},blocked_id.eq.${otherUserId}),and(blocker_id.eq.${otherUserId},blocked_id.eq.${user.id})`
+    );
+  if (blockRows && blockRows.length > 0) {
+    throw new Error("You can't start a conversation with this user");
+  }
 
   const { data: created, error } = await supabase
     .from("conversations")

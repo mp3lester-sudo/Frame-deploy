@@ -56,8 +56,17 @@ export default async function SettingsPage() {
         <LetterboxdPasteImport />
       </section>
 
-      <section className="rounded-[var(--radius-md)] border border-border bg-surface p-4">
+      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
         <LetterboxdImport />
+      </section>
+
+      <section className="flex flex-wrap gap-4 px-1 text-xs text-foreground-muted">
+        <Link href="/privacy" className="hover:text-accent hover:underline">
+          Privacy Policy
+        </Link>
+        <Link href="/terms" className="hover:text-accent hover:underline">
+          Terms of Service
+        </Link>
       </section>
     </div>
   );

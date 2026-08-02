@@ -66,7 +66,19 @@ export default function SignUpPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-foreground-muted">
+      <p className="mt-4 text-center text-xs text-foreground-muted">
+        By creating an account, you agree to Backlot&apos;s{" "}
+        <Link href="/terms" className="text-accent hover:underline">
+          Terms of Service
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="text-accent hover:underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+
+      <p className="mt-4 text-center text-sm text-foreground-muted">
         Already have an account?{" "}
         <Link href="/login" className="text-accent hover:underline">
           Log in

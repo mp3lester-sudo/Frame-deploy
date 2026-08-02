@@ -501,6 +501,29 @@ html.splash-shown .greeting-splash {
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    /* Still visibly a placeholder without the moving gradient. */
+    background: var(--surface-raised);
+  }
+}
+
+/* Sitewide fallback: every hover/press micro-interaction built with a bare
+   Tailwind `transition-*` utility (card lift-on-hover, image scale-on-hover,
+   button press states, etc.) rather than a named @keyframes animation --
+   those are already covered individually above, this catches everything
+   else in one place instead of hunting down every hover: utility class. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* Horizontal filter rails (Discover genres, etc.) — scrollable on all
    screen sizes without an ugly visible scrollbar. */
