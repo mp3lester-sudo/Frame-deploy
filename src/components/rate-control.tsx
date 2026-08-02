@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { rateTitle, unrateTitle } from "@/lib/actions/social";
+import { posthog } from "@/lib/analytics/posthog-client";
 
 export function RateControl({ titleId, initialScore = 0 }: { titleId: string; initialScore?: number }) {
   const [score, setScore] = useState(initialScore);
@@ -14,6 +15,7 @@ export function RateControl({ titleId, initialScore = 0 }: { titleId: string; in
     startTransition(async () => {
       try {
         await rateTitle({ titleId, score: next });
+        posthog.capture("title_rated", { title_id: titleId, score: next });
       } catch {
         setScore(previous);
       }

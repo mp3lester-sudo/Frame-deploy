@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { posthog } from "@/lib/analytics/posthog-client";
 
 const FEATURES = [
   "Unlimited AI concierge conversations",
@@ -16,6 +17,7 @@ export default function PremiumPage() {
 
   async function handleUpgrade() {
     setLoading(true);
+    posthog.capture("premium_checkout_started");
     try {
       const res = await fetch("/api/stripe/checkout", { method: "POST" });
       const data = await res.json();

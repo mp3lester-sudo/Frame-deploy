@@ -9,6 +9,7 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getUnreadNotificationCount } from "@/lib/actions/notifications";
 import { PageTransition } from "@/components/page-transition";
 import { PromoBanner } from "@/components/layout/promo-banner";
+import { PostHogProvider } from "@/components/analytics/posthog-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -151,10 +152,12 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${monoton.variable} ${cinzel.variable} ${bigShouldersDisplay.variable} ${ibmPlexSans.variable} ${syne.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
-        {showPromoBanner && <PromoBanner />}
-        <main className="flex-1 pb-16 md:pb-0"><PageTransition>{children}</PageTransition></main>
-        <BottomNav />
+        <PostHogProvider userId={user?.id ?? null}>
+          <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
+          {showPromoBanner && <PromoBanner />}
+          <main className="flex-1 pb-16 md:pb-0"><PageTransition>{children}</PageTransition></main>
+          <BottomNav />
+        </PostHogProvider>
       </body>
     </html>
   );

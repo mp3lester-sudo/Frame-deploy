@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import Stripe from "stripe";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 /**
  * Stripe webhook — the only writer of public.subscriptions. Uses the service
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
           status: "active",
         });
         await supabase.from("profiles").update({ is_premium: true }).eq("id", userId);
+        await captureServerEvent(userId, "premium_activated", { source: "stripe_checkout" });
       }
       break;
     }
