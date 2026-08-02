@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { MIN_SWIPES_FOR_TEASER } from "@/lib/recommendations/teaser";
+import { sendWelcomeEmail } from "@/lib/email/resend";
 
 const signUpSchema = z.object({
   email: z.string().email(),
@@ -108,6 +109,11 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
     });
 
     seededSwipes = await claimAnonymousSwipes(supabase, data.user.id, formData.get("anonymousSwipes") as string | null);
+
+    // Fire-and-forget: a missing RESEND_API_KEY or a transient send failure
+    // should never block account creation, so this is deliberately not
+    // awaited into the error path above.
+    sendWelcomeEmail(email, username).catch(() => {});
   }
 
   // Only skip the post-signup /onboarding quiz if the landing-page teaser
