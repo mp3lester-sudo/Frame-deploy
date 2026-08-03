@@ -19,9 +19,6 @@ import { CompanionPicker } from "@/components/home/companion-picker";
 import { DirectorOfTheDay } from "@/components/home/director-of-the-day";
 import { getDirectorOfTheDay } from "@/lib/director-of-day/fetch";
 import { isCircumstantialContext } from "@/lib/context/circumstantial";
-import { getLastReviewedOrWatchedTitle } from "@/lib/poster-font/last-title";
-import { getOrFetchPosterFont } from "@/lib/poster-font/detect";
-import { getPosterFontClassName } from "@/lib/poster-font/fonts";
 import { PreciseLocation } from "@/components/home/precise-location";
 import { IndieSpotlight } from "@/components/home/indie-spotlight";
 import { getIndieReleases } from "@/lib/news/tmdb-releases";
@@ -121,7 +118,6 @@ export default async function HomePage({
     { data: memberships },
     { data: following },
     directorOfTheDay,
-    lastTitle,
     indieReleases,
     indieNews,
   ] = await Promise.all([
@@ -142,11 +138,6 @@ export default async function HomePage({
     // rated well, rotating daily (see director-of-day/pick.ts). Returns
     // null rather than a placeholder when there's no rating history yet.
     getDirectorOfTheDay(user.id),
-    // Whichever title this user most recently reviewed or watched — drives
-    // the greeting's poster-matched font below. Independent of everything
-    // else in this batch, so it rides along here instead of adding its own
-    // sequential stage.
-    getLastReviewedOrWatchedTitle(user.id),
     // Indie Spotlight data (release calendar + IndieWire headlines) is the
     // same for every visitor, not scoped to this user at all -- rides
     // along in this same batch rather than adding a sequential fetch.
@@ -158,7 +149,7 @@ export default async function HomePage({
   const nightIds = (memberships ?? []).map((m) => m.movie_night_id);
   const followeeIds = (following ?? []).map((f) => f.followee_id);
 
-  const [heroDirectorResult, night, events, posterFontName] = await Promise.all([
+  const [heroDirectorResult, night, events] = await Promise.all([
     hero
       ? supabase
           .from("title_credits")
@@ -187,17 +178,10 @@ export default async function HomePage({
           .limit(SOCIAL_EVENTS_LIMIT)
           .then((r) => r.data ?? [])
       : Promise.resolve([]),
-    // Lazy-fetch-on-view-then-cache-forever, same pattern as RT scores — see
-    // src/lib/poster-font/detect.ts. Only ever hits OpenAI on the very first
-    // time any user's greeting needs this specific title's font; every
-    // subsequent view (this user or anyone else) is a free DB read.
-    lastTitle ? getOrFetchPosterFont(lastTitle) : Promise.resolve(null),
   ]);
 
   const heroDirector =
     (heroDirectorResult?.data as unknown as { people: { name: string } | null } | null)?.people?.name ?? null;
-  const greetingFontClassName = getPosterFontClassName(posterFontName);
-
   let activeNight: { id: string; hostId: string; participants: Participant[] } | null = null;
   if (night) {
     const { data: participantRows } = await supabase
@@ -254,26 +238,19 @@ export default async function HomePage({
         }}
       />
       {/* Screen-centered marquee card -- both axes, via fixed inset-0
-          flex centering -- rather than the inline "Good evening, Name."
+          flex centering -- rather than the inline "Good evening Name"
           sentence the persistent in-page heading below still uses.
           Thin rule lines above and below the name (same accent-deep
           hairline both times) frame it like a vintage title card. Name
-          defaults to Allura, an elegant thin gold cursive script;
-          greetingFontClassName still takes over instead when this user's
-          last-watched title has its own detected poster font. */}
+          always renders in Allura, the same elegant thin gold cursive
+          script as the greeting word above it. */}
       <div
         className="greeting-splash pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background"
         aria-hidden="true"
       >
         <span className={`${allura.className} text-3xl text-accent-soft sm:text-4xl`}>{greeting}</span>
         <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
-        <span
-          className={
-            greetingFontClassName
-              ? `${greetingFontClassName} text-4xl uppercase tracking-[0.14em] text-accent-soft sm:text-6xl`
-              : `${allura.className} text-5xl text-accent-soft sm:text-7xl`
-          }
-        >
+        <span className={`${allura.className} text-5xl text-accent-soft sm:text-7xl`}>
           {firstName}
         </span>
         <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
@@ -291,21 +268,12 @@ export default async function HomePage({
             switched from Playfair Display (serif) for a cleaner, more
             modern look. Still off-white; only the typeface changed, the
             marquee name treatment right after it is untouched. */}
-        <span className={`${allura.className} text-4xl text-accent sm:text-5xl`}>{greeting}</span>,{" "}
-        {/* The name gets an elegant gold cursive (Allura) treatment by
-            default -- but when this user's most recently reviewed/watched
-            title has a poster-matched font on file (see lib/poster-font),
-            that takes over instead, so the greeting reflects something
-            specific to them rather than always the same house treatment. */}
-        <span
-          className={
-            greetingFontClassName
-              ? `${greetingFontClassName} text-3xl uppercase tracking-wide sm:text-4xl`
-              : `${allura.className} text-5xl text-accent sm:text-6xl`
-          }
-        >
-          {firstName}
-        </span>
+        <span className={`${allura.className} text-4xl text-accent sm:text-5xl`}>{greeting}</span>{" "}
+        {/* Name always gets the same elegant gold cursive (Allura)
+            treatment as "Good morning" above -- previously a poster-
+            matched font (see lib/poster-font) could override this, but
+            that's dropped now in favor of one consistent gold script. */}
+        <span className={`${allura.className} text-5xl text-accent sm:text-6xl`}>{firstName}</span>
       </h1>
       {ratedCount ? (
         <p className="mt-1.5 text-center text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
