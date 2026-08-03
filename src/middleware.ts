@@ -77,7 +77,14 @@ export async function middleware(request: NextRequest) {
   // them. A genuinely logged-out user still gets a clear, catchable error
   // from the action itself instead of a framework-level crash.
   const isServerAction = request.headers.has("next-action");
-  const isProtected = PROTECTED_PREFIXES.some((p) => request.nextUrl.pathname.startsWith(p));
+  // /movie-night/join/[token] is the one Movie Night route deliberately
+  // NOT gated -- it's the public invite-link preview (see that page's own
+  // comment), meant to work with no account at all. Same carve-out
+  // pattern as /lists above: prefix matching would otherwise catch it
+  // along with the genuinely protected /movie-night list/session pages.
+  const isPublicMovieNightInvite = request.nextUrl.pathname.startsWith("/movie-night/join/");
+  const isProtected =
+    !isPublicMovieNightInvite && PROTECTED_PREFIXES.some((p) => request.nextUrl.pathname.startsWith(p));
   if (isProtected && !user && !isServerAction) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("next", request.nextUrl.pathname);
