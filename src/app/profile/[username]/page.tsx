@@ -15,6 +15,7 @@ import { ReportButton } from "@/components/moderation/report-button";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
+import { computeCinemaPoints, tierForPoints } from "@/lib/profile/cinema-score";
 import { computeGenreDistribution, buildFingerprintGradient, buildTasteQuote } from "@/lib/profile/taste-fingerprint";
 import { resolveProfileTheme } from "@/lib/profile/theme-preset";
 import { AnimatedCounter } from "@/components/profile/animated-counter";
@@ -142,6 +143,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     { data: favoriteRows },
     { data: genreRows },
     { data: blockRow },
+    { data: cinemaScoreRow },
   ] = await Promise.all([
     supabase.from("follows").select("*", { count: "exact", head: true }).eq("followee_id", profile.id),
     supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
@@ -183,6 +185,16 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           .eq("blocked_id", profile.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    // Cinema Score: an earned rookie/intermediate/pro tier computed from
+    // this profile's own watching/reviewing activity (see
+    // src/lib/profile/cinema-score.ts and migration 0040) -- replaces
+    // what used to be a self-reported pick stored on profiles.experience_tier.
+    // Called directly here (not via the getCinemaScore action, which
+    // re-derives the caller's own session) since this render already has
+    // a verified user and a live supabase client from further up this
+    // same function -- re-authenticating again per the same "redundant
+    // auth.getUser() calls" fix applied elsewhere on this page.
+    supabase.rpc("compute_cinema_score", { p_user_id: profile.id }).maybeSingle(),
   ]);
 
   const [dna, signaturePick] = await Promise.all([dnaPromise, signaturePickPromise]);
@@ -224,7 +236,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // rather than inline JSX math.
   const genreDistribution = computeGenreDistribution(genreCounts);
   const fingerprintGradient = buildFingerprintGradient(genreDistribution, theme.accentRgb);
-  const tierLabel = profile.experience_tier ? EXPERIENCE_TIER_LABEL[profile.experience_tier] : null;
+  // Cinema Score points, recomputed here from the raw watched/reviewed
+  // counts (rather than trusting the RPC's own points column blindly) so
+  // the tier math stays in one place -- src/lib/profile/cinema-score.ts --
+  // instead of duplicated between SQL and TypeScript.
+  const cinemaPoints = computeCinemaPoints(cinemaScoreRow?.watched_count ?? 0, cinemaScoreRow?.reviewed_count ?? 0);
+  const cinemaTier = tierForPoints(cinemaPoints);
+  const tierLabel = EXPERIENCE_TIER_LABEL[cinemaTier];
   const tasteQuote = buildTasteQuote(tierLabel, genreDistribution, ratingCount ?? 0);
 
   // Editorial cover-photo banner (Option B from the profile redesign
@@ -276,11 +294,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       <div className="stagger-card min-w-0" style={{ animationDelay: "80ms" }}>
         <div className="flex flex-wrap items-center justify-center gap-2">
           <h1 className="font-display text-xl">{profile.display_name ?? profile.username}</h1>
-          {profile.experience_tier && (
-            <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
-              {EXPERIENCE_TIER_LABEL[profile.experience_tier]}
-            </span>
-          )}
+          <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+            {tierLabel}
+          </span>
         </div>
         <p className="text-sm text-foreground-muted">@{profile.username}</p>
       </div>
@@ -321,7 +337,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           >
             <div className="absolute inset-2 flex items-center justify-center rounded-full bg-background text-center">
               <span className="font-display text-xs italic leading-tight text-foreground-muted">
-                {tierLabel ?? "Backlot"}
+                {tierLabel}
               </span>
             </div>
           </div>
@@ -351,6 +367,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         <div className="flex-1 px-2 text-center">
           <p className="font-display text-2xl"><AnimatedCounter value={ratingCount ?? 0} /></p>
           <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Watched</p>
+        </div>
+        <div className="flex-1 px-2 text-center">
+          <p className="font-display text-2xl"><AnimatedCounter value={cinemaPoints} /></p>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Cinema Score</p>
         </div>
         <div className="flex-1 px-2 text-center">
           <p className="font-display truncate text-2xl">{topGenre ?? "—"}</p>

@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { AvatarUpload } from "@/components/settings/avatar-upload";
 import { ProfileForm } from "@/components/settings/profile-form";
-import { ExperienceTierEditor } from "@/components/settings/experience-tier-editor";
 import { FavoriteTitlesEditor } from "@/components/settings/favorite-titles-editor";
 import { LetterboxdImport } from "@/components/settings/letterboxd-import";
 import { LetterboxdPasteImport } from "@/components/settings/letterboxd-paste-import";
@@ -47,10 +46,6 @@ export default async function SettingsPage() {
 
       <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
         <ProfileForm initialDisplayName={profile?.display_name ?? ""} initialBio={profile?.bio ?? ""} />
-      </section>
-
-      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
-        <ExperienceTierEditor initialTier={profile?.experience_tier ?? null} />
       </section>
 
       <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">

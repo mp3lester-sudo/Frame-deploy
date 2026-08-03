@@ -475,6 +475,10 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      compute_cinema_score: {
+        Args: { p_user_id: string };
+        Returns: { watched_count: number; reviewed_count: number; points: number }[];
+      };
       resolve_movie_night_token: {
         Args: { p_token: string };
         Returns: { id: string; host_id: string }[];

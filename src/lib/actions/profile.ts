@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { EXPERIENCE_TIERS, type ExperienceTier } from "@/lib/constants/experience-tier";
+import type { ExperienceTier } from "@/lib/constants/experience-tier";
+import { tierForPoints } from "@/lib/profile/cinema-score";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -39,26 +40,33 @@ export async function updateProfile(input: z.infer<typeof profileSchema>) {
   revalidatePath(`/profile/${user.id}`);
 }
 
-const TIER_VALUES = EXPERIENCE_TIERS.map((t) => t.value) as [ExperienceTier, ...ExperienceTier[]];
-const experienceTierSchema = z.enum(TIER_VALUES);
-
-// Called both from the onboarding flow's first step (a one-time choice)
-// and from Settings (freely editable afterward — no reason to lock someone
-// into how they self-identified on day one). Both call sites are client
-// event handlers (a button click / form submit), never a direct call
-// during a Server Component's render — see the revalidatePath-during-render
-// bug fixed on /notifications and /messages/[id] for why that distinction
-// matters.
-export async function setExperienceTier(tier: ExperienceTier) {
-  const parsed = experienceTierSchema.parse(tier);
-  const { supabase, user } = await requireUser();
-
-  const { error } = await supabase.from("profiles").update({ experience_tier: parsed }).eq("id", user.id);
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/settings");
-  revalidatePath("/profile/me");
-  revalidatePath(`/profile/${user.id}`);
+// Replaces the old setExperienceTier self-report write -- the tier badge
+// (still the same Casual Viewer/Film Buff/Cinephile labels, still the
+// same rookie/intermediate/pro underlying values) is now earned from
+// actual watching/reviewing activity via the compute_cinema_score DB
+// function (migration 0040) instead of picked once during onboarding and
+// left alone. No auth/ownership check here beyond just being logged in --
+// ratings/reviews are already publicly readable (this is the same data
+// a profile page's Watched count and review list already expose), so
+// there's nothing more sensitive being computed for someone else's userId
+// than what's already visible elsewhere on their profile.
+export async function getCinemaScore(userId: string): Promise<{
+  points: number;
+  watchedCount: number;
+  reviewedCount: number;
+  tier: ExperienceTier;
+}> {
+  const { supabase } = await requireUser();
+  const { data, error } = await supabase.rpc("compute_cinema_score", { p_user_id: userId }).maybeSingle();
+  if (error || !data) {
+    return { points: 0, watchedCount: 0, reviewedCount: 0, tier: "rookie" };
+  }
+  return {
+    points: data.points,
+    watchedCount: data.watched_count,
+    reviewedCount: data.reviewed_count,
+    tier: tierForPoints(data.points),
+  };
 }
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5MB
