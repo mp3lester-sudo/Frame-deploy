@@ -198,6 +198,28 @@ export async function getMovieNightCandidates(movieNightId: string): Promise<Mov
   return getCandidatesForMovieNight(movieNightId, { viewerId: user.id });
 }
 
+export interface TitleBasic {
+  id: string;
+  name: string;
+  poster_url: string | null;
+}
+
+/**
+ * Fallback lookup for the decision-reveal overlay (see DecisionReveal +
+ * the movie_nights realtime handler in live-candidate-voting.tsx): most
+ * of the time the decided title is already sitting in this viewer's own
+ * matches/candidates/fallback state, no server round trip needed, but a
+ * host can lock in a pick this particular viewer's personalized pool
+ * never surfaced (different taste vector, different exclusions) -- this
+ * covers that edge case with a minimal query rather than falling back to
+ * a plain page reload and skipping the reveal entirely.
+ */
+export async function getTitleBasic(titleId: string): Promise<TitleBasic | null> {
+  const { supabase } = await requireUser();
+  const { data } = await supabase.from("titles").select("id, name, poster_url").eq("id", titleId).maybeSingle();
+  return data;
+}
+
 /**
  * Refills a single grid slot in the candidate queue -- called the moment
  * a viewer votes (like or pass) on a card, so passing on something always

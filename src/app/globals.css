@@ -566,3 +566,59 @@ html.splash-shown .greeting-splash {
   background-image: var(--accent-gradient);
 }
 
+
+/* ============================================================
+   Movie Night decision reveal -- the moment a group's pick locks in,
+   shown to everyone still on the session screen (see
+   components/movie-night/decision-reveal.tsx) before handing off to the
+   title's own page. Reuses the same golden .marquee-bulbs treatment as
+   the home page greeting and the page background's --spotlight glow,
+   just staged as an entrance instead of a static backdrop.
+   ============================================================ */
+@keyframes reveal-glow-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.reveal-glow {
+  animation: reveal-glow-in 900ms ease-out both;
+}
+
+@keyframes reveal-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reveal-fade-up {
+  animation: reveal-fade-up 550ms ease-out both;
+}
+
+@keyframes reveal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.reveal-pop {
+  animation: reveal-pop 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-glow,
+  .reveal-fade-up,
+  .reveal-pop {
+    animation: none;
+  }
+}

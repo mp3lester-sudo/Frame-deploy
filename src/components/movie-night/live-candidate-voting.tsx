@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "@/components/ui/fade-image";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,15 @@ import {
   getMovieNightMatches,
   getMovieNightFallbackRanking,
   refillMovieNightCandidate,
+  getTitleBasic,
   type MovieNightMatchResult,
   type MovieNightFallbackResult,
+  type TitleBasic,
 } from "@/lib/actions/movie-night";
 import { createClient } from "@/lib/supabase/client";
 import type { MovieNightCandidate } from "@/lib/recommendations/movie-night";
 import { WhyThisPick } from "@/components/home/why-this-pick";
+import { DecisionReveal } from "@/components/movie-night/decision-reveal";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export interface InitialVote {
@@ -70,6 +73,7 @@ export function LiveCandidateVoting({
     return map;
   });
   const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [reveal, setReveal] = useState<TitleBasic | null>(null);
   const [isPending, startTransition] = useTransition();
   const [matches, setMatches] = useState<MovieNightMatchResult[]>([]);
   const [refillingIds, setRefillingIds] = useState<Set<string>>(new Set());
@@ -85,6 +89,22 @@ export function LiveCandidateVoting({
   // "invite someone" message meant for a genuinely brand-new night.
   const [poolExhausted, setPoolExhausted] = useState(initialCandidates.length === 0 && initialVotes.length > 0);
   const [fallback, setFallback] = useState<MovieNightFallbackResult[]>([]);
+
+  // Read inside the realtime effect below without being a dependency of it --
+  // the effect only needs to (re)run when the channel identity itself should
+  // change (movieNightId), not every time a vote updates matches/candidates/
+  // fallback, or it would tear down and resubscribe the socket constantly.
+  const matchesRef = useRef(matches);
+  const candidatesRef = useRef(candidates);
+  const fallbackRef = useRef(fallback);
+  // Mirrors state into refs after every render (not during render itself,
+  // which the react-hooks/refs rule flags) -- same pattern as
+  // preferences-form.tsx's excludedRef/moodRef.
+  useEffect(() => {
+    matchesRef.current = matches;
+    candidatesRef.current = candidates;
+    fallbackRef.current = fallback;
+  });
 
   const refreshMatches = useCallback(() => {
     startTransition(async () => {
@@ -146,10 +166,36 @@ export function LiveCandidateVoting({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "movie_nights", filter: `id=eq.${movieNightId}` },
-        // A status change (decided/cancelled/reopened) swaps which whole
-        // section of the page renders -- that's a real full-route
-        // transition, not something this component's own state can patch.
-        () => router.refresh()
+        (payload: RealtimePostgresChangesPayload<{ status: string; decided_title_id: string | null }>) => {
+          const row = payload.new as { status?: string; decided_title_id?: string | null } | undefined;
+          if (row?.status === "decided" && row.decided_title_id) {
+            const decidedId = row.decided_title_id;
+            // Almost always already sitting in this viewer's own state --
+            // no server round trip needed for the common case. Only the
+            // host's own decideMovieNight() call (see lockIn below) skips
+            // straight past this and relies on the same realtime echo
+            // everyone else gets, exactly like votes' "our own vote will
+            // arrive a moment later" pattern above -- one code path for
+            // showing the reveal, not two.
+            const known =
+              matchesRef.current.find((m) => m.title.id === decidedId)?.title ??
+              candidatesRef.current.find((c) => c.title.id === decidedId)?.title ??
+              fallbackRef.current.find((f) => f.title.id === decidedId)?.title;
+            if (known) {
+              setReveal({ id: known.id, name: known.name, poster_url: known.poster_url });
+            } else {
+              startTransition(async () => {
+                const basic = await getTitleBasic(decidedId);
+                if (basic) setReveal(basic);
+                else router.refresh(); // Fallback -- title vanished or lookup failed; the static decided-card view still works.
+              });
+            }
+            return;
+          }
+          // Cancelled or reopened back to collecting -- no reveal moment
+          // for either of those, just show the right section of the page.
+          router.refresh();
+        }
       )
       .on(
         "postgres_changes",
@@ -224,7 +270,10 @@ export function LiveCandidateVoting({
     setDecidingId(titleId);
     startTransition(async () => {
       await decideMovieNight({ movieNightId, titleId });
-      router.refresh();
+      // No router.refresh() here -- the realtime movie_nights handler above
+      // echoes this write back to us same as everyone else in the session,
+      // and drives the golden-lights reveal uniformly for every viewer
+      // including the host who just made the call.
     });
   }
 
@@ -232,7 +281,9 @@ export function LiveCandidateVoting({
   const visibleCandidates = candidates.filter((c) => !matchedIds.has(c.title.id));
 
   return (
-    <div className="space-y-6">
+    <>
+      {reveal && <DecisionReveal titleId={reveal.id} name={reveal.name} posterUrl={reveal.poster_url} />}
+      <div className="space-y-6">
       {matches.length > 0 && (
         <div className="rounded-[var(--radius-md)] border border-accent/50 bg-accent/5 p-4">
           <p className="text-[11px] font-medium uppercase tracking-wider text-accent">
@@ -396,6 +447,7 @@ export function LiveCandidateVoting({
           )}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
