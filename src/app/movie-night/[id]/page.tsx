@@ -149,7 +149,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
             <div className="mt-6 flex flex-col gap-4">
               <div>
                 <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                  Share a link -- works for anyone, no account needed to preview
+                  Invite anyone -- no account needed to preview
                 </p>
                 <InviteLink inviteLink={`${siteOrigin()}/movie-night/join/${night.invite_token}`} />
               </div>
