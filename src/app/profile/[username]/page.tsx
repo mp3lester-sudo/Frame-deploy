@@ -408,6 +408,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           >
             Your lists
           </Link>
+          <Link
+            href="/wrapped"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
+            style={{ animationDelay: "700ms" }}
+          >
+            Wrapped
+          </Link>
         </div>
       )}
     </div>

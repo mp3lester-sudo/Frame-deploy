@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Search, Sparkles, Users, Compass, User, Clapperboard, Settings, UsersRound, Mail, Gift, Bell } from "lucide-react";
+import { Search, Sparkles, Users, Compass, User, Clapperboard, Settings, UsersRound, Mail, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** How long the nav bar stays visible with no scroll/mouse/touch/key
@@ -17,6 +17,10 @@ const IDLE_HIDE_MS = 4000;
 // which people already visit far more often than a standalone page.
 // The route itself (/taste-dna) is untouched and still linked from the
 // home page's cold-start "sharpen these picks" prompt.
+// Wrapped moved the same way -- it's now a link from the profile page's
+// own action list (alongside Watchlist/Your lists) rather than a
+// persistent top-level tab, since it's a once-in-a-while personal recap,
+// not something anyone needs one tap away from every page.
 // Movie Night leads (right after Discover) rather than sitting fifth of
 // six equal-weight tabs -- see the home page and bottom nav for the same
 // promotion. Recommendations don't need a nav entry of their own: they
@@ -24,7 +28,6 @@ const IDLE_HIDE_MS = 4000;
 const links = [
   { href: "/discover", label: "Discover", icon: Compass },
   { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
-  { href: "/wrapped", label: "Wrapped", icon: Gift },
   { href: "/ai", label: "Ask Backlot", icon: Sparkles },
   { href: "/feed", label: "Social", icon: Users },
   { href: "/clubs", label: "Clubs", icon: UsersRound },
