@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { posthog } from "@/lib/analytics/posthog-client";
+import { isNativeApp } from "@/lib/native/is-native";
 
 const FEATURES = [
   "Unlimited AI concierge conversations",
@@ -15,13 +16,26 @@ const FEATURES = [
 export default function PremiumPage() {
   const [loading, setLoading] = useState(false);
 
+  const native = isNativeApp();
+
   async function handleUpgrade() {
     setLoading(true);
     posthog.capture("premium_checkout_started");
     try {
       const res = await fetch("/api/stripe/checkout", { method: "POST" });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (!data.url) return;
+
+      // Apple requires digital subscription purchases to either go through
+      // StoreKit/In-App Purchase, or happen entirely outside the app. We do
+      // the latter: inside the native wrapper, Checkout opens in the
+      // system browser (Safari) instead of the app's own WebView, so the
+      // purchase flow is never rendered inside the app itself.
+      if (native) {
+        window.open(data.url, "_blank");
+      } else {
+        window.location.href = data.url;
+      }
     } finally {
       setLoading(false);
     }
@@ -45,6 +59,11 @@ export default function PremiumPage() {
         <Button className="mt-6 w-full" isLoading={loading} onClick={handleUpgrade}>
           Upgrade to Premium
         </Button>
+        {native && (
+          <p className="mt-2 text-center text-xs text-foreground-muted">
+            Opens in your browser to complete purchase.
+          </p>
+        )}
       </Card>
     </div>
   );
