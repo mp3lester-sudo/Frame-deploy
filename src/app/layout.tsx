@@ -204,6 +204,29 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${monoton.variable} ${cinzel.variable} ${bigShouldersDisplay.variable} ${ibmPlexSans.variable} ${syne.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        {/* Synchronous, runs during HTML parsing before React hydrates --
+            same pattern as the greeting-splash script in page.tsx. Reads
+            the analytics-consent cookie/localStorage (see
+            lib/analytics/consent.ts) and, if the visitor already decided,
+            tags <html> so the CSS rule below (html.consent-decided
+            .cookie-consent-banner) hides the banner instantly. Doing this
+            in CSS rather than React state sidesteps hydration entirely --
+            the banner component still renders identical markup on the
+            server and the client, so there is nothing for React to
+            reconcile and no mismatch that depends on timing. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try {
+  var k = 'backlot_analytics_consent';
+  var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + k + '=([^;]*)'));
+  var v = m ? decodeURIComponent(m[1]) : null;
+  if (v !== 'granted' && v !== 'denied') v = window.localStorage.getItem(k);
+  if (v === 'granted' || v === 'denied') {
+    document.documentElement.classList.add('consent-decided');
+  }
+} catch (e) {}`,
+          }}
+        />
         <PostHogProvider userId={user?.id ?? null}>
           <ToastProvider>
             <ServiceWorkerRegistration />

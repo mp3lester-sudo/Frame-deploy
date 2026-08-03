@@ -1,34 +1,8 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-import { getConsent, setConsent, type ConsentState } from "@/lib/analytics/consent";
+import { useState } from "react";
+import { setConsent } from "@/lib/analytics/consent";
 import { initPostHog } from "@/lib/analytics/posthog-client";
-
-type Listener = () => void;
-let listeners: Listener[] = [];
-
-function subscribe(listener: Listener) {
-  listeners.push(listener);
-  return () => {
-    listeners = listeners.filter((l) => l !== listener);
-  };
-}
-
-function notifyListeners() {
-  listeners.forEach((listener) => listener());
-}
-
-function getSnapshot(): ConsentState {
-  return getConsent();
-}
-
-// The server has no window/localStorage/cookies to read, so it can only
-// ever report "undecided" -- see the component doc comment below for why
-// that (not the useState lazy initializer this used to be) is what
-// actually makes hydration safe here.
-function getServerSnapshot(): ConsentState {
-  return null;
-}
 
 /**
  * Gates PostHog behind an explicit choice instead of firing unconditionally
@@ -36,36 +10,39 @@ function getServerSnapshot(): ConsentState {
  * consent, which doesn't match this app's own Privacy Policy explicitly
  * citing GDPR.
  *
- * Uses useSyncExternalStore rather than a useState lazy initializer (the
- * previous approach) specifically because this component's whole job is
- * deciding *whether to render at all* based on browser-only storage. A
- * lazy initializer runs during the client's first render too -- for a
- * returning visitor who'd already granted or declined, that makes the
- * client's first-render output ("no banner") diverge from the server's
- * ("banner visible", since the server has no window to read). React does
- * not reliably repair hydration mismatches that change whether an
- * element renders at all, and in production this showed up as the
- * banner staying stuck on screen permanently -- clicks and all -- even
- * though the correct choice was already sitting in storage.
- * useSyncExternalStore is the API React ships specifically for this:
- * getServerSnapshot always returns "undecided" so the server and the
- * client's first paint agree, and the real value swaps in right after
- * via the same subscribe/notify mechanism a genuinely external store
- * would use, so no hydration mismatch is possible.
+ * Whether a RETURNING visitor (who already granted/declined) sees this at
+ * all is decided by CSS plus a synchronous inline script in the root
+ * layout (see the `consent-decided` class toggle there and the
+ * `html.consent-decided .cookie-consent-banner` rule in globals.css) --
+ * the same pre-hydration-script-plus-CSS-class pattern this codebase
+ * already uses for the greeting splash. This component itself always
+ * renders the exact same markup on the server and the client, so there
+ * is no hydration mismatch for React to reconcile. Two earlier versions
+ * tried to decide visibility from React state seeded by
+ * localStorage/cookies (first a useState lazy initializer, then
+ * useSyncExternalStore), and in production the banner stayed stuck
+ * visible regardless of what was actually stored -- CSS-based hiding
+ * sidesteps the whole class of problem instead of fighting hydration
+ * timing.
+ *
+ * `decided` here only ever matters for the *current* session's click --
+ * it starts false on both server and client (identical, no mismatch),
+ * and only flips true in response to a real click, which is an ordinary
+ * post-mount update, not an initial-render one.
  */
 export function CookieConsentBanner() {
-  const consent = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const [decided, setDecided] = useState(false);
 
-  if (consent !== null) return null;
+  if (decided) return null;
 
   function decide(value: "granted" | "denied") {
     setConsent(value);
-    notifyListeners();
+    setDecided(true);
     if (value === "granted") initPostHog();
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-surface px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.2)] md:bottom-16">
+    <div className="cookie-consent-banner fixed inset-x-0 bottom-0 z-50 border-t border-border bg-surface px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.2)] md:bottom-16">
       <div className="mx-auto flex max-w-3xl flex-col items-center justify-between gap-3 sm:flex-row">
         <p className="text-xs text-foreground-muted">
           We use analytics to understand how Backlot is used. No data is sold to third parties.{" "}

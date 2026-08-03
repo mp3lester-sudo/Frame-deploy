@@ -9,45 +9,42 @@ function clearAllCookies() {
   });
 }
 
+// Note: whether a RETURNING visitor (who already granted/declined) sees
+// this banner at all is decided by CSS plus a pre-hydration inline
+// script in the root layout, not by this component -- see the doc
+// comment on CookieConsentBanner for why. That means this component
+// always renders on mount in isolation (there's no stylesheet or inline
+// script running in this test environment to hide it), and these tests
+// cover the part that *is* this component's job: writing the choice on
+// click and hiding itself for the rest of the session.
 describe("CookieConsentBanner", () => {
   beforeEach(() => {
     window.localStorage.clear();
     clearAllCookies();
   });
 
-  it("shows for an undecided visitor", () => {
+  it("renders on mount", () => {
     render(<CookieConsentBanner />);
     expect(screen.getByText(/No data is sold/i)).toBeInTheDocument();
   });
 
-  it("hides immediately after clicking Accept", () => {
+  it("hides immediately after clicking Accept and persists the choice", () => {
     render(<CookieConsentBanner />);
     fireEvent.click(screen.getByRole("button", { name: /accept/i }));
     expect(screen.queryByText(/No data is sold/i)).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("backlot_analytics_consent")).toBe("granted");
+    expect(document.cookie).toContain("backlot_analytics_consent=granted");
   });
 
-  it("hides immediately after clicking Decline", () => {
+  it("hides immediately after clicking Decline and persists the choice", () => {
     render(<CookieConsentBanner />);
     fireEvent.click(screen.getByRole("button", { name: /decline/i }));
     expect(screen.queryByText(/No data is sold/i)).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("backlot_analytics_consent")).toBe("denied");
   });
 
-  it("stays hidden on a fresh mount after consent was already granted", () => {
-    const { unmount } = render(<CookieConsentBanner />);
-    fireEvent.click(screen.getByRole("button", { name: /accept/i }));
-    unmount();
-
-    render(<CookieConsentBanner />);
-    expect(screen.queryByText(/No data is sold/i)).not.toBeInTheDocument();
-  });
-
-  it("stays hidden even if localStorage is wiped, as long as the cookie survives", () => {
-    const { unmount } = render(<CookieConsentBanner />);
-    fireEvent.click(screen.getByRole("button", { name: /accept/i }));
-    window.localStorage.clear();
-    unmount();
-
-    render(<CookieConsentBanner />);
-    expect(screen.queryByText(/No data is sold/i)).not.toBeInTheDocument();
+  it("carries the cookie-consent-banner class the layout CSS rule targets", () => {
+    const { container } = render(<CookieConsentBanner />);
+    expect(container.querySelector(".cookie-consent-banner")).toBeInTheDocument();
   });
 });

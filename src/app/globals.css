@@ -499,6 +499,13 @@ body {
 html.splash-shown .greeting-splash {
   display: none;
 }
+/* Set by the inline script in layout.tsx when the analytics-consent
+   cookie/localStorage already has a value -- hides the cookie banner
+   instantly for returning visitors, before React ever hydrates, so
+   there's no hydration-timing window for it to get stuck visible. */
+html.consent-decided .cookie-consent-banner {
+  display: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .greeting-splash {
     display: none;
