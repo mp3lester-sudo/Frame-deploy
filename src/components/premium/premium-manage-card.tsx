@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { isNativeApp } from "@/lib/native/is-native";
 
 /**
  * Shown instead of the upgrade card once profiles.is_premium is true --
@@ -14,6 +15,8 @@ export function PremiumManageCard({ currentPeriodEnd }: { currentPeriodEnd: stri
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const native = isNativeApp();
+
   async function handleManage() {
     setLoading(true);
     setError(null);
@@ -24,7 +27,14 @@ export function PremiumManageCard({ currentPeriodEnd }: { currentPeriodEnd: stri
         setError(data.error ?? "Could not open billing portal");
         return;
       }
-      window.location.href = data.url;
+      // Same reasoning as checkout (see PremiumUpgradeCard) -- billing
+      // management should happen in the system browser, not the app's
+      // own WebView, when running inside the native wrapper.
+      if (native) {
+        window.open(data.url, "_blank");
+      } else {
+        window.location.href = data.url;
+      }
     } finally {
       setLoading(false);
     }

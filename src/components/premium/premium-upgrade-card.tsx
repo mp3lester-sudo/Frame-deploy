@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { posthog } from "@/lib/analytics/posthog-client";
 import { isNativeApp } from "@/lib/native/is-native";
+import { siteOrigin } from "@/lib/seo/site";
 
 const FEATURES = [
   "Unlimited AI concierge conversations",
@@ -18,6 +19,9 @@ export function PremiumUpgradeCard() {
 
   const native = isNativeApp();
 
+  // Only ever called from the non-native branch below (the native branch
+  // renders no button at all -- see the JSX comment further down for why),
+  // so this doesn't need its own native/browser-redirect split anymore.
   async function handleUpgrade() {
     setLoading(true);
     posthog.capture("premium_checkout_started");
@@ -25,17 +29,7 @@ export function PremiumUpgradeCard() {
       const res = await fetch("/api/stripe/checkout", { method: "POST" });
       const data = await res.json();
       if (!data.url) return;
-
-      // Apple requires digital subscription purchases to either go through
-      // StoreKit/In-App Purchase, or happen entirely outside the app. We do
-      // the latter: inside the native wrapper, Checkout opens in the
-      // system browser (Safari) instead of the app's own WebView, so the
-      // purchase flow is never rendered inside the app itself.
-      if (native) {
-        window.open(data.url, "_blank");
-      } else {
-        window.location.href = data.url;
-      }
+      window.location.href = data.url;
     } finally {
       setLoading(false);
     }
@@ -56,13 +50,24 @@ export function PremiumUpgradeCard() {
           ))}
         </ul>
 
-        <Button className="mt-6 w-full" isLoading={loading} onClick={handleUpgrade}>
-          Upgrade to Premium
-        </Button>
-        {native && (
-          <p className="mt-2 text-center text-xs text-foreground-muted">
-            Opens in your browser to complete purchase.
+        {native ? (
+          // Deliberately no purchase button (and no clickable checkout
+          // link) inside the native wrapper at all -- a browser-redirect
+          // "Buy" button still puts a purchase flow one tap away from
+          // inside the app, which is the exact pattern App Review most
+          // often flags under 3.1.1 even when the actual charge happens
+          // in Safari. Pointing people to the website with no in-app
+          // affordance to start checkout is the more conservative
+          // reading, same posture apps like Netflix/Spotify take.
+          <p className="mt-6 text-center text-sm text-foreground-muted">
+            To subscribe to Premium, visit{" "}
+            <span className="text-foreground">{siteOrigin().replace(/^https?:\/\//, "")}</span> in your
+            browser.
           </p>
+        ) : (
+          <Button className="mt-6 w-full" isLoading={loading} onClick={handleUpgrade}>
+            Upgrade to Premium
+          </Button>
         )}
       </Card>
     </div>
