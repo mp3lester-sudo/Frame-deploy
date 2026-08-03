@@ -21,7 +21,7 @@ import { resolveProfileTheme } from "@/lib/profile/theme-preset";
 import { AnimatedCounter } from "@/components/profile/animated-counter";
 import { Reveal } from "@/components/profile/reveal";
 import { TiltCard } from "@/components/profile/tilt-card";
-import { computeTasteDna } from "@/lib/taste-dna/compute";
+import { computeTasteDna, computeWrapped } from "@/lib/taste-dna/compute";
 import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
 import { withTimeout } from "@/lib/with-timeout";
 import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
@@ -133,6 +133,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // visited page than the standalone Taste DNA page ever was.
   const dnaPromise = computeTasteDna(profile.id);
   const signaturePickPromise = withTimeout(computeSignaturePick(profile.id), 10000, null);
+  // Wrapped preview card (own profile only -- see the rail below): kicked
+  // off here for the same reason as the other two -- runs concurrently
+  // with the big Promise.all rather than adding its own sequential round
+  // trip. "This year so far" mirrors the default the standalone /wrapped
+  // page itself shows before you page back through past years.
+  const wrappedPromise = isOwnProfile
+    ? computeWrapped(profile.id, new Date().getUTCFullYear())
+    : Promise.resolve(null);
 
   const [
     { count: followerCount },
@@ -197,7 +205,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     supabase.rpc("compute_cinema_score", { p_user_id: profile.id }).maybeSingle(),
   ]);
 
-  const [dna, signaturePick] = await Promise.all([dnaPromise, signaturePickPromise]);
+  const [dna, signaturePick, wrapped] = await Promise.all([dnaPromise, signaturePickPromise, wrappedPromise]);
 
   const favorites = (favoriteRows ?? [])
     .map((r) => (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] | null }).titles)
@@ -385,6 +393,54 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Following</p>
         </div>
       </div>
+      {isOwnProfile && wrapped && (
+        // Wrapped preview: a real poster-backed card (not another pill in
+        // the button list below) -- the favorite title's poster sits
+        // behind the year/stat line the same way a movie poster backs a
+        // festival program note, so this reads as a piece of the page's
+        // own layout rather than a plain navigation link. The whole card
+        // is the tap target.
+        <Link
+          href="/wrapped"
+          className="stagger-card group relative mt-6 block h-40 overflow-hidden rounded-[var(--radius-lg)] border border-border"
+          style={{ animationDelay: "480ms" }}
+        >
+          {wrapped.favoriteTitle?.posterUrl && (
+            <Image
+              src={wrapped.favoriteTitle.posterUrl}
+              alt=""
+              fill
+              sizes="400px"
+              className="object-cover opacity-40 transition-transform duration-300 group-hover:scale-105"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
+          <div className="relative flex h-full flex-col justify-end gap-1 px-5 py-5">
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+            <h3 className="font-display text-xl">{wrapped.year} Recap</h3>
+            <p className="text-xs text-foreground-muted">
+              {wrapped.totalRated} title{wrapped.totalRated === 1 ? "" : "s"} rated
+              {wrapped.topGenres[0] ? ` · Mostly ${wrapped.topGenres[0].genre}` : ""}
+            </p>
+            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-accent">
+              See your full Wrapped &rarr;
+            </span>
+          </div>
+        </Link>
+      )}
+
+      {isOwnProfile && !wrapped && (
+        <div
+          className="stagger-card mt-6 rounded-[var(--radius-lg)] border border-dashed border-border px-5 py-5 text-center"
+          style={{ animationDelay: "480ms" }}
+        >
+          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+          <p className="mt-1 text-sm text-foreground-muted">
+            Rate a few more titles this year and your Wrapped recap fills in here.
+          </p>
+        </div>
+      )}
+
       {isOwnProfile && (
         <div className="mt-6 flex flex-col gap-2">
           <Link
@@ -407,13 +463,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             style={{ animationDelay: "650ms" }}
           >
             Your lists
-          </Link>
-          <Link
-            href="/wrapped"
-            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
-            style={{ animationDelay: "700ms" }}
-          >
-            Wrapped
           </Link>
         </div>
       )}
