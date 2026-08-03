@@ -1,18 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Play, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Volume2, VolumeX, X } from "lucide-react";
 import Image from "@/components/ui/fade-image";
 
 /**
- * The movie detail page's full-bleed backdrop, now trailer-aware. With no
- * trailer available this renders exactly as before (just the still, faded
- * into the page background). With one available, hovering reveals a "Play
- * trailer" pill; clicking it swaps the still for a real YouTube embed in
- * place, autoplaying WITH sound — allowed by every browser's autoplay
- * policy here because it's a direct result of a user click, unlike an
- * autoplay-on-hover video would be (which most browsers block or force
- * mute, and which reads as noisy/gimmicky on a page you're just skimming).
+ * The movie detail page's full-bleed backdrop, trailer-aware. With a
+ * trailer available, it starts playing immediately on load -- muted, so
+ * every browser's autoplay policy allows it without any tap (autoplay
+ * WITH sound is blocked everywhere unless it follows a user gesture, but
+ * autoplay muted is universally allowed, including iOS Safari/WebKit as
+ * long as `playsinline` is set). A small speaker toggle lets people opt
+ * into sound; an X lets them dismiss the trailer back to the plain still.
  */
 export function BackdropHero({
   backdropUrl,
@@ -23,7 +22,22 @@ export function BackdropHero({
   trailerKey: string | null;
   title: string;
 }) {
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(Boolean(trailerKey));
+  const [muted, setMuted] = useState(true);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  function toggleMute() {
+    const next = !muted;
+    setMuted(next);
+    // Every YouTube embed listens for these postMessage commands as long
+    // as enablejsapi=1 is in its src, even without loading the separate
+    // IFrame Player API script -- so we can flip mute state in place
+    // instead of reloading the iframe (which would restart the video).
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: "command", func: next ? "mute" : "unMute", args: [] }),
+      "*"
+    );
+  }
 
   return (
     /* The nav bar is `sticky top-0` -- in normal document flow, not an
@@ -50,8 +64,9 @@ export function BackdropHero({
               the vertical excess instead of letterboxing or squashing the
               video the way a plain inset-0 fill would. */}
           <iframe
+            ref={iframeRef}
             className="absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] -translate-x-1/2 -translate-y-1/2 border-0"
-            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&rel=0`}
+            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1`}
             title={`${title} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -66,18 +81,30 @@ export function BackdropHero({
               cleanly against the image the whole way up, not just right
               at the very bottom edge. */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-64" />
-          <button
-            type="button"
-            onClick={() => setPlaying(false)}
-            aria-label="Close trailer"
+          <div
             // top offset clears the nav bar's own h-14 (56px) reserved
             // space -- this hero now starts 56px higher (-mt-14, see the
             // comment on the root div above) so a plain top-3 would sit
             // right under/behind the nav instead of below it.
-            className="absolute right-3 top-[68px] z-10 flex h-9 w-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-background"
+            className="absolute right-3 top-[68px] z-10 flex items-center gap-2"
           >
-            <X size={18} />
-          </button>
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute trailer" : "Mute trailer"}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-background"
+            >
+              {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlaying(false)}
+              aria-label="Close trailer"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-background"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </>
       ) : (
         <>
@@ -119,7 +146,7 @@ export function BackdropHero({
               className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
             >
               <span className="flex items-center gap-2 rounded-[var(--radius-full)] border border-accent/60 bg-background/70 px-5 py-2.5 text-sm font-medium text-accent backdrop-blur transition-colors hover:bg-background/90">
-                <Play size={16} fill="currentColor" />
+                <Volume2 size={16} />
                 Play trailer
               </span>
             </button>
