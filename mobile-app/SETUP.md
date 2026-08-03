@@ -64,14 +64,89 @@ workspace file once pods are installed.
   trust the developer certificate on the phone once
   (Settings → General → VPN & Device Management).
 
-## Submitting to the App Store
+## Running a TestFlight beta
 
-1. In App Store Connect (appstoreconnect.apple.com), create a new app
-   record with the same bundle ID.
-2. In Xcode: **Product → Archive**, then use the Organizer window's
-   **Distribute App** flow to upload the build.
-3. Fill in the App Store listing (screenshots, description, etc.) in App
-   Store Connect and submit for review.
+TestFlight is Apple's beta-distribution system -- it uses the exact same
+archive-and-upload flow as a full App Store release, just without needing
+a finished App Store listing (screenshots, description, pricing) first.
+This is the fastest path to getting the app on real iPhones, including
+people who aren't you, before deciding whether to submit for a full
+public release.
+
+1. **Create the App Store Connect record** (one-time, if you haven't
+   already): go to appstoreconnect.apple.com → **Apps** → **+** → **New
+   App**. Platform iOS, name "Backlot", bundle ID `app.backlot.ios`
+   (must match `capacitor.config.ts` exactly), and pick a SKU (any unique
+   string, e.g. `backlot-ios-1`). None of the store-listing fields
+   (screenshots, description, pricing, age rating) need to be filled in
+   yet for TestFlight -- only for a full public submission.
+
+2. **Bump the build number** before every archive -- App Store Connect
+   rejects an upload whose build number was already used, even for
+   TestFlight:
+   ```bash
+   cd mobile-app
+   npm run bump-build
+   npx cap sync ios   # if Xcode is already open, so it picks up the new number
+   ```
+
+3. **Archive and upload**: in Xcode, **Product → Archive** (this only
+   works with a real device or "Any iOS Device" selected as the run
+   destination, not a simulator). Once archiving finishes, the Organizer
+   window opens automatically -- click **Distribute App → App Store
+   Connect → Upload**. Xcode handles signing and submission; the build
+   shows up in App Store Connect's TestFlight tab a few minutes later
+   once Apple finishes processing it (usually 5-30 minutes; you'll get an
+   email when it's ready).
+
+4. **Add testers** in App Store Connect → your app → **TestFlight** tab:
+   - **Internal testing**: anyone already listed as a user on your Apple
+     Developer account (up to 100 people). No Apple review needed --
+     builds are available to internal testers within minutes of
+     processing finishing. This is the fastest way to get the app in
+     front of a small group.
+   - **External testing**: anyone via email or a public TestFlight link
+     (up to 10,000 people), but the *first* build in a given external
+     group requires a lightweight **Beta App Review** from Apple first
+     (typically 24-48 hours, much faster and less strict than a full App
+     Store review). Subsequent builds to the same group usually skip
+     review unless they contain "significant" changes.
+
+5. **Testers install the TestFlight app** (from the regular App Store)
+   and accept your invite (email link, or the public link if you made
+   one) to install Backlot through it.
+
+### Things specific to TestFlight worth knowing
+
+- **Builds expire after 90 days** -- testers get a notice a week before
+  and the build stops launching after that. For an ongoing beta, plan to
+  upload a fresh build periodically even if nothing native changed
+  (remember: ordinary website changes need no new build at all, since
+  this is a remote-mode wrapper -- only Capacitor-level changes, or
+  keeping a build from expiring, need a new upload).
+- **Crash reports and tester feedback** collect automatically in App
+  Store Connect's TestFlight tab -- testers can also shake their device
+  or use TestFlight's built-in feedback button to send screenshots/notes
+  directly to you.
+- Export compliance is already handled -- `Info.plist` declares
+  `ITSAppUsesNonExemptEncryption = false` (this app only uses standard
+  HTTPS via the WebView, no custom encryption), so Xcode/App Store
+  Connect won't stop to ask that question on upload.
+
+## Submitting to the App Store (full public release)
+
+Once you're happy with a TestFlight build, moving to a full public
+release is the same archive, just with the store listing filled in:
+
+1. In App Store Connect, fill in the store listing (screenshots,
+   description, pricing, age rating, etc.) on the app record you already
+   created above.
+2. Either promote an existing TestFlight build to the release, or archive
+   and upload a new one the same way (Xcode: **Product → Archive** →
+   **Distribute App**).
+3. Submit for review from the **App Store** tab (not the TestFlight tab)
+   -- this is the full review (can take anywhere from a day to a week or
+   more), unlike TestFlight's lighter beta review.
 
 ### One policy note worth knowing before you submit
 
@@ -97,5 +172,6 @@ here.
 - **Website change only** (new feature, design tweak, bug fix): just
   deploy to Vercel as normal. Nothing to do in `mobile-app/`.
 - **Icon, splash, app name, bundle ID, or native plugin change**: edit the
-  relevant file, run `npx cap sync ios` again, then re-archive and
-  re-submit through Xcode.
+  relevant file, run `npx cap sync ios` again, run `npm run bump-build`,
+  then re-archive and re-submit through Xcode (to either TestFlight or
+  the App Store -- both need a bumped build number for every new upload).

@@ -45,5 +45,12 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- Declares this app only uses standard HTTPS/TLS (via the WebView
+	     loading the production site) with no proprietary/non-exempt
+	     encryption. Without this key, App Store Connect asks the export
+	     compliance question in the web UI on every single build upload;
+	     declaring it here answers that automatically, every time. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

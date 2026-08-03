@@ -5,7 +5,8 @@
   "description": "Native iOS wrapper for Backlot (Capacitor, remote mode — points at the live production web app; contains no app logic of its own).",
   "scripts": {
     "sync": "cap sync ios",
-    "open": "cap open ios"
+    "open": "cap open ios",
+    "bump-build": "node scripts/bump-build.js"
   },
   "dependencies": {
     "@capacitor/core": "^7.0.0",
