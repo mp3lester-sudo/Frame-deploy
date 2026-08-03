@@ -266,11 +266,25 @@ export function LiveCandidateVoting({
       return { ...prev, [titleId]: { like: liked, pass: passed } };
     });
     startTransition(async () => {
-      await castMovieNightVote({ movieNightId, titleId, vote });
+      try {
+        await castMovieNightVote({ movieNightId, titleId, vote });
+      } catch (err) {
+        // castMovieNightVote failing (as opposed to its best-effort
+        // auto-decide check failing, which is swallowed server-side on
+        // purpose) means the vote itself didn't save -- worth surfacing,
+        // since the optimistic tally update above already made it look
+        // like it worked.
+        showToast(err instanceof Error ? err.message : "Couldn't save that vote -- try again");
+        return;
+      }
       refreshMatches();
     });
     // Whichever way you voted, you're done considering this one -- pull in
-    // something new rather than leaving a decided card sitting there.
+    // something new rather than leaving a decided card sitting there. Note
+    // this fires regardless of whether the vote just completed a match:
+    // if it did, the movie_nights realtime handler above is about to
+    // replace this whole screen with the golden reveal anyway, so a
+    // moment of the grid reshuffling underneath doesn't matter.
     refillSlot(titleId);
   }
 

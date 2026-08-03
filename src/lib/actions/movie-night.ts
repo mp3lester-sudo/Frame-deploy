@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { notify } from "@/lib/actions/notifications";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 import { getCandidatesForMovieNight, type MovieNightCandidate } from "@/lib/recommendations/movie-night";
 import { computeMatches, rankByLikeCount, type MovieNightVoteRecord } from "@/lib/recommendations/movie-night-matches";
 import type { Database } from "@/lib/supabase/types";
@@ -279,7 +280,23 @@ async function finalizeDecision(
     .select("id")
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!updated) return false;
+  if (!updated) {
+    // Zero rows matched -- either someone else already decided this same
+    // night a moment ago (expected: the atomic guard working as intended,
+    // nothing to report), OR the RLS policy silently blocked this write
+    // (movie_nights only allows updates from participants -- migration
+    // 0039 -- and Postgres RLS makes a blocked UPDATE look identical to a
+    // lost race: zero rows, no error). Only the second case is a real bug,
+    // so check which one actually happened before staying quiet about it.
+    const { data: current } = await supabase.from("movie_nights").select("status").eq("id", movieNightId).maybeSingle();
+    if (current?.status === "collecting") {
+      await captureServerError(
+        new Error("finalizeDecision: update matched zero rows while night is still 'collecting' -- likely blocked by RLS (missing/misapplied migration 0039), not a legitimate race"),
+        { movieNightId, titleId, actorId }
+      );
+    }
+    return false;
+  }
 
   const { data: participants } = await supabase
     .from("movie_night_participants")
@@ -379,10 +396,19 @@ export async function castMovieNightVote(input: z.infer<typeof voteSchema>) {
   // extra tap required from anyone. Only a "like" can ever complete a
   // match (a pass can only ever disqualify one), so skip the check
   // entirely for passes.
+  //
+  // Wrapped in try/catch and deliberately NOT rethrown: the vote itself
+  // (above) already succeeded, so a bug in the auto-decide check shouldn't
+  // make the whole action look like it failed to the person voting -- but
+  // it should never fail silently either, so it's captured to Sentry.
   if (vote === "like") {
-    const { participantIds, votes } = await getActiveParticipantIdsAndVotes(movieNightId);
-    const isMatch = computeMatches(participantIds, votes).some((m) => m.titleId === titleId);
-    if (isMatch) await finalizeDecision(supabase, movieNightId, titleId, user.id);
+    try {
+      const { participantIds, votes } = await getActiveParticipantIdsAndVotes(movieNightId);
+      const isMatch = computeMatches(participantIds, votes).some((m) => m.titleId === titleId);
+      if (isMatch) await finalizeDecision(supabase, movieNightId, titleId, user.id);
+    } catch (err) {
+      await captureServerError(err, { movieNightId, titleId, stage: "auto-decide" });
+    }
   }
 }
 
