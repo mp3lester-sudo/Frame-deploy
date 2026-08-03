@@ -377,3 +377,81 @@ export async function resendVerificationEmail(): Promise<{ error?: string; succe
 
   return { success: true };
 }
+
+const deleteAccountSchema = z.object({
+  currentPassword: z.string().min(1, "Enter your current password to confirm"),
+});
+
+/**
+ * Self-service account deletion (Settings -> "Delete account"). Re-verifies
+ * the current password first, same reasoning as changePassword() above --
+ * this is even more destructive, so the bar for proof-of-ownership is at
+ * least as high.
+ *
+ * Deliberately does NOT call supabase.auth.admin.deleteUser() -- see the
+ * comment on migration 0042_account_deletion.sql for why a hard delete of
+ * the auth.users row is riskier here than it looks (the notifications
+ * table's exact FK behavior toward profiles was never captured in this
+ * repo's migrations). Instead:
+ *   1. Anonymizes the profile row (username/display_name/bio/avatar_url)
+ *      and stamps deleted_at, so nothing personally-identifying is left
+ *      attached to it and search/discovery can exclude it going forward.
+ *   2. Deletes rows that are unambiguously "this device/this person's own
+ *      curation" and safe to remove outright (push subscriptions,
+ *      favorite titles).
+ *   3. Bans the auth user via the Auth admin API (ban_duration far in the
+ *      future) so the account can never log in again, then revokes every
+ *      existing session -- this achieves "the account is gone" without an
+ *      irreversible, blast-radius-unknown cascading SQL delete.
+ * Reviews, ratings, comments, and messages are left in place (now
+ * attributed to an anonymized profile) rather than bulk-deleted, since
+ * that content also belongs to the threads/clubs/conversations other
+ * users are part of.
+ */
+export async function deleteAccount(
+  input: z.infer<typeof deleteAccountSchema>
+): Promise<{ error?: string }> {
+  const parsed = deleteAccountSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const user = await getVerifiedUser();
+  if (!user?.email) return { error: "Not authenticated" };
+
+  const supabase = await createClient();
+  const { error: reauthError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: parsed.data.currentPassword,
+  });
+  if (reauthError) return { error: "Current password is incorrect" };
+
+  const anonymizedUsername = `deleted_${user.id.slice(0, 8)}`;
+  await supabase
+    .from("profiles")
+    .update({
+      username: anonymizedUsername,
+      display_name: null,
+      bio: null,
+      avatar_url: null,
+      deleted_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+
+  await supabase.from("push_subscriptions").delete().eq("user_id", user.id);
+  await supabase.from("favorite_titles").delete().eq("user_id", user.id);
+
+  // Service-role only past this point: banning a user and listing/revoking
+  // their sessions are Auth admin operations, not something the user's own
+  // session can do to itself via the anon/authenticated client.
+  const admin = createServiceRoleClient();
+  const { error: banError } = await admin.auth.admin.updateUserById(user.id, {
+    ban_duration: "876000h", // ~100 years -- GoTrue has no permanent "forever" value
+  });
+  if (banError) {
+    console.error("deleteAccount: failed to ban user", banError.message);
+  }
+
+  await supabase.auth.signOut({ scope: "global" });
+  redirect("/login?accountDeleted=true");
+}

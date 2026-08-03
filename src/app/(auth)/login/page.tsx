@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [state, formAction, pending] = useActionState(signIn, null);
   const searchParams = useSearchParams();
   const justReset = searchParams.get("reset") === "success";
+  const accountDeleted = searchParams.get("accountDeleted") === "true";
 
   return (
     <div className="mx-auto flex min-h-[80vh] max-w-sm flex-col justify-center px-6">
@@ -20,6 +21,12 @@ export default function LoginPage() {
       {justReset && (
         <p className="mb-4 rounded-[var(--radius-md)] border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
           Password updated. Log in with your new password.
+        </p>
+      )}
+
+      {accountDeleted && (
+        <p className="mb-4 rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-sm text-foreground-muted">
+          Your account has been deleted.
         </p>
       )}
 

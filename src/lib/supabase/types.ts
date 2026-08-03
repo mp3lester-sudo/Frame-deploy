@@ -20,6 +20,7 @@ export interface Database {
           referral_code: string;
           referred_by: string | null;
           bonus_premium_until: string | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };

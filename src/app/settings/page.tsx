@@ -6,6 +6,7 @@ import { AvatarUpload } from "@/components/settings/avatar-upload";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { PasswordChangeForm } from "@/components/settings/password-change-form";
 import { VerifyEmailBanner } from "@/components/settings/verify-email-banner";
+import { DeleteAccountForm } from "@/components/settings/delete-account-form";
 import { PushToggle } from "@/components/settings/push-toggle";
 import { FavoriteTitlesEditor } from "@/components/settings/favorite-titles-editor";
 import { LetterboxdImport } from "@/components/settings/letterboxd-import";
@@ -103,6 +104,10 @@ export default async function SettingsPage() {
           Log out of all devices
         </Button>
       </form>
+
+      <div className="mt-8 flex justify-center">
+        <DeleteAccountForm />
+      </div>
     </div>
   );
 }
