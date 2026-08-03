@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { isNativeApp } from "@/lib/native/is-native";
+import { tierLabel } from "@/lib/premium/tier";
 
 /**
  * Shown instead of the upgrade card once profiles.is_premium is true --
@@ -11,7 +12,13 @@ import { isNativeApp } from "@/lib/native/is-native";
  * "Upgrade to Premium" pitch with no way to cancel, change plans, or see
  * an invoice from inside the app at all.
  */
-export function PremiumManageCard({ currentPeriodEnd }: { currentPeriodEnd: string | null }) {
+export function PremiumManageCard({
+  currentPeriodEnd,
+  tier,
+}: {
+  currentPeriodEnd: string | null;
+  tier?: string | null;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +50,7 @@ export function PremiumManageCard({ currentPeriodEnd }: { currentPeriodEnd: stri
   return (
     <div className="mx-auto max-w-md px-4 py-16">
       <Card className="p-6">
-        <h1 className="font-display text-xl">Backlot Premium</h1>
+        <h1 className="font-display text-xl">{tierLabel(tier)}</h1>
         <p className="mt-1 text-sm text-foreground-muted">
           You&apos;re subscribed.
           {currentPeriodEnd && ` Renews ${new Date(currentPeriodEnd).toLocaleDateString()}.`}

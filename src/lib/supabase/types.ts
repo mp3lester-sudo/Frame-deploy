@@ -15,6 +15,7 @@ export interface Database {
           bio: string | null;
           is_creator: boolean;
           is_premium: boolean;
+          premium_tier: "premium" | "a_list" | null;
           experience_tier: "rookie" | "intermediate" | "pro" | null;
           last_reengagement_email_at: string | null;
           referral_code: string;
@@ -436,6 +437,7 @@ export interface Database {
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
           status: string;
+          tier: "premium" | "a_list";
           current_period_end: string | null;
           updated_at: string;
         };
@@ -444,6 +446,7 @@ export interface Database {
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
           status?: string;
+          tier?: "premium" | "a_list";
           current_period_end?: string | null;
         };
         Update: Partial<Omit<Database["public"]["Tables"]["subscriptions"]["Row"], "user_id">>;
