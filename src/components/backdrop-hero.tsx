@@ -138,19 +138,6 @@ export function BackdropHero({
               edge. */}
           <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-64" />
-
-          {trailerKey && (
-            <button
-              type="button"
-              onClick={() => setPlaying(true)}
-              className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
-            >
-              <span className="flex items-center gap-2 rounded-[var(--radius-full)] border border-accent/60 bg-background/70 px-5 py-2.5 text-sm font-medium text-accent backdrop-blur transition-colors hover:bg-background/90">
-                <Volume2 size={16} />
-                Play trailer
-              </span>
-            </button>
-          )}
         </>
       )}
     </div>
