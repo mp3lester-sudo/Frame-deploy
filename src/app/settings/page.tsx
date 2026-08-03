@@ -10,6 +10,8 @@ import { LetterboxdImport } from "@/components/settings/letterboxd-import";
 import { LetterboxdPasteImport } from "@/components/settings/letterboxd-paste-import";
 import { ReferralCard } from "@/components/settings/referral-card";
 import { siteOrigin } from "@/lib/seo/site";
+import { signOut } from "@/lib/actions/auth";
+import { Button } from "@/components/ui/button";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -81,6 +83,12 @@ export default async function SettingsPage() {
           Terms of Service
         </Link>
       </section>
+
+      <form action={signOut} className="mt-8">
+        <Button type="submit" variant="ghost" className="w-full text-danger hover:bg-danger/10">
+          Log out
+        </Button>
+      </form>
     </div>
   );
 }
