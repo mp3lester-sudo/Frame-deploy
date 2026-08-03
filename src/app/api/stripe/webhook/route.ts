@@ -3,6 +3,7 @@ import { getStripe } from "@/lib/stripe";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import Stripe from "stripe";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import { sendPushToUser } from "@/lib/push/send-push";
 
 /**
  * Stripe webhook — the only writer of public.subscriptions. Uses the service
@@ -59,6 +60,36 @@ export async function POST(request: Request) {
           })
           .eq("stripe_subscription_id", sub.id);
         await supabase.from("profiles").update({ is_premium: isActive }).eq("id", existing.user_id);
+      }
+      break;
+    }
+    case "invoice.payment_failed": {
+      // No notify() here -- notify() (src/lib/actions/notifications.ts)
+      // always expects a human actorId and no-ops when actorId equals the
+      // recipient, so a system-generated notice needs its own insert
+      // (actor_id: null, type: "payment_failed" -- both added specifically
+      // for this) rather than going through that helper.
+      const invoice = event.data.object as Stripe.Invoice;
+      const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+      if (customerId) {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("user_id")
+          .eq("stripe_customer_id", customerId)
+          .maybeSingle();
+        if (sub) {
+          await supabase.from("notifications").insert({
+            recipient_id: sub.user_id,
+            actor_id: null,
+            type: "payment_failed",
+          });
+          await sendPushToUser(sub.user_id, {
+            title: "Payment failed",
+            body: "We couldn't process your Backlot Premium payment. Update your card to keep your subscription.",
+            url: "/premium",
+          });
+          await captureServerEvent(sub.user_id, "premium_payment_failed", {});
+        }
       }
       break;
     }

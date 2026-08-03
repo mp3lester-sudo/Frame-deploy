@@ -6,7 +6,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { sendPushToUser } from "@/lib/push/send-push";
 
-export type NotificationType = "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+export type NotificationType =
+  | "follow"
+  | "comment"
+  | "reaction"
+  | "movie_night_invite"
+  | "movie_night_decided"
+  // System-generated, no human actor -- see the Stripe webhook route,
+  // which inserts this type directly (not via notify() below, since
+  // notify() always expects an actorId and treats actorId === recipientId
+  // as a self-notification no-op).
+  | "payment_failed";
 
 /**
  * Shared helper called from the other action files right after the write
