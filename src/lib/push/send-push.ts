@@ -23,6 +23,18 @@ export interface PushPayload {
 }
 
 /**
+ * 404/410 from a push endpoint means the browser/OS has permanently
+ * invalidated that subscription (uninstalled, unsubscribed, expired) --
+ * pulled out as its own function so this "is it worth pruning" decision
+ * is testable without going through a real (or mocked) web-push send.
+ * Any other status (network blip, 5xx, rate limit) is left alone; it
+ * might succeed next time.
+ */
+export function isPermanentlyInvalidSubscription(statusCode: number | undefined): boolean {
+  return statusCode === 404 || statusCode === 410;
+}
+
+/**
  * Sends a Web Push notification to every device/browser a user has
  * subscribed on, alongside (not instead of) the existing in-app
  * notification row -- see notify() in src/lib/actions/notifications.ts,
@@ -69,7 +81,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           // succeed. Any other error (network blip, service outage) is
           // left alone; it might work next time.
           const status = (err as { statusCode?: number })?.statusCode;
-          if (status === 404 || status === 410) staleIds.push(sub.id);
+          if (isPermanentlyInvalidSubscription(status)) staleIds.push(sub.id);
         }
       })
     );

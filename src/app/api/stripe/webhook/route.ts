@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import Stripe from "stripe";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { sendPushToUser } from "@/lib/push/send-push";
+import { isSubscriptionStatusActive, resolveStripeCustomerId } from "@/lib/premium/subscription-status";
 
 /**
  * Stripe webhook — the only writer of public.subscriptions. Uses the service
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
         .eq("stripe_subscription_id", sub.id)
         .maybeSingle();
       if (existing) {
-        const isActive = sub.status === "active" || sub.status === "trialing";
+        const isActive = isSubscriptionStatusActive(sub.status);
         await supabase
           .from("subscriptions")
           .update({
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
       // (actor_id: null, type: "payment_failed" -- both added specifically
       // for this) rather than going through that helper.
       const invoice = event.data.object as Stripe.Invoice;
-      const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+      const customerId = resolveStripeCustomerId(invoice.customer);
       if (customerId) {
         const { data: sub } = await supabase
           .from("subscriptions")
