@@ -291,6 +291,21 @@ export interface Database {
         Update: Partial<{ endpoint: string; p256dh: string; auth: string }>;
         Relationships: [];
       };
+      notification_preferences: {
+        Row: {
+          user_id: string;
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          push_enabled: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          push_enabled?: boolean;
+        };
+        Update: Partial<{ push_enabled: boolean }>;
+        Relationships: [];
+      };
       movie_nights: {
         Row: {
           id: string;

@@ -8,6 +8,7 @@ import { PasswordChangeForm } from "@/components/settings/password-change-form";
 import { VerifyEmailBanner } from "@/components/settings/verify-email-banner";
 import { DeleteAccountForm } from "@/components/settings/delete-account-form";
 import { PushToggle } from "@/components/settings/push-toggle";
+import { NotificationPreferences } from "@/components/settings/notification-preferences";
 import { FavoriteTitlesEditor } from "@/components/settings/favorite-titles-editor";
 import { LetterboxdImport } from "@/components/settings/letterboxd-import";
 import { LetterboxdPasteImport } from "@/components/settings/letterboxd-paste-import";
@@ -60,6 +61,7 @@ export default async function SettingsPage() {
 
       <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
         <PushToggle />
+        <NotificationPreferences />
       </section>
 
       <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">

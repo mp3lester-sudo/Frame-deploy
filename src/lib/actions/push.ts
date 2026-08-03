@@ -51,3 +51,57 @@ export async function unsubscribeFromPush(input: z.infer<typeof unsubscribeSchem
 
   await supabase.from("push_subscriptions").delete().eq("user_id", user.id).eq("endpoint", endpoint);
 }
+
+
+/** The subset of NotificationType a user can actually toggle -- keep this
+ *  in sync with migration 0043's check constraint. "payment_failed" is
+ *  deliberately excluded everywhere (see that migration's comment). */
+export const TOGGLABLE_NOTIFICATION_TYPES = [
+  "follow",
+  "comment",
+  "reaction",
+  "movie_night_invite",
+  "movie_night_decided",
+] as const;
+export type TogglableNotificationType = (typeof TOGGLABLE_NOTIFICATION_TYPES)[number];
+
+/**
+ * Returns push-enabled state for every togglable type, defaulting to
+ * `true` for any type without a stored row -- see migration 0043's
+ * opt-out reasoning. Used by NotificationPreferences
+ * (src/components/settings/notification-preferences.tsx) to render the
+ * per-type checklist under the master PushToggle switch.
+ */
+export async function getNotificationPreferences(): Promise<Record<TogglableNotificationType, boolean>> {
+  const { supabase, user } = await requireUser();
+
+  const { data } = await supabase
+    .from("notification_preferences")
+    .select("type, push_enabled")
+    .eq("user_id", user.id);
+
+  const byType = new Map((data ?? []).map((row) => [row.type, row.push_enabled]));
+  const result = {} as Record<TogglableNotificationType, boolean>;
+  for (const type of TOGGLABLE_NOTIFICATION_TYPES) {
+    result[type] = byType.get(type) ?? true;
+  }
+  return result;
+}
+
+const setPreferenceSchema = z.object({
+  type: z.enum(TOGGLABLE_NOTIFICATION_TYPES),
+  enabled: z.boolean(),
+});
+
+export async function setNotificationPreference(input: z.infer<typeof setPreferenceSchema>) {
+  const { type, enabled } = setPreferenceSchema.parse(input);
+  const { supabase, user } = await requireUser();
+
+  const { error } = await supabase
+    .from("notification_preferences")
+    .upsert(
+      { user_id: user.id, type, push_enabled: enabled },
+      { onConflict: "user_id,type" }
+    );
+  if (error) throw new Error(error.message);
+}

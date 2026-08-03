@@ -103,7 +103,42 @@ export async function notify(
         break;
     }
 
-    await sendPushToUser(params.recipientId, { title: pushTitle, body, url });
+    // Per-type opt-out (see migration 0043_notification_preferences.sql) --
+    // no row for this (recipient, type) pair means enabled, matching the
+    // behavior every existing subscriber already had before this table
+    // existed. A lookup failure is treated the same as "no row" (fail
+    // open to still-enabled) rather than silently dropping a
+    // notification because a preferences query hiccuped. "payment_failed"
+    // is never toggled off (it's inserted directly by the Stripe webhook,
+    // not via this function, and isn't in the preferences table's check
+    // constraint at all) -- TOGGLABLE_TYPES narrows params.type before the
+    // query so that stays true at the type level too, not just by
+    // convention.
+    const TOGGLABLE_TYPES = new Set<NotificationType>([
+      "follow",
+      "comment",
+      "reaction",
+      "movie_night_invite",
+      "movie_night_decided",
+    ]);
+
+    let pushEnabled = true;
+    if (TOGGLABLE_TYPES.has(params.type)) {
+      const { data: pref } = await supabase
+        .from("notification_preferences")
+        .select("push_enabled")
+        .eq("user_id", params.recipientId)
+        .eq(
+          "type",
+          params.type as "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided"
+        )
+        .maybeSingle();
+      pushEnabled = pref?.push_enabled !== false;
+    }
+
+    if (pushEnabled) {
+      await sendPushToUser(params.recipientId, { title: pushTitle, body, url });
+    }
   } catch {
     // Best-effort -- a push lookup/send failure should never surface to
     // the caller of notify(), same as the in-app insert above.
