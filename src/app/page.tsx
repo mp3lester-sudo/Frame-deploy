@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Poiret_One } from "next/font/google";
+import { Allura } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
@@ -36,7 +36,7 @@ type Participant = { username: string; display_name: string | null; avatar_url: 
 // rather than one blended feed, so each stays legible on its own.
 const SOCIAL_EVENTS_LIMIT = 5;
 
-const poiretOne = Poiret_One({ subsets: ["latin"], weight: "400" });
+const allura = Allura({ subsets: ["latin"], weight: "400" });
 
 export default async function HomePage({
   searchParams,
@@ -258,21 +258,20 @@ export default async function HomePage({
           sentence the persistent in-page heading below still uses.
           Thin rule lines above and below the name (same accent-deep
           hairline both times) frame it like a vintage title card. Name
-          defaults to Poiret One, an art-deco marquee face in the vein
-          of La La Land's own poster lettering; greetingFontClassName
-          still takes over instead when this user's last-watched title
-          has its own detected poster font. */}
+          defaults to Allura, an elegant thin gold cursive script;
+          greetingFontClassName still takes over instead when this user's
+          last-watched title has its own detected poster font. */}
       <div
         className="greeting-splash pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background"
         aria-hidden="true"
       >
-        <span className="font-sans text-sm text-foreground-muted sm:text-base">{greeting}</span>
+        <span className={`${allura.className} text-3xl text-accent-soft sm:text-4xl`}>{greeting}</span>
         <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
         <span
           className={
             greetingFontClassName
               ? `${greetingFontClassName} text-4xl uppercase tracking-[0.14em] text-accent-soft sm:text-6xl`
-              : `${poiretOne.className} text-4xl uppercase tracking-[0.14em] text-accent-soft sm:text-6xl`
+              : `${allura.className} text-5xl text-accent-soft sm:text-7xl`
           }
         >
           {firstName}
@@ -292,9 +291,9 @@ export default async function HomePage({
             switched from Playfair Display (serif) for a cleaner, more
             modern look. Still off-white; only the typeface changed, the
             marquee name treatment right after it is untouched. */}
-        <span className="font-sans font-medium text-foreground">{greeting}</span>,{" "}
-        {/* The name gets a bold, minimal Syne treatment (--font-greeting)
-            by default -- but when this user's most recently reviewed/watched
+        <span className={`${allura.className} text-4xl text-accent sm:text-5xl`}>{greeting}</span>,{" "}
+        {/* The name gets an elegant gold cursive (Allura) treatment by
+            default -- but when this user's most recently reviewed/watched
             title has a poster-matched font on file (see lib/poster-font),
             that takes over instead, so the greeting reflects something
             specific to them rather than always the same house treatment. */}
@@ -302,7 +301,7 @@ export default async function HomePage({
           className={
             greetingFontClassName
               ? `${greetingFontClassName} text-3xl uppercase tracking-wide sm:text-4xl`
-              : "font-greeting text-3xl uppercase tracking-wide sm:text-4xl"
+              : `${allura.className} text-5xl text-accent sm:text-6xl`
           }
         >
           {firstName}
