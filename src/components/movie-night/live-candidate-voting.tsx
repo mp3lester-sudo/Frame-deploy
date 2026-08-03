@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { MovieNightCandidate } from "@/lib/recommendations/movie-night";
 import { WhyThisPick } from "@/components/home/why-this-pick";
 import { DecisionReveal } from "@/components/movie-night/decision-reveal";
+import { useToast } from "@/components/ui/toast";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export interface InitialVote {
@@ -58,6 +59,7 @@ export function LiveCandidateVoting({
   participantCount: number;
 }) {
   const router = useRouter();
+  const { showToast } = useToast();
   // Candidates now live in state rather than being read straight from
   // props -- anyone's preference change (mood/excluded genres) or the
   // roster changing (someone invited/removed) re-scores the shared pool
@@ -97,6 +99,10 @@ export function LiveCandidateVoting({
   const matchesRef = useRef(matches);
   const candidatesRef = useRef(candidates);
   const fallbackRef = useRef(fallback);
+  // Read inside lockIn's fallback timer below, same reasoning as the three
+  // refs above -- needs the LATEST reveal value from inside a setTimeout
+  // closure without retriggering anything on every reveal change.
+  const revealRef = useRef(reveal);
   // Mirrors state into refs after every render (not during render itself,
   // which the react-hooks/refs rule flags) -- same pattern as
   // preferences-form.tsx's excludedRef/moodRef.
@@ -104,6 +110,7 @@ export function LiveCandidateVoting({
     matchesRef.current = matches;
     candidatesRef.current = candidates;
     fallbackRef.current = fallback;
+    revealRef.current = reveal;
   });
 
   const refreshMatches = useCallback(() => {
@@ -269,11 +276,32 @@ export function LiveCandidateVoting({
   function lockIn(titleId: string) {
     setDecidingId(titleId);
     startTransition(async () => {
-      await decideMovieNight({ movieNightId, titleId });
-      // No router.refresh() here -- the realtime movie_nights handler above
-      // echoes this write back to us same as everyone else in the session,
-      // and drives the golden-lights reveal uniformly for every viewer
-      // including the host who just made the call.
+      try {
+        await decideMovieNight({ movieNightId, titleId });
+      } catch (err) {
+        setDecidingId(null);
+        showToast(err instanceof Error ? err.message : "Could not lock that in -- try again");
+        return;
+      }
+      // No router.refresh() here on success -- the realtime movie_nights
+      // handler above echoes this write back to us same as everyone else
+      // in the session, and drives the golden-lights reveal uniformly for
+      // every viewer including the host who just made the call.
+      //
+      // But that's now the ONLY path that updates this screen, and this
+      // whole feature shipped without ever having been checked against a
+      // real live session -- if Realtime is slow, blocked (e.g. a
+      // network/proxy that kills websockets), or just doesn't fire for
+      // whatever reason, the host would sit on the voting screen forever
+      // with a DB row that already says "decided" and nothing visibly
+      // different. This is a deliberate safety net, not the primary path:
+      // if the realtime echo hasn't set reveal state within a few seconds,
+      // fall back to a plain refresh so the screen at least ends up
+      // correct (the static "pick" card) even without the golden reveal,
+      // rather than looking broken.
+      setTimeout(() => {
+        if (!revealRef.current) router.refresh();
+      }, 4000);
     });
   }
 
