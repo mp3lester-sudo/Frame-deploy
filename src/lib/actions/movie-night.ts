@@ -107,6 +107,45 @@ export async function inviteToMovieNight(input: z.infer<typeof inviteSchema>) {
   revalidatePath(`/movie-night/${movieNightId}`);
 }
 
+const joinByTokenSchema = z.object({ token: z.string().min(1) });
+
+/**
+ * The other half of the invite story: joining via a shareable link
+ * instead of inviteToMovieNight's by-username flow above, which only
+ * works when the invitee is already a Backlot account. resolve_movie_night_token
+ * (migration 0037) is security definer specifically so an authenticated
+ * user who isn't a participant yet can still resolve the token -- movie_nights'
+ * own RLS would otherwise hide the row from them. The actual participant
+ * insert then goes through the ordinary "users join movie night as self"
+ * policy (auth.uid() = user_id), no elevated privilege needed for that part.
+ */
+export async function joinMovieNightByToken(input: z.infer<typeof joinByTokenSchema>) {
+  const { token } = joinByTokenSchema.parse(input);
+  const { supabase, user } = await requireUser();
+
+  const { data: rows } = await supabase.rpc("resolve_movie_night_token", { p_token: token });
+  const night = rows?.[0];
+  if (!night) throw new Error("This invite link isn't valid, or that movie night is no longer open");
+
+  const { error } = await supabase
+    .from("movie_night_participants")
+    .insert({ movie_night_id: night.id, user_id: user.id });
+  // 23505 (already a participant) is fine -- just take them to the session.
+  if (error && error.code !== "23505") throw new Error(error.message);
+
+  if (!error && night.host_id !== user.id) {
+    await notify(supabase, {
+      recipientId: night.host_id,
+      actorId: user.id,
+      type: "movie_night_invite",
+      refId: night.id,
+    });
+  }
+
+  revalidatePath(`/movie-night/${night.id}`);
+  redirect(`/movie-night/${night.id}`);
+}
+
 const preferencesSchema = z.object({
   movieNightId: z.string().uuid(),
   mood: z.string().max(100).optional(),

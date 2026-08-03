@@ -2,14 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Compass, Sparkles, Users, User } from "lucide-react";
+import { Home, Compass, Sparkles, Clapperboard, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Movie Night replaces Social here -- this bar is the primary navigation
+// surface for most people (mobile web and the native app both), and
+// Movie Night previously had no presence on it at all, reachable only via
+// the desktop-only top nav or a home-page card that only appeared once
+// you already had a session going. Social (the Feed) is still one tap
+// away from Home's "Your circle" rail, just no longer a dedicated tab.
 const tabs = [
   { href: "/", label: "Home", icon: Home },
   { href: "/discover", label: "Discover", icon: Compass },
+  { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
   { href: "/ai", label: "AI", icon: Sparkles },
-  { href: "/feed", label: "Social", icon: Users },
   { href: "/profile/me", label: "Profile", icon: User },
 ];
 

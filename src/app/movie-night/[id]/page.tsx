@@ -7,6 +7,8 @@ import { getCandidatesForMovieNight } from "@/lib/recommendations/movie-night";
 import { reopenMovieNight, cancelMovieNight, type MovieNightParticipantRow } from "@/lib/actions/movie-night";
 import { Button } from "@/components/ui/button";
 import { InviteForm } from "@/components/movie-night/invite-form";
+import { InviteLink } from "@/components/movie-night/invite-link";
+import { siteOrigin } from "@/lib/seo/site";
 import { PreferencesForm } from "@/components/movie-night/preferences-form";
 import { LiveCandidateVoting } from "@/components/movie-night/live-candidate-voting";
 import { LiveParticipants } from "@/components/movie-night/live-participants";
@@ -23,7 +25,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
 
   const { data: night } = await supabase
     .from("movie_nights")
-    .select("id, host_id, status, decided_title_id, created_at")
+    .select("id, host_id, status, decided_title_id, invite_token, created_at")
     .eq("id", id)
     .maybeSingle();
   // RLS already restricts this to hosts/participants, so a null result here
@@ -144,11 +146,19 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
           </div>
 
           {isHost && (
-            <div className="mt-6">
-              <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                Invite someone
-              </p>
-              <InviteForm movieNightId={night.id} />
+            <div className="mt-6 flex flex-col gap-4">
+              <div>
+                <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                  Share a link -- works for anyone, no account needed to preview
+                </p>
+                <InviteLink inviteLink={`${siteOrigin()}/movie-night/join/${night.invite_token}`} />
+              </div>
+              <div>
+                <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                  Or invite someone already on Backlot
+                </p>
+                <InviteForm movieNightId={night.id} />
+              </div>
             </div>
           )}
 

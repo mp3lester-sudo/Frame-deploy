@@ -10,6 +10,8 @@ import { getCurrentWeather } from "@/lib/weather";
 import { SpotlightRecommendation } from "@/components/home/spotlight-recommendation";
 import { MoodRow } from "@/components/home/mood-row";
 import { MovieNightCard } from "@/components/home/movie-night-card";
+import { createMovieNight } from "@/lib/actions/movie-night";
+import { Clapperboard } from "lucide-react";
 import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
 import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
@@ -337,7 +339,7 @@ export default async function HomePage({
               </Link>
             </div>
 
-            {activeNight && (
+            {activeNight ? (
               <div className="mt-4">
                 <MovieNightCard
                   nightId={activeNight.id}
@@ -345,6 +347,28 @@ export default async function HomePage({
                   isHost={activeNight.hostId === user.id}
                 />
               </div>
+            ) : (
+              // Always-on entry point, not just a card that shows up once
+              // you're already in a session -- Movie Night's whole value
+              // is pulling other people in, so the prompt to *start* one
+              // needs to be visible on every visit, not conditional on
+              // already having one going.
+              <form action={createMovieNight} className="mt-4">
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-3 rounded-[var(--radius-md)] border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+                    <Clapperboard size={18} />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-medium">Start a movie night</span>
+                    <span className="block text-xs text-foreground-muted">
+                      Invite friends and vote on something everyone&apos;s taste agrees on
+                    </span>
+                  </span>
+                </button>
+              </form>
             )}
 
             {circleEvents.length > 0 ? (

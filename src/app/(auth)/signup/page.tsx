@@ -16,6 +16,12 @@ export default function SignUpPage() {
   // client-component page into a <Suspense> boundary just to read one
   // query param. Same "read once on mount" pattern as anonymousSwipes below.
   const [referralCode, setReferralCode] = useState<string>("");
+  // Movie Night invite link (see src/app/movie-night/join/[token]/page.tsx),
+  // e.g. /signup?mn=abc123xy -- same read-once-on-mount pattern as
+  // referralCode above, carried through as a hidden field so signUp() can
+  // join the new account to that movie night in the same request that
+  // creates it, then redirect straight into the session instead of home.
+  const [movieNightToken, setMovieNightToken] = useState<string>("");
 
   // Read once on mount — the landing page's taste teaser (if the visitor
   // went through it) writes swipes to this same key as they swipe. Carried
@@ -37,6 +43,7 @@ export default function SignUpPage() {
       // Storage unavailable — sign up proceeds with no pre-seeded signal.
     }
     setReferralCode(new URLSearchParams(window.location.search).get("ref") ?? "");
+    setMovieNightToken(new URLSearchParams(window.location.search).get("mn") ?? "");
   }, []);
 
   // Fires on every submit attempt, not just a successful one — but that's
@@ -65,6 +72,7 @@ export default function SignUpPage() {
       <form action={formAction} onSubmit={clearStoredSwipes} className="flex flex-col gap-3">
         <input type="hidden" name="anonymousSwipes" value={anonymousSwipes} />
         <input type="hidden" name="ref" value={referralCode} />
+        <input type="hidden" name="mn" value={movieNightToken} />
         <Input name="username" placeholder="Username" required autoComplete="username" />
         <Input name="email" type="email" placeholder="Email" required autoComplete="email" />
         <Input name="password" type="password" placeholder="Password (8+ characters)" required autoComplete="new-password" />

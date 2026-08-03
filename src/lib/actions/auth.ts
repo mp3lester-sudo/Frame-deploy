@@ -9,6 +9,7 @@ import { sendWelcomeEmail } from "@/lib/email/resend";
 import { generateReferralCode } from "@/lib/referrals/code";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { REFERRAL_BONUS_DAYS } from "@/lib/referrals/constants";
+import { notify } from "@/lib/actions/notifications";
 
 const signUpSchema = z.object({
   email: z.string().email(),
@@ -104,6 +105,7 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
   if (error) return { error: error.message };
 
   let seededSwipes = 0;
+  let movieNightRedirectId: string | null = null;
   if (data.user) {
     // Every account gets its own shareable referral code, generated here
     // (rather than a DB default/trigger) so a rare collision can just
@@ -158,6 +160,37 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
     // should never block account creation, so this is deliberately not
     // awaited into the error path above.
     sendWelcomeEmail(email, username).catch(() => {});
+
+    // Resolves ?mn=TOKEN (see the hidden field on the signup form, carried
+    // from /movie-night/join/[token]) -- an unknown/stale/tampered token
+    // just means no movie night to join, never a signup failure. Uses the
+    // same authenticated `supabase` client as claimAnonymousSwipes above
+    // (auth.signUp() already established this account's session), so the
+    // "users join movie night as self" RLS policy (auth.uid() = user_id)
+    // covers the insert -- resolve_movie_night_token only needs to be
+    // security definer for the *lookup*, since this brand-new account
+    // isn't a participant of anything yet.
+    const mnToken = (formData.get("mn") as string | null)?.trim();
+    if (mnToken) {
+      const { data: rows } = await supabase.rpc("resolve_movie_night_token", { p_token: mnToken });
+      const night = rows?.[0];
+      if (night) {
+        const { error: joinError } = await supabase
+          .from("movie_night_participants")
+          .insert({ movie_night_id: night.id, user_id: data.user.id });
+        if (!joinError) {
+          movieNightRedirectId = night.id;
+          if (night.host_id !== data.user.id) {
+            await notify(supabase, {
+              recipientId: night.host_id,
+              actorId: data.user.id,
+              type: "movie_night_invite",
+              refId: night.id,
+            });
+          }
+        }
+      }
+    }
   }
 
   // Only skip the post-signup /onboarding quiz if the landing-page teaser
@@ -165,7 +198,13 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
   // it has enough to show a reveal) — a couple of swipes before bailing
   // to "skip to signup" is too thin to trust, so onboarding still runs in
   // that case (excluding whatever was already swiped on) to deepen it.
-  redirect(seededSwipes >= MIN_SWIPES_FOR_TEASER ? "/" : "/onboarding");
+  redirect(
+    movieNightRedirectId
+      ? `/movie-night/${movieNightRedirectId}`
+      : seededSwipes >= MIN_SWIPES_FOR_TEASER
+        ? "/"
+        : "/onboarding"
+  );
 }
 
 export async function signIn(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {

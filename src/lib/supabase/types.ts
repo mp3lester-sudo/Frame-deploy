@@ -278,6 +278,7 @@ export interface Database {
           host_id: string;
           status: "collecting" | "decided" | "cancelled";
           decided_title_id: string | null;
+          invite_token: string;
           created_at: string;
         };
         Insert: { host_id: string; status?: "collecting" | "decided" | "cancelled" };
@@ -474,6 +475,21 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      resolve_movie_night_token: {
+        Args: { p_token: string };
+        Returns: { id: string; host_id: string }[];
+      };
+      movie_night_preview: {
+        Args: { p_token: string };
+        Returns: {
+          status: string;
+          host_username: string;
+          host_display_name: string | null;
+          host_avatar_url: string | null;
+          participant_count: number;
+          participant_avatars: string[];
+        }[];
+      };
       record_referral: {
         Args: { p_referrer_id: string; p_referred_id: string; p_bonus_days?: number };
         Returns: boolean;

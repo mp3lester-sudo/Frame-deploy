@@ -17,12 +17,16 @@ const IDLE_HIDE_MS = 4000;
 // which people already visit far more often than a standalone page.
 // The route itself (/taste-dna) is untouched and still linked from the
 // home page's cold-start "sharpen these picks" prompt.
+// Movie Night leads (right after Discover) rather than sitting fifth of
+// six equal-weight tabs -- see the home page and bottom nav for the same
+// promotion. Recommendations don't need a nav entry of their own: they
+// already own the home page, the first thing anyone sees.
 const links = [
   { href: "/discover", label: "Discover", icon: Compass },
+  { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
   { href: "/wrapped", label: "Wrapped", icon: Gift },
   { href: "/ai", label: "Ask Backlot", icon: Sparkles },
   { href: "/feed", label: "Social", icon: Users },
-  { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
   { href: "/clubs", label: "Clubs", icon: UsersRound },
 ];
 
