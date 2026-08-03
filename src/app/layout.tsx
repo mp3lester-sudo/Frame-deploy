@@ -162,9 +162,16 @@ export default async function RootLayout({
   // even reaching the destination page's own data fetching; running them
   // concurrently shaves one full round trip off every click.
   let unreadMessageCount = 0;
+  let unreadNotificationCount = 0;
   let isPremium = false;
   if (user) {
-    const [, { data: conversations }, { data: profile }] = await Promise.all([
+    // getUnreadNotificationCount() used to be its own separate 
+    // below this block -- a full extra sequential network round trip to
+    // Supabase tacked onto every single authenticated page view across the
+    // whole app (this layout wraps every route), for zero benefit since it
+    // doesn't depend on anything else fetched here. Folded into the same
+    // batch as the fix.
+    const [, { data: conversations }, { data: profile }, notificationCount] = await Promise.all([
       ensureProfile(supabase, user),
       supabase.from("conversations").select("id").or(`user_a.eq.${user.id},user_b.eq.${user.id}`),
       // Drives the house promo banner below (task #141) -- "ad-free" only
@@ -172,7 +179,9 @@ export default async function RootLayout({
       // from. Cheap enough (single boolean column) to fetch unconditionally
       // alongside the other per-request lookups this layout already does.
       supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", user.id).maybeSingle(),
+      getUnreadNotificationCount(),
     ]);
+    unreadNotificationCount = notificationCount;
     const conversationIds = (conversations ?? []).map((c) => c.id);
     if (conversationIds.length) {
       const { count } = await supabase
@@ -185,8 +194,6 @@ export default async function RootLayout({
     }
     isPremium = isPremiumActive(profile);
   }
-
-  const unreadNotificationCount = user ? await getUnreadNotificationCount() : 0;
   // Logged-out visitors get the landing page's own conversion funnel
   // instead of a banner; Premium accounts never see it at all.
   const showPromoBanner = !!user && !isPremium;
