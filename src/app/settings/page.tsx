@@ -93,6 +93,9 @@ export default async function SettingsPage() {
         <Link href="/terms" className="hover:text-accent hover:underline">
           Terms of Service
         </Link>
+        <a href="/api/account/export" className="hover:text-accent hover:underline">
+          Export my data
+        </a>
       </section>
 
       <form action={signOut} className="mt-8">
