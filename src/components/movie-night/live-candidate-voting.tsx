@@ -39,23 +39,24 @@ interface VoteRow {
 // tally update live via Supabase Realtime. Voting (like OR pass) on a card
 // refills that grid slot from the deeper personalized pool instead of
 // leaving a dead card behind -- see refillMovieNightCandidate. The moment
-// everyone's liked the same title it surfaces as its own "match" above the
-// grid (getMovieNightMatches), separate from having to eyeball per-card
-// tallies. If a viewer's queue runs dry with no unanimous match, the most
-// agreed-upon titles so far take over as a fallback (getMovieNightFallbackRanking).
+// everyone's liked the same title, that title IS the decision -- no lock-in
+// tap from anyone (see castMovieNightVote's auto-decide); this component's
+// movie_nights realtime handler below picks up the resulting "decided"
+// status and takes every viewer straight into the golden DecisionReveal.
+// If a viewer's queue runs dry with no unanimous match, the most
+// agreed-upon titles so far take over as a fallback (getMovieNightFallbackRanking),
+// with a manual "Lock this in" available to any participant to break the tie.
 export function LiveCandidateVoting({
   movieNightId,
   candidates: initialCandidates,
   initialVotes,
   viewerId,
-  isHost,
   participantCount,
 }: {
   movieNightId: string;
   candidates: MovieNightCandidate[];
   initialVotes: InitialVote[];
   viewerId: string;
-  isHost: boolean;
   participantCount: number;
 }) {
   const router = useRouter();
@@ -312,44 +313,13 @@ export function LiveCandidateVoting({
     <>
       {reveal && <DecisionReveal titleId={reveal.id} name={reveal.name} posterUrl={reveal.poster_url} />}
       <div className="space-y-6">
-      {matches.length > 0 && (
-        <div className="rounded-[var(--radius-md)] border border-accent/50 bg-accent/5 p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-accent">
-            {matches.length === 1 ? "It's a match" : `${matches.length} matches`} — everyone liked{" "}
-            {matches.length === 1 ? "this" : "these"}
-          </p>
-          <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
-            {matches.map((m) => (
-              <div key={m.title.id}>
-                <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-sm)] border border-accent/40 bg-surface-raised">
-                  {m.title.poster_url && (
-                    <Image
-                      src={m.title.poster_url}
-                      alt={m.title.name}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 33vw, 160px"
-                    />
-                  )}
-                </div>
-                <p className="mt-1.5 line-clamp-1 text-xs font-medium">{m.title.name}</p>
-                {isHost && (
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    className="mt-1 w-full"
-                    disabled={isPending}
-                    isLoading={isPending && decidingId === m.title.id}
-                    onClick={() => lockIn(m.title.id)}
-                  >
-                    Lock this in
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* No "matches" panel here anymore -- a unanimous match now decides
+          the night itself, the instant the deciding vote comes in (see
+          castMovieNightVote), and the movie_nights realtime handler above
+          takes every viewer straight into the golden DecisionReveal. There's
+          no in-between state worth showing: you're swiping, then suddenly
+          it's decided. matchedIds below still hides an about-to-be-decided
+          card from the swipe grid for the instant before that reveal fires. */}
 
       {visibleCandidates.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -402,18 +372,6 @@ export function LiveCandidateVoting({
                     </Button>
                   </div>
 
-                  {isHost && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="mt-1.5 w-full"
-                      disabled={isPending}
-                      isLoading={isPending && decidingId === c.title.id}
-                      onClick={() => lockIn(c.title.id)}
-                    >
-                      Lock this in
-                    </Button>
-                  )}
                 </div>
               );
             })}
@@ -450,24 +408,22 @@ export function LiveCandidateVoting({
                     <p className="mt-0.5 text-[11px] text-foreground-muted">
                       {f.likeCount} liked{participantCount > 0 && ` of ${participantCount}`}
                     </p>
-                    {isHost && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="mt-1.5 w-full"
-                        disabled={isPending}
-                        isLoading={isPending && decidingId === f.title.id}
-                        onClick={() => lockIn(f.title.id)}
-                      >
-                        Lock this in
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="mt-1.5 w-full"
+                      disabled={isPending}
+                      isLoading={isPending && decidingId === f.title.id}
+                      onClick={() => lockIn(f.title.id)}
+                    >
+                      Lock this in
+                    </Button>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          {poolExhausted && fallback.length === 0 && isHost && (
+          {poolExhausted && fallback.length === 0 && (
             <p className="mt-3 text-xs text-foreground-muted">
               Nobody&apos;s liked anything yet either — try loosening a genre exclusion in preferences above, or invite
               someone new.

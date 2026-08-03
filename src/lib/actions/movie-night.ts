@@ -258,6 +258,46 @@ async function getActiveParticipantIdsAndVotes(
 }
 
 /**
+ * Atomically flips a movie night to decided and notifies participants,
+ * guarded on status='collecting' so concurrent callers can't double-fire.
+ * Two votes completing different matches at nearly the same instant, or a
+ * vote-triggered auto-decide racing someone's fallback "Lock this in" tap,
+ * both resolve to exactly one winner -- everyone else's attempt just
+ * matches zero rows and returns false, no error.
+ */
+async function finalizeDecision(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  movieNightId: string,
+  titleId: string,
+  actorId: string
+): Promise<boolean> {
+  const { data: updated, error } = await supabase
+    .from("movie_nights")
+    .update({ status: "decided", decided_title_id: titleId })
+    .eq("id", movieNightId)
+    .eq("status", "collecting")
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!updated) return false;
+
+  const { data: participants } = await supabase
+    .from("movie_night_participants")
+    .select("user_id")
+    .eq("movie_night_id", movieNightId);
+  for (const p of participants ?? []) {
+    await notify(supabase, {
+      recipientId: p.user_id,
+      actorId,
+      type: "movie_night_decided",
+      titleId,
+      refId: movieNightId,
+    });
+  }
+  return true;
+}
+
+/**
  * Titles every current participant has liked (and nobody's passed on) --
  * see computeMatches for the exact rule. Surfaced as its own panel above
  * the candidate grid rather than left buried in per-card vote tallies, so
@@ -332,41 +372,40 @@ export async function castMovieNightVote(input: z.infer<typeof voteSchema>) {
     .from("movie_night_votes")
     .upsert({ movie_night_id: movieNightId, title_id: titleId, user_id: user.id, vote });
   if (error) throw new Error(error.message);
+
+  // Movie Night has no separate manual lock-in step for the matches case
+  // anymore: the moment every current participant has liked the same
+  // title with nobody passing on it, that title IS the decision -- no
+  // extra tap required from anyone. Only a "like" can ever complete a
+  // match (a pass can only ever disqualify one), so skip the check
+  // entirely for passes.
+  if (vote === "like") {
+    const { participantIds, votes } = await getActiveParticipantIdsAndVotes(movieNightId);
+    const isMatch = computeMatches(participantIds, votes).some((m) => m.titleId === titleId);
+    if (isMatch) await finalizeDecision(supabase, movieNightId, titleId, user.id);
+  }
 }
 
 const decideSchema = z.object({ movieNightId: z.string().uuid(), titleId: z.string().uuid() });
 
+// This now only handles the fallback (no-unanimous-match) case -- the
+// matches case auto-decides from castMovieNightVote above. Open to any
+// current participant, not just the host: "both should be able to lock
+// in the pick" applies here too, since this is the tie-break for when the
+// group genuinely can't reach consensus, not an administrative action.
 export async function decideMovieNight(input: z.infer<typeof decideSchema>) {
   const { movieNightId, titleId } = decideSchema.parse(input);
   const { supabase, user } = await requireUser();
 
-  const { data: night } = await supabase
-    .from("movie_nights")
-    .select("host_id")
-    .eq("id", movieNightId)
-    .maybeSingle();
-  if (!night) throw new Error("Movie night not found");
-  if (night.host_id !== user.id) throw new Error("Only the host can decide");
-
-  const { error } = await supabase
-    .from("movie_nights")
-    .update({ status: "decided", decided_title_id: titleId })
-    .eq("id", movieNightId);
-  if (error) throw new Error(error.message);
-
-  const { data: participants } = await supabase
+  const { data: participant } = await supabase
     .from("movie_night_participants")
     .select("user_id")
-    .eq("movie_night_id", movieNightId);
-  for (const p of participants ?? []) {
-    await notify(supabase, {
-      recipientId: p.user_id,
-      actorId: user.id,
-      type: "movie_night_decided",
-      titleId,
-      refId: movieNightId,
-    });
-  }
+    .eq("movie_night_id", movieNightId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!participant) throw new Error("Only people in this movie night can decide");
+
+  await finalizeDecision(supabase, movieNightId, titleId, user.id);
 
   // Deliberately NO revalidatePath here -- calling it from a Server Action
   // invoked by the live client (live-candidate-voting.tsx's lockIn) forces

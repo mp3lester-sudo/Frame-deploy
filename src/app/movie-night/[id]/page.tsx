@@ -74,8 +74,9 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
     : null;
 
   // Every participant (not just the host) sees and votes on the shared
-  // candidate pool now — see LiveCandidateVoting. The host still makes the
-  // final call via decideMovieNight, informed by the live tally.
+  // candidate pool now — see LiveCandidateVoting. A unanimous match decides
+  // the night automatically (castMovieNightVote); if the pool runs dry with
+  // no unanimous pick, any participant can break the tie via decideMovieNight.
   //
   // Same reasoning as comparisons above: a bad row anywhere in the group's
   // combined rating/genre-affinity data would otherwise 500 this whole
@@ -200,7 +201,6 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
               candidates={candidates}
               initialVotes={initialVotes}
               viewerId={user.id}
-              isHost={isHost}
               participantCount={participants.length}
             />
           </div>
