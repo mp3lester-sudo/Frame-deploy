@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import { sendPushToUser } from "@/lib/push/send-push";
 
 export type NotificationType = "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
 
@@ -20,6 +21,14 @@ export type NotificationType = "follow" | "comment" | "reaction" | "movie_night_
  * notification insert glitch can never break the primary action (posting a
  * comment, following someone) that triggered it. Also a no-op if the actor
  * is the recipient — nobody needs to be told they followed themselves.
+ *
+ * Also fires a Web Push notification (src/lib/push/send-push.ts) to any
+ * devices the recipient has subscribed on, alongside the in-app row --
+ * every existing call site gets push delivery for free rather than each
+ * one having to remember to wire it up separately. The push text needs to
+ * be self-contained (unlike the in-app row, which can join against
+ * actor/title at read time), so this looks up the actor's name and, for
+ * title-attached types, the title's name, before building per-type copy.
  */
 export async function notify(
   supabase: SupabaseClient<Database>,
@@ -42,6 +51,52 @@ export async function notify(
     });
   } catch {
     // Best-effort — see doc comment above.
+  }
+
+  try {
+    const [{ data: actor }, { data: title }] = await Promise.all([
+      supabase.from("profiles").select("username, display_name").eq("id", params.actorId).maybeSingle(),
+      params.titleId
+        ? supabase.from("titles").select("name").eq("id", params.titleId).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    const actorName = actor?.display_name ?? actor?.username ?? "Someone";
+
+    let pushTitle = "Backlot";
+    let body = "";
+    let url = "/notifications";
+    switch (params.type) {
+      case "follow":
+        pushTitle = "New follower";
+        body = `${actorName} started following you`;
+        url = actor?.username ? `/profile/${actor.username}` : "/notifications";
+        break;
+      case "comment":
+        pushTitle = "New comment";
+        body = title?.name ? `${actorName} commented on your review of ${title.name}` : `${actorName} commented on your review`;
+        url = params.titleId ? `/movie/${params.titleId}` : "/notifications";
+        break;
+      case "reaction":
+        pushTitle = "New reaction";
+        body = title?.name ? `${actorName} reacted to your review of ${title.name}` : `${actorName} reacted to your review`;
+        url = params.titleId ? `/movie/${params.titleId}` : "/notifications";
+        break;
+      case "movie_night_invite":
+        pushTitle = "Movie Night";
+        body = `${actorName} invited you to a Movie Night`;
+        url = params.refId ? `/movie-night/${params.refId}` : "/movie-night";
+        break;
+      case "movie_night_decided":
+        pushTitle = "It's decided";
+        body = title?.name ? `Tonight's pick: ${title.name}` : "Your Movie Night has a pick";
+        url = params.refId ? `/movie-night/${params.refId}` : "/movie-night";
+        break;
+    }
+
+    await sendPushToUser(params.recipientId, { title: pushTitle, body, url });
+  } catch {
+    // Best-effort -- a push lookup/send failure should never surface to
+    // the caller of notify(), same as the in-app insert above.
   }
 }
 

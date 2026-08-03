@@ -272,6 +272,24 @@ export interface Database {
         Update: Partial<{ read_at: string | null }>;
         Relationships: [];
       };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+        };
+        Update: Partial<{ endpoint: string; p256dh: string; auth: string }>;
+        Relationships: [];
+      };
       movie_nights: {
         Row: {
           id: string;
