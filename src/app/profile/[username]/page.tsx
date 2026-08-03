@@ -402,7 +402,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         // is the tap target.
         <Link
           href="/wrapped"
-          className="stagger-card group relative mt-6 block h-40 overflow-hidden rounded-[var(--radius-lg)] border border-border"
+          className="stagger-card group relative mt-6 block h-64 overflow-hidden rounded-[var(--radius-lg)] border border-border"
           style={{ animationDelay: "480ms" }}
         >
           {wrapped.favoriteTitle?.posterUrl && (
@@ -415,14 +415,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
-          <div className="relative flex h-full flex-col justify-end gap-1 px-5 py-5">
-            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
-            <h3 className="font-display text-xl">{wrapped.year} Recap</h3>
-            <p className="text-xs text-foreground-muted">
+          <div className="relative flex h-full flex-col justify-end gap-1.5 px-6 py-6">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+            <h3 className="font-display text-3xl">{wrapped.year} Recap</h3>
+            <p className="text-sm text-foreground-muted">
               {wrapped.totalRated} title{wrapped.totalRated === 1 ? "" : "s"} rated
               {wrapped.topGenres[0] ? ` · Mostly ${wrapped.topGenres[0].genre}` : ""}
             </p>
-            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-accent">
+            <span className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent">
               See your full Wrapped &rarr;
             </span>
           </div>
