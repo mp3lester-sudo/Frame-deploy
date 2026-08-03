@@ -10,6 +10,7 @@ import { generateReferralCode } from "@/lib/referrals/code";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { REFERRAL_BONUS_DAYS } from "@/lib/referrals/constants";
 import { notify } from "@/lib/actions/notifications";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 
 const signUpSchema = z.object({
   email: z.string().email(),
@@ -226,6 +227,21 @@ export async function signOut() {
   redirect("/login");
 }
 
+/**
+ * Signs out every session for this account, not just the current browser
+ * -- supabase-js's { scope: "global" } revokes every refresh token tied to
+ * the user, so any other logged-in device/browser gets kicked on its next
+ * request. Lightweight stand-in for full session/device management (no UI
+ * for listing individual sessions), but covers the actual use case: "I
+ * think someone else is logged into my account" or "I forgot to log out
+ * on a shared computer."
+ */
+export async function signOutEverywhere() {
+  const supabase = await createClient();
+  await supabase.auth.signOut({ scope: "global" });
+  redirect("/login");
+}
+
 const forgotPasswordSchema = z.object({ email: z.string().email() });
 
 const resetPasswordSchema = z
@@ -295,4 +311,69 @@ export async function updatePassword(_prev: AuthActionState, formData: FormData)
   if (error) return { error: error.message };
 
   redirect("/login?reset=success");
+}
+
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password"),
+    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+    confirmNewPassword: z.string().min(1, "Please confirm your new password"),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "Passwords don't match",
+    path: ["confirmNewPassword"],
+  });
+
+/**
+ * Password change for an already-logged-in user, distinct from
+ * updatePassword() above (which only works inside the temporary session
+ * from a recovery email). Re-verifies the CURRENT password via
+ * signInWithPassword before calling updateUser() -- an active session
+ * alone is enough for Supabase to accept a new password, but that would
+ * let anyone who grabs a signed-in device (or a stolen session cookie)
+ * lock the real owner out permanently with no proof they knew the old
+ * password. Deliberately plain-object in/out (no useActionState/FormData)
+ * to match this file's other settings-style actions like updateProfile.
+ */
+export async function changePassword(
+  input: z.infer<typeof changePasswordSchema>
+): Promise<{ error?: string; success?: boolean }> {
+  const parsed = changePasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const user = await getVerifiedUser();
+  if (!user?.email) return { error: "Not authenticated" };
+
+  const supabase = await createClient();
+  const { error: reauthError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: parsed.data.currentPassword,
+  });
+  if (reauthError) return { error: "Current password is incorrect" };
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.newPassword });
+  if (error) return { error: error.message };
+
+  return { success: true };
+}
+
+
+/**
+ * Resends the signup confirmation email for the current session's address
+ * -- backs the non-blocking "verify your email" nudge in Settings
+ * (verify-email-banner.tsx). Deliberately silent on failure (rate limits,
+ * an already-verified address, transient send errors) since this is a
+ * low-stakes convenience action, not a security control.
+ */
+export async function resendVerificationEmail(): Promise<{ error?: string; success?: boolean }> {
+  const user = await getVerifiedUser();
+  if (!user?.email) return { error: "Not authenticated" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({ type: "signup", email: user.email });
+  if (error) return { error: error.message };
+
+  return { success: true };
 }

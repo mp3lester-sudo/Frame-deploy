@@ -4,13 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { AvatarUpload } from "@/components/settings/avatar-upload";
 import { ProfileForm } from "@/components/settings/profile-form";
+import { PasswordChangeForm } from "@/components/settings/password-change-form";
+import { VerifyEmailBanner } from "@/components/settings/verify-email-banner";
 import { PushToggle } from "@/components/settings/push-toggle";
 import { FavoriteTitlesEditor } from "@/components/settings/favorite-titles-editor";
 import { LetterboxdImport } from "@/components/settings/letterboxd-import";
 import { LetterboxdPasteImport } from "@/components/settings/letterboxd-paste-import";
 import { ReferralCard } from "@/components/settings/referral-card";
 import { siteOrigin } from "@/lib/seo/site";
-import { signOut } from "@/lib/actions/auth";
+import { signOut, signOutEverywhere } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 
 export default async function SettingsPage() {
@@ -41,12 +43,18 @@ export default async function SettingsPage() {
         </Link>
       </div>
 
+      {!user.email_confirmed_at && <VerifyEmailBanner />}
+
       <section className="mb-8">
         <AvatarUpload name={profile?.display_name ?? profile?.username ?? "you"} initialAvatarUrl={profile?.avatar_url ?? null} />
       </section>
 
       <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
         <ProfileForm initialDisplayName={profile?.display_name ?? ""} initialBio={profile?.bio ?? ""} />
+      </section>
+
+      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+        <PasswordChangeForm />
       </section>
 
       <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
@@ -87,6 +95,12 @@ export default async function SettingsPage() {
       <form action={signOut} className="mt-8">
         <Button type="submit" variant="ghost" className="w-full text-danger hover:bg-danger/10">
           Log out
+        </Button>
+      </form>
+
+      <form action={signOutEverywhere} className="mt-2">
+        <Button type="submit" variant="ghost" className="w-full text-xs text-foreground-muted hover:bg-danger/10 hover:text-danger">
+          Log out of all devices
         </Button>
       </form>
     </div>

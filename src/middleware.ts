@@ -56,7 +56,14 @@ export async function middleware(request: NextRequest) {
 
   request.headers.set(
     VERIFIED_USER_HEADER,
-    user ? JSON.stringify({ id: user.id, email: user.email, user_metadata: user.user_metadata }) : ""
+    user
+      ? JSON.stringify({
+          id: user.id,
+          email: user.email,
+          user_metadata: user.user_metadata,
+          email_confirmed_at: user.email_confirmed_at ?? null,
+        })
+      : ""
   );
 
   // Next.js Server Actions POST back to the current page URL (e.g. a
