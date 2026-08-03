@@ -601,24 +601,51 @@ html.splash-shown .greeting-splash {
   animation: reveal-fade-up 550ms ease-out both;
 }
 
-@keyframes reveal-pop {
+/* The poster itself is the whole point of this moment -- it should read
+   as being pulled open into the light, not just faded in like the smaller
+   supporting text around it. Starts rotated/scaled down as if drawn from a
+   fanned stack, settles straight-on with a slight overshoot for weight. */
+@keyframes poster-fan-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) rotate(-7deg);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+.poster-fan-in {
+  animation: poster-fan-in 1000ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* A fan of gold spotlight beams sweeping in from above and converging on
+   the poster, like stage lights snapping on one after another for a big
+   reveal -- each beam is a plain gradient div rotated via the
+   --beam-rotate custom property (see decision-reveal.tsx) so this one
+   keyframe pair drives the whole fan regardless of how many beams render. */
+@keyframes spotlight-beam-in {
   from {
     opacity: 0;
-    transform: scale(0.88);
+    transform: rotate(var(--beam-rotate, 0deg)) scaleY(0);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: rotate(var(--beam-rotate, 0deg)) scaleY(1);
   }
 }
-.reveal-pop {
-  animation: reveal-pop 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.spotlight-beam {
+  animation: spotlight-beam-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .reveal-glow,
   .reveal-fade-up,
-  .reveal-pop {
+  .poster-fan-in,
+  .spotlight-beam {
     animation: none;
   }
 }
