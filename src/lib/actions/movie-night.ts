@@ -368,7 +368,16 @@ export async function decideMovieNight(input: z.infer<typeof decideSchema>) {
     });
   }
 
-  revalidatePath(`/movie-night/${movieNightId}`);
+  // Deliberately NO revalidatePath here -- calling it from a Server Action
+  // invoked by the live client (live-candidate-voting.tsx's lockIn) forces
+  // an immediate Server Component re-render, which flips night.status and
+  // unmounts LiveCandidateVoting (and the DecisionReveal overlay it owns)
+  // before the golden reveal ever gets to play. The movie_nights realtime
+  // subscription is what's supposed to drive this transition instead, for
+  // every viewer including the host -- see the postgres_changes handler in
+  // live-candidate-voting.tsx. The route itself is fully dynamic (reads
+  // cookies via createClient()), so a fresh visit later still sees current
+  // data with no caching to invalidate.
 }
 
 export async function reopenMovieNight(movieNightId: string) {
