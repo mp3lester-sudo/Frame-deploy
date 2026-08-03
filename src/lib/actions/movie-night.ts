@@ -381,7 +381,18 @@ const voteSchema = z.object({
 // subscription (see src/components/movie-night/live-candidate-voting.tsx),
 // not a server re-render. Revalidating here would just force an
 // unnecessary full page refetch on top of the realtime update.
-export async function castMovieNightVote(input: z.infer<typeof voteSchema>) {
+// Returns whether THIS call is the one that just decided the night --
+// letting the voter who completes a match find out synchronously, in the
+// same request, instead of solely depending on the movie_nights realtime
+// subscription to notify them. That subscription is still what notifies
+// every OTHER participant (and remains the fast path for everyone when it
+// works), but real usage has shown a match completing with nobody's
+// screen changing at all -- if Realtime isn't reaching the client for
+// whatever reason, the one piece of information the voter's own client
+// can always get for certain is the direct response to their own request.
+export async function castMovieNightVote(
+  input: z.infer<typeof voteSchema>
+): Promise<{ decided: boolean }> {
   const { movieNightId, titleId, vote } = voteSchema.parse(input);
   const { supabase, user } = await requireUser();
 
@@ -405,11 +416,37 @@ export async function castMovieNightVote(input: z.infer<typeof voteSchema>) {
     try {
       const { participantIds, votes } = await getActiveParticipantIdsAndVotes(movieNightId);
       const isMatch = computeMatches(participantIds, votes).some((m) => m.titleId === titleId);
-      if (isMatch) await finalizeDecision(supabase, movieNightId, titleId, user.id);
+      if (isMatch) {
+        const decided = await finalizeDecision(supabase, movieNightId, titleId, user.id);
+        return { decided };
+      }
     } catch (err) {
       await captureServerError(err, { movieNightId, titleId, stage: "auto-decide" });
     }
   }
+  return { decided: false };
+}
+
+/**
+ * Cheap poll target for a fallback timer in the client (live-candidate-
+ * voting.tsx) -- Realtime is the fast path for learning a night's been
+ * decided, but shouldn't be the ONLY path: if it's slow, blocked, or just
+ * doesn't fire, a participant who didn't cast the deciding vote themselves
+ * would otherwise sit on the voting screen indefinitely with a database
+ * row that already says "decided". Polled every few seconds rather than
+ * subscribed to, deliberately -- one plain select is a much smaller
+ * failure surface than the realtime channel it's backstopping.
+ */
+export async function getMovieNightDecisionStatus(
+  movieNightId: string
+): Promise<{ status: string; decidedTitleId: string | null }> {
+  const { supabase } = await requireUser();
+  const { data } = await supabase
+    .from("movie_nights")
+    .select("status, decided_title_id")
+    .eq("id", movieNightId)
+    .maybeSingle();
+  return { status: data?.status ?? "collecting", decidedTitleId: data?.decided_title_id ?? null };
 }
 
 const decideSchema = z.object({ movieNightId: z.string().uuid(), titleId: z.string().uuid() });
@@ -419,7 +456,9 @@ const decideSchema = z.object({ movieNightId: z.string().uuid(), titleId: z.stri
 // current participant, not just the host: "both should be able to lock
 // in the pick" applies here too, since this is the tie-break for when the
 // group genuinely can't reach consensus, not an administrative action.
-export async function decideMovieNight(input: z.infer<typeof decideSchema>) {
+export async function decideMovieNight(
+  input: z.infer<typeof decideSchema>
+): Promise<{ decided: boolean }> {
   const { movieNightId, titleId } = decideSchema.parse(input);
   const { supabase, user } = await requireUser();
 
@@ -431,7 +470,12 @@ export async function decideMovieNight(input: z.infer<typeof decideSchema>) {
     .maybeSingle();
   if (!participant) throw new Error("Only people in this movie night can decide");
 
-  await finalizeDecision(supabase, movieNightId, titleId, user.id);
+  // decided reflects whether THIS call was the one that actually flipped
+  // the night -- false means someone else's decide (a match auto-deciding,
+  // or another participant's own fallback lock-in) already won the same
+  // atomic race a moment earlier, and titleId here is whatever THIS click
+  // was aimed at, not necessarily whatever actually got decided.
+  const decided = await finalizeDecision(supabase, movieNightId, titleId, user.id);
 
   // Deliberately NO revalidatePath here -- calling it from a Server Action
   // invoked by the live client (live-candidate-voting.tsx's lockIn) forces
@@ -443,6 +487,7 @@ export async function decideMovieNight(input: z.infer<typeof decideSchema>) {
   // live-candidate-voting.tsx. The route itself is fully dynamic (reads
   // cookies via createClient()), so a fresh visit later still sees current
   // data with no caching to invalidate.
+  return { decided };
 }
 
 export async function reopenMovieNight(movieNightId: string) {

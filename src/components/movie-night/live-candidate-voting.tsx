@@ -10,6 +10,7 @@ import {
   getMovieNightCandidates,
   getMovieNightMatches,
   getMovieNightFallbackRanking,
+  getMovieNightDecisionStatus,
   refillMovieNightCandidate,
   getTitleBasic,
   type MovieNightMatchResult,
@@ -114,6 +115,51 @@ export function LiveCandidateVoting({
     revealRef.current = reveal;
   });
 
+  // Shared by every path that can learn a night's been decided -- the
+  // movie_nights realtime handler below, the deciding voter's own
+  // castMovieNightVote response, and the polling fallback -- so there's
+  // one place that knows how to turn a decided_title_id into the reveal,
+  // not three slightly-different copies of the same lookup chain.
+  const resolveAndShowReveal = useCallback(
+    (decidedId: string) => {
+      const known =
+        matchesRef.current.find((m) => m.title.id === decidedId)?.title ??
+        candidatesRef.current.find((c) => c.title.id === decidedId)?.title ??
+        fallbackRef.current.find((f) => f.title.id === decidedId)?.title;
+      if (known) {
+        setReveal({ id: known.id, name: known.name, poster_url: known.poster_url });
+        return;
+      }
+      startTransition(async () => {
+        const basic = await getTitleBasic(decidedId);
+        if (basic) setReveal(basic);
+        else router.refresh(); // Fallback -- title vanished or lookup failed; the static decided-card view still works.
+      });
+    },
+    [router]
+  );
+
+  // Backstop for Realtime not reaching this client at all: poll every 3s
+  // for whether the night's been decided, same as the deciding voter's own
+  // castMovieNightVote response does synchronously for them. This is what
+  // catches it for everyone ELSE in the room if Realtime is slow, blocked,
+  // or just silently not delivering -- real usage has shown a match
+  // complete with no client ever finding out, which the movie_nights
+  // subscription alone was supposed to prevent but evidently doesn't
+  // always manage to.
+  useEffect(() => {
+    if (reveal) return;
+    const interval = setInterval(() => {
+      startTransition(async () => {
+        const { status, decidedTitleId } = await getMovieNightDecisionStatus(movieNightId);
+        if (status === "decided" && decidedTitleId && !revealRef.current) {
+          resolveAndShowReveal(decidedTitleId);
+        }
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [movieNightId, reveal, resolveAndShowReveal]);
+
   const refreshMatches = useCallback(() => {
     startTransition(async () => {
       const fresh = await getMovieNightMatches(movieNightId);
@@ -177,27 +223,9 @@ export function LiveCandidateVoting({
         (payload: RealtimePostgresChangesPayload<{ status: string; decided_title_id: string | null }>) => {
           const row = payload.new as { status?: string; decided_title_id?: string | null } | undefined;
           if (row?.status === "decided" && row.decided_title_id) {
-            const decidedId = row.decided_title_id;
-            // Almost always already sitting in this viewer's own state --
-            // no server round trip needed for the common case. Only the
-            // host's own decideMovieNight() call (see lockIn below) skips
-            // straight past this and relies on the same realtime echo
-            // everyone else gets, exactly like votes' "our own vote will
-            // arrive a moment later" pattern above -- one code path for
-            // showing the reveal, not two.
-            const known =
-              matchesRef.current.find((m) => m.title.id === decidedId)?.title ??
-              candidatesRef.current.find((c) => c.title.id === decidedId)?.title ??
-              fallbackRef.current.find((f) => f.title.id === decidedId)?.title;
-            if (known) {
-              setReveal({ id: known.id, name: known.name, poster_url: known.poster_url });
-            } else {
-              startTransition(async () => {
-                const basic = await getTitleBasic(decidedId);
-                if (basic) setReveal(basic);
-                else router.refresh(); // Fallback -- title vanished or lookup failed; the static decided-card view still works.
-              });
-            }
+            // This is the fast path when Realtime is working -- the polling
+            // effect above is the backstop for when it isn't.
+            resolveAndShowReveal(row.decided_title_id);
             return;
           }
           // Cancelled or reopened back to collecting -- no reveal moment
@@ -225,7 +253,7 @@ export function LiveCandidateVoting({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [movieNightId, router, poolExhausted, refreshMatches, refreshFallback]);
+  }, [movieNightId, router, poolExhausted, refreshMatches, refreshFallback, resolveAndShowReveal]);
 
   function refillSlot(titleId: string) {
     // Once the pool's confirmed exhausted for this viewer, there's no
@@ -266,8 +294,9 @@ export function LiveCandidateVoting({
       return { ...prev, [titleId]: { like: liked, pass: passed } };
     });
     startTransition(async () => {
+      let result: { decided: boolean };
       try {
-        await castMovieNightVote({ movieNightId, titleId, vote });
+        result = await castMovieNightVote({ movieNightId, titleId, vote });
       } catch (err) {
         // castMovieNightVote failing (as opposed to its best-effort
         // auto-decide check failing, which is swallowed server-side on
@@ -277,46 +306,52 @@ export function LiveCandidateVoting({
         showToast(err instanceof Error ? err.message : "Couldn't save that vote -- try again");
         return;
       }
+      // This voter's own like just completed a unanimous match -- show
+      // the reveal directly from this response instead of waiting on the
+      // movie_nights realtime echo, which real usage has shown doesn't
+      // always reach the client. The polling fallback above still covers
+      // the OTHER participant(s), who didn't make this exact call.
+      if (result.decided) {
+        resolveAndShowReveal(titleId);
+        return;
+      }
       refreshMatches();
     });
     // Whichever way you voted, you're done considering this one -- pull in
     // something new rather than leaving a decided card sitting there. Note
     // this fires regardless of whether the vote just completed a match:
-    // if it did, the movie_nights realtime handler above is about to
-    // replace this whole screen with the golden reveal anyway, so a
-    // moment of the grid reshuffling underneath doesn't matter.
+    // if it did, resolveAndShowReveal above is about to replace this whole
+    // screen with the golden reveal anyway, so a moment of the grid
+    // reshuffling underneath doesn't matter.
     refillSlot(titleId);
   }
 
   function lockIn(titleId: string) {
     setDecidingId(titleId);
     startTransition(async () => {
+      let result: { decided: boolean };
       try {
-        await decideMovieNight({ movieNightId, titleId });
+        result = await decideMovieNight({ movieNightId, titleId });
       } catch (err) {
         setDecidingId(null);
         showToast(err instanceof Error ? err.message : "Could not lock that in -- try again");
         return;
       }
-      // No router.refresh() here on success -- the realtime movie_nights
-      // handler above echoes this write back to us same as everyone else
-      // in the session, and drives the golden-lights reveal uniformly for
-      // every viewer including the host who just made the call.
-      //
-      // But that's now the ONLY path that updates this screen, and this
-      // whole feature shipped without ever having been checked against a
-      // real live session -- if Realtime is slow, blocked (e.g. a
-      // network/proxy that kills websockets), or just doesn't fire for
-      // whatever reason, the host would sit on the voting screen forever
-      // with a DB row that already says "decided" and nothing visibly
-      // different. This is a deliberate safety net, not the primary path:
-      // if the realtime echo hasn't set reveal state within a few seconds,
-      // fall back to a plain refresh so the screen at least ends up
-      // correct (the static "pick" card) even without the golden reveal,
-      // rather than looking broken.
-      setTimeout(() => {
-        if (!revealRef.current) router.refresh();
-      }, 4000);
+      // Resolve the reveal directly from this response rather than
+      // waiting on the movie_nights realtime echo -- same reasoning as
+      // castVote's auto-decide path above. The polling fallback and the
+      // realtime handler both still cover every OTHER participant in the
+      // room, who didn't make this exact call.
+      if (result.decided) {
+        resolveAndShowReveal(titleId);
+        return;
+      }
+      // Someone else's decide (an auto-match, or another participant's
+      // own fallback pick) won the same race a moment earlier -- titleId
+      // here is just what THIS click was aimed at, not what actually got
+      // decided, so don't show the wrong poster. The polling effect above
+      // will pick up the real decided_title_id within a few seconds.
+      setDecidingId(null);
     });
   }
 
