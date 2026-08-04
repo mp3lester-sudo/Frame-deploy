@@ -223,7 +223,19 @@ export async function signIn(_prev: AuthActionState, formData: FormData): Promis
 
 export async function signOut() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  try {
+    await supabase.auth.signOut();
+  } catch (error) {
+    // A corrupted/already-invalid session cookie (e.g. left over from an
+    // earlier "sign out of all devices" on this same browser, or a stale
+    // refresh token) can make the signOut() call itself throw instead of
+    // resolving with a normal { error } result -- previously that turned
+    // "Log out" into an opaque 500, stranding the user on the page they
+    // were trying to leave. Whatever the underlying cause, the user
+    // explicitly asked to log out and land on /login, so that's what
+    // happens regardless of whether this call succeeded.
+    console.error("signOut: auth.signOut() threw, redirecting to /login anyway", error);
+  }
   redirect("/login");
 }
 
@@ -238,7 +250,13 @@ export async function signOut() {
  */
 export async function signOutEverywhere() {
   const supabase = await createClient();
-  await supabase.auth.signOut({ scope: "global" });
+  try {
+    await supabase.auth.signOut({ scope: "global" });
+  } catch (error) {
+    // See signOut() above -- never let a failed revoke strand the user on
+    // the settings page instead of sending them to /login.
+    console.error("signOutEverywhere: auth.signOut() threw, redirecting to /login anyway", error);
+  }
   redirect("/login");
 }
 
@@ -452,6 +470,13 @@ export async function deleteAccount(
     console.error("deleteAccount: failed to ban user", banError.message);
   }
 
-  await supabase.auth.signOut({ scope: "global" });
+  try {
+    await supabase.auth.signOut({ scope: "global" });
+  } catch (error) {
+    // See signOut() above -- the account is already banned/anonymized at
+    // this point, so the user must land on /login regardless of whether
+    // this final signOut call itself succeeded.
+    console.error("deleteAccount: auth.signOut() threw, redirecting to /login anyway", error);
+  }
   redirect("/login?accountDeleted=true");
 }

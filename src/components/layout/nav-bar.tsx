@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Search, Sparkles, Users, Compass, User, Clapperboard, Settings, UsersRound, Mail, Bell, CalendarDays } from "lucide-react";
+import { Search, Sparkles, Users, Compass, User, Clapperboard, Settings, Mail, Bell, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** How long the nav bar stays visible with no scroll/mouse/touch/key
@@ -21,6 +21,11 @@ const IDLE_HIDE_MS = 4000;
 // own action list (alongside Watchlist/Your lists) rather than a
 // persistent top-level tab, since it's a once-in-a-while personal recap,
 // not something anyone needs one tap away from every page.
+// Clubs moved the same way again -- it was the 6th item here with zero
+// mobile presence at all (this row is desktop-only), so it's now a
+// header link in the home page's "Your circle" social rail instead,
+// right next to Hot Takes -- visible to every signed-in visit on every
+// screen size, not just desktop viewers who happened to look at this row.
 // Movie Night leads (right after Discover) rather than sitting fifth of
 // six equal-weight tabs -- see the home page and bottom nav for the same
 // promotion. Recommendations don't need a nav entry of their own: they
@@ -31,7 +36,6 @@ const links = [
   { href: "/ai", label: "Ask Backlot", icon: Sparkles },
   { href: "/feed", label: "Social", icon: Users },
   { href: "/daily", label: "Daily", icon: CalendarDays },
-  { href: "/clubs", label: "Clubs", icon: UsersRound },
 ];
 
 export function NavBar({
