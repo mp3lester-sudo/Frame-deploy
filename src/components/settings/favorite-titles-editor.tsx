@@ -29,6 +29,7 @@ function FavoriteSlot({
       <button
         type="button"
         onClick={onOpen}
+        aria-label={fav ? `Change favorite: ${fav.name}` : "Add a favorite title"}
         className={cn(
           "relative block aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] bg-surface transition-colors",
           highlight

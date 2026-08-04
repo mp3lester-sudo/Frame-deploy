@@ -1,7 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { computeTasteDnaFromRatings, type TasteDnaResult } from "@/lib/taste-dna/archetypes";
 import { computeTasteEvolution, type RatedTitleFeaturesWithTime, type TasteEvolutionResult } from "@/lib/taste-dna/evolution";
-import { computeWrapped as computeWrappedFromRatings, type WrappedRatedTitle, type WrappedResult } from "@/lib/taste-dna/wrapped";
+import {
+  computeWrapped as computeWrappedFromRatings,
+  getMonthRange,
+  type WrappedRatedTitle,
+  type WrappedResult,
+} from "@/lib/taste-dna/wrapped";
 
 function toDecade(releaseDate: string | null): string | null {
   if (!releaseDate) return null;
@@ -47,7 +52,7 @@ export async function computeTasteDna(userId: string): Promise<TasteDnaWithEvolu
     supabase
       .from("titles")
       .select(
-        "id, genres, tone, themes, mood_tags, pacing, violence_level, comedy_level, emotional_intensity, release_date, original_language"
+        "id, name, genres, tone, themes, mood_tags, pacing, violence_level, comedy_level, emotional_intensity, release_date, original_language"
       )
       .in("id", titleIds),
     supabase
@@ -71,6 +76,8 @@ export async function computeTasteDna(userId: string): Promise<TasteDnaWithEvolu
       const director = directorByTitle.get(r.title_id);
       const feature: RatedTitleFeaturesWithTime = {
         weight: Math.max(r.score - 2.5, 0),
+        titleId: title.id,
+        titleName: title.name,
         genres: title.genres ?? [],
         tone: title.tone ?? [],
         themes: title.themes ?? [],
@@ -119,20 +126,21 @@ export async function computeTasteDna(userId: string): Promise<TasteDnaWithEvolu
  * scoring; this is just the DB-fetching wrapper (kept separate so the
  * scoring stays unit-testable without Supabase).
  */
-export async function computeWrapped(userId: string, year: number): Promise<WrappedResult | null> {
+async function fetchRatedTitlesInRange(
+  userId: string,
+  startIso: string,
+  endIso: string
+): Promise<WrappedRatedTitle[]> {
   const supabase = await createClient();
-
-  const yearStart = `${year}-01-01T00:00:00.000Z`;
-  const yearEnd = `${year + 1}-01-01T00:00:00.000Z`;
 
   const { data: ratings } = await supabase
     .from("ratings")
     .select("title_id, score, created_at")
     .eq("user_id", userId)
-    .gte("created_at", yearStart)
-    .lt("created_at", yearEnd);
+    .gte("created_at", startIso)
+    .lt("created_at", endIso);
 
-  if (!ratings?.length) return null;
+  if (!ratings?.length) return [];
 
   const titleIds = ratings.map((r) => r.title_id);
 
@@ -157,7 +165,7 @@ export async function computeWrapped(userId: string, year: number): Promise<Wrap
     if (person) directorByTitle.set(c.title_id, { id: person.id, name: person.name });
   }
 
-  const rated: WrappedRatedTitle[] = ratings
+  return ratings
     .map((r) => {
       const title = titleById.get(r.title_id);
       if (!title) return null;
@@ -187,6 +195,29 @@ export async function computeWrapped(userId: string, year: number): Promise<Wrap
       return feature;
     })
     .filter((f): f is WrappedRatedTitle => f !== null);
+}
 
+export async function computeWrapped(userId: string, year: number): Promise<WrappedResult | null> {
+  const yearStart = `${year}-01-01T00:00:00.000Z`;
+  const yearEnd = `${year + 1}-01-01T00:00:00.000Z`;
+  const rated = await fetchRatedTitlesInRange(userId, yearStart, yearEnd);
+  if (!rated.length) return null;
   return computeWrappedFromRatings(rated, year);
+}
+
+/**
+ * Monthly recap -- same scoring as the annual Wrapped, scoped to the
+ * current UTC calendar month instead of a full year. A Premium-only perk
+ * (task #140): gated in lib/actions/wrapped.ts's getMyMonthlyWrapped, not
+ * here, so this function itself stays a plain data query with no plan
+ * logic mixed in. Uses `year` as the numeric bookkeeping value WrappedResult
+ * already requires (share/OG-image code reads it) but the actual headline
+ * text uses the month label instead -- see computeWrapped's summaryLabel
+ * param.
+ */
+export async function computeMonthlyWrapped(userId: string): Promise<WrappedResult | null> {
+  const { start, end, label } = getMonthRange(new Date());
+  const rated = await fetchRatedTitlesInRange(userId, start, end);
+  if (!rated.length) return null;
+  return computeWrappedFromRatings(rated, new Date().getUTCFullYear(), label);
 }

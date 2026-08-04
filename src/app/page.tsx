@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Allura } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
@@ -6,9 +7,11 @@ import { getLandingSwipeDeck } from "@/lib/actions/landing-teaser";
 import { TasteTeaser } from "@/components/landing/taste-teaser";
 import { getRequestGeo } from "@/lib/geo";
 import { getCurrentWeather } from "@/lib/weather";
-import { HeroRecommendation } from "@/components/home/hero-recommendation";
+import { SpotlightRecommendation } from "@/components/home/spotlight-recommendation";
 import { MoodRow } from "@/components/home/mood-row";
 import { MovieNightCard } from "@/components/home/movie-night-card";
+import { createMovieNight } from "@/lib/actions/movie-night";
+import { Clapperboard } from "lucide-react";
 import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
 import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
@@ -16,10 +19,10 @@ import { CompanionPicker } from "@/components/home/companion-picker";
 import { DirectorOfTheDay } from "@/components/home/director-of-the-day";
 import { getDirectorOfTheDay } from "@/lib/director-of-day/fetch";
 import { isCircumstantialContext } from "@/lib/context/circumstantial";
-import { getLastReviewedOrWatchedTitle } from "@/lib/poster-font/last-title";
-import { getOrFetchPosterFont } from "@/lib/poster-font/detect";
-import { getPosterFontClassName } from "@/lib/poster-font/fonts";
 import { PreciseLocation } from "@/components/home/precise-location";
+import { IndieSpotlight } from "@/components/home/indie-spotlight";
+import { getIndieReleases } from "@/lib/news/tmdb-releases";
+import { getIndieNews } from "@/lib/news/indie-news";
 import type { Recommendation } from "@/lib/recommendations/engine";
 
 type Participant = { username: string; display_name: string | null; avatar_url: string | null };
@@ -29,6 +32,8 @@ type Participant = { username: string; display_name: string | null; avatar_url: 
 // (what people you follow are actually doing) — two distinct sections
 // rather than one blended feed, so each stays legible on its own.
 const SOCIAL_EVENTS_LIMIT = 5;
+
+const allura = Allura({ subsets: ["latin"], weight: "400" });
 
 export default async function HomePage({
   searchParams,
@@ -108,11 +113,18 @@ export default async function HomePage({
   // nobody would see.
   const isCompanionContext = activeContext === "date_night" || activeContext === "with_friends";
 
-  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }, directorOfTheDay, lastTitle] = await Promise.all([
+  const [
+    { recommendations, isColdStart },
+    { data: memberships },
+    { data: following },
+    directorOfTheDay,
+    indieReleases,
+    indieNews,
+  ] = await Promise.all([
     isCompanionContext
       ? Promise.resolve({ recommendations: [] as Recommendation[], isColdStart: false })
       : getRecommendationsForUser(user.id, {
-          limit: 5,
+          limit: 7,
           context: activeContext,
           weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
         }),
@@ -126,18 +138,18 @@ export default async function HomePage({
     // rated well, rotating daily (see director-of-day/pick.ts). Returns
     // null rather than a placeholder when there's no rating history yet.
     getDirectorOfTheDay(user.id),
-    // Whichever title this user most recently reviewed or watched — drives
-    // the greeting's poster-matched font below. Independent of everything
-    // else in this batch, so it rides along here instead of adding its own
-    // sequential stage.
-    getLastReviewedOrWatchedTitle(user.id),
+    // Indie Spotlight data (release calendar + IndieWire headlines) is the
+    // same for every visitor, not scoped to this user at all -- rides
+    // along in this same batch rather than adding a sequential fetch.
+    getIndieReleases(),
+    getIndieNews(),
   ]);
 
   const [hero, ...morePicks] = recommendations;
   const nightIds = (memberships ?? []).map((m) => m.movie_night_id);
   const followeeIds = (following ?? []).map((f) => f.followee_id);
 
-  const [heroDirectorResult, night, events, posterFontName] = await Promise.all([
+  const [heroDirectorResult, night, events] = await Promise.all([
     hero
       ? supabase
           .from("title_credits")
@@ -166,17 +178,10 @@ export default async function HomePage({
           .limit(SOCIAL_EVENTS_LIMIT)
           .then((r) => r.data ?? [])
       : Promise.resolve([]),
-    // Lazy-fetch-on-view-then-cache-forever, same pattern as RT scores — see
-    // src/lib/poster-font/detect.ts. Only ever hits OpenAI on the very first
-    // time any user's greeting needs this specific title's font; every
-    // subsequent view (this user or anyone else) is a free DB read.
-    lastTitle ? getOrFetchPosterFont(lastTitle) : Promise.resolve(null),
   ]);
 
   const heroDirector =
     (heroDirectorResult?.data as unknown as { people: { name: string } | null } | null)?.people?.name ?? null;
-  const greetingFontClassName = getPosterFontClassName(posterFontName);
-
   let activeNight: { id: string; hostId: string; participants: Participant[] } | null = null;
   if (night) {
     const { data: participantRows } = await supabase
@@ -222,7 +227,6 @@ export default async function HomePage({
           (html.splash-shown .greeting-splash) hides it instantly, no
           animation, no flash. */}
       <script
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{
           __html: `try {
   if (sessionStorage.getItem('backlot:greeting-splash-shown')) {
@@ -233,23 +237,23 @@ export default async function HomePage({
 } catch (e) {}`,
         }}
       />
+      {/* Screen-centered marquee card -- both axes, via fixed inset-0
+          flex centering -- rather than the inline "Good evening Name"
+          sentence the persistent in-page heading below still uses.
+          Thin rule lines above and below the name (same accent-deep
+          hairline both times) frame it like a vintage title card. Name
+          always renders in Allura, the same elegant thin gold cursive
+          script as the greeting word above it. */}
       <div
-        className="greeting-splash pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background"
+        className="greeting-splash pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background"
         aria-hidden="true"
       >
-        <h1 className="text-4xl sm:text-5xl">
-          <span className="font-sans font-medium text-foreground">{greeting}</span>,{" "}
-          <span
-            className={
-              greetingFontClassName
-                ? `${greetingFontClassName} text-3xl uppercase tracking-wide sm:text-4xl`
-                : "font-greeting text-3xl uppercase tracking-wide sm:text-4xl"
-            }
-          >
-            {firstName}
-          </span>
-          .
-        </h1>
+        <span className={`${allura.className} text-3xl text-accent-soft sm:text-4xl`}>{greeting}</span>
+        <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
+        <span className={`${allura.className} text-5xl text-accent-soft sm:text-7xl`}>
+          {firstName}
+        </span>
+        <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
       </div>
       {/* Backlot wordmark removed from this header per request -- it
           already lives in the nav bar above, so repeating it here was
@@ -264,22 +268,12 @@ export default async function HomePage({
             switched from Playfair Display (serif) for a cleaner, more
             modern look. Still off-white; only the typeface changed, the
             marquee name treatment right after it is untouched. */}
-        <span className="font-sans font-medium text-foreground">{greeting}</span>,{" "}
-        {/* The name gets a bold, minimal Syne treatment (--font-greeting)
-            by default -- but when this user's most recently reviewed/watched
-            title has a poster-matched font on file (see lib/poster-font),
-            that takes over instead, so the greeting reflects something
-            specific to them rather than always the same house treatment. */}
-        <span
-          className={
-            greetingFontClassName
-              ? `${greetingFontClassName} text-3xl uppercase tracking-wide sm:text-4xl`
-              : "font-greeting text-3xl uppercase tracking-wide sm:text-4xl"
-          }
-        >
-          {firstName}
-        </span>
-        .
+        <span className={`${allura.className} text-4xl text-accent sm:text-5xl`}>{greeting}</span>{" "}
+        {/* Name always gets the same elegant gold cursive (Allura)
+            treatment as "Good morning" above -- previously a poster-
+            matched font (see lib/poster-font) could override this, but
+            that's dropped now in favor of one consistent gold script. */}
+        <span className={`${allura.className} text-5xl text-accent sm:text-6xl`}>{firstName}</span>
       </h1>
       {ratedCount ? (
         <p className="mt-1.5 text-center text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
@@ -297,57 +291,13 @@ export default async function HomePage({
         <ContextPicker active={activeContext} />
       </div>
 
-      {/* Two columns on wide screens (lg:grid below) -- personal picks on
-          the left, Director of the Day + social activity + Movie Night in
-          a persistent right rail instead of several screens further down
-          the page. Below the lg breakpoint the grid columns collapse and
-          this renders as a single stack in the same document order as
-          before (left column's content, then right column's), so mobile
-          behavior is unchanged from the original single-column layout. */}
-      {/* Container now matches the nav bar's own max-w-6xl (nav-bar.tsx)
-          so the right rail's outer edge lines up with the nav's right-most
-          icon (profile) instead of stopping short of it. Right column also
-          widened from 1fr-vs-1.6fr to 1fr-vs-1.4fr -- wider on its own, not
-          just wider because the container grew. */}
-      <div className="mt-7 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
-        <div>
-          {activeContext === "date_night" || activeContext === "with_friends" ? (
-            <CompanionPicker context={activeContext} />
-          ) : (
-            <>
-              {hero && (
-                <HeroRecommendation
-                  title={hero.title}
-                  reason={hero.reason}
-                  detail={hero.detail}
-                  matchPercent={hero.matchPercent}
-                  director={heroDirector}
-                />
-              )}
-
-              {morePicks.length > 0 && (
-                <div className="mt-8">
-                  <MoodRow picks={morePicks} isColdStart={isColdStart} />
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="mt-8 lg:mt-0">
-          {/* Rendered regardless of companion context (date night / with
-              friends) -- this is about the user's own rating history, not
-              whoever they're watching with tonight, so it stays independent
-              of the hero/mood-row vs. CompanionPicker branch on the left. */}
-          {directorOfTheDay && (
-            <div className="mb-8">
-              <DirectorOfTheDay director={directorOfTheDay} />
-            </div>
-          )}
-
-          {/* Social section — what people you follow are actually doing, kept
-              visually distinct from the personal picks with a divider and
-              its own eyebrow label rather than blended into one feed. */}
+      {/* Social rail content is identical either way -- only the top of
+          the page (recommendation vs. companion picker, and where
+          Director of the Day sits) differs between the two modes, so
+          it's built once here and dropped into whichever layout below
+          applies. */}
+      {(() => {
+        const socialRail = (
           <div className="border-t border-border pt-6">
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-wider text-foreground-muted">Your circle</span>
@@ -356,7 +306,7 @@ export default async function HomePage({
               </Link>
             </div>
 
-            {activeNight && (
+            {activeNight ? (
               <div className="mt-4">
                 <MovieNightCard
                   nightId={activeNight.id}
@@ -364,6 +314,28 @@ export default async function HomePage({
                   isHost={activeNight.hostId === user.id}
                 />
               </div>
+            ) : (
+              // Always-on entry point, not just a card that shows up once
+              // you're already in a session -- Movie Night's whole value
+              // is pulling other people in, so the prompt to *start* one
+              // needs to be visible on every visit, not conditional on
+              // already having one going.
+              <form action={createMovieNight} className="mt-4">
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-3 rounded-[var(--radius-md)] border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+                    <Clapperboard size={18} />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-medium">Start a movie night</span>
+                    <span className="block text-xs text-foreground-muted">
+                      Invite friends and vote on something everyone&apos;s taste agrees on
+                    </span>
+                  </span>
+                </button>
+              </form>
             )}
 
             {circleEvents.length > 0 ? (
@@ -378,8 +350,75 @@ export default async function HomePage({
               )
             )}
           </div>
-        </div>
-      </div>
+        );
+
+        return isCompanionContext ? (
+          /* Date night / with friends: unchanged from before -- picks
+             hand off entirely to CompanionPicker (no solo "hero" to
+             pair Director of the Day with), so Director of the Day
+             stays up top of the right rail alongside the social feed,
+             same as it always has. */
+          <div className="mt-7 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
+            <div>
+              <CompanionPicker context={activeContext} />
+            </div>
+            <div className="mt-8 lg:mt-0">
+              {directorOfTheDay && (
+                <div className="mb-8">
+                  <DirectorOfTheDay director={directorOfTheDay} />
+                </div>
+              )}
+              {socialRail}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-7">
+            {/* Front and center: the recommendation and Director of the
+                Day paired side by side at a matching height, rather than
+                a compact poster+text card next to a narrow rail item.
+                Ratio collapses to a single column when only one of the
+                two exists (e.g. cold start with no rating history yet
+                for Director of the Day). */}
+            {(hero || directorOfTheDay) && (
+              <div
+                className={`grid gap-5 lg:items-stretch ${
+                  hero && directorOfTheDay ? "lg:grid-cols-[1.6fr_1fr]" : "lg:grid-cols-1"
+                }`}
+              >
+                {hero && (
+                  <SpotlightRecommendation
+                    title={hero.title}
+                    reason={hero.reason}
+                    detail={hero.detail}
+                    matchPercent={hero.matchPercent}
+                    director={heroDirector}
+                  />
+                )}
+                {directorOfTheDay && <DirectorOfTheDay director={directorOfTheDay} />}
+              </div>
+            )}
+
+            {/* Mood Row and Your Circle both used to share this same
+                narrow 1.4fr/1fr split with each other, which left neither
+                much room -- full width for each instead, stacked, gives
+                Mood Row's poster tiles more room and lets the social
+                feed (Movie Night card, circle activity) breathe rather
+                than living in a cramped sidebar. */}
+            {morePicks.length > 0 && (
+              <div className="mt-8">
+                <MoodRow picks={morePicks} isColdStart={isColdStart} />
+              </div>
+            )}
+            <div className="mt-8">{socialRail}</div>
+          </div>
+        );
+      })()}
+
+      {/* Same section either way (solo or companion context) -- it's not
+          personalized at all, just a live release calendar + news pull,
+          so it sits outside the IIFE above rather than being duplicated
+          in both branches. */}
+      <IndieSpotlight releases={indieReleases} news={indieNews} />
     </div>
   );
 }

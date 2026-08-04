@@ -11,6 +11,14 @@ export interface VerifiedUser {
   id: string;
   email: string | undefined;
   user_metadata: Record<string, unknown>;
+  /** Null/undefined means unverified -- Supabase only sets this once the
+   *  signup/change-email confirmation link has been clicked. Used for the
+   *  non-blocking verification nudge in Settings (see
+   *  components/settings/verify-email-banner.tsx); deliberately never
+   *  used to gate access, since enforcing this retroactively would lock
+   *  out real existing accounts that were created before this field
+   *  existed anywhere in the app. */
+  email_confirmed_at?: string | null;
 }
 
 /**
@@ -33,7 +41,14 @@ export async function getVerifiedUser(): Promise<VerifiedUser | null> {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    return user ? { id: user.id, email: user.email, user_metadata: user.user_metadata } : null;
+    return user
+      ? {
+          id: user.id,
+          email: user.email,
+          user_metadata: user.user_metadata,
+          email_confirmed_at: user.email_confirmed_at ?? null,
+        }
+      : null;
   }
 
   if (raw === "") return null;

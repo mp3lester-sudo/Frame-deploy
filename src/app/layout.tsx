@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { siteOrigin, SITE_NAME, SITE_DESCRIPTION } from "@/lib/seo/site";
 import { Geist, Geist_Mono, Instrument_Serif, Bebas_Neue, Monoton, Cinzel, Big_Shoulders, IBM_Plex_Sans, Syne } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
@@ -7,7 +8,12 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/actions/ensure-profile";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getUnreadNotificationCount } from "@/lib/actions/notifications";
+import { isPremiumActive } from "@/lib/premium/is-premium";
 import { PageTransition } from "@/components/page-transition";
+import { PromoBanner } from "@/components/layout/promo-banner";
+import { PostHogProvider } from "@/components/analytics/posthog-provider";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
+import { ToastProvider } from "@/components/ui/toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -71,6 +77,15 @@ const bigShouldersDisplay = Big_Shoulders({
   variable: "--font-big-shoulders-display",
   subsets: ["latin"],
   weight: ["600", "700"],
+  // Google's "Big Shoulders" ships as a single variable font with named
+  // instances (Display/Text/Inline/Stencil) for what used to be separate
+  // families -- next/font's automatic fallback-metrics lookup keys off
+  // those instance names and can't resolve the bare family, so it already
+  // silently skips generating a fallback font. This just says so
+  // explicitly instead of leaving a "Failed to find font override values"
+  // warning on every build for a no-op. See
+  // https://github.com/vercel/next.js/issues/47115.
+  adjustFontFallback: false,
 });
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -90,8 +105,40 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: "Backlot — The Operating System for Entertainment",
-  description: "Personalized movie and TV recommendations that actually get your taste.",
+  metadataBase: new URL(siteOrigin()),
+  title: {
+    default: "Backlot — The Operating System for Entertainment",
+    template: `%s — ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    siteName: SITE_NAME,
+    type: "website",
+    title: "Backlot — The Operating System for Entertainment",
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Backlot — The Operating System for Entertainment",
+    description: SITE_DESCRIPTION,
+  },
+  robots: { index: true, follow: true },
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+};
+
+// themeColor/colorScheme live in a separate `viewport` export (moved out
+// of `metadata` in Next 14+) -- this is what colors the mobile browser
+// chrome/status bar and the PWA splash screen background.
+export const viewport: Viewport = {
+  themeColor: "#120708",
+  colorScheme: "dark",
 };
 
 export default async function RootLayout({
@@ -115,11 +162,26 @@ export default async function RootLayout({
   // even reaching the destination page's own data fetching; running them
   // concurrently shaves one full round trip off every click.
   let unreadMessageCount = 0;
+  let unreadNotificationCount = 0;
+  let isPremium = false;
   if (user) {
-    const [, { data: conversations }] = await Promise.all([
+    // getUnreadNotificationCount() used to be its own separate 
+    // below this block -- a full extra sequential network round trip to
+    // Supabase tacked onto every single authenticated page view across the
+    // whole app (this layout wraps every route), for zero benefit since it
+    // doesn't depend on anything else fetched here. Folded into the same
+    // batch as the fix.
+    const [, { data: conversations }, { data: profile }, notificationCount] = await Promise.all([
       ensureProfile(supabase, user),
       supabase.from("conversations").select("id").or(`user_a.eq.${user.id},user_b.eq.${user.id}`),
+      // Drives the house promo banner below (task #141) -- "ad-free" only
+      // means something if free accounts see something to go ad-free
+      // from. Cheap enough (single boolean column) to fetch unconditionally
+      // alongside the other per-request lookups this layout already does.
+      supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", user.id).maybeSingle(),
+      getUnreadNotificationCount(),
     ]);
+    unreadNotificationCount = notificationCount;
     const conversationIds = (conversations ?? []).map((c) => c.id);
     if (conversationIds.length) {
       const { count } = await supabase
@@ -130,9 +192,11 @@ export default async function RootLayout({
         .is("read_at", null);
       unreadMessageCount = count ?? 0;
     }
+    isPremium = isPremiumActive(profile);
   }
-
-  const unreadNotificationCount = user ? await getUnreadNotificationCount() : 0;
+  // Logged-out visitors get the landing page's own conversion funnel
+  // instead of a banner; Premium accounts never see it at all.
+  const showPromoBanner = !!user && !isPremium;
 
   return (
     <html
@@ -140,9 +204,38 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${monoton.variable} ${cinzel.variable} ${bigShouldersDisplay.variable} ${ibmPlexSans.variable} ${syne.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
-        <main className="flex-1 pb-16 md:pb-0"><PageTransition>{children}</PageTransition></main>
-        <BottomNav />
+        {/* Synchronous, runs during HTML parsing before React hydrates --
+            same pattern as the greeting-splash script in page.tsx. Reads
+            the analytics-consent cookie/localStorage (see
+            lib/analytics/consent.ts) and, if the visitor already decided,
+            tags <html> so the CSS rule below (html.consent-decided
+            .cookie-consent-banner) hides the banner instantly. Doing this
+            in CSS rather than React state sidesteps hydration entirely --
+            the banner component still renders identical markup on the
+            server and the client, so there is nothing for React to
+            reconcile and no mismatch that depends on timing. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try {
+  var k = 'backlot_analytics_consent';
+  var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + k + '=([^;]*)'));
+  var v = m ? decodeURIComponent(m[1]) : null;
+  if (v !== 'granted' && v !== 'denied') v = window.localStorage.getItem(k);
+  if (v === 'granted' || v === 'denied') {
+    document.documentElement.classList.add('consent-decided');
+  }
+} catch (e) {}`,
+          }}
+        />
+        <PostHogProvider userId={user?.id ?? null}>
+          <ToastProvider>
+            <ServiceWorkerRegistration />
+            <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
+            {showPromoBanner && <PromoBanner />}
+            <main className="flex-1 pb-16 md:pb-0"><PageTransition>{children}</PageTransition></main>
+            <BottomNav />
+          </ToastProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

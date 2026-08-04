@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
+import { Card } from "@/components/ui/card";
 import { formatDistanceToNow } from "@/lib/date";
 
 const EVENT_COPY: Record<string, (name: string, target: string) => string> = {
@@ -34,13 +35,13 @@ export function CircleFeed({ items }: { items: CircleEvent[] }) {
           const name = item.profiles?.username ?? "Someone";
           const copy = EVENT_COPY[item.event_type]?.(name, item.titles?.name ?? "a title") ?? "New activity";
           return (
-            <div key={item.id} className="flex items-center gap-3 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+            <Card key={item.id} className="flex items-center gap-3">
               <Avatar name={name} src={item.profiles?.avatar_url} size={36} />
               <div className="flex-1">
                 <p className="text-sm">{copy}</p>
                 <p className="text-[11px] text-foreground-muted">{formatDistanceToNow(item.created_at)}</p>
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>

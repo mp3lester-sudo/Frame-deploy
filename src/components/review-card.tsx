@@ -3,6 +3,7 @@ import { RatingStars } from "@/components/ui/rating-stars";
 import { ReviewReactionBar } from "@/components/review-reaction-bar";
 import { ReviewComments, type DisplayComment } from "@/components/review-comments";
 import { DeleteReviewButton } from "@/components/delete-review-button";
+import { ReportButton } from "@/components/moderation/report-button";
 import { formatDistanceToNow } from "@/lib/date";
 import { emptyReactionSummary } from "@/lib/reactions/aggregate";
 import type { ReactionSummary } from "@/lib/reactions/aggregate";
@@ -63,11 +64,10 @@ export function ReviewCard({
       ) : (
         <p className="text-sm leading-relaxed">{body}</p>
       )}
-      {isOwnReview && (
-        <div className="mt-2 flex justify-end">
-          <DeleteReviewButton reviewId={reviewId} />
-        </div>
-      )}
+      <div className="mt-2 flex items-center justify-end gap-3">
+        {!isOwnReview && viewerId && <ReportButton contentType="review" contentId={reviewId} />}
+        {isOwnReview && <DeleteReviewButton reviewId={reviewId} />}
+      </div>
       <ReviewReactionBar reviewId={reviewId} initialCounts={counts} initialMyReaction={myReaction} canReact={canReact} />
       {showComments && (
         <ReviewComments reviewId={reviewId} initialComments={comments} viewerId={viewerId} canComment={canReact} />

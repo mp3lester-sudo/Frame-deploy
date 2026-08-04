@@ -158,14 +158,25 @@ export async function getCandidatesForUserGroup({
   // SECURITY DEFINER as of migration 0023 specifically so this works for
   // every participant, not just whoever's browser session happens to be
   // making the request — see that migration for the RLS bug this fixes.)
+  //
+  // Fired concurrently, not one participant after another -- this is a
+  // pgvector ANN search per person, one of the more expensive query shapes
+  // in the app, and it used to run as a sequential loop: a 4-person Movie
+  // Night paid 4x this RPC's latency back-to-back before the candidate
+  // pool even started coming together. Every participant's own seed is
+  // independent of everyone else's, so there's nothing to wait on.
   const candidateIds = new Set<string>();
   let anyoneHasMatches = false;
-  for (const userId of userIds) {
-    const { data: matches } = await supabase.rpc("match_titles_for_user", {
-      p_user_id: userId,
-      p_match_count: PER_PARTICIPANT_SEED_COUNT,
-      p_exclude_watched: true,
-    });
+  const seedResults = await Promise.all(
+    userIds.map((userId) =>
+      supabase.rpc("match_titles_for_user", {
+        p_user_id: userId,
+        p_match_count: PER_PARTICIPANT_SEED_COUNT,
+        p_exclude_watched: true,
+      })
+    )
+  );
+  for (const { data: matches } of seedResults) {
     if (matches?.length) {
       anyoneHasMatches = true;
       for (const m of matches) candidateIds.add(m.title_id);

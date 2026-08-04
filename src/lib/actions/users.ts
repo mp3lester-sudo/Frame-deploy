@@ -25,6 +25,7 @@ async function searchUsersPage(rawQuery: string, from: number, to: number) {
     .from("profiles")
     .select("id, username, display_name, avatar_url, bio")
     .or(filter)
+    .is("deleted_at", null)
     .order("username")
     .range(from, to);
 

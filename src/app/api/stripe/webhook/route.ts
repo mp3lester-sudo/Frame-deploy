@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import Stripe from "stripe";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import { sendPushToUser } from "@/lib/push/send-push";
+import { isSubscriptionStatusActive, resolveStripeCustomerId } from "@/lib/premium/subscription-status";
 
 /**
  * Stripe webhook — the only writer of public.subscriptions. Uses the service
@@ -28,14 +31,17 @@ export async function POST(request: Request) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       const userId = session.metadata?.user_id ?? session.client_reference_id;
+      const tier = session.metadata?.tier === "a_list" ? "a_list" : "premium";
       if (userId) {
         await supabase.from("subscriptions").upsert({
           user_id: userId,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
           status: "active",
+          tier,
         });
-        await supabase.from("profiles").update({ is_premium: true }).eq("id", userId);
+        await supabase.from("profiles").update({ is_premium: true, premium_tier: tier }).eq("id", userId);
+        await captureServerEvent(userId, "premium_activated", { source: "stripe_checkout", tier });
       }
       break;
     }
@@ -44,19 +50,61 @@ export async function POST(request: Request) {
       const sub = event.data.object as Stripe.Subscription;
       const { data: existing } = await supabase
         .from("subscriptions")
-        .select("user_id")
+        .select("user_id, tier")
         .eq("stripe_subscription_id", sub.id)
         .maybeSingle();
       if (existing) {
-        const isActive = sub.status === "active" || sub.status === "trialing";
+        const isActive = isSubscriptionStatusActive(sub.status);
+        // Falls back to whichever tier is already on file (defaulting to
+        // "premium" for rows that predate A-List) rather than the
+        // subscription's own metadata alone -- Stripe only carries
+        // subscription_data.metadata forward from Checkout for
+        // subscriptions created after that field was added here, so an
+        // older subscription being renewed/cancelled won't have
+        // sub.metadata.tier set at all.
+        const tier = (sub.metadata?.tier === "a_list" ? "a_list" : sub.metadata?.tier === "premium" ? "premium" : existing.tier) ?? "premium";
         await supabase
           .from("subscriptions")
           .update({
             status: sub.status,
+            tier,
             current_period_end: new Date(sub.items.data[0].current_period_end * 1000).toISOString(),
           })
           .eq("stripe_subscription_id", sub.id);
-        await supabase.from("profiles").update({ is_premium: isActive }).eq("id", existing.user_id);
+        await supabase
+          .from("profiles")
+          .update({ is_premium: isActive, premium_tier: isActive ? tier : null })
+          .eq("id", existing.user_id);
+      }
+      break;
+    }
+    case "invoice.payment_failed": {
+      // No notify() here -- notify() (src/lib/actions/notifications.ts)
+      // always expects a human actorId and no-ops when actorId equals the
+      // recipient, so a system-generated notice needs its own insert
+      // (actor_id: null, type: "payment_failed" -- both added specifically
+      // for this) rather than going through that helper.
+      const invoice = event.data.object as Stripe.Invoice;
+      const customerId = resolveStripeCustomerId(invoice.customer);
+      if (customerId) {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("user_id")
+          .eq("stripe_customer_id", customerId)
+          .maybeSingle();
+        if (sub) {
+          await supabase.from("notifications").insert({
+            recipient_id: sub.user_id,
+            actor_id: null,
+            type: "payment_failed",
+          });
+          await sendPushToUser(sub.user_id, {
+            title: "Payment failed",
+            body: "We couldn't process your Backlot Premium payment. Update your card to keep your subscription.",
+            url: "/premium",
+          });
+          await captureServerEvent(sub.user_id, "premium_payment_failed", {});
+        }
       }
       break;
     }

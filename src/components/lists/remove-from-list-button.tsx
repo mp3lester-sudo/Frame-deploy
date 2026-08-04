@@ -11,9 +11,10 @@ export function RemoveFromListButton({ listId, titleId }: { listId: string; titl
     <button
       type="button"
       title="Remove from list"
+      aria-label="Remove from list"
       disabled={isPending}
       onClick={() => startTransition(() => removeTitleFromList({ listId, titleId }))}
-      className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-foreground-muted opacity-0 transition-opacity hover:text-danger group-hover:opacity-100 disabled:opacity-60"
+      className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-foreground-muted opacity-100 transition-opacity hover:text-danger disabled:opacity-60 md:opacity-0 md:group-hover:opacity-100"
     >
       <X size={14} />
     </button>

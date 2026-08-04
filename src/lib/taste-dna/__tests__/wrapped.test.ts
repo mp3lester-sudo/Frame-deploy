@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeWrapped, MIN_RATINGS_FOR_WRAPPED, type WrappedRatedTitle } from "@/lib/taste-dna/wrapped";
+import { computeWrapped, getMonthRange, MIN_RATINGS_FOR_WRAPPED, type WrappedRatedTitle } from "@/lib/taste-dna/wrapped";
 
 function makeRated(overrides: Partial<WrappedRatedTitle> = {}): WrappedRatedTitle {
   return {
@@ -129,5 +129,30 @@ describe("computeWrapped", () => {
     expect(result.year).toBe(2025);
     expect(result.summary).toContain("2025");
     expect(result.summary.length).toBeGreaterThan(0);
+  });
+
+  it("uses a custom summary label when passed one, instead of the year", () => {
+    const rated = Array.from({ length: 5 }, () => makeRated());
+    const result = computeWrapped(rated, 2026, "July 2026")!;
+    expect(result.summary).toContain("Your July 2026:");
+    expect(result.summary).not.toContain("Your 2026:");
+    // The numeric year field is untouched -- only the summary text label changes.
+    expect(result.year).toBe(2026);
+  });
+});
+
+describe("getMonthRange", () => {
+  it("returns UTC month bounds and a human label for a mid-month date", () => {
+    const { start, end, label } = getMonthRange(new Date(Date.UTC(2026, 6, 15, 12, 0, 0)));
+    expect(start).toBe("2026-07-01T00:00:00.000Z");
+    expect(end).toBe("2026-08-01T00:00:00.000Z");
+    expect(label).toBe("July 2026");
+  });
+
+  it("rolls over into the next year for a December date", () => {
+    const { start, end, label } = getMonthRange(new Date(Date.UTC(2026, 11, 31, 23, 59, 0)));
+    expect(start).toBe("2026-12-01T00:00:00.000Z");
+    expect(end).toBe("2027-01-01T00:00:00.000Z");
+    expect(label).toBe("December 2026");
   });
 });

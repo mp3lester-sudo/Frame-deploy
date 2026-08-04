@@ -59,7 +59,7 @@ export function WatchedTitleCard({
           disabled={isPending}
           aria-label={`Remove ${title.name} from Recently watched`}
           title="Not watched — remove"
-          className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-foreground-muted opacity-0 backdrop-blur-sm transition-opacity hover:text-danger group-hover:opacity-100"
+          className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-foreground-muted opacity-100 backdrop-blur-sm transition-opacity hover:text-danger md:opacity-0 md:group-hover:opacity-100"
         >
           <X size={14} />
         </button>

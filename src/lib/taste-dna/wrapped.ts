@@ -44,6 +44,25 @@ export interface WrappedResult {
  *  "year" of anything — the page shows a "keep rating" placeholder instead. */
 export const MIN_RATINGS_FOR_WRAPPED = 4;
 
+/**
+ * UTC calendar-month bounds for the monthly recap, plus the display label
+ * used in its headline/summary ("July 2026"). Pure and unit-tested
+ * separately from the Supabase-touching fetch in compute.ts, same split as
+ * everything else in this file.
+ */
+export function getMonthRange(now: Date): { start: string; end: string; label: string } {
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const start = new Date(Date.UTC(year, month, 1)).toISOString();
+  const end = new Date(Date.UTC(year, month + 1, 1)).toISOString();
+  const label = new Date(Date.UTC(year, month, 1)).toLocaleString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return { start, end, label };
+}
+
 /** A "hidden gem" needs an actual vote count to compare against, and a
  *  genuinely positive rating from the user — otherwise a title with no
  *  TMDB data at all would win by default, which isn't a real signal. */
@@ -53,7 +72,16 @@ function pluralize(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
-export function computeWrapped(rated: WrappedRatedTitle[], year: number): WrappedResult | null {
+export function computeWrapped(
+  rated: WrappedRatedTitle[],
+  year: number,
+  /** Text used in the summary line's "Your ___:" lead-in -- defaults to the
+   *  plain year for the annual recap. The monthly recap (Premium perk, see
+   *  getMyMonthlyWrapped) passes a month name instead ("Your July:") so the
+   *  same scoring logic can back both without the summary text implying a
+   *  full year's worth of data when it's really one month's. */
+  summaryLabel: string = String(year)
+): WrappedResult | null {
   if (rated.length < MIN_RATINGS_FOR_WRAPPED) return null;
 
   const totalRated = rated.length;
@@ -104,7 +132,7 @@ export function computeWrapped(rated: WrappedRatedTitle[], year: number): Wrappe
   if (totalHours > 0) parts.push(`${pluralize(totalHours, "hour")} of screen time`);
   if (topArchetype) parts.push(`a strong ${topArchetype.name} streak`);
   else if (topGenres[0]) parts.push(`mostly ${topGenres[0].genre.toLowerCase()}`);
-  const summary = `Your ${year}: ${parts.join(", ")}.`;
+  const summary = `Your ${summaryLabel}: ${parts.join(", ")}.`;
 
   return {
     year,

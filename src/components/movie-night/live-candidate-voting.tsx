@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "@/components/ui/fade-image";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,18 @@ import {
   getMovieNightCandidates,
   getMovieNightMatches,
   getMovieNightFallbackRanking,
+  getMovieNightDecisionStatus,
   refillMovieNightCandidate,
+  getTitleBasic,
   type MovieNightMatchResult,
   type MovieNightFallbackResult,
+  type TitleBasic,
 } from "@/lib/actions/movie-night";
 import { createClient } from "@/lib/supabase/client";
 import type { MovieNightCandidate } from "@/lib/recommendations/movie-night";
 import { WhyThisPick } from "@/components/home/why-this-pick";
+import { DecisionReveal } from "@/components/movie-night/decision-reveal";
+import { useToast } from "@/components/ui/toast";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export interface InitialVote {
@@ -35,26 +40,28 @@ interface VoteRow {
 // tally update live via Supabase Realtime. Voting (like OR pass) on a card
 // refills that grid slot from the deeper personalized pool instead of
 // leaving a dead card behind -- see refillMovieNightCandidate. The moment
-// everyone's liked the same title it surfaces as its own "match" above the
-// grid (getMovieNightMatches), separate from having to eyeball per-card
-// tallies. If a viewer's queue runs dry with no unanimous match, the most
-// agreed-upon titles so far take over as a fallback (getMovieNightFallbackRanking).
+// everyone's liked the same title, that title IS the decision -- no lock-in
+// tap from anyone (see castMovieNightVote's auto-decide); this component's
+// movie_nights realtime handler below picks up the resulting "decided"
+// status and takes every viewer straight into the golden DecisionReveal.
+// If a viewer's queue runs dry with no unanimous match, the most
+// agreed-upon titles so far take over as a fallback (getMovieNightFallbackRanking),
+// with a manual "Lock this in" available to any participant to break the tie.
 export function LiveCandidateVoting({
   movieNightId,
   candidates: initialCandidates,
   initialVotes,
   viewerId,
-  isHost,
   participantCount,
 }: {
   movieNightId: string;
   candidates: MovieNightCandidate[];
   initialVotes: InitialVote[];
   viewerId: string;
-  isHost: boolean;
   participantCount: number;
 }) {
   const router = useRouter();
+  const { showToast } = useToast();
   // Candidates now live in state rather than being read straight from
   // props -- anyone's preference change (mood/excluded genres) or the
   // roster changing (someone invited/removed) re-scores the shared pool
@@ -70,6 +77,7 @@ export function LiveCandidateVoting({
     return map;
   });
   const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [reveal, setReveal] = useState<TitleBasic | null>(null);
   const [isPending, startTransition] = useTransition();
   const [matches, setMatches] = useState<MovieNightMatchResult[]>([]);
   const [refillingIds, setRefillingIds] = useState<Set<string>>(new Set());
@@ -85,6 +93,72 @@ export function LiveCandidateVoting({
   // "invite someone" message meant for a genuinely brand-new night.
   const [poolExhausted, setPoolExhausted] = useState(initialCandidates.length === 0 && initialVotes.length > 0);
   const [fallback, setFallback] = useState<MovieNightFallbackResult[]>([]);
+
+  // Read inside the realtime effect below without being a dependency of it --
+  // the effect only needs to (re)run when the channel identity itself should
+  // change (movieNightId), not every time a vote updates matches/candidates/
+  // fallback, or it would tear down and resubscribe the socket constantly.
+  const matchesRef = useRef(matches);
+  const candidatesRef = useRef(candidates);
+  const fallbackRef = useRef(fallback);
+  // Read inside lockIn's fallback timer below, same reasoning as the three
+  // refs above -- needs the LATEST reveal value from inside a setTimeout
+  // closure without retriggering anything on every reveal change.
+  const revealRef = useRef(reveal);
+  // Mirrors state into refs after every render (not during render itself,
+  // which the react-hooks/refs rule flags) -- same pattern as
+  // preferences-form.tsx's excludedRef/moodRef.
+  useEffect(() => {
+    matchesRef.current = matches;
+    candidatesRef.current = candidates;
+    fallbackRef.current = fallback;
+    revealRef.current = reveal;
+  });
+
+  // Shared by every path that can learn a night's been decided -- the
+  // movie_nights realtime handler below, the deciding voter's own
+  // castMovieNightVote response, and the polling fallback -- so there's
+  // one place that knows how to turn a decided_title_id into the reveal,
+  // not three slightly-different copies of the same lookup chain.
+  const resolveAndShowReveal = useCallback(
+    (decidedId: string) => {
+      const known =
+        matchesRef.current.find((m) => m.title.id === decidedId)?.title ??
+        candidatesRef.current.find((c) => c.title.id === decidedId)?.title ??
+        fallbackRef.current.find((f) => f.title.id === decidedId)?.title;
+      if (known) {
+        setReveal({ id: known.id, name: known.name, poster_url: known.poster_url });
+        return;
+      }
+      startTransition(async () => {
+        const basic = await getTitleBasic(decidedId);
+        if (basic) setReveal(basic);
+        else router.refresh(); // Fallback -- title vanished or lookup failed; the static decided-card view still works.
+      });
+    },
+    [router]
+  );
+
+  // Backstop for Realtime not reaching this client at all: poll every 3s
+  // for whether the night's been decided, same as the deciding voter's own
+  // castMovieNightVote response does synchronously for them. This is what
+  // catches it for everyone ELSE in the room if Realtime is slow, blocked,
+  // or just silently not delivering -- real usage has shown a match
+  // complete with no client ever finding out, which the movie_nights
+  // subscription alone was supposed to prevent but evidently doesn't
+  // always manage to.
+  useEffect(() => {
+    if (reveal) return;
+    const interval = setInterval(() => {
+      startTransition(async () => {
+        const { status, decidedTitleId } = await getMovieNightDecisionStatus(movieNightId);
+        if (status === "decided" && decidedTitleId && !revealRef.current) {
+          resolveAndShowReveal(decidedTitleId);
+        }
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [movieNightId, reveal, resolveAndShowReveal]);
 
   const refreshMatches = useCallback(() => {
     startTransition(async () => {
@@ -146,10 +220,18 @@ export function LiveCandidateVoting({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "movie_nights", filter: `id=eq.${movieNightId}` },
-        // A status change (decided/cancelled/reopened) swaps which whole
-        // section of the page renders -- that's a real full-route
-        // transition, not something this component's own state can patch.
-        () => router.refresh()
+        (payload: RealtimePostgresChangesPayload<{ status: string; decided_title_id: string | null }>) => {
+          const row = payload.new as { status?: string; decided_title_id?: string | null } | undefined;
+          if (row?.status === "decided" && row.decided_title_id) {
+            // This is the fast path when Realtime is working -- the polling
+            // effect above is the backstop for when it isn't.
+            resolveAndShowReveal(row.decided_title_id);
+            return;
+          }
+          // Cancelled or reopened back to collecting -- no reveal moment
+          // for either of those, just show the right section of the page.
+          router.refresh();
+        }
       )
       .on(
         "postgres_changes",
@@ -171,7 +253,7 @@ export function LiveCandidateVoting({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [movieNightId, router, poolExhausted, refreshMatches, refreshFallback]);
+  }, [movieNightId, router, poolExhausted, refreshMatches, refreshFallback, resolveAndShowReveal]);
 
   function refillSlot(titleId: string) {
     // Once the pool's confirmed exhausted for this viewer, there's no
@@ -212,19 +294,64 @@ export function LiveCandidateVoting({
       return { ...prev, [titleId]: { like: liked, pass: passed } };
     });
     startTransition(async () => {
-      await castMovieNightVote({ movieNightId, titleId, vote });
+      let result: { decided: boolean };
+      try {
+        result = await castMovieNightVote({ movieNightId, titleId, vote });
+      } catch (err) {
+        // castMovieNightVote failing (as opposed to its best-effort
+        // auto-decide check failing, which is swallowed server-side on
+        // purpose) means the vote itself didn't save -- worth surfacing,
+        // since the optimistic tally update above already made it look
+        // like it worked.
+        showToast(err instanceof Error ? err.message : "Couldn't save that vote -- try again");
+        return;
+      }
+      // This voter's own like just completed a unanimous match -- show
+      // the reveal directly from this response instead of waiting on the
+      // movie_nights realtime echo, which real usage has shown doesn't
+      // always reach the client. The polling fallback above still covers
+      // the OTHER participant(s), who didn't make this exact call.
+      if (result.decided) {
+        resolveAndShowReveal(titleId);
+        return;
+      }
       refreshMatches();
     });
     // Whichever way you voted, you're done considering this one -- pull in
-    // something new rather than leaving a decided card sitting there.
+    // something new rather than leaving a decided card sitting there. Note
+    // this fires regardless of whether the vote just completed a match:
+    // if it did, resolveAndShowReveal above is about to replace this whole
+    // screen with the golden reveal anyway, so a moment of the grid
+    // reshuffling underneath doesn't matter.
     refillSlot(titleId);
   }
 
   function lockIn(titleId: string) {
     setDecidingId(titleId);
     startTransition(async () => {
-      await decideMovieNight({ movieNightId, titleId });
-      router.refresh();
+      let result: { decided: boolean };
+      try {
+        result = await decideMovieNight({ movieNightId, titleId });
+      } catch (err) {
+        setDecidingId(null);
+        showToast(err instanceof Error ? err.message : "Could not lock that in -- try again");
+        return;
+      }
+      // Resolve the reveal directly from this response rather than
+      // waiting on the movie_nights realtime echo -- same reasoning as
+      // castVote's auto-decide path above. The polling fallback and the
+      // realtime handler both still cover every OTHER participant in the
+      // room, who didn't make this exact call.
+      if (result.decided) {
+        resolveAndShowReveal(titleId);
+        return;
+      }
+      // Someone else's decide (an auto-match, or another participant's
+      // own fallback pick) won the same race a moment earlier -- titleId
+      // here is just what THIS click was aimed at, not what actually got
+      // decided, so don't show the wrong poster. The polling effect above
+      // will pick up the real decided_title_id within a few seconds.
+      setDecidingId(null);
     });
   }
 
@@ -232,45 +359,16 @@ export function LiveCandidateVoting({
   const visibleCandidates = candidates.filter((c) => !matchedIds.has(c.title.id));
 
   return (
-    <div className="space-y-6">
-      {matches.length > 0 && (
-        <div className="rounded-[var(--radius-md)] border border-accent/50 bg-accent/5 p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-accent">
-            {matches.length === 1 ? "It's a match" : `${matches.length} matches`} — everyone liked{" "}
-            {matches.length === 1 ? "this" : "these"}
-          </p>
-          <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
-            {matches.map((m) => (
-              <div key={m.title.id}>
-                <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-sm)] border border-accent/40 bg-surface-raised">
-                  {m.title.poster_url && (
-                    <Image
-                      src={m.title.poster_url}
-                      alt={m.title.name}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 33vw, 160px"
-                    />
-                  )}
-                </div>
-                <p className="mt-1.5 line-clamp-1 text-xs font-medium">{m.title.name}</p>
-                {isHost && (
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    className="mt-1 w-full"
-                    disabled={isPending}
-                    isLoading={isPending && decidingId === m.title.id}
-                    onClick={() => lockIn(m.title.id)}
-                  >
-                    Lock this in
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    <>
+      {reveal && <DecisionReveal titleId={reveal.id} name={reveal.name} posterUrl={reveal.poster_url} />}
+      <div className="space-y-6">
+      {/* No "matches" panel here anymore -- a unanimous match now decides
+          the night itself, the instant the deciding vote comes in (see
+          castMovieNightVote), and the movie_nights realtime handler above
+          takes every viewer straight into the golden DecisionReveal. There's
+          no in-between state worth showing: you're swiping, then suddenly
+          it's decided. matchedIds below still hides an about-to-be-decided
+          card from the swipe grid for the instant before that reveal fires. */}
 
       {visibleCandidates.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -323,18 +421,6 @@ export function LiveCandidateVoting({
                     </Button>
                   </div>
 
-                  {isHost && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="mt-1.5 w-full"
-                      disabled={isPending}
-                      isLoading={isPending && decidingId === c.title.id}
-                      onClick={() => lockIn(c.title.id)}
-                    >
-                      Lock this in
-                    </Button>
-                  )}
                 </div>
               );
             })}
@@ -371,31 +457,30 @@ export function LiveCandidateVoting({
                     <p className="mt-0.5 text-[11px] text-foreground-muted">
                       {f.likeCount} liked{participantCount > 0 && ` of ${participantCount}`}
                     </p>
-                    {isHost && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="mt-1.5 w-full"
-                        disabled={isPending}
-                        isLoading={isPending && decidingId === f.title.id}
-                        onClick={() => lockIn(f.title.id)}
-                      >
-                        Lock this in
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="mt-1.5 w-full"
+                      disabled={isPending}
+                      isLoading={isPending && decidingId === f.title.id}
+                      onClick={() => lockIn(f.title.id)}
+                    >
+                      Lock this in
+                    </Button>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          {poolExhausted && fallback.length === 0 && isHost && (
+          {poolExhausted && fallback.length === 0 && (
             <p className="mt-3 text-xs text-foreground-muted">
-              Nobody's liked anything yet either — try loosening a genre exclusion in preferences above, or invite
+              Nobody&apos;s liked anything yet either — try loosening a genre exclusion in preferences above, or invite
               someone new.
             </p>
           )}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

@@ -12,6 +12,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Next.js resolves "server-only" as a special case even when it
+      // isn't an installed package; Vitest has no such special case, so
+      // it's aliased to a local no-op stub (see test-stubs/server-only.js)
+      // for any test that transitively imports a server-only-guarded module.
+      "server-only": path.resolve(__dirname, "./test-stubs/server-only.js"),
     },
   },
 });

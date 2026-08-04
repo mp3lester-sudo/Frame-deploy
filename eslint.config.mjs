@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // mobile-app/ is a separate sub-project (own package.json,
+    // dependencies, plain Node scripts) with no relation to this app's
+    // module system -- it was never meant to go through this ESLint config.
+    "mobile-app/**",
   ]),
 ]);
 

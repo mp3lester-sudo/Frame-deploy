@@ -2,58 +2,100 @@ import Image from "@/components/ui/fade-image";
 import Link from "next/link";
 import type { DirectorOfTheDay as DirectorOfTheDayData } from "@/lib/director-of-day/fetch";
 
-export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData }) {
-  return (
-    <div>
-      <h3 className="font-display mb-3 text-lg">Director of the Day</h3>
-      <div className="rounded-[var(--radius-lg)] border border-border bg-surface p-4 transition-colors hover:border-border-strong">
-        {/* Square headshot rather than the earlier circular avatar -- a
-            face crop reads more like a film-still/poster treatment,
-            which matches the filmography rail it now leads into. */}
-        <Link href={`/person/${director.id}`} className="flex items-center gap-4">
-          <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised sm:h-28 sm:w-28">
-            {director.photoUrl && (
-              <Image
-                src={director.photoUrl}
-                alt={director.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 96px, 112px"
-              />
-            )}
-          </div>
-          <p className="text-lg font-medium hover:underline">{director.name}</p>
-        </Link>
+// Four films, not the full discography rail -- reads as "a taste of
+// their work" rather than a scrollable filmography.
+const DISCOGRAPHY_TILE_COUNT = 4;
 
-        {director.titles.length > 0 && (
-          // Horizontal-scroll rail (same .no-scrollbar pattern as
-          // MoodRow / PersonIconicRoles) rather than a fixed inline row
-          // -- the discography is up to 10 films now, most popular
-          // first, and won't all fit in the card's width.
-          <div className="no-scrollbar -mx-4 mt-4 flex gap-3 overflow-x-auto px-4 pb-1">
-            {director.titles.map((title) => (
-              <Link
-                key={title.id}
-                href={`/movie/${title.id}`}
-                className="group w-24 shrink-0 transition-transform duration-200 hover:-translate-y-1 sm:w-28"
-              >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-sm)] bg-surface-raised">
-                  {title.posterUrl && (
-                    <Image
-                      src={title.posterUrl}
-                      alt={title.name}
-                      fill
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      sizes="112px"
-                    />
-                  )}
-                </div>
-                <p className="mt-1 line-clamp-1 text-[11px] leading-tight text-foreground-muted">{title.name}</p>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+/**
+ * Avatar bumped from 64px to 128px with a thin gold ring (the same
+ * "this is a highlighted moment" ring language as the #1 favorite
+ * podium tile) -- picked over a same-size bump-only or a square
+ * editorial-photo treatment because it keeps the round shape already
+ * used everywhere else in the app (nav, profile) while still reading as
+ * a real size jump rather than a marginal one. Name, a short bio line,
+ * and four small discography posters at their natural 2:3 size fill
+ * out the rest of the card. Card height (and SpotlightRecommendation's,
+ * so the two still match) was raised from 380px to 440px on desktop to
+ * give the bigger avatar room without squeezing the discography row.
+ *
+ * Photo treatment: grayscale, cropped centered rather than object-top.
+ * TMDB profile photos vary a lot in framing -- some are tight headshots,
+ * some are half-body shots with the face lower in the frame -- and
+ * object-top assumed the face always sat at the very top, which cut off
+ * chins/foreheads on anything that wasn't a tight headshot. Centered
+ * cropping is a safer default across the whole catalogue of director
+ * photos. Grayscale gives every director a consistent, editorial
+ * black-and-white treatment regardless of the source photo's color
+ * cast, rather than a wall of inconsistently color-graded headshots.
+ *
+ * Each poster carries a one-line title caption underneath it. Without
+ * one there was no way to tell which film a tile actually was -- some
+ * TMDB poster art reads as pure imagery with no visible title text, so
+ * a mismatched or unfamiliar poster just looked like a formatting bug.
+ * The caption also gives a text fallback for the (rare) case where
+ * posterUrl is null, instead of an unlabeled empty tile. The row is a
+ * centered flex-wrap rather than a rigid 4-column grid so a director
+ * with fewer than DISCOGRAPHY_TILE_COUNT known films still reads as a
+ * centered group instead of tiles packed against the left edge with an
+ * empty gap on the right.
+ */
+export function DirectorOfTheDay({ director }: { director: DirectorOfTheDayData }) {
+  const films = director.titles.slice(0, DISCOGRAPHY_TILE_COUNT);
+
+  return (
+    <div className="flex h-[368px] flex-col rounded-[var(--radius-lg)] border border-border bg-surface p-4 transition-colors hover:border-border-strong sm:h-[440px]">
+      <Link href={`/person/${director.id}`} className="group flex items-center gap-4">
+        <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-full border-2 border-accent bg-surface-raised">
+          {director.photoUrl && (
+            <Image
+              src={director.photoUrl}
+              alt={director.name}
+              fill
+              className="object-cover grayscale"
+              sizes="128px"
+            />
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-accent">Director of the day</p>
+          <p className="truncate text-lg font-medium text-foreground group-hover:underline">{director.name}</p>
+        </div>
+      </Link>
+
+      {director.bio && (
+        <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-foreground-muted">{director.bio}</p>
+      )}
+
+      {films.length > 0 && (
+        <div className="mt-4 flex flex-1 flex-wrap justify-center gap-x-2.5 gap-y-3">
+          {films.map((title) => (
+            <Link
+              key={title.id}
+              href={`/movie/${title.id}`}
+              className="group flex w-[calc((100%-30px)/4)] min-w-[64px] shrink-0 flex-col gap-1"
+            >
+              <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-sm)] border border-border bg-surface-raised">
+                {title.posterUrl ? (
+                  <Image
+                    src={title.posterUrl}
+                    alt={title.name}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    sizes="120px"
+                  />
+                ) : (
+                  <span className="flex h-full items-center justify-center p-1 text-center text-[9px] leading-tight text-foreground-muted">
+                    {title.name}
+                  </span>
+                )}
+              </div>
+              <p className="truncate text-center text-[10px] leading-tight text-foreground-muted group-hover:text-foreground">
+                {title.name}
+              </p>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

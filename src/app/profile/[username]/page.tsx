@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -9,15 +10,18 @@ import { TitleCard } from "@/components/title-card";
 import { WatchedTitleCard } from "@/components/profile/watched-title-card";
 import { FollowButton } from "@/components/follow-button";
 import { MessageButton } from "@/components/message-button";
+import { BlockUserButton } from "@/components/moderation/block-user-button";
+import { ReportButton } from "@/components/moderation/report-button";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
+import { computeCinemaPoints, tierForPoints } from "@/lib/profile/cinema-score";
 import { computeGenreDistribution, buildFingerprintGradient, buildTasteQuote } from "@/lib/profile/taste-fingerprint";
 import { resolveProfileTheme } from "@/lib/profile/theme-preset";
 import { AnimatedCounter } from "@/components/profile/animated-counter";
 import { Reveal } from "@/components/profile/reveal";
 import { TiltCard } from "@/components/profile/tilt-card";
-import { computeTasteDna } from "@/lib/taste-dna/compute";
+import { computeTasteDna, computeWrapped } from "@/lib/taste-dna/compute";
 import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
 import { withTimeout } from "@/lib/with-timeout";
 import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
@@ -35,49 +39,6 @@ function centeredColStart(count: number, index: number): string {
   if (count === 1) return "col-start-3";
   if (count === 2) return index === 0 ? "col-start-2" : "col-start-4";
   return index === 0 ? "col-start-1" : index === 1 ? "col-start-3" : "col-start-5";
-}
-
-/** "01", "02", ... -- the pyramid's official-selection numbering, badge
- *  index is the overall favorites rank (0-based), not position within its
- *  own row, so numbering stays continuous across the 1/2/3 podium rows. */
-function badgeNumber(overallIndex: number): string {
-  return String(overallIndex + 1).padStart(2, "0");
-}
-
-/**
- * Selection badge lands like a wax seal being pressed -- a quick
- * overshoot-and-settle stamp (stamp-in) plus a one-shot expanding ring
- * at the moment of impact (seal-ring), instead of a plain pop-in.
- * Reads well regardless of theme, so it's not gated behind
- * theme.showMotif the way the rose/atmosphere flourishes are.
- */
-function SelectionBadge({ index, delayMs = 0 }: { index: number; delayMs?: number }) {
-  return (
-    <span className="absolute -left-2 -top-2 z-30 block h-7 w-7">
-      <span
-        className="seal-ring pointer-events-none absolute inset-0 rounded-full border border-accent/70"
-        style={{ animationDelay: `${delayMs + 260}ms` }}
-      />
-      <span
-        className="stamp-in absolute inset-0 flex items-center justify-center rounded-full border border-accent/60 bg-background font-display text-[11px] italic text-accent shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
-        style={{ animationDelay: `${delayMs}ms` }}
-      >
-        <svg className="absolute inset-0 -rotate-90" width="28" height="28" viewBox="0 0 28 28">
-          <circle
-            cx="14"
-            cy="14"
-            r="12.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            className="badge-ring"
-            style={{ animationDelay: `${delayMs + 260}ms` }}
-          />
-        </svg>
-        {badgeNumber(index)}
-      </span>
-    </span>
-  );
 }
 
 /**
@@ -109,38 +70,38 @@ function RoseFlourish() {
   );
 }
 
-/**
- * Background atmosphere for the Godfather theme -- object and light
- * motifs only, deliberately stopping short of any human silhouette or
- * character depiction: a fedora outline resting in the corner, and a
- * cigar with smoke wisps and embers drifting up past it. Positioned
- * low-opacity in the favorites panel's bottom-right corner as texture,
- * not a focal illustration. Purely decorative -- pointer-events-none,
- * aria-hidden.
- */
-function PeriodAtmosphere() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute bottom-3 right-4 h-24 w-28 text-accent/25 sm:bottom-4 sm:right-6"
-    >
-      {/* Fedora outline -- brim + crown, no face or body. */}
-      <svg width="64" height="40" viewBox="0 0 64 40" fill="currentColor" className="absolute bottom-0 right-0">
-        <ellipse cx="32" cy="30" rx="30" ry="6" />
-        <path d="M16 27c0-10 7-19 16-19s16 9 16 19c-4-3-11-4-16-4s-12 1-16 4z" />
-      </svg>
-      {/* Cigar resting at an angle, ember tip glowing. */}
-      <div className="absolute bottom-8 right-8 h-1.5 w-8 -rotate-[24deg] rounded-full bg-current opacity-70" />
-      <div className="absolute bottom-[38px] right-[27px] h-1.5 w-1.5 rounded-full bg-[#e8a33d] shadow-[0_0_5px_2px_rgba(232,163,61,0.6)]" />
-      {/* Smoke wisps + embers rising from the cigar tip. */}
-      <div className="smoke-wisp absolute bottom-10 right-8 h-6 w-2 rounded-full bg-current" style={{ animationDelay: "0s" }} />
-      <div className="smoke-wisp absolute bottom-10 right-6 h-5 w-1.5 rounded-full bg-current" style={{ animationDelay: "2s" }} />
-      <div className="smoke-wisp absolute bottom-10 right-9 h-4 w-1.5 rounded-full bg-current" style={{ animationDelay: "4s" }} />
-      <div className="ember-particle absolute bottom-10 right-7 h-1 w-1 rounded-full bg-[#e8a33d]" style={{ animationDelay: "0.6s" }} />
-      <div className="ember-particle absolute bottom-10 right-8 h-1 w-1 rounded-full bg-[#e8a33d]" style={{ animationDelay: "1.8s" }} />
-      <div className="ember-particle absolute bottom-10 right-6 h-1 w-1 rounded-full bg-[#e8a33d]" style={{ animationDelay: "2.7s" }} />
-    </div>
-  );
+export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
+  const { username } = await params;
+  // The "/profile/me" alias is viewer-relative and not a stable, shareable
+  // URL, so it's excluded from search indexing rather than generating
+  // metadata for whoever happens to be logged in when a crawler hits it.
+  if (username === "me") return { robots: { index: false, follow: false } };
+
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username, display_name, bio, avatar_url")
+    .eq("username", username)
+    .maybeSingle();
+  if (!profile) return { title: "Profile not found" };
+
+  const name = profile.display_name ?? profile.username;
+  const description = profile.bio?.slice(0, 200) || `${name}'s taste profile on Backlot.`;
+
+  return {
+    title: `${name} (@${profile.username})`,
+    description,
+    openGraph: {
+      title: `${name} (@${profile.username})`,
+      description,
+      images: profile.avatar_url ? [{ url: profile.avatar_url }] : undefined,
+    },
+    twitter: {
+      card: "summary",
+      title: `${name} (@${profile.username})`,
+      description,
+    },
+  };
 }
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
@@ -172,6 +133,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // visited page than the standalone Taste DNA page ever was.
   const dnaPromise = computeTasteDna(profile.id);
   const signaturePickPromise = withTimeout(computeSignaturePick(profile.id), 10000, null);
+  // Wrapped preview card (own profile only -- see the rail below): kicked
+  // off here for the same reason as the other two -- runs concurrently
+  // with the big Promise.all rather than adding its own sequential round
+  // trip. "This year so far" mirrors the default the standalone /wrapped
+  // page itself shows before you page back through past years.
+  const wrappedPromise = isOwnProfile
+    ? computeWrapped(profile.id, new Date().getUTCFullYear())
+    : Promise.resolve(null);
 
   const [
     { count: followerCount },
@@ -181,6 +150,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     { data: isFollowing },
     { data: favoriteRows },
     { data: genreRows },
+    { data: blockRow },
+    { data: cinemaScoreRow },
   ] = await Promise.all([
     supabase.from("follows").select("*", { count: "exact", head: true }).eq("followee_id", profile.id),
     supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
@@ -214,9 +185,27 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     // computeTasteDna and would otherwise leave this stat blank for a
     // lot of profiles that clearly do have a most-watched genre.
     supabase.from("ratings").select("titles(genres)").eq("user_id", profile.id),
+    viewer
+      ? supabase
+          .from("user_blocks")
+          .select("blocker_id")
+          .eq("blocker_id", viewer.id)
+          .eq("blocked_id", profile.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    // Cinema Score: an earned rookie/intermediate/pro tier computed from
+    // this profile's own watching/reviewing activity (see
+    // src/lib/profile/cinema-score.ts and migration 0040) -- replaces
+    // what used to be a self-reported pick stored on profiles.experience_tier.
+    // Called directly here (not via the getCinemaScore action, which
+    // re-derives the caller's own session) since this render already has
+    // a verified user and a live supabase client from further up this
+    // same function -- re-authenticating again per the same "redundant
+    // auth.getUser() calls" fix applied elsewhere on this page.
+    supabase.rpc("compute_cinema_score", { p_user_id: profile.id }).maybeSingle(),
   ]);
 
-  const [dna, signaturePick] = await Promise.all([dnaPromise, signaturePickPromise]);
+  const [dna, signaturePick, wrapped] = await Promise.all([dnaPromise, signaturePickPromise, wrappedPromise]);
 
   const favorites = (favoriteRows ?? [])
     .map((r) => (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] | null }).titles)
@@ -255,7 +244,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // rather than inline JSX math.
   const genreDistribution = computeGenreDistribution(genreCounts);
   const fingerprintGradient = buildFingerprintGradient(genreDistribution, theme.accentRgb);
-  const tierLabel = profile.experience_tier ? EXPERIENCE_TIER_LABEL[profile.experience_tier] : null;
+  // Cinema Score points, recomputed here from the raw watched/reviewed
+  // counts (rather than trusting the RPC's own points column blindly) so
+  // the tier math stays in one place -- src/lib/profile/cinema-score.ts --
+  // instead of duplicated between SQL and TypeScript.
+  const cinemaPoints = computeCinemaPoints(cinemaScoreRow?.watched_count ?? 0, cinemaScoreRow?.reviewed_count ?? 0);
+  const cinemaTier = tierForPoints(cinemaPoints);
+  const tierLabel = EXPERIENCE_TIER_LABEL[cinemaTier];
   const tasteQuote = buildTasteQuote(tierLabel, genreDistribution, ratingCount ?? 0);
 
   // Editorial cover-photo banner (Option B from the profile redesign
@@ -286,48 +281,43 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     .filter((t): t is { id: string; name: string; image: string } => !!t.image)
     .slice(0, 5);
   const hasBanner = bannerImages.length > 0;
+  // The collage's own middle slot is left plain (just the app's
+  // background, no movie still) so the avatar can sit centered in the
+  // banner without competing with a title image directly behind it.
+  const bannerAvatarIndex = Math.floor(bannerImages.length / 2);
 
-  // Editorial two-column layout (Option A): the banner overlay now only
-  // carries pure identity (avatar/name/tier/username) plus the one
-  // primary action a visitor actually needs immediately -- Follow/
-  // Message. Everything that used to compete for space in this same
-  // overlay row (watched/top-genre pills, the four-link self-service
-  // row) has moved down into the right rail below, next to bio and
-  // stats, mirroring the home page's own main-column/rail split so the
-  // two most-visited pages in the app share the same reading pattern.
+  // Editorial two-column layout (Option A), now centered under the
+  // avatar rather than anchored bottom-left: name/tier, @username, and
+  // the one primary action a visitor actually needs immediately --
+  // Follow/Message -- stack directly beneath the avatar as one centered
+  // column, both inside the banner's plain middle slot and in the
+  // no-banner fallback below. Everything that used to compete for space
+  // in this same overlay (watched/top-genre pills, the four-link
+  // self-service row) has moved down into the right rail below, next to
+  // bio and stats, mirroring the home page's own main-column/rail split
+  // so the two most-visited pages in the app share the same reading
+  // pattern.
   const identityBlock = (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div className="flex items-end gap-4">
-        <Avatar
-          name={profile.display_name ?? profile.username}
-          src={profile.avatar_url}
-          size={88}
-          className={
-            (hasBanner
-              ? "shrink-0 border-8 border-black ring-2 ring-accent/70 shadow-[0_4px_18px_rgba(0,0,0,0.55)]"
-              : "shrink-0") + " stagger-card"
-          }
-        />
-        <div className="stagger-card min-w-0 flex-1 pb-1" style={{ animationDelay: "80ms" }}>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-display text-xl">{profile.display_name ?? profile.username}</h1>
-            {profile.experience_tier && (
-              <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
-                {EXPERIENCE_TIER_LABEL[profile.experience_tier]}
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-foreground-muted">@{profile.username}</p>
+    <div className="flex flex-col items-center gap-3 text-center">
+      <div className="stagger-card min-w-0" style={{ animationDelay: "80ms" }}>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <h1 className="font-display text-xl">{profile.display_name ?? profile.username}</h1>
+          <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+            {tierLabel}
+          </span>
         </div>
+        <p className="text-sm text-foreground-muted">@{profile.username}</p>
       </div>
       {viewer && !isOwnProfile && (
-        <div className="stagger-card flex gap-2 pb-1" style={{ animationDelay: "160ms" }}>
+        <div className="stagger-card flex items-center gap-2" style={{ animationDelay: "160ms" }}>
           <div className="shine-hover rounded-[var(--radius-full)]">
             <FollowButton userId={profile.id} initiallyFollowing={!!isFollowing} />
           </div>
           <div className="shine-hover rounded-[var(--radius-full)]">
             <MessageButton userId={profile.id} />
           </div>
+          <BlockUserButton userId={profile.id} initiallyBlocked={!!blockRow} />
+          <ReportButton contentType="profile" contentId={profile.id} />
         </div>
       )}
     </div>
@@ -340,7 +330,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // now stacked as a real vertical menu instead of squeezed pills that
   // had to share a row with the follow-stats text.
   const rail = (
-    <div className="mt-8 lg:mt-0">
+    <div>
       {/* Taste fingerprint: a wax-seal-style wheel sized to this person's
           actual genre split (one accent hue at decreasing opacity per
           slice, matching the app's single-accent restraint rather than a
@@ -354,24 +344,24 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             style={{ background: `conic-gradient(${fingerprintGradient})`, animationDelay: "120ms" }}
           >
             <div className="absolute inset-2 flex items-center justify-center rounded-full bg-background text-center">
-              <span className="font-display text-[10px] italic leading-tight text-foreground-muted">
-                {tierLabel ?? "Backlot"}
+              <span className="font-display text-xs italic leading-tight text-foreground-muted">
+                {tierLabel}
               </span>
             </div>
           </div>
           <div className="stagger-card min-w-0" style={{ animationDelay: "300ms" }}>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-foreground-muted">
+            <p className="text-xs font-medium uppercase tracking-wider text-foreground-muted">
               Taste fingerprint
             </p>
-            <p className="mt-1 font-display text-sm italic leading-snug text-accent">{tasteQuote}</p>
+            <p className="mt-1 font-display text-base italic leading-snug text-accent">{tasteQuote}</p>
           </div>
         </div>
       )}
 
       {profile.bio && (
         <div className="stagger-card border-b border-border pb-6" style={{ animationDelay: "360ms" }}>
-          <span className="text-[10px] font-medium uppercase tracking-wider text-foreground-muted">About</span>
-          <p className="mt-2 text-sm leading-relaxed text-foreground-muted">{profile.bio}</p>
+          <span className="text-xs font-medium uppercase tracking-wider text-foreground-muted">About</span>
+          <p className="mt-2 text-base leading-relaxed text-foreground-muted">{profile.bio}</p>
         </div>
       )}
 
@@ -383,41 +373,93 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         style={{ animationDelay: "440ms" }}
       >
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-lg"><AnimatedCounter value={ratingCount ?? 0} /></p>
-          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Watched</p>
+          <p className="font-display text-2xl"><AnimatedCounter value={ratingCount ?? 0} /></p>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Watched</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display truncate text-lg">{topGenre ?? "—"}</p>
-          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Top genre</p>
+          <p className="font-display text-2xl"><AnimatedCounter value={cinemaPoints} /></p>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Cinema Score</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-lg"><AnimatedCounter value={followerCount ?? 0} /></p>
-          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Followers</p>
+          <p className="font-display truncate text-2xl">{topGenre ?? "—"}</p>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Top genre</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-lg"><AnimatedCounter value={followingCount ?? 0} /></p>
-          <p className="text-[9px] uppercase tracking-wider text-foreground-muted">Following</p>
+          <p className="font-display text-2xl"><AnimatedCounter value={followerCount ?? 0} /></p>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Followers</p>
+        </div>
+        <div className="flex-1 px-2 text-center">
+          <p className="font-display text-2xl"><AnimatedCounter value={followingCount ?? 0} /></p>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Following</p>
         </div>
       </div>
+      {isOwnProfile && wrapped && (
+        // Wrapped preview: a real poster-backed card (not another pill in
+        // the button list below) -- the favorite title's poster sits
+        // behind the year/stat line the same way a movie poster backs a
+        // festival program note, so this reads as a piece of the page's
+        // own layout rather than a plain navigation link. The whole card
+        // is the tap target.
+        <Link
+          href="/wrapped"
+          className="stagger-card group relative mt-6 block h-64 overflow-hidden rounded-[var(--radius-lg)] border border-border"
+          style={{ animationDelay: "480ms" }}
+        >
+          {wrapped.favoriteTitle?.posterUrl && (
+            <Image
+              src={wrapped.favoriteTitle.posterUrl}
+              alt=""
+              fill
+              sizes="400px"
+              className="object-cover opacity-40 transition-transform duration-300 group-hover:scale-105"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
+          <div className="relative flex h-full flex-col justify-end gap-1.5 px-6 py-6">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+            <h3 className="font-display text-3xl">{wrapped.year} Recap</h3>
+            <p className="text-sm text-foreground-muted">
+              {wrapped.totalRated} title{wrapped.totalRated === 1 ? "" : "s"} rated
+              {wrapped.topGenres[0] ? ` · Mostly ${wrapped.topGenres[0].genre}` : ""}
+            </p>
+            <span className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent">
+              See your full Wrapped &rarr;
+            </span>
+          </div>
+        </Link>
+      )}
+
+      {isOwnProfile && !wrapped && (
+        <div
+          className="stagger-card mt-6 rounded-[var(--radius-lg)] border border-dashed border-border px-5 py-5 text-center"
+          style={{ animationDelay: "480ms" }}
+        >
+          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+          <p className="mt-1 text-sm text-foreground-muted">
+            Rate a few more titles this year and your Wrapped recap fills in here.
+          </p>
+        </div>
+      )}
+
       {isOwnProfile && (
         <div className="mt-6 flex flex-col gap-2">
           <Link
             href="/settings"
-            className="stagger-card shine-hover rounded-[var(--radius-full)] bg-accent px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-accent-foreground transition-transform duration-200 hover:-translate-y-0.5 hover:brightness-110"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] bg-accent px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-accent-foreground transition-transform duration-200 hover:-translate-y-0.5 hover:brightness-110"
             style={{ animationDelay: "500ms" }}
           >
             Edit profile
           </Link>
           <Link
             href="/watchlist"
-            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
             style={{ animationDelay: "600ms" }}
           >
             Watchlist
           </Link>
           <Link
             href="/lists"
-            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
             style={{ animationDelay: "650ms" }}
           >
             Your lists
@@ -440,44 +482,236 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
            of a blank gap of page background. */
         <div className="spotlight-sweep relative -mt-14 h-[280px] w-full sm:h-[344px]">
           <div className="absolute inset-0 flex">
-            {bannerImages.map((title, i) => (
-              <div
-                key={title.id}
-                className="stagger-card relative flex-1 overflow-hidden"
-                style={{ animationDelay: `${i * 90}ms` }}
-              >
-                <Image
-                  src={title.image}
-                  alt=""
-                  fill
-                  className="object-cover object-top"
-                  sizes="400px"
+            {bannerImages.map((title, i) =>
+              i === bannerAvatarIndex ? (
+                /* Middle collage slot: plain background instead of a
+                   movie still -- the avatar sits centered on top of it
+                   just below. */
+                <div
+                  key={title.id}
+                  className="stagger-card relative flex-1 overflow-hidden bg-background"
+                  style={{ animationDelay: `${i * 90}ms` }}
                 />
-              </div>
-            ))}
+              ) : (
+                <div
+                  key={title.id}
+                  className="stagger-card relative flex-1 overflow-hidden"
+                  style={{ animationDelay: `${i * 90}ms` }}
+                >
+                  <Image
+                    src={title.image}
+                    alt=""
+                    fill
+                    className="object-cover object-top"
+                    sizes="400px"
+                  />
+                </div>
+              )
+            )}
           </div>
           {/* Bottom-anchored fade only -- same via-background/70 strength
               used by the trailer hero's own fade -- so the collage stays
               clearly visible up top instead of the near-invisible wash
-              the first pass had, while the overlaid identity content at
-              the very bottom still lands on a fully opaque backdrop. */}
+              the first pass had, while the overlaid identity content
+              still lands on a fully opaque backdrop behind it. */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-48" />
-          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-4xl px-4 pb-4 sm:px-6">{identityBlock}</div>
+          {/* Avatar plus name/tier/username/Follow-Message now read as
+              one centered column set into the banner's own plain middle
+              slot -- a portrait-and-caption inlaid in the cover photo,
+              rather than the avatar alone up top with identity text
+              anchored separately at the bottom-left corner. */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-4">
+            <Avatar
+              name={profile.display_name ?? profile.username}
+              src={profile.avatar_url}
+              size={132}
+              className="stagger-card shrink-0 border-8 border-black ring-2 ring-accent/70 shadow-[0_4px_18px_rgba(0,0,0,0.55)]"
+            />
+            {identityBlock}
+          </div>
         </div>
       ) : (
-        <div className="mx-auto max-w-4xl px-4 pt-8">{identityBlock}</div>
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-4 pt-8">
+          <Avatar
+            name={profile.display_name ?? profile.username}
+            src={profile.avatar_url}
+            size={88}
+            className="stagger-card shrink-0"
+          />
+          {identityBlock}
+        </div>
       )}
 
-      <div className="mx-auto max-w-6xl px-4 pb-8 pt-6 lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
-      <div>
-      {/* Personal Pyramid and Backlot DNA sit side by side as a pair --
-          the pyramid is what you picked, the DNA panel is what the app
-          reads out of everything you've rated, so showing them together
-          reads as "here's my taste, in my own words and in the data."
-          Stacks on narrower screens (own column width shrinks fast once
-          this nests inside the page's own left/right split) since two
-          half-width panels get too cramped below that. */}
-      <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
+      <div className="mx-auto max-w-6xl px-4 pb-8 pt-6">
+      {/* Three panels, widest in the middle: Backlot DNA (what the app
+          reads out of your ratings) on the left, Personal Pyramid (what
+          you picked yourself) as the visual centerpiece, profile info
+          (avatar/bio/stats/self-service links) on the right. DNA and
+          profile stay equal width to each other and close in size to
+          the pyramid -- wide enough that neither panel feels like a
+          narrow sidebar, while the pyramid still reads as the largest
+          of the three. Stacks to a single column, same top-to-bottom
+          order, below xl. */}
+      <div className="grid gap-6 xl:grid-cols-[1fr_1.3fr_1fr] xl:items-start">
+      {/* Backlot DNA, inline: used to be a link out to a separate page
+          (/taste-dna), now sits directly beside the Personal Pyramid as
+          this profile's own analytics -- same public visibility as the
+          pyramid and stat strip above, scoped to whoever's profile this
+          is rather than the viewer. Hidden below MIN_SAMPLE_SIZE for the
+          same reason the standalone page hides it: a mostly-empty
+          breakdown reads as broken, not "not enough data yet." */}
+      {dna.sampleSize >= MIN_SAMPLE_SIZE && (
+        <Reveal>
+          <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border">
+            <div className="relative px-6 py-8 sm:px-10 sm:py-10">
+              <div className="mb-6 text-center">
+                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
+                  Backlot Analysis
+                </p>
+                <h2 className="font-section-heading mt-1 text-xl">Backlot DNA</h2>
+                <span className="font-section-body text-xs text-foreground-muted">
+                  Based on {dna.sampleSize} rated title{dna.sampleSize === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {dna.archetypes.slice(0, 6).map((a, i) => (
+                  <ArchetypeBar
+                    key={a.name}
+                    name={a.name}
+                    percent={a.percent}
+                    delayMs={i * 80}
+                    citedTitles={a.citedTitles}
+                    matchedKeywords={a.matchedKeywords}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-8 grid gap-6 sm:grid-cols-2">
+                {dna.favoriteGenres.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                      Favorite genres
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {dna.favoriteGenres.map((g) => (
+                        <span
+                          key={g}
+                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
+                        >
+                          {g}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Language split, not just a single "favorite" -- a user
+                    who's 70% English / 30% Korean reads very differently
+                    from one who's simply "into Korean cinema." */}
+                {dna.languageBreakdown.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                      Languages
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {dna.languageBreakdown.map((l) => (
+                        <span
+                          key={l.label}
+                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
+                        >
+                          {l.label} {l.percent}%
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tone/theme/mood breakdown -- a finer-grained read than the
+                  10 fixed archetype buckets above, sourced from the same
+                  AI-tagged data but not folded into any single archetype
+                  name. Only present once enough titles are enriched. */}
+              {dna.moodBreakdown.length > 0 && (
+                <div className="mt-8">
+                  <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                    Mood &amp; tone
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {dna.moodBreakdown.map((m) => (
+                      <span
+                        key={m.tag}
+                        className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs capitalize"
+                      >
+                        {m.tag} {m.percent}%
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Full era distribution (every decade with a rated title),
+                  not just the top 3 -- reuses ArchetypeBar's fill-bar
+                  renderer since a decade + percent row is the same shape
+                  as an archetype + percent row. */}
+              {dna.eraDistribution.length > 0 && (
+                <div className="mt-8">
+                  <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                    Era distribution
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    {dna.eraDistribution.map((e, i) => (
+                      <ArchetypeBar key={e.decade} name={e.decade} percent={e.percent} delayMs={i * 60} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {dna.favoriteDirectors.length > 0 && (
+                <div className="mt-8">
+                  <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                    Favorite directors
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {dna.favoriteDirectors.map((d) => (
+                      <span
+                        key={d.id}
+                        className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
+                      >
+                        {d.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {signaturePick && (
+                <div className="mt-8">
+                  <SignaturePickCard pick={signaturePick} compact />
+                </div>
+              )}
+
+              {(dna.pacingPreference || dna.violenceTolerance != null || dna.comedyTolerance != null) && (
+                <div className="mt-8">
+                  <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+                    Sensibility
+                  </p>
+                  <ul className="flex flex-col gap-1 text-sm text-foreground-muted">
+                    {dna.pacingPreference && <li>{PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}</li>}
+                    {dna.violenceTolerance != null && <li>Violence tolerance: {dna.violenceTolerance}/5</li>}
+                    {dna.comedyTolerance != null && <li>Comedy tolerance: {dna.comedyTolerance}/5</li>}
+                    {dna.emotionalIntensityPreference != null && (
+                      <li>Emotional intensity: {dna.emotionalIntensityPreference}/5</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </Reveal>
+      )}
+
+
       {favorites.length > 0 && (
         <div className="mt-0">
           {/* The podium used to sit directly on the page background at a
@@ -497,7 +731,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                   "radial-gradient(ellipse at 50% 30%, rgba(205,166,70,0.08), transparent 70%)",
               }}
             />
-            {theme.showMotif && <PeriodAtmosphere />}
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               {theme.showMotif && <RoseFlourish />}
               <div className="mb-6 text-center">
@@ -525,7 +758,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                     style={{ animationDelay: "160ms" }}
                   >
                     <TiltCard className="relative rounded-[var(--radius-md)]">
-                      <SelectionBadge index={0} delayMs={480} />
                       <div className="polish-sweep pointer-events-none absolute inset-x-0 top-0 z-10 aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)]" style={{ animationDelay: "980ms" }} />
                       <TitleCard title={favorites[0]} highlight index={0} />
                     </TiltCard>
@@ -543,7 +775,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                           style={{ animationDelay: `${tileDelay}ms` }}
                         >
                           <TiltCard className="relative rounded-[var(--radius-md)]">
-                            <SelectionBadge index={overallIndex} delayMs={tileDelay + 320} />
                             <div
                               className="polish-sweep pointer-events-none absolute inset-x-0 top-0 z-10 aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)]"
                               style={{ animationDelay: `${tileDelay + 800}ms` }}
@@ -567,7 +798,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                           style={{ animationDelay: `${tileDelay}ms` }}
                         >
                           <TiltCard className="relative rounded-[var(--radius-md)]">
-                            <SelectionBadge index={overallIndex} delayMs={tileDelay + 320} />
                             <div
                               className="polish-sweep pointer-events-none absolute inset-x-0 top-0 z-10 aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)]"
                               style={{ animationDelay: `${tileDelay + 800}ms` }}
@@ -585,114 +815,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         </div>
       )}
 
-      {/* Backlot DNA, inline: used to be a link out to a separate page
-          (/taste-dna), now sits directly beside the Personal Pyramid as
-          this profile's own analytics -- same public visibility as the
-          pyramid and stat strip above, scoped to whoever's profile this
-          is rather than the viewer. Hidden below MIN_SAMPLE_SIZE for the
-          same reason the standalone page hides it: a mostly-empty
-          breakdown reads as broken, not "not enough data yet." */}
-      {dna.sampleSize >= MIN_SAMPLE_SIZE && (
-        <Reveal>
-          <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border">
-            <div className="relative px-6 py-8 sm:px-10 sm:py-10">
-              <div className="mb-6 text-center">
-                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
-                  Backlot Analysis
-                </p>
-                <h2 className="mt-1 text-lg font-semibold">Backlot DNA</h2>
-                <span className="text-xs text-foreground-muted">
-                  Based on {dna.sampleSize} rated title{dna.sampleSize === 1 ? "" : "s"}
-                </span>
-              </div>
-
-              {signaturePick && (
-                <div className="mb-8">
-                  <SignaturePickCard pick={signaturePick} compact />
-                </div>
-              )}
-
-              <div className="flex flex-col gap-4">
-                {dna.archetypes.slice(0, 6).map((a, i) => (
-                  <ArchetypeBar key={a.name} name={a.name} percent={a.percent} delayMs={i * 80} />
-                ))}
-              </div>
-
-              <div className="mt-8 grid gap-6 sm:grid-cols-2">
-                {dna.favoriteGenres.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                      Favorite genres
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {dna.favoriteGenres.map((g) => (
-                        <span
-                          key={g}
-                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
-                        >
-                          {g}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {dna.favoriteDecades.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                      Favorite decades
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {dna.favoriteDecades.map((d) => (
-                        <span
-                          key={d}
-                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
-                        >
-                          {d}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {dna.favoriteDirectors.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                      Favorite directors
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {dna.favoriteDirectors.map((d) => (
-                        <span
-                          key={d.id}
-                          className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
-                        >
-                          {d.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {(dna.pacingPreference || dna.violenceTolerance != null || dna.comedyTolerance != null) && (
-                  <div>
-                    <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                      Sensibility
-                    </p>
-                    <ul className="flex flex-col gap-1 text-sm text-foreground-muted">
-                      {dna.pacingPreference && <li>{PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}</li>}
-                      {dna.violenceTolerance != null && <li>Violence tolerance: {dna.violenceTolerance}/5</li>}
-                      {dna.comedyTolerance != null && <li>Comedy tolerance: {dna.comedyTolerance}/5</li>}
-                      {dna.emotionalIntensityPreference != null && (
-                        <li>Emotional intensity: {dna.emotionalIntensityPreference}/5</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      )}
+      {rail}
 
       </div>
 
@@ -727,9 +850,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           ) : null;
         })}
       </Reveal>
-      </div>
-
-      {rail}
       </div>
     </div>
   );

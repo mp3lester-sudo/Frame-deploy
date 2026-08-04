@@ -1,49 +1,29 @@
-"use client";
+import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { PremiumUpgradeCard } from "@/components/premium/premium-upgrade-card";
+import { PremiumManageCard } from "@/components/premium/premium-manage-card";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+export default async function PremiumPage() {
+  // Checked directly (not via lib/stripe.ts's ALIST_PRICE_ID export,
+  // which is guarded by "server-only" and would need its own client
+  // boundary) so PremiumUpgradeCard knows whether to render a working
+  // A-List buy button or a disabled "Coming soon" one -- see that
+  // component's doc comment for why this stays off until real
+  // A-List-exclusive features exist behind it.
+  const alistAvailable = !!process.env.STRIPE_ALIST_PRICE_ID;
 
-const FEATURES = [
-  "Unlimited AI concierge conversations",
-  "Advanced filters (mood, pacing, era, tone)",
-  "Entertainment Wrapped, every month",
-  "Ad-free, always",
-];
+  const user = await getVerifiedUser();
+  if (!user) return <PremiumUpgradeCard alistAvailable={alistAvailable} />;
 
-export default function PremiumPage() {
-  const [loading, setLoading] = useState(false);
+  const supabase = await createClient();
+  const [{ data: profile }, { data: sub }] = await Promise.all([
+    supabase.from("profiles").select("is_premium, premium_tier").eq("id", user.id).maybeSingle(),
+    supabase.from("subscriptions").select("current_period_end").eq("user_id", user.id).maybeSingle(),
+  ]);
 
-  async function handleUpgrade() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST" });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } finally {
-      setLoading(false);
-    }
+  if (profile?.is_premium) {
+    return <PremiumManageCard currentPeriodEnd={sub?.current_period_end ?? null} tier={profile.premium_tier} />;
   }
 
-  return (
-    <div className="mx-auto max-w-md px-4 py-16">
-      <Card className="p-6">
-        <h1 className="font-display text-xl">Backlot Premium</h1>
-        <p className="mt-1 text-sm text-foreground-muted">$7.99/month</p>
-
-        <ul className="mt-4 flex flex-col gap-2 text-sm">
-          {FEATURES.map((f) => (
-            <li key={f} className="flex items-start gap-2">
-              <span className="text-accent">✓</span>
-              {f}
-            </li>
-          ))}
-        </ul>
-
-        <Button className="mt-6 w-full" isLoading={loading} onClick={handleUpgrade}>
-          Upgrade to Premium
-        </Button>
-      </Card>
-    </div>
-  );
+  return <PremiumUpgradeCard alistAvailable={alistAvailable} />;
 }

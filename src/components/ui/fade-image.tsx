@@ -31,6 +31,10 @@ export default function FadeImage({ className, onLoad, ...props }: ImageProps) {
   }, []);
 
   return (
+    // `alt` is required by ImageProps and always supplied via the
+    // {...props} spread below; the rule can't see through the spread to
+    // confirm that statically.
+    // eslint-disable-next-line jsx-a11y/alt-text
     <Image
       {...props}
       ref={checkAlreadyComplete}

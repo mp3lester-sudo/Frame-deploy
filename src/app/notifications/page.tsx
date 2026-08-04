@@ -23,6 +23,8 @@ function describe(type: NotificationType, actorName: string, titleName: string |
       return `${actorName} invited you to a Movie Night.`;
     case "movie_night_decided":
       return `Movie Night picked ${titleName ?? "a title"}.`;
+    case "payment_failed":
+      return "We couldn't process your Premium payment — update your card to keep your subscription.";
   }
 }
 
@@ -36,6 +38,8 @@ function linkFor(type: NotificationType, actorUsername: string | null, titleId: 
     case "movie_night_invite":
     case "movie_night_decided":
       return refId ? `/movie-night/${refId}` : "/movie-night";
+    case "payment_failed":
+      return "/premium";
   }
 }
 

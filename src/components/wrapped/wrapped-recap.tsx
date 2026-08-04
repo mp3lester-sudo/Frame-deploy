@@ -1,4 +1,5 @@
 import Image from "@/components/ui/fade-image";
+import { Card } from "@/components/ui/card";
 import type { WrappedResult } from "@/lib/taste-dna/wrapped";
 
 /**
@@ -29,12 +30,12 @@ export function WrappedRecap({
       </div>
 
       {result.topArchetype && (
-        <div className="mt-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+        <Card className="mt-8">
           <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Your archetype this year</p>
           <p className="mt-1 font-display text-xl">
             {result.topArchetype.name} <span className="text-accent">{result.topArchetype.percent}%</span>
           </p>
-        </div>
+        </Card>
       )}
 
       <div className="mt-8 grid gap-6 sm:grid-cols-2">
@@ -63,10 +64,10 @@ export function WrappedRecap({
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[var(--radius-md)] border border-border bg-surface p-4 text-center">
+    <Card className="text-center">
       <p className="font-display text-2xl text-accent">{value}</p>
       <p className="mt-1 text-[11px] uppercase tracking-wider text-foreground-muted">{label}</p>
-    </div>
+    </Card>
   );
 }
 

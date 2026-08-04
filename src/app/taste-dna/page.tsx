@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { computeTasteDna } from "@/lib/taste-dna/compute";
 import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
@@ -11,7 +10,6 @@ import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
 import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
 
 export default async function TasteDnaPage() {
-  const supabase = await createClient();
   const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/taste-dna");
 
@@ -78,7 +76,14 @@ export default async function TasteDnaPage() {
 
       <div className="mt-8 flex flex-col gap-4">
         {topArchetypes.map((a, i) => (
-          <ArchetypeBar key={a.name} name={a.name} percent={a.percent} delayMs={i * 80} />
+          <ArchetypeBar
+            key={a.name}
+            name={a.name}
+            percent={a.percent}
+            delayMs={i * 80}
+            citedTitles={a.citedTitles}
+            matchedKeywords={a.matchedKeywords}
+          />
         ))}
       </div>
 
@@ -101,18 +106,38 @@ export default async function TasteDnaPage() {
           </div>
         )}
 
-        {dna.favoriteDecades.length > 0 && (
+        {dna.languageBreakdown.length > 0 && (
           <div>
             <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-              Favorite decades
+              Languages
             </p>
             <div className="flex flex-wrap gap-2">
-              {dna.favoriteDecades.map((d) => (
+              {dna.languageBreakdown.map((l) => (
                 <span
-                  key={d}
+                  key={l.label}
                   className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
                 >
-                  {d}
+                  {l.label} {l.percent}%
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-10 grid gap-6 sm:grid-cols-2">
+        {dna.moodBreakdown.length > 0 && (
+          <div>
+            <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+              Mood &amp; tone
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {dna.moodBreakdown.map((m) => (
+                <span
+                  key={m.tag}
+                  className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs capitalize"
+                >
+                  {m.tag} {m.percent}%
                 </span>
               ))}
             </div>
@@ -136,23 +161,36 @@ export default async function TasteDnaPage() {
             </div>
           </div>
         )}
-
-        {(dna.pacingPreference || dna.violenceTolerance != null || dna.comedyTolerance != null) && (
-          <div>
-            <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-              Sensibility
-            </p>
-            <ul className="flex flex-col gap-1 text-sm text-foreground-muted">
-              {dna.pacingPreference && <li>{PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}</li>}
-              {dna.violenceTolerance != null && <li>Violence tolerance: {dna.violenceTolerance}/5</li>}
-              {dna.comedyTolerance != null && <li>Comedy tolerance: {dna.comedyTolerance}/5</li>}
-              {dna.emotionalIntensityPreference != null && (
-                <li>Emotional intensity: {dna.emotionalIntensityPreference}/5</li>
-              )}
-            </ul>
-          </div>
-        )}
       </div>
+
+      {dna.eraDistribution.length > 0 && (
+        <div className="mt-10">
+          <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+            Era distribution
+          </p>
+          <div className="flex flex-col gap-3">
+            {dna.eraDistribution.map((e, i) => (
+              <ArchetypeBar key={e.decade} name={e.decade} percent={e.percent} delayMs={i * 60} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(dna.pacingPreference || dna.violenceTolerance != null || dna.comedyTolerance != null) && (
+        <div className="mt-10">
+          <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
+            Sensibility
+          </p>
+          <ul className="flex flex-col gap-1 text-sm text-foreground-muted">
+            {dna.pacingPreference && <li>{PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}</li>}
+            {dna.violenceTolerance != null && <li>Violence tolerance: {dna.violenceTolerance}/5</li>}
+            {dna.comedyTolerance != null && <li>Comedy tolerance: {dna.comedyTolerance}/5</li>}
+            {dna.emotionalIntensityPreference != null && (
+              <li>Emotional intensity: {dna.emotionalIntensityPreference}/5</li>
+            )}
+          </ul>
+        </div>
+      )}
 
       {/* Omitted entirely (not a "not enough data yet" placeholder) when
           there isn't enough rating history to say anything real about

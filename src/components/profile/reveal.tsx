@@ -26,6 +26,11 @@ export function Reveal({
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
+      // Same SSR-safety rationale as animated-counter.tsx -- this has to
+      // run in an effect (matchMedia doesn't exist during SSR), so it
+      // can't be moved to a lazy useState initializer without risking a
+      // hydration mismatch for reduced-motion users.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisible(true);
       return;
     }

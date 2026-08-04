@@ -20,6 +20,39 @@ import { getTmdbTrailer } from "@/lib/external/tmdb-videos";
 import { getOrFetchWatchProviders } from "@/lib/external/tmdb-watch-providers";
 import { WhereToWatch } from "@/components/where-to-watch";
 import { BackdropHero } from "@/components/backdrop-hero";
+import type { Metadata } from "next";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: title } = await supabase
+    .from("titles")
+    .select("name, overview, poster_url, release_date")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!title) return { title: "Title not found" };
+
+  const year = title.release_date ? new Date(title.release_date).getFullYear() : null;
+  const displayName = year ? `${title.name} (${year})` : title.name;
+  const description = title.overview?.slice(0, 200) || `Ratings, reviews, and where to watch ${title.name} on Backlot.`;
+
+  return {
+    title: displayName,
+    description,
+    openGraph: {
+      title: displayName,
+      description,
+      images: title.poster_url ? [{ url: title.poster_url }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: displayName,
+      description,
+      images: title.poster_url ? [title.poster_url] : undefined,
+    },
+  };
+}
 
 export default async function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

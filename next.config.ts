@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
       // Supabase Storage (avatars, uploads)
       { protocol: "https", hostname: "*.supabase.co" },
     ],
+    // AVIF/WebP are meaningfully smaller than the source JPEGs TMDB serves
+    // (posters/backdrops are the single largest asset class on nearly
+    // every page -- home, discover, movie detail, profile banners).
+    // Next tries formats in order and falls back to the original if the
+    // requesting browser doesn't support either.
+    formats: ["image/avif", "image/webp"],
+    // TMDB poster/backdrop URLs are immutable (a given path never changes
+    // its image), so a long cache TTL is safe and avoids re-fetching/
+    // re-optimizing the same poster on every cold cache hit.
+    minimumCacheTTL: 2678400, // 31 days
   },
   experimental: {
     // Next's default Server Action body size cap is 1MB. The Letterboxd

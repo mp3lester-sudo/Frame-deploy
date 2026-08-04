@@ -145,6 +145,20 @@ body {
   animation: page-fade-in 260ms ease-out both;
 }
 
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.toast-enter {
+  animation: toast-in 200ms ease-out both;
+}
+
 @keyframes card-fade-up {
   from {
     opacity: 0;
@@ -395,22 +409,8 @@ body {
   animation: polish-sweep 1000ms ease-out both;
 }
 
-/* Selection-badge ring traces itself in just after the badge pops --
-   a full stroke-dashoffset draw around the badge's own circle. */
-@keyframes draw-ring {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-.badge-ring {
-  stroke-dasharray: 79;
-  stroke-dashoffset: 79;
-  animation: draw-ring 650ms ease-out both;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .polish-sweep,
-  .badge-ring {
+  .polish-sweep {
     animation: none;
     stroke-dashoffset: 0;
   }
@@ -421,84 +421,8 @@ body {
    silhouettes of people (see theme-preset.ts / RoseFlourish for the
    same restraint) -- just objects and light: a fedora outline, a
    resting cigar with rising smoke and embers, and an irregular
-   candlelight flicker across the favorites panel. Also upgrades the
-   selection badges from a plain pop-in to a wax-seal "stamp" with an
-   impact ring, which reads well regardless of theme so it's left
-   enabled sitewide rather than gated to showMotif.
+   candlelight flicker across the favorites panel.
    ============================================================ */
-
-@keyframes stamp-in {
-  0% {
-    opacity: 0;
-    transform: scale(1.9) rotate(-8deg);
-  }
-  55% {
-    opacity: 1;
-    transform: scale(0.88) rotate(2deg);
-  }
-  75% {
-    transform: scale(1.08) rotate(-1deg);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
-}
-.stamp-in {
-  animation: stamp-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes seal-ring {
-  0% {
-    transform: scale(0.5);
-    opacity: 0.9;
-  }
-  100% {
-    transform: scale(2.1);
-    opacity: 0;
-  }
-}
-.seal-ring {
-  animation: seal-ring 620ms ease-out both;
-}
-
-@keyframes smoke-rise {
-  0% {
-    transform: translate(0, 0) scale(1);
-    opacity: 0;
-  }
-  15% {
-    opacity: 0.4;
-  }
-  100% {
-    transform: translate(6px, -60px) scale(2.4);
-    opacity: 0;
-  }
-}
-.smoke-wisp {
-  animation: smoke-rise 6s ease-out infinite;
-  filter: blur(3px);
-}
-
-@keyframes ember-rise {
-  0% {
-    transform: translate(0, 0);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  80% {
-    opacity: 0.55;
-  }
-  100% {
-    transform: translate(4px, -38px);
-    opacity: 0;
-  }
-}
-.ember-particle {
-  animation: ember-rise 3.2s ease-in infinite;
-}
 
 @keyframes candle-flicker-panel {
   0%,
@@ -529,10 +453,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stamp-in,
-  .seal-ring,
-  .smoke-wisp,
-  .ember-particle,
   .candle-flicker-panel {
     animation: none;
   }
@@ -579,6 +499,13 @@ body {
 html.splash-shown .greeting-splash {
   display: none;
 }
+/* Set by the inline script in layout.tsx when the analytics-consent
+   cookie/localStorage already has a value -- hides the cookie banner
+   instantly for returning visitors, before React ever hydrates, so
+   there's no hydration-timing window for it to get stuck visible. */
+html.consent-decided .cookie-consent-banner {
+  display: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .greeting-splash {
     display: none;
@@ -594,6 +521,29 @@ html.splash-shown .greeting-splash {
   background: linear-gradient(90deg, var(--surface) 25%, var(--surface-raised) 50%, var(--surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    /* Still visibly a placeholder without the moving gradient. */
+    background: var(--surface-raised);
+  }
+}
+
+/* Sitewide fallback: every hover/press micro-interaction built with a bare
+   Tailwind `transition-*` utility (card lift-on-hover, image scale-on-hover,
+   button press states, etc.) rather than a named @keyframes animation --
+   those are already covered individually above, this catches everything
+   else in one place instead of hunting down every hover: utility class. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Horizontal filter rails (Discover genres, etc.) — scrollable on all
@@ -623,3 +573,86 @@ html.splash-shown .greeting-splash {
   background-image: var(--accent-gradient);
 }
 
+
+/* ============================================================
+   Movie Night decision reveal -- the moment a group's pick locks in,
+   shown to everyone still on the session screen (see
+   components/movie-night/decision-reveal.tsx) before handing off to the
+   title's own page. Reuses the same golden .marquee-bulbs treatment as
+   the home page greeting and the page background's --spotlight glow,
+   just staged as an entrance instead of a static backdrop.
+   ============================================================ */
+@keyframes reveal-glow-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.reveal-glow {
+  animation: reveal-glow-in 900ms ease-out both;
+}
+
+@keyframes reveal-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reveal-fade-up {
+  animation: reveal-fade-up 550ms ease-out both;
+}
+
+/* The poster itself is the whole point of this moment -- it should read
+   as being pulled open into the light, not just faded in like the smaller
+   supporting text around it. Starts rotated/scaled down as if drawn from a
+   fanned stack, settles straight-on with a slight overshoot for weight. */
+@keyframes poster-fan-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) rotate(-7deg);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+.poster-fan-in {
+  animation: poster-fan-in 1000ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* A fan of gold spotlight beams sweeping in from above and converging on
+   the poster, like stage lights snapping on one after another for a big
+   reveal -- each beam is a plain gradient div rotated via the
+   --beam-rotate custom property (see decision-reveal.tsx) so this one
+   keyframe pair drives the whole fan regardless of how many beams render. */
+@keyframes spotlight-beam-in {
+  from {
+    opacity: 0;
+    transform: rotate(var(--beam-rotate, 0deg)) scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(var(--beam-rotate, 0deg)) scaleY(1);
+  }
+}
+.spotlight-beam {
+  animation: spotlight-beam-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-glow,
+  .reveal-fade-up,
+  .poster-fan-in,
+  .spotlight-beam {
+    animation: none;
+  }
+}

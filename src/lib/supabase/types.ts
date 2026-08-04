@@ -15,7 +15,13 @@ export interface Database {
           bio: string | null;
           is_creator: boolean;
           is_premium: boolean;
+          premium_tier: "premium" | "a_list" | null;
           experience_tier: "rookie" | "intermediate" | "pro" | null;
+          last_reengagement_email_at: string | null;
+          referral_code: string;
+          referred_by: string | null;
+          bonus_premium_until: string | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -154,6 +160,44 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      referrals: {
+        Row: {
+          id: string;
+          referrer_id: string;
+          referred_id: string;
+          created_at: string;
+        };
+        Insert: { referrer_id: string; referred_id: string };
+        Update: never;
+        Relationships: [];
+      };
+      reports: {
+        Row: {
+          id: string;
+          reporter_id: string;
+          content_type: "review" | "review_comment" | "message" | "club_post" | "profile";
+          content_id: string;
+          reason: "spam" | "harassment" | "hate_speech" | "sexual_content" | "spoilers" | "other";
+          note: string | null;
+          status: "open" | "reviewed" | "dismissed";
+          created_at: string;
+        };
+        Insert: {
+          reporter_id: string;
+          content_type: "review" | "review_comment" | "message" | "club_post" | "profile";
+          content_id: string;
+          reason: "spam" | "harassment" | "hate_speech" | "sexual_content" | "spoilers" | "other";
+          note?: string | null;
+        };
+        Update: Partial<{ status: "open" | "reviewed" | "dismissed" }>;
+        Relationships: [];
+      };
+      user_blocks: {
+        Row: { blocker_id: string; blocked_id: string; created_at: string };
+        Insert: { blocker_id: string; blocked_id: string };
+        Update: never;
+        Relationships: [];
+      };
       clubs: {
         Row: { id: string; name: string; description: string; created_by: string; created_at: string };
         Insert: { name: string; description?: string; created_by: string };
@@ -213,7 +257,7 @@ export interface Database {
           id: string;
           recipient_id: string;
           actor_id: string | null;
-          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided" | "payment_failed";
           title_id: string | null;
           ref_id: string | null;
           read_at: string | null;
@@ -222,12 +266,45 @@ export interface Database {
         Insert: {
           recipient_id: string;
           actor_id?: string | null;
-          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided" | "payment_failed";
           title_id?: string | null;
           ref_id?: string | null;
           read_at?: string | null;
         };
         Update: Partial<{ read_at: string | null }>;
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+        };
+        Update: Partial<{ endpoint: string; p256dh: string; auth: string }>;
+        Relationships: [];
+      };
+      notification_preferences: {
+        Row: {
+          user_id: string;
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          push_enabled: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          push_enabled?: boolean;
+        };
+        Update: Partial<{ push_enabled: boolean }>;
         Relationships: [];
       };
       movie_nights: {
@@ -236,6 +313,7 @@ export interface Database {
           host_id: string;
           status: "collecting" | "decided" | "cancelled";
           decided_title_id: string | null;
+          invite_token: string;
           created_at: string;
         };
         Insert: { host_id: string; status?: "collecting" | "decided" | "cancelled" };
@@ -359,6 +437,7 @@ export interface Database {
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
           status: string;
+          tier: "premium" | "a_list";
           current_period_end: string | null;
           updated_at: string;
         };
@@ -367,6 +446,7 @@ export interface Database {
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
           status?: string;
+          tier?: "premium" | "a_list";
           current_period_end?: string | null;
         };
         Update: Partial<Omit<Database["public"]["Tables"]["subscriptions"]["Row"], "user_id">>;
@@ -432,6 +512,33 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      compute_cinema_score: {
+        Args: { p_user_id: string };
+        Returns: { watched_count: number; reviewed_count: number; points: number }[];
+      };
+      resolve_movie_night_token: {
+        Args: { p_token: string };
+        Returns: { id: string; host_id: string }[];
+      };
+      movie_night_preview: {
+        Args: { p_token: string };
+        Returns: {
+          status: string;
+          host_username: string;
+          host_display_name: string | null;
+          host_avatar_url: string | null;
+          participant_count: number;
+          participant_avatars: string[];
+        }[];
+      };
+      record_referral: {
+        Args: { p_referrer_id: string; p_referred_id: string; p_bonus_days?: number };
+        Returns: boolean;
+      };
+      reengagement_candidates: {
+        Args: { p_inactive_days?: number; p_cooldown_days?: number };
+        Returns: { user_id: string }[];
+      };
       check_and_complete_game_pass: {
         Args: { p_season_id: string; p_user_id: string };
         Returns: boolean;
