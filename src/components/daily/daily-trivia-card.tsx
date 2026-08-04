@@ -55,7 +55,7 @@ export function DailyTriviaCard(props: Props) {
             alt=""
             fill
             aria-hidden="true"
-            className="object-cover object-top opacity-40"
+            className="object-cover object-top opacity-70"
             sizes="(max-width: 1024px) 100vw, 50vw"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface/40 via-surface/75 to-surface" />
