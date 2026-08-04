@@ -1,10 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isPremiumActive } from "@/lib/premium/is-premium";
+import { isAuteurActive } from "@/lib/premium/tier";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { LoadMoreGrid } from "@/components/load-more-grid";
 import { loadMoreDiscoverTitles } from "@/lib/actions/catalogue";
+import { getMyDiscoverPresets } from "@/lib/actions/discover-presets";
+import { SavedFilterPresets } from "@/components/discover/saved-filter-presets";
 import { DISCOVER_PAGE_SIZE } from "@/lib/constants/catalogue";
 import { ERA_DECADES, PACING_OPTIONS, TONE_OPTIONS, MOOD_OPTIONS } from "@/lib/constants/discover-filters";
 import { PremiumUpsell } from "@/components/premium-upsell";
@@ -102,9 +105,15 @@ export default async function DiscoverPage({
   // hand-edited to unlock them for a free account. See CLAUDE.md's product
   // principles and /premium.
   const { data: profile } = viewer
-    ? await supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", viewer.id).maybeSingle()
+    ? await supabase.from("profiles").select("is_premium, premium_tier, bonus_premium_until").eq("id", viewer.id).maybeSingle()
     : { data: null };
   const isPremium = isPremiumActive(profile);
+  const isAuteur = isAuteurActive(profile);
+  // Only fetched for signed-in accounts -- getMyDiscoverPresets already
+  // no-ops without a session, but skipping the call entirely for the
+  // logged-out landing case avoids an extra round trip on the page most
+  // likely to be hit by anonymous traffic.
+  const presets = viewer ? await getMyDiscoverPresets() : [];
 
   const effectiveEra = isPremium ? era : undefined;
   const effectivePacing = isPremium ? pacing : undefined;
@@ -154,6 +163,10 @@ export default async function DiscoverPage({
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="font-section-heading mb-4 text-2xl">Discover</h1>
+
+      {isAuteur && (
+        <SavedFilterPresets presets={presets} current={{ genre, era, pacing, tone, mood }} />
+      )}
 
       <div className="mb-2">
         <p className="mb-1.5 text-[10px] uppercase tracking-wider text-foreground-muted">Genre</p>

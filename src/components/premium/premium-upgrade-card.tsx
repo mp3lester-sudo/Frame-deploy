@@ -14,14 +14,14 @@ const PREMIUM_FEATURES = [
   "Ad-free, always",
 ];
 
-// Everything below "Everything in Premium" is the A-List-exclusive set --
-// see src/lib/premium/tier.ts (isALevelActive) for the gating helper each
+// Everything below "Everything in Premium" is the Auteur-exclusive set --
+// see src/lib/premium/tier.ts (isAuteurActive) for the gating helper each
 // of these will check once it's actually built. As of this pricing page,
 // only the tier/billing plumbing exists; these perks are the roadmap, not
-// yet functional. See ALIST_PRICE_ID in lib/stripe.ts -- the buy button
+// yet functional. See AUTEUR_PRICE_ID in lib/stripe.ts -- the buy button
 // below stays disabled until that's set, specifically so nobody can pay
-// for this before there's real A-List-exclusive value behind it.
-const ALIST_FEATURES = [
+// for this before there's real Auteur-exclusive value behind it.
+const AUTEUR_FEATURES = [
   "Everything in Premium",
   "Custom poster & backdrop for any title",
   "Entertainment Wrapped, every week",
@@ -29,19 +29,19 @@ const ALIST_FEATURES = [
   "Priority AI concierge, no queue",
   "Bigger Movie Night groups",
   "Full Taste DNA: extended signature picks + evolution timeline",
-  "Gold A-List badge on your profile",
+  "Gold Auteur badge on your profile",
   "Early access to new features",
 ];
 
-export function PremiumUpgradeCard({ alistAvailable = false }: { alistAvailable?: boolean }) {
-  const [loadingTier, setLoadingTier] = useState<"premium" | "a_list" | null>(null);
+export function PremiumUpgradeCard({ auteurAvailable = false }: { auteurAvailable?: boolean }) {
+  const [loadingTier, setLoadingTier] = useState<"premium" | "auteur" | null>(null);
 
   const native = isNativeApp();
 
   // Only ever called from the non-native branches below (the native
   // branch renders no button at all -- see the JSX comment further down
   // for why), so this doesn't need its own native/browser-redirect split.
-  async function handleUpgrade(tier: "premium" | "a_list") {
+  async function handleUpgrade(tier: "premium" | "auteur") {
     setLoadingTier(tier);
     posthog.capture("premium_checkout_started", { tier });
     try {
@@ -100,11 +100,11 @@ export function PremiumUpgradeCard({ alistAvailable = false }: { alistAvailable?
         </Card>
 
         <Card className="border-accent/50 p-6">
-          <h1 className="font-display text-xl">Backlot A-List</h1>
+          <h1 className="font-display text-xl">Backlot Auteur</h1>
           <p className="mt-1 text-sm text-foreground-muted">$14.99/month</p>
 
           <ul className="mt-4 flex flex-col gap-2 text-sm">
-            {ALIST_FEATURES.map((f) => (
+            {AUTEUR_FEATURES.map((f) => (
               <li key={f} className="flex items-start gap-2">
                 <span className="text-accent">✓</span>
                 {f}
@@ -118,13 +118,13 @@ export function PremiumUpgradeCard({ alistAvailable = false }: { alistAvailable?
               <span className="text-foreground">{siteOrigin().replace(/^https?:\/\//, "")}</span> in your
               browser.
             </p>
-          ) : alistAvailable ? (
+          ) : auteurAvailable ? (
             <Button
               className="mt-6 w-full"
-              isLoading={loadingTier === "a_list"}
-              onClick={() => handleUpgrade("a_list")}
+              isLoading={loadingTier === "auteur"}
+              onClick={() => handleUpgrade("auteur")}
             >
-              Upgrade to A-List
+              Upgrade to Auteur
             </Button>
           ) : (
             <Button className="mt-6 w-full" disabled variant="secondary">

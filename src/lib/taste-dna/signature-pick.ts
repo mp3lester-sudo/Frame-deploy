@@ -54,13 +54,31 @@ export function pickSignatureCandidate(
   ratedTitleIds: Set<string>,
   minSimilarity: number = SIMILARITY_FLOOR
 ): { titleId: string; similarity: number } | null {
-  let best: { titleId: string; similarity: number } | null = null;
-  for (const c of candidates) {
-    if (ratedTitleIds.has(c.titleId)) continue;
-    if (c.similarity < minSimilarity) continue;
-    if (!best || c.similarity > best.similarity) best = c;
-  }
-  return best;
+  return pickSignatureCandidates(candidates, ratedTitleIds, 1, minSimilarity)[0] ?? null;
+}
+
+/**
+ * Same eligibility rules as pickSignatureCandidate (unrated, above the
+ * similarity floor) but returns up to `count` candidates ranked
+ * highest-first, instead of just the single winner -- backs the Auteur
+ * "extended signature picks" perk (task #343): everyone gets the one
+ * pickSignatureCandidate would return (count=1 makes the two equivalent,
+ * see the array-index unwrap above), Auteur subscribers get several.
+ * Array.prototype.sort is a stable sort (guaranteed since ES2019), so two
+ * candidates with identical similarity keep their original relative
+ * order here exactly as the old best-tracking loop did -- this isn't just
+ * a refactor that happens to match, it's relied on by the tests above.
+ */
+export function pickSignatureCandidates(
+  candidates: { titleId: string; similarity: number }[],
+  ratedTitleIds: Set<string>,
+  count: number,
+  minSimilarity: number = SIMILARITY_FLOOR
+): { titleId: string; similarity: number }[] {
+  return candidates
+    .filter((c) => !ratedTitleIds.has(c.titleId) && c.similarity >= minSimilarity)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, Math.max(0, count));
 }
 
 /**
@@ -74,6 +92,18 @@ export function pickSignatureCandidate(
  * same title as today's hero pick).
  */
 export async function computeSignaturePick(userId: string): Promise<SignaturePick | null> {
+  const picks = await computeSignaturePicks(userId, 1);
+  return picks[0] ?? null;
+}
+
+/**
+ * Same "what does your taste look like distilled into one film" query as
+ * computeSignaturePick, but returns up to `count` picks instead of just
+ * the top one -- backs the Auteur "extended signature picks" perk (task
+ * #343). count=1 (what computeSignaturePick passes) makes the two
+ * equivalent to the pre-multi-pick behavior.
+ */
+export async function computeSignaturePicks(userId: string, count: number): Promise<SignaturePick[]> {
   const supabase = await createClient();
 
   const [{ data: matches }, { data: userRatings }] = await Promise.all([
@@ -81,13 +111,26 @@ export async function computeSignaturePick(userId: string): Promise<SignaturePic
     supabase.from("ratings").select("title_id").eq("user_id", userId),
   ]);
 
-  if (!matches?.length) return null;
+  if (!matches?.length) return [];
 
   const ratedTitleIds = new Set((userRatings ?? []).map((r) => r.title_id));
   const candidates = matches.map((m) => ({ titleId: m.title_id, similarity: m.similarity }));
-  const winner = pickSignatureCandidate(candidates, ratedTitleIds);
-  if (!winner) return null;
+  const winners = pickSignatureCandidates(candidates, ratedTitleIds, count);
+  if (!winners.length) return [];
 
+  // One winner's title+citations don't depend on another's, so every
+  // winner is built in parallel rather than paying for N sequential round
+  // trips -- each buildSignaturePick call still has its own unavoidable
+  // internal sequential step (cited titles' names depend on citedIds).
+  const built = await Promise.all(winners.map((winner) => buildSignaturePick(supabase, userId, winner)));
+  return built.filter((p): p is SignaturePick => p !== null);
+}
+
+async function buildSignaturePick(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  winner: { titleId: string; similarity: number }
+): Promise<SignaturePick | null> {
   // The title row and its citations don't depend on each other, so fetch
   // both in parallel rather than paying for two sequential round trips --
   // this chain already has one unavoidable sequential step after (cited

@@ -18,6 +18,7 @@ import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
 import { computeCinemaPoints, tierForPoints } from "@/lib/profile/cinema-score";
 import { computeGenreDistribution, buildFingerprintGradient, buildTasteQuote } from "@/lib/profile/taste-fingerprint";
 import { resolveProfileTheme } from "@/lib/profile/theme-preset";
+import { isAuteurActive } from "@/lib/premium/tier";
 import { AnimatedCounter } from "@/components/profile/animated-counter";
 import { Reveal } from "@/components/profile/reveal";
 import { TiltCard } from "@/components/profile/tilt-card";
@@ -297,6 +298,15 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // bio and stats, mirroring the home page's own main-column/rail split
   // so the two most-visited pages in the app share the same reading
   // pattern.
+  // Auteur badge: a distinct gold-filled pill (vs. the outlined accent
+  // pill used for the Cinephile/Film Buff/Casual Viewer experience tier
+  // right next to it) so the two read as different kinds of status --
+  // one self-reported taste level everyone has, one paid perk few do.
+  // isAuteurActive checks premium_tier specifically, not is_premium, so a
+  // Premium (non-Auteur) subscriber or a referral-bonus window correctly
+  // shows no badge here.
+  const isAuteur = isAuteurActive(profile);
+
   const identityBlock = (
     <div className="flex flex-col items-center gap-3 text-center">
       <div className="stagger-card min-w-0" style={{ animationDelay: "80ms" }}>
@@ -305,6 +315,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           <span className="rounded-[var(--radius-full)] border border-accent/50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
             {tierLabel}
           </span>
+          {isAuteur && (
+            <span
+              className="rounded-[var(--radius-full)] border border-accent bg-accent px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-background"
+              title="Backlot Auteur subscriber"
+            >
+              Auteur
+            </span>
+          )}
         </div>
         <p className="text-sm text-foreground-muted">@{profile.username}</p>
       </div>

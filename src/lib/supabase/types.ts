@@ -15,7 +15,7 @@ export interface Database {
           bio: string | null;
           is_creator: boolean;
           is_premium: boolean;
-          premium_tier: "premium" | "a_list" | null;
+          premium_tier: "premium" | "auteur" | null;
           experience_tier: "rookie" | "intermediate" | "pro" | null;
           last_reengagement_email_at: string | null;
           referral_code: string;
@@ -292,6 +292,48 @@ export interface Database {
         Update: Partial<{ endpoint: string; p256dh: string; auth: string }>;
         Relationships: [];
       };
+      title_image_overrides: {
+        Row: {
+          user_id: string;
+          title_id: string;
+          poster_url: string | null;
+          backdrop_url: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          title_id: string;
+          poster_url?: string | null;
+          backdrop_url?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<{ poster_url: string | null; backdrop_url: string | null; updated_at: string }>;
+        Relationships: [];
+      };
+      discover_filter_presets: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          genre: string | null;
+          era: string | null;
+          pacing: string | null;
+          tone: string | null;
+          mood: string | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          name: string;
+          genre?: string | null;
+          era?: string | null;
+          pacing?: string | null;
+          tone?: string | null;
+          mood?: string | null;
+        };
+        Update: Partial<Omit<Database["public"]["Tables"]["discover_filter_presets"]["Row"], "id" | "user_id">>;
+        Relationships: [];
+      };
       notification_preferences: {
         Row: {
           user_id: string;
@@ -437,7 +479,7 @@ export interface Database {
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
           status: string;
-          tier: "premium" | "a_list";
+          tier: "premium" | "auteur";
           current_period_end: string | null;
           updated_at: string;
         };
@@ -446,7 +488,7 @@ export interface Database {
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
           status?: string;
-          tier?: "premium" | "a_list";
+          tier?: "premium" | "auteur";
           current_period_end?: string | null;
         };
         Update: Partial<Omit<Database["public"]["Tables"]["subscriptions"]["Row"], "user_id">>;

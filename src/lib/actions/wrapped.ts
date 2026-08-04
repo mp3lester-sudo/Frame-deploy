@@ -3,7 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isPremiumActive } from "@/lib/premium/is-premium";
-import { computeWrapped, computeMonthlyWrapped } from "@/lib/taste-dna/compute";
+import { isAuteurActive } from "@/lib/premium/tier";
+import { computeWrapped, computeMonthlyWrapped, computeWeeklyWrapped } from "@/lib/taste-dna/compute";
 import type { WrappedResult } from "@/lib/taste-dna/wrapped";
 
 /**
@@ -19,31 +20,42 @@ export async function getMyWrapped(year: number): Promise<WrappedResult | null> 
   return computeWrapped(user.id, year);
 }
 
-export interface MonthlyWrappedState {
+export interface RecentWrappedState {
   /** false for a free account -- the page shows a Premium upsell instead
    *  of a "keep rating" placeholder, since the real blocker isn't rating
    *  volume. */
   isPremium: boolean;
+  /** "week" for Auteur subscribers, "month" for Premium (task #342 gives
+   *  Auteur the tighter cadence as one of its exclusive perks) -- the page
+   *  uses this to pick the right headline/label rather than assuming
+   *  "month" for every paid account. Meaningless when isPremium is false. */
+  cadence: "week" | "month";
   result: WrappedResult | null;
 }
 
 /**
- * Monthly recap is a Premium-only perk (task #140) -- checked here rather
- * than in computeMonthlyWrapped itself, same "gating lives in the action,
- * not the query" split already used for Discover's advanced filters and
- * the Ask Backlot concierge's daily cap.
+ * The "fresher than once a year" recap -- Premium gets it monthly (task
+ * #140), Auteur gets it weekly instead (task #342), gated here rather than
+ * in computeMonthlyWrapped/computeWeeklyWrapped themselves, same
+ * "gating lives in the action, not the query" split already used for
+ * Discover's advanced filters and the Ask Backlot concierge's daily cap.
  */
-export async function getMyMonthlyWrapped(): Promise<MonthlyWrappedState> {
+export async function getMyRecentWrapped(): Promise<RecentWrappedState> {
   const user = await getVerifiedUser();
-  if (!user) return { isPremium: false, result: null };
+  if (!user) return { isPremium: false, cadence: "month", result: null };
 
   const supabase = await createClient();
-  const { data: profile } = await supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_premium, premium_tier, bonus_premium_until")
+    .eq("id", user.id)
+    .maybeSingle();
   const isPremium = isPremiumActive(profile);
-  if (!isPremium) return { isPremium: false, result: null };
+  if (!isPremium) return { isPremium: false, cadence: "month", result: null };
 
-  const result = await computeMonthlyWrapped(user.id);
-  return { isPremium: true, result };
+  const cadence: "week" | "month" = isAuteurActive(profile) ? "week" : "month";
+  const result = cadence === "week" ? await computeWeeklyWrapped(user.id) : await computeMonthlyWrapped(user.id);
+  return { isPremium: true, cadence, result };
 }
 
 export interface WrappedShareResult {

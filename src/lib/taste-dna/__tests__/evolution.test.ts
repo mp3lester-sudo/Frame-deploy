@@ -83,6 +83,37 @@ describe("computeTasteEvolution", () => {
     expect(result!.fadingArchetypes.some((a) => a.name === "Feel-Good Comfort")).toBe(true);
   });
 
+  it("caps insights per direction at the default of 2 even with several qualifying shifts", () => {
+    const earlier = Array.from({ length: 6 }, (_, i) =>
+      rating({ ratedAt: `2025-01-0${i + 1}`, genres: ["Comedy", "Romance", "Family"] })
+    );
+    const recent = Array.from({ length: 6 }, (_, i) =>
+      rating({ ratedAt: `2026-01-0${i + 1}`, genres: ["Horror", "Action", "Thriller"] })
+    );
+    const result = computeTasteEvolution([...earlier, ...recent]);
+    const risingInsights = result!.insights.filter((i) => i.includes("leaning more into"));
+    const fadingInsights = result!.insights.filter((i) => i.includes("faded from"));
+    expect(risingInsights.length).toBeLessThanOrEqual(2);
+    expect(fadingInsights.length).toBeLessThanOrEqual(2);
+  });
+
+  it("surfaces more insights per direction when a higher maxArchetypeInsights is passed (Auteur perk)", () => {
+    const earlier = Array.from({ length: 6 }, (_, i) =>
+      rating({ ratedAt: `2025-01-0${i + 1}`, genres: ["Comedy", "Romance", "Family"] })
+    );
+    const recent = Array.from({ length: 6 }, (_, i) =>
+      rating({ ratedAt: `2026-01-0${i + 1}`, genres: ["Horror", "Action", "Thriller"] })
+    );
+    const capped = computeTasteEvolution([...earlier, ...recent], 2);
+    const expanded = computeTasteEvolution([...earlier, ...recent], 6);
+    const cappedRising = capped!.insights.filter((i) => i.includes("leaning more into")).length;
+    const expandedRising = expanded!.insights.filter((i) => i.includes("leaning more into")).length;
+    expect(expandedRising).toBeGreaterThan(cappedRising);
+    // The underlying computed shift lists themselves are unaffected by the
+    // cap -- only how many get turned into prose insights.
+    expect(expanded!.risingArchetypes).toEqual(capped!.risingArchetypes);
+  });
+
   it("sorts chronologically regardless of input order", () => {
     const recent = rating({ ratedAt: "2026-06-01", violenceLevel: 5 });
     const earlier = rating({ ratedAt: "2025-06-01", violenceLevel: 0 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeWrapped, getMonthRange, MIN_RATINGS_FOR_WRAPPED, type WrappedRatedTitle } from "@/lib/taste-dna/wrapped";
+import { computeWrapped, getMonthRange, getWeekRange, MIN_RATINGS_FOR_WRAPPED, type WrappedRatedTitle } from "@/lib/taste-dna/wrapped";
 
 function makeRated(overrides: Partial<WrappedRatedTitle> = {}): WrappedRatedTitle {
   return {
@@ -154,5 +154,26 @@ describe("getMonthRange", () => {
     expect(start).toBe("2026-12-01T00:00:00.000Z");
     expect(end).toBe("2027-01-01T00:00:00.000Z");
     expect(label).toBe("December 2026");
+  });
+});
+
+describe("getWeekRange", () => {
+  it("returns the Monday-Sunday bounds and label for a mid-week date", () => {
+    const { start, end, label } = getWeekRange(new Date(Date.UTC(2026, 6, 15, 12, 0, 0)));
+    expect(start).toBe("2026-07-13T00:00:00.000Z");
+    expect(end).toBe("2026-07-20T00:00:00.000Z");
+    expect(label).toBe("Jul 13 - Jul 19");
+  });
+
+  it("returns the same Monday for a date that already is one", () => {
+    const { start } = getWeekRange(new Date(Date.UTC(2026, 6, 13, 0, 0, 0)));
+    expect(start).toBe("2026-07-13T00:00:00.000Z");
+  });
+
+  it("rolls the week over into the next year", () => {
+    const { start, end, label } = getWeekRange(new Date(Date.UTC(2026, 11, 31, 12, 0, 0)));
+    expect(start).toBe("2026-12-28T00:00:00.000Z");
+    expect(end).toBe("2027-01-04T00:00:00.000Z");
+    expect(label).toBe("Dec 28 - Jan 3");
   });
 });

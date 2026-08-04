@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStripe, PREMIUM_PRICE_ID, ALIST_PRICE_ID } from "@/lib/stripe";
+import { getStripe, PREMIUM_PRICE_ID, AUTEUR_PRICE_ID } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 
@@ -11,19 +11,19 @@ export async function POST(request: Request) {
 
   // Defaults to "premium" both when no body is sent at all (the existing
   // Premium upgrade button's fetch call never sent one) and when the body
-  // isn't valid JSON -- only an explicit {"tier":"a_list"} selects A-List.
-  let tier: "premium" | "a_list" = "premium";
+  // isn't valid JSON -- only an explicit {"tier":"auteur"} selects Auteur.
+  let tier: "premium" | "auteur" = "premium";
   try {
     const body = await request.json();
-    if (body?.tier === "a_list") tier = "a_list";
+    if (body?.tier === "auteur") tier = "auteur";
   } catch {
     // No/invalid body -- premium default above stands.
   }
 
-  const priceId = tier === "a_list" ? ALIST_PRICE_ID : PREMIUM_PRICE_ID;
+  const priceId = tier === "auteur" ? AUTEUR_PRICE_ID : PREMIUM_PRICE_ID;
   if (!priceId) {
-    // A-List's real Stripe price hasn't been created yet (see
-    // ALIST_PRICE_ID in lib/stripe.ts) -- the pricing page already hides
+    // Auteur's real Stripe price hasn't been created yet (see
+    // AUTEUR_PRICE_ID in lib/stripe.ts) -- the pricing page already hides
     // the buy button in this state, but a stale tab or a direct API call
     // should still fail loudly instead of sending Stripe an empty price.
     return NextResponse.json({ error: "This plan isn't available yet." }, { status: 400 });

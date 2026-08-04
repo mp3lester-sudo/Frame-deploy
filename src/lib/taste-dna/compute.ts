@@ -4,6 +4,7 @@ import { computeTasteEvolution, type RatedTitleFeaturesWithTime, type TasteEvolu
 import {
   computeWrapped as computeWrappedFromRatings,
   getMonthRange,
+  getWeekRange,
   type WrappedRatedTitle,
   type WrappedResult,
 } from "@/lib/taste-dna/wrapped";
@@ -34,7 +35,14 @@ export interface TasteDnaWithEvolution extends TasteDnaResult {
  * Also computes taste evolution (see evolution.ts) from the same rating
  * history, split chronologically — no separate query, no snapshot table.
  */
-export async function computeTasteDna(userId: string): Promise<TasteDnaWithEvolution> {
+export async function computeTasteDna(
+  userId: string,
+  /** Forwarded to computeTasteEvolution -- how many rising/fading
+   *  archetype insights to surface per direction. Defaults to that
+   *  function's own default; the Taste DNA page passes a higher number
+   *  for Auteur subscribers (task #343). */
+  maxArchetypeInsights?: number
+): Promise<TasteDnaWithEvolution> {
   const supabase = await createClient();
 
   const { data: ratings } = await supabase
@@ -97,7 +105,7 @@ export async function computeTasteDna(userId: string): Promise<TasteDnaWithEvolu
     .filter((f): f is RatedTitleFeaturesWithTime => f !== null);
 
   const result = computeTasteDnaFromRatings(rated);
-  const evolution = computeTasteEvolution(rated);
+  const evolution = computeTasteEvolution(rated, maxArchetypeInsights);
 
   // Best-effort persistence — a failed write here shouldn't break the page.
   try {
@@ -208,7 +216,7 @@ export async function computeWrapped(userId: string, year: number): Promise<Wrap
 /**
  * Monthly recap -- same scoring as the annual Wrapped, scoped to the
  * current UTC calendar month instead of a full year. A Premium-only perk
- * (task #140): gated in lib/actions/wrapped.ts's getMyMonthlyWrapped, not
+ * (task #140): gated in lib/actions/wrapped.ts's getMyRecentWrapped, not
  * here, so this function itself stays a plain data query with no plan
  * logic mixed in. Uses `year` as the numeric bookkeeping value WrappedResult
  * already requires (share/OG-image code reads it) but the actual headline
@@ -217,6 +225,19 @@ export async function computeWrapped(userId: string, year: number): Promise<Wrap
  */
 export async function computeMonthlyWrapped(userId: string): Promise<WrappedResult | null> {
   const { start, end, label } = getMonthRange(new Date());
+  const rated = await fetchRatedTitlesInRange(userId, start, end);
+  if (!rated.length) return null;
+  return computeWrappedFromRatings(rated, new Date().getUTCFullYear(), label);
+}
+
+/**
+ * Weekly recap -- same idea as computeMonthlyWrapped, scoped to the current
+ * UTC calendar week (Monday-Sunday) instead of the month. Auteur-exclusive
+ * (task #342): gated in lib/actions/wrapped.ts's getMyRecentWrapped, not
+ * here, matching the monthly perk's "gating lives in the action" split.
+ */
+export async function computeWeeklyWrapped(userId: string): Promise<WrappedResult | null> {
+  const { start, end, label } = getWeekRange(new Date());
   const rated = await fetchRatedTitlesInRange(userId, start, end);
   if (!rated.length) return null;
   return computeWrappedFromRatings(rated, new Date().getUTCFullYear(), label);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pickSignatureCandidate, signatureMatchPercent } from "@/lib/taste-dna/signature-pick";
+import { pickSignatureCandidate, pickSignatureCandidates, signatureMatchPercent } from "@/lib/taste-dna/signature-pick";
 
 describe("pickSignatureCandidate", () => {
   it("returns null for an empty candidate list", () => {
@@ -51,6 +51,54 @@ describe("pickSignatureCandidate", () => {
       0.5
     );
     expect(result).toBeNull();
+  });
+});
+
+describe("pickSignatureCandidates", () => {
+  it("returns an empty array for an empty candidate list", () => {
+    expect(pickSignatureCandidates([], new Set(), 5)).toEqual([]);
+  });
+
+  it("ranks eligible candidates highest-similarity-first, capped at count", () => {
+    const result = pickSignatureCandidates(
+      [
+        { titleId: "a", similarity: 0.6 },
+        { titleId: "b", similarity: 0.81 },
+        { titleId: "c", similarity: 0.72 },
+        { titleId: "d", similarity: 0.9 },
+      ],
+      new Set(),
+      2
+    );
+    expect(result).toEqual([
+      { titleId: "d", similarity: 0.9 },
+      { titleId: "b", similarity: 0.81 },
+    ]);
+  });
+
+  it("excludes rated titles and anything below the similarity floor", () => {
+    const result = pickSignatureCandidates(
+      [
+        { titleId: "a", similarity: 0.95 },
+        { titleId: "b", similarity: 0.7 },
+        { titleId: "c", similarity: 0.3 },
+      ],
+      new Set(["a"]),
+      5,
+      0.5
+    );
+    expect(result).toEqual([{ titleId: "b", similarity: 0.7 }]);
+  });
+
+  it("with count=1 matches pickSignatureCandidate exactly", () => {
+    const candidates = [
+      { titleId: "a", similarity: 0.6 },
+      { titleId: "b", similarity: 0.81 },
+      { titleId: "c", similarity: 0.72 },
+    ];
+    const single = pickSignatureCandidate(candidates, new Set());
+    const [first] = pickSignatureCandidates(candidates, new Set(), 1);
+    expect(first).toEqual(single);
   });
 });
 

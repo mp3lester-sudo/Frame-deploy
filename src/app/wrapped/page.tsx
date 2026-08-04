@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
-import { getMyWrapped, getMyMonthlyWrapped } from "@/lib/actions/wrapped";
+import { getMyWrapped, getMyRecentWrapped } from "@/lib/actions/wrapped";
 import { WrappedRecap } from "@/components/wrapped/wrapped-recap";
 import { ShareWrappedButton } from "@/components/wrapped/share-button";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export default async function WrappedPage({
   const result = await getMyWrapped(year);
   // Independent of the year param above -- this is always "the current
   // calendar month," Premium-gated inside the action itself.
-  const monthly = await getMyMonthlyWrapped();
+  const recent = await getMyRecentWrapped();
   return (
     <section className="mx-auto max-w-2xl px-4 py-10">
       {/* Monthly recap -- Premium perk (task #140), sits above the yearly
@@ -35,13 +35,13 @@ export default async function WrappedPage({
           month yet get the same "keep rating" framing as the yearly one. */}
       <div className="mb-10 border-b border-border pb-8">
         <p className="text-[11px] font-medium uppercase tracking-wider text-accent">This month</p>
-        {!monthly.isPremium ? (
+        {!recent.isPremium ? (
           <div className="mt-2">
             <PremiumUpsell message="Get a fresh recap every month, not just once a year." />
           </div>
-        ) : monthly.result ? (
+        ) : recent.result ? (
           <div className="mt-3">
-            <WrappedRecap result={monthly.result} headline={`Your ${getMonthRange(new Date()).label}`} />
+            <WrappedRecap result={recent.result} headline={`Your ${getMonthRange(new Date()).label}`} />
           </div>
         ) : (
           <p className="mt-2 text-sm text-foreground-muted">

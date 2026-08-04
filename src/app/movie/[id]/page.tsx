@@ -20,6 +20,9 @@ import { getTmdbTrailer } from "@/lib/external/tmdb-videos";
 import { getOrFetchWatchProviders } from "@/lib/external/tmdb-watch-providers";
 import { WhereToWatch } from "@/components/where-to-watch";
 import { BackdropHero } from "@/components/backdrop-hero";
+import { CustomizeTitleImages } from "@/components/movie/customize-title-images";
+import { getMyTitleImageOverride } from "@/lib/actions/title-image-overrides";
+import { isAuteurActive } from "@/lib/premium/tier";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -60,7 +63,16 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
   const viewer = await getVerifiedUser();
 
-  const [{ data: title }, { data: reviews }, { data: userRating }, { data: credits }, { data: watchlistRow }, { data: myLists }] =
+  const [
+    { data: title },
+    { data: reviews },
+    { data: userRating },
+    { data: credits },
+    { data: watchlistRow },
+    { data: myLists },
+    { data: viewerProfile },
+    imageOverride,
+  ] =
     await Promise.all([
       supabase.from("titles").select("*").eq("id", id).single(),
       supabase
@@ -88,6 +100,18 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
       viewer
         ? supabase.from("lists").select("id, title").eq("user_id", viewer.id).order("created_at", { ascending: false })
         : Promise.resolve({ data: null }),
+      // Auteur check for the customize-art affordance below -- separate
+      // from viewer itself since getVerifiedUser doesn't carry
+      // premium_tier.
+      viewer
+        ? supabase.from("profiles").select("is_premium, premium_tier").eq("id", viewer.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      // Per-viewer poster/backdrop override (Auteur perk, task #339) --
+      // fetched unconditionally for any signed-in viewer, not just
+      // Auteur, so a lapsed subscriber's existing custom art still
+      // displays (see getMyTitleImageOverride's doc comment); the *button
+      // to change it* is what's actually gated below.
+      viewer ? getMyTitleImageOverride(id) : Promise.resolve(null),
     ]);
 
   if (!title) notFound();
@@ -143,10 +167,17 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
     commentsByReview.set(c.review_id, list);
   }
 
+  // Per-viewer poster/backdrop override wins over the catalogue default
+  // when set (Auteur perk, task #339) -- imageOverride is null for
+  // logged-out visitors and anyone who hasn't set one.
+  const effectivePosterUrl = imageOverride?.poster_url || title.poster_url;
+  const effectiveBackdropUrl = imageOverride?.backdrop_url || title.backdrop_url;
+  const isAuteur = isAuteurActive(viewerProfile);
+
   return (
     <div>
-      {title.backdrop_url && (
-        <BackdropHero backdropUrl={title.backdrop_url} trailerKey={trailer?.key ?? null} title={title.name} />
+      {effectiveBackdropUrl && (
+        <BackdropHero backdropUrl={effectiveBackdropUrl} trailerKey={trailer?.key ?? null} title={title.name} />
       )}
       {/* Negative top margin pulls the poster/title row up into the
           hero's bottom fade (see backdrop-hero.tsx) so the title reads
@@ -154,11 +185,11 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
           layout. The offset is sized to the title/rating/badge stack --
           by the time we reach the overview paragraph we're clear of the
           hero and on solid background. */}
-      <div className={`relative mx-auto max-w-4xl px-4 pb-8 ${title.backdrop_url ? "-mt-20 sm:-mt-28" : "py-8"}`}>
+      <div className={`relative mx-auto max-w-4xl px-4 pb-8 ${effectiveBackdropUrl ? "-mt-20 sm:-mt-28" : "py-8"}`}>
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-[var(--radius-lg)] bg-surface-raised shadow-[0_12px_32px_-8px_rgba(0,0,0,0.6)] sm:w-56">
-          {title.poster_url && (
-            <Image src={title.poster_url} alt={title.name} fill className="object-cover" />
+          {effectivePosterUrl && (
+            <Image src={effectivePosterUrl} alt={title.name} fill className="object-cover" />
           )}
         </div>
 
@@ -190,6 +221,17 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <WatchlistButton titleId={title.id} initiallyOnWatchlist={!!watchlistRow} />
               <AddToListMenu titleId={title.id} lists={addToListMenuLists} />
+            </div>
+          )}
+
+          {isAuteur && (
+            <div className="mt-4">
+              <CustomizeTitleImages
+                titleId={title.id}
+                hasOverride={!!imageOverride}
+                initialPosterUrl={imageOverride?.poster_url ?? ""}
+                initialBackdropUrl={imageOverride?.backdrop_url ?? ""}
+              />
             </div>
           )}
         </div>
