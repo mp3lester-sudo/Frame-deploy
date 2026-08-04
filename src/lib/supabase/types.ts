@@ -551,6 +551,39 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      daily_trivia: {
+        Row: {
+          date_key: string;
+          title_id: string | null;
+          question_type: string;
+          question: string;
+          options: string[];
+          correct_index: number;
+          created_at: string;
+        };
+        Insert: {
+          date_key: string;
+          title_id?: string | null;
+          question_type: string;
+          question: string;
+          options: string[];
+          correct_index: number;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      daily_trivia_responses: {
+        Row: {
+          user_id: string;
+          date_key: string;
+          selected_index: number;
+          is_correct: boolean;
+          created_at: string;
+        };
+        Insert: { user_id: string; date_key: string; selected_index: number; is_correct: boolean };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -641,6 +674,10 @@ export interface Database {
       titles_matching_names: {
         Args: { p_names: string[] };
         Returns: { id: string; name: string; release_date: string | null }[];
+      };
+      titles_on_this_day: {
+        Args: { p_month: number; p_day: number; p_limit?: number };
+        Returns: { id: string; name: string; poster_url: string | null; release_date: string | null; weighted_rating: number | null }[];
       };
     };
   };
