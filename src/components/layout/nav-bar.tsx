@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, UsersRound, Mail, Gift, Bell } from "lucide-react";
+import { Search, Sparkles, Users, Compass, User, Clapperboard, Dna, Settings, UsersRound, Mail, Gift, Bell, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** How long the nav bar stays visible with no scroll/mouse/touch/key
@@ -19,6 +19,7 @@ const links = [
   { href: "/ai", label: "Ask Backlot", icon: Sparkles },
   { href: "/feed", label: "Social", icon: Users },
   { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
+  { href: "/daily", label: "Daily", icon: CalendarDays },
   { href: "/clubs", label: "Clubs", icon: UsersRound },
 ];
 
