@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
-import { getMyWrapped, getMyMonthlyWrapped } from "@/lib/actions/wrapped";
-import { WrappedRecap } from "@/components/wrapped/wrapped-recap";
-import { ShareWrappedButton } from "@/components/wrapped/share-button";
+import { getMyWrapped, getMyRecentWrapped } from "@/lib/actions/wrapped";
+import { WrappedStory } from "@/components/wrapped/wrapped-story";
 import { Button } from "@/components/ui/button";
 import { PremiumUpsell } from "@/components/premium-upsell";
-import { MIN_RATINGS_FOR_WRAPPED, getMonthRange } from "@/lib/taste-dna/wrapped";
+import { MIN_RATINGS_FOR_WRAPPED, getMonthRange, getWeekRange } from "@/lib/taste-dna/wrapped";
 
 export default async function WrappedPage({
   searchParams,
@@ -23,29 +22,40 @@ export default async function WrappedPage({
   const isCurrentYear = year === currentYear;
 
   const result = await getMyWrapped(year);
-  // Independent of the year param above -- this is always "the current
-  // calendar month," Premium-gated inside the action itself.
-  const monthly = await getMyMonthlyWrapped();
+  // Independent of the year param above -- always "the current week/
+  // month" (week for Auteur, month for Premium -- see getMyRecentWrapped),
+  // gated inside the action itself.
+  const recent = await getMyRecentWrapped();
+  const recentLabel = recent.cadence === "week" ? getWeekRange(now).label : getMonthRange(now).label;
+  const recentHeadline = recent.cadence === "week" ? `Your week of ${recentLabel}` : `Your ${recentLabel}`;
+
   return (
     <section className="mx-auto max-w-2xl px-4 py-10">
-      {/* Monthly recap -- Premium perk (task #140), sits above the yearly
-          recap since "this month" is the more immediate, frequently-
+      {/* Recent recap -- Premium perk (task #140), Auteur gets it weekly
+          instead of monthly (task #342). Sits above the yearly story
+          since "this week/month" is the more immediate, frequently-
           refreshed hook. Free accounts get a one-line upsell instead of a
-          locked-looking card; Premium accounts with too few ratings this
-          month yet get the same "keep rating" framing as the yearly one. */}
+          locked-looking card; Premium/Auteur accounts with too few
+          ratings in the period yet get the same "keep rating" framing as
+          the yearly one. Rendered as its own compact WrappedStory rather
+          than a plain stat grid so the whole feature -- not just the
+          once-a-year headline moment -- gets the full Spotify-Wrapped
+          treatment. */}
       <div className="mb-10 border-b border-border pb-8">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-accent">This month</p>
-        {!monthly.isPremium ? (
+        <p className="text-[11px] font-medium uppercase tracking-wider text-accent">
+          {recent.cadence === "week" ? "This week" : "This month"}
+        </p>
+        {!recent.isPremium ? (
           <div className="mt-2">
             <PremiumUpsell message="Get a fresh recap every month, not just once a year." />
           </div>
-        ) : monthly.result ? (
+        ) : recent.result ? (
           <div className="mt-3">
-            <WrappedRecap result={monthly.result} headline={`Your ${getMonthRange(new Date()).label}`} />
+            <WrappedStory result={recent.result} headline={recentHeadline} variant="compact" />
           </div>
         ) : (
           <p className="mt-2 text-sm text-foreground-muted">
-            Rate at least {MIN_RATINGS_FOR_WRAPPED} titles this month and your recap fills in here.
+            Rate at least {MIN_RATINGS_FOR_WRAPPED} titles this {recent.cadence} and your recap fills in here.
           </p>
         )}
       </div>
@@ -73,15 +83,12 @@ export default async function WrappedPage({
           </Link>
         </div>
       ) : (
-        <>
-          <WrappedRecap result={result} headline={`Your ${isCurrentYear ? `${year} So Far` : `${year} Wrapped`}`} />
-          <div className="mt-10 border-t border-border pt-6">
-            <p className="mb-3 text-[11px] uppercase tracking-wider text-foreground-muted">
-              Share this recap
-            </p>
-            <ShareWrappedButton year={year} />
-          </div>
-        </>
+        <WrappedStory
+          result={result}
+          headline={`Your ${isCurrentYear ? `${year} So Far` : `${year} Wrapped`}`}
+          shareYear={year}
+          variant="full"
+        />
       )}
     </section>
   );

@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       const userId = session.metadata?.user_id ?? session.client_reference_id;
-      const tier = session.metadata?.tier === "a_list" ? "a_list" : "premium";
+      const tier = session.metadata?.tier === "auteur" ? "auteur" : "premium";
       if (userId) {
         await supabase.from("subscriptions").upsert({
           user_id: userId,
@@ -56,13 +56,13 @@ export async function POST(request: Request) {
       if (existing) {
         const isActive = isSubscriptionStatusActive(sub.status);
         // Falls back to whichever tier is already on file (defaulting to
-        // "premium" for rows that predate A-List) rather than the
+        // "premium" for rows that predate Auteur) rather than the
         // subscription's own metadata alone -- Stripe only carries
         // subscription_data.metadata forward from Checkout for
         // subscriptions created after that field was added here, so an
         // older subscription being renewed/cancelled won't have
         // sub.metadata.tier set at all.
-        const tier = (sub.metadata?.tier === "a_list" ? "a_list" : sub.metadata?.tier === "premium" ? "premium" : existing.tier) ?? "premium";
+        const tier = (sub.metadata?.tier === "auteur" ? "auteur" : sub.metadata?.tier === "premium" ? "premium" : existing.tier) ?? "premium";
         await supabase
           .from("subscriptions")
           .update({

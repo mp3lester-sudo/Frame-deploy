@@ -63,6 +63,34 @@ export function getMonthRange(now: Date): { start: string; end: string; label: s
   return { start, end, label };
 }
 
+/**
+ * UTC calendar-week bounds (Monday-Sunday) for the Auteur-exclusive weekly
+ * recap, mirroring getMonthRange's shape. Week label reads as a date range
+ * ("Jul 27 - Aug 2") since "this week" alone would be ambiguous headline
+ * text the way a month or year name isn't.
+ */
+export function getWeekRange(now: Date): { start: string; end: string; label: string } {
+  const day = now.getUTCDay();
+  // getUTCDay is 0(Sun)-6(Sat) -- convert to days-since-Monday so the week
+  // always starts on Monday regardless of what day "now" falls on.
+  const daysSinceMonday = (day + 6) % 7;
+  const monday = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceMonday)
+  );
+  const nextMonday = new Date(
+    Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 7)
+  );
+  const sunday = new Date(
+    Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 6)
+  );
+  const fmt = (d: Date) => d.toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return {
+    start: monday.toISOString(),
+    end: nextMonday.toISOString(),
+    label: `${fmt(monday)} - ${fmt(sunday)}`,
+  };
+}
+
 /** A "hidden gem" needs an actual vote count to compare against, and a
  *  genuinely positive rating from the user — otherwise a title with no
  *  TMDB data at all would win by default, which isn't a real signal. */
@@ -77,7 +105,7 @@ export function computeWrapped(
   year: number,
   /** Text used in the summary line's "Your ___:" lead-in -- defaults to the
    *  plain year for the annual recap. The monthly recap (Premium perk, see
-   *  getMyMonthlyWrapped) passes a month name instead ("Your July:") so the
+   *  getMyRecentWrapped) passes a month or week name instead ("Your July:") so the
    *  same scoring logic can back both without the summary text implying a
    *  full year's worth of data when it's really one month's. */
   summaryLabel: string = String(year)

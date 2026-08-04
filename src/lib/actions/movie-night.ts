@@ -10,6 +10,7 @@ import { captureServerError } from "@/lib/monitoring/sentry-server";
 import { getCandidatesForMovieNight, type MovieNightCandidate } from "@/lib/recommendations/movie-night";
 import { computeMatches, rankByLikeCount, type MovieNightVoteRecord } from "@/lib/recommendations/movie-night-matches";
 import type { Database } from "@/lib/supabase/types";
+import { movieNightMaxParticipants } from "@/lib/premium/tier";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -82,6 +83,24 @@ export async function inviteToMovieNight(input: z.infer<typeof inviteSchema>) {
   if (night.host_id !== user.id) throw new Error("Only the host can invite people");
   if (night.status !== "collecting") throw new Error("This movie night is no longer collecting");
 
+  // Group size cap keyed off the host's own tier (see
+  // movieNightMaxParticipants) -- the host is always user.id here since
+  // only the host can invite, so this is one extra profile lookup, not a
+  // per-invitee one.
+  const [{ data: hostProfile }, { count: participantCount }] = await Promise.all([
+    supabase.from("profiles").select("is_premium, premium_tier").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("movie_night_participants")
+      .select("*", { count: "exact", head: true })
+      .eq("movie_night_id", movieNightId),
+  ]);
+  const maxParticipants = movieNightMaxParticipants(hostProfile);
+  if ((participantCount ?? 0) >= maxParticipants) {
+    throw new Error(
+      `This movie night is full (${maxParticipants} people max on your plan). Upgrade to Backlot Auteur for bigger groups.`
+    );
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
@@ -127,6 +146,34 @@ export async function joinMovieNightByToken(input: z.infer<typeof joinByTokenSch
   const { data: rows } = await supabase.rpc("resolve_movie_night_token", { p_token: token });
   const night = rows?.[0];
   if (!night) throw new Error("This invite link isn't valid, or that movie night is no longer open");
+
+  // Same group-size cap as inviteToMovieNight, keyed off the host's tier
+  // -- checked here too since this is the *other* way to add a
+  // participant (a link, not a by-username invite) and shouldn't be a
+  // backdoor around the same limit. Skipped entirely for someone
+  // rejoining a session they're already in (see the 23505 handling
+  // below) -- that path doesn't grow the group at all.
+  const { data: hostProfile } = await supabase
+    .from("profiles")
+    .select("is_premium, premium_tier")
+    .eq("id", night.host_id)
+    .maybeSingle();
+  const { count: participantCount } = await supabase
+    .from("movie_night_participants")
+    .select("*", { count: "exact", head: true })
+    .eq("movie_night_id", night.id);
+  const maxParticipants = movieNightMaxParticipants(hostProfile);
+  const alreadyIn = (
+    await supabase
+      .from("movie_night_participants")
+      .select("user_id")
+      .eq("movie_night_id", night.id)
+      .eq("user_id", user.id)
+      .maybeSingle()
+  ).data;
+  if (!alreadyIn && (participantCount ?? 0) >= maxParticipants) {
+    throw new Error(`This movie night is full (${maxParticipants} people max on the host's plan).`);
+  }
 
   const { error } = await supabase
     .from("movie_night_participants")

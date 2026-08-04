@@ -50,7 +50,19 @@ const ARCHETYPE_NOISE_FLOOR = 12;
 const DIMENSION_NOISE_FLOOR = 1;
 const MAX_ARCHETYPE_INSIGHTS = 2;
 
-export function computeTasteEvolution(rated: RatedTitleFeaturesWithTime[]): TasteEvolutionResult | null {
+/**
+ * How many rising/fading archetype insights to surface, per direction --
+ * exported so lib/taste-dna/compute.ts can pass a higher cap for Auteur
+ * subscribers (task #343's "extended... evolution timeline" perk) while
+ * everyone else keeps the original MAX_ARCHETYPE_INSIGHTS. Same
+ * risingArchetypes/fadingArchetypes are always computed in full either
+ * way -- this only changes how many of them get turned into prose
+ * insights.
+ */
+export function computeTasteEvolution(
+  rated: RatedTitleFeaturesWithTime[],
+  maxArchetypeInsights: number = MAX_ARCHETYPE_INSIGHTS
+): TasteEvolutionResult | null {
   if (rated.length < MIN_TOTAL_FOR_EVOLUTION) return null;
 
   const sorted = [...rated].sort((a, b) => new Date(a.ratedAt).getTime() - new Date(b.ratedAt).getTime());
@@ -66,10 +78,10 @@ export function computeTasteEvolution(rated: RatedTitleFeaturesWithTime[]): Tast
   const insights: string[] = [];
 
   const { risingArchetypes, fadingArchetypes } = diffArchetypes(earlierDna, recentDna);
-  for (const a of risingArchetypes.slice(0, MAX_ARCHETYPE_INSIGHTS)) {
+  for (const a of risingArchetypes.slice(0, maxArchetypeInsights)) {
     insights.push(`You've been leaning more into ${a.name} lately (${a.from}% → ${a.to}%).`);
   }
-  for (const a of fadingArchetypes.slice(0, MAX_ARCHETYPE_INSIGHTS)) {
+  for (const a of fadingArchetypes.slice(0, maxArchetypeInsights)) {
     insights.push(`${a.name} has faded from your recent ratings (${a.from}% → ${a.to}%).`);
   }
 
