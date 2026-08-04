@@ -68,6 +68,7 @@ export default async function DailyPage() {
               <DailyTriviaCard
                 question={trivia.question}
                 options={trivia.options}
+                posterUrl={trivia.posterUrl}
                 alreadyAnswered
                 correctIndex={trivia.correctIndex}
                 selectedIndex={triviaResponse.selected_index}

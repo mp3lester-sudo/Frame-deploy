@@ -5,12 +5,16 @@ export interface DailyTrivia {
   question: string;
   options: string[];
   correctIndex: number;
+  /** The subject title's poster, shown as a background treatment behind
+   *  the trivia card -- safe to expose before answering, unlike
+   *  correctIndex, since it doesn't give away the answer on its own. */
+  posterUrl: string | null;
 }
 
 export type DailyTriviaPublic = Omit<DailyTrivia, "correctIndex">;
 
 export function toPublicTrivia(trivia: DailyTrivia): DailyTriviaPublic {
-  return { dateKey: trivia.dateKey, question: trivia.question, options: trivia.options };
+  return { dateKey: trivia.dateKey, question: trivia.question, options: trivia.options, posterUrl: trivia.posterUrl };
 }
 
 const GENRES = [
@@ -147,56 +151,65 @@ export async function getOrCreateDailyTrivia(): Promise<DailyTrivia | null> {
   const dateKey = todayDateKey();
   const supabase = await createClient();
 
+  type Row = { date_key: string; title_id: string | null; question: string; options: string[]; correct_index: number };
+
   const { data: existing } = await supabase
     .from("daily_trivia")
-    .select("date_key, question, options, correct_index")
+    .select("date_key, title_id, question, options, correct_index")
     .eq("date_key", dateKey)
     .maybeSingle();
 
-  if (existing) {
-    return {
-      dateKey: existing.date_key,
-      question: existing.question,
-      options: existing.options,
-      correctIndex: existing.correct_index,
-    };
+  let row: Row | null = existing;
+
+  if (!row) {
+    let built: BuiltQuestion;
+    try {
+      built = await buildTriviaQuestion();
+    } catch {
+      return null;
+    }
+
+    const service = createServiceRoleClient();
+    // Race-safe: if another request generated today's trivia in the gap
+    // between the select above and this insert, this insert conflicts on
+    // the date_key primary key -- fall through to reading whatever won
+    // instead of erroring.
+    const { error } = await service.from("daily_trivia").insert({
+      date_key: dateKey,
+      title_id: built.titleId,
+      question_type: built.questionType,
+      question: built.question,
+      options: built.options,
+      correct_index: built.correctIndex,
+    });
+
+    if (error) {
+      const { data: winner } = await supabase
+        .from("daily_trivia")
+        .select("date_key, title_id, question, options, correct_index")
+        .eq("date_key", dateKey)
+        .maybeSingle();
+      if (!winner) return null;
+      row = winner;
+    } else {
+      row = { date_key: dateKey, title_id: built.titleId, question: built.question, options: built.options, correct_index: built.correctIndex };
+    }
   }
 
-  let built: BuiltQuestion;
-  try {
-    built = await buildTriviaQuestion();
-  } catch {
-    return null;
+  // Same lazy-lookup spirit as the rest of the app -- poster_url can
+  // change (a title's art gets updated), so this is read live off titles
+  // rather than duplicated into daily_trivia at generation time.
+  let posterUrl: string | null = null;
+  if (row.title_id) {
+    const { data: title } = await supabase.from("titles").select("poster_url").eq("id", row.title_id).maybeSingle();
+    posterUrl = title?.poster_url ?? null;
   }
 
-  const service = createServiceRoleClient();
-  // Race-safe: if another request generated today's trivia in the gap
-  // between the select above and this insert, this insert conflicts on
-  // the date_key primary key -- fall through to reading whatever won
-  // instead of erroring.
-  const { error } = await service.from("daily_trivia").insert({
-    date_key: dateKey,
-    title_id: built.titleId,
-    question_type: built.questionType,
-    question: built.question,
-    options: built.options,
-    correct_index: built.correctIndex,
-  });
-
-  if (error) {
-    const { data: winner } = await supabase
-      .from("daily_trivia")
-      .select("date_key, question, options, correct_index")
-      .eq("date_key", dateKey)
-      .maybeSingle();
-    if (!winner) return null;
-    return {
-      dateKey: winner.date_key,
-      question: winner.question,
-      options: winner.options,
-      correctIndex: winner.correct_index,
-    };
-  }
-
-  return { dateKey, question: built.question, options: built.options, correctIndex: built.correctIndex };
+  return {
+    dateKey: row.date_key,
+    question: row.question,
+    options: row.options,
+    correctIndex: row.correct_index,
+    posterUrl,
+  };
 }
