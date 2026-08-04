@@ -6,6 +6,7 @@ import { qualityMultiplier } from "./quality-weighting";
 import { computeGenreAffinity, genreAffinityMultiplier } from "./genre-affinity";
 import { computeCurationConfidence, computeBlendWeights, computeAdjustmentBand } from "./curation-confidence";
 import { calibrateMatchPercents } from "./match-percent";
+import { diversifyRecommendations, type DiversifiableCandidate } from "./diversify";
 import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
 
@@ -157,10 +158,18 @@ export async function getRecommendationsForUser(
     adjusted.push({ id, score: score * totalAdjustment });
   }
 
-  const rankedIds = adjusted
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((r) => r.id);
+  // Score-sort first, then a diversity pass over the sorted pool -- see
+  // diversify.ts. Without this, the top N by score alone could easily be N
+  // near-duplicates of the same director/subgenre cluster, since a taste
+  // vector naturally scores everything close to a favorite highly,
+  // including several titles that are all close to EACH OTHER too.
+  const sortedAdjusted = adjusted.sort((a, b) => b.score - a.score);
+  const diversifyCandidates: DiversifiableCandidate[] = sortedAdjusted.map((a) => ({
+    id: a.id,
+    score: a.score,
+    genres: byId.get(a.id)?.genres ?? null,
+  }));
+  const rankedIds = diversifyRecommendations(diversifyCandidates, limit).map((r) => r.id);
 
   if (rankedIds.length === 0) {
     return { recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true };

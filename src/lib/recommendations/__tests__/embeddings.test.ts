@@ -58,6 +58,30 @@ describe("buildEmbeddingInput", () => {
     expect(input).toContain("Emotional intensity (0-5): 4");
   });
 
+  it("includes director and top-billed cast when credits are provided", () => {
+    const input = buildEmbeddingInput(makeTitle(), {
+      directors: ["Denis Villeneuve"],
+      topCast: ["Amy Adams", "Jeremy Renner"],
+    });
+
+    expect(input).toContain("Director: Denis Villeneuve");
+    expect(input).toContain("Starring: Amy Adams, Jeremy Renner");
+  });
+
+  it("omits Director/Starring lines when no credits are passed at all", () => {
+    const input = buildEmbeddingInput(makeTitle());
+
+    expect(input).not.toContain("Director:");
+    expect(input).not.toContain("Starring:");
+  });
+
+  it("omits Director/Starring lines when credits are passed but empty", () => {
+    const input = buildEmbeddingInput(makeTitle(), { directors: [], topCast: [] });
+
+    expect(input).not.toContain("Director:");
+    expect(input).not.toContain("Starring:");
+  });
+
   it("omits empty or null fields instead of emitting blank lines", () => {
     const input = buildEmbeddingInput(
       makeTitle({ themes: [], tone: [], mood_tags: [], overview: null, ending_type: null })
