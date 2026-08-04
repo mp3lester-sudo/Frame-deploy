@@ -16,8 +16,8 @@ import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
 import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
 import { CompanionPicker } from "@/components/home/companion-picker";
-import { DirectorOfTheDay } from "@/components/home/director-of-the-day";
-import { getDirectorOfTheDay } from "@/lib/director-of-day/fetch";
+import { HiddenGemCard } from "@/components/home/hidden-gem-card";
+import { getHiddenGemForUser } from "@/lib/recommendations/hidden-gem";
 import { isCircumstantialContext } from "@/lib/context/circumstantial";
 import { PreciseLocation } from "@/components/home/precise-location";
 import { IndieSpotlight } from "@/components/home/indie-spotlight";
@@ -117,7 +117,6 @@ export default async function HomePage({
     { recommendations, isColdStart },
     { data: memberships },
     { data: following },
-    directorOfTheDay,
     indieReleases,
     indieNews,
   ] = await Promise.all([
@@ -134,10 +133,6 @@ export default async function HomePage({
     // Recent activity from people the user follows — omitted entirely
     // rather than shown with placeholder people when there's nothing real yet.
     supabase.from("follows").select("followee_id").eq("follower_id", user.id),
-    // Independent of context/companion mode -- a director this user has
-    // rated well, rotating daily (see director-of-day/pick.ts). Returns
-    // null rather than a placeholder when there's no rating history yet.
-    getDirectorOfTheDay(user.id),
     // Indie Spotlight data (release calendar + IndieWire headlines) is the
     // same for every visitor, not scoped to this user at all -- rides
     // along in this same batch rather than adding a sequential fetch.
@@ -149,7 +144,7 @@ export default async function HomePage({
   const nightIds = (memberships ?? []).map((m) => m.movie_night_id);
   const followeeIds = (following ?? []).map((f) => f.followee_id);
 
-  const [heroDirectorResult, night, events] = await Promise.all([
+  const [heroDirectorResult, night, events, hiddenGem] = await Promise.all([
     hero
       ? supabase
           .from("title_credits")
@@ -178,6 +173,17 @@ export default async function HomePage({
           .limit(SOCIAL_EVENTS_LIMIT)
           .then((r) => r.data ?? [])
       : Promise.resolve([]),
+    // Replaces Director of the Day in this slot (moved to /daily) -- a
+    // single high-match, low-popularity pick from this user's own taste
+    // vector. Excludes whatever's already shown in the hero/mood row so it
+    // never repeats a pick. Independent of companion context, same as
+    // Director of the Day was -- it's this user's own taste, not a blended
+    // one, so it stays visible in date-night/with-friends mode too
+    // (recommendations is just an empty array there, so excludeIds is too).
+    getHiddenGemForUser(
+      user.id,
+      recommendations.map((r) => r.title.id)
+    ),
   ]);
 
   const heroDirector =
@@ -355,17 +361,17 @@ export default async function HomePage({
         return isCompanionContext ? (
           /* Date night / with friends: unchanged from before -- picks
              hand off entirely to CompanionPicker (no solo "hero" to
-             pair Director of the Day with), so Director of the Day
-             stays up top of the right rail alongside the social feed,
-             same as it always has. */
+             pair Hidden Gem with), so Hidden Gem stays up top of the
+             right rail alongside the social feed, same slot Director
+             of the Day used to occupy here. */
           <div className="mt-7 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
             <div>
               <CompanionPicker context={activeContext} />
             </div>
             <div className="mt-8 lg:mt-0">
-              {directorOfTheDay && (
+              {hiddenGem && (
                 <div className="mb-8">
-                  <DirectorOfTheDay director={directorOfTheDay} />
+                  <HiddenGemCard title={hiddenGem.title} matchPercent={hiddenGem.matchPercent} />
                 </div>
               )}
               {socialRail}
@@ -373,16 +379,18 @@ export default async function HomePage({
           </div>
         ) : (
           <div className="mt-7">
-            {/* Front and center: the recommendation and Director of the
-                Day paired side by side at a matching height, rather than
-                a compact poster+text card next to a narrow rail item.
-                Ratio collapses to a single column when only one of the
-                two exists (e.g. cold start with no rating history yet
-                for Director of the Day). */}
-            {(hero || directorOfTheDay) && (
+            {/* Front and center: the recommendation and Hidden Gem paired
+                side by side at a matching height, rather than a compact
+                poster+text card next to a narrow rail item. Ratio
+                collapses to a single column when only one of the two
+                exists (e.g. cold start with no taste vector yet for
+                Hidden Gem, or nothing obscure-enough-and-good-enough to
+                surface today). Same slot Director of the Day occupied
+                before it moved to /daily. */}
+            {(hero || hiddenGem) && (
               <div
                 className={`grid gap-5 lg:items-stretch ${
-                  hero && directorOfTheDay ? "lg:grid-cols-[1.6fr_1fr]" : "lg:grid-cols-1"
+                  hero && hiddenGem ? "lg:grid-cols-[1.6fr_1fr]" : "lg:grid-cols-1"
                 }`}
               >
                 {hero && (
@@ -394,7 +402,7 @@ export default async function HomePage({
                     director={heroDirector}
                   />
                 )}
-                {directorOfTheDay && <DirectorOfTheDay director={directorOfTheDay} />}
+                {hiddenGem && <HiddenGemCard title={hiddenGem.title} matchPercent={hiddenGem.matchPercent} />}
               </div>
             )}
 
