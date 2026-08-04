@@ -39,36 +39,45 @@ export default async function DailyPage() {
   }
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-10">
+    <section className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="font-section-heading text-3xl">Daily</h1>
       <p className="font-section-body mt-2 text-sm text-foreground-muted">
         A new pick every day — trivia, a bit of film history, and what&apos;s happening in the industry.
       </p>
 
-      <div className="mt-8 flex flex-col gap-6">
-        {trivia &&
-          (triviaResponse ? (
-            <DailyTriviaCard
-              question={trivia.question}
-              options={trivia.options}
-              alreadyAnswered
-              correctIndex={trivia.correctIndex}
-              selectedIndex={triviaResponse.selected_index}
-            />
+      {/* Left column: On This Day, then Director of the Day underneath it.
+          Right column: Daily Trivia, then Today's Story underneath it.
+          Single stacked column on mobile, in that same top-to-bottom
+          order per column. */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-2 lg:items-start">
+        <div className="flex flex-col gap-6">
+          <OnThisDayCard titles={onThisDayTitles} />
+
+          {directorOfTheDay ? (
+            <DirectorOfTheDay director={directorOfTheDay} />
           ) : (
-            <DailyTriviaCard {...toPublicTrivia(trivia)} alreadyAnswered={false} />
-          ))}
+            <p className="font-section-body text-sm text-foreground-muted">
+              Rate a few titles to unlock your Director of the Day.
+            </p>
+          )}
+        </div>
 
-        <OnThisDayCard titles={onThisDayTitles} />
-        <DailyNewsCard story={newsStory} />
+        <div className="flex flex-col gap-6">
+          {trivia &&
+            (triviaResponse ? (
+              <DailyTriviaCard
+                question={trivia.question}
+                options={trivia.options}
+                alreadyAnswered
+                correctIndex={trivia.correctIndex}
+                selectedIndex={triviaResponse.selected_index}
+              />
+            ) : (
+              <DailyTriviaCard {...toPublicTrivia(trivia)} alreadyAnswered={false} />
+            ))}
 
-        {directorOfTheDay ? (
-          <DirectorOfTheDay director={directorOfTheDay} />
-        ) : (
-          <p className="font-section-body text-sm text-foreground-muted">
-            Rate a few titles to unlock your Director of the Day.
-          </p>
-        )}
+          <DailyNewsCard story={newsStory} />
+        </div>
       </div>
     </section>
   );
