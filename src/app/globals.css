@@ -656,3 +656,55 @@ html.consent-decided .cookie-consent-banner {
     animation: none;
   }
 }
+
+/* ============================================================
+   Wrapped story viewer — Spotify-Wrapped-style full-bleed slides
+   (components/wrapped/wrapped-story.tsx). Reuses stagger-card,
+   badge-pop, wheel-in, and breathe-glow from above for individual
+   elements within a slide; the two pieces below are specific to the
+   story shell itself: the crossfade between slides, and the
+   JS-driven segmented progress bar whose fill animation IS the
+   auto-advance timer (onAnimationEnd fires the next-slide callback,
+   rather than a separate setTimeout that could drift out of sync
+   with what's visually drawn).
+   ============================================================ */
+@keyframes wrapped-slide-in {
+  from {
+    opacity: 0;
+    transform: scale(1.035);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.wrapped-slide {
+  animation: wrapped-slide-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes wrapped-progress-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.wrapped-progress-fill {
+  animation-name: wrapped-progress-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  transform-origin: left center;
+}
+.wrapped-progress-fill[data-paused="true"] {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wrapped-slide {
+    animation: none;
+  }
+  .wrapped-progress-fill {
+    animation-duration: 1ms !important;
+  }
+}
