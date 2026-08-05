@@ -16,5 +16,6 @@
 export async function onRequestError(error: unknown) {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { captureServerError } = await import("@/lib/monitoring/sentry-server");
-  await captureServerError(error);
+  const { logDebugError } = await import("@/lib/monitoring/debug-log");
+  await Promise.all([captureServerError(error), logDebugError(error)]);
 }
