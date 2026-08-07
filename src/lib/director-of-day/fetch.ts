@@ -3,10 +3,13 @@ import { getOrFetchPersonBio } from "@/lib/external/tmdb-person";
 import { rankFavoriteDirectors, pickDirectorOfDay } from "./pick";
 
 // How many of a user's top-ranked directors are in play for the daily
-// rotation. Kept fairly small and deliberately -- this is meant to
-// rotate through directors this person has clearly responded well to,
-// not their entire rated history down to a single 3.5-star outlier.
-const SHORTLIST_SIZE = 8;
+// rotation. Wide enough that a daily visitor can go over three months
+// before a repeat (see pickDirectorOfDay's no-repeat-until-the-full-cycle
+// guarantee in pick.ts) -- still bounded, not their entire rated history
+// down to a single 3.5-star outlier, just a much longer runway than a
+// small handful. Naturally shrinks to however many directors this user
+// actually has above-average ratings for if that's fewer than 100.
+const SHORTLIST_SIZE = 100;
 
 // How many of the director's films to show, most popular first. This
 // is meant to read as "their discography," not just a to-watch queue --

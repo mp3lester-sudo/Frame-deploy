@@ -67,6 +67,19 @@ function hashString(input: string): number {
   return Math.abs(hash);
 }
 
+/** Calendar day index (days since a fixed, arbitrary epoch) — used to walk
+ *  through a per-user shuffle one position per day, wrapping around only
+ *  once every candidate has had a turn. Parses dateKey's Y/M/D directly
+ *  (not `new Date(dateKey)`) so this is immune to any local-timezone
+ *  parsing quirks; the day boundary itself is still whatever the caller's
+ *  dateKey already encodes. */
+function daysSinceEpoch(dateKey: string): number {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const epoch = Date.UTC(2024, 0, 1);
+  const day = Date.UTC(y, m - 1, d);
+  return Math.floor((day - epoch) / 86_400_000);
+}
+
 /**
  * @param candidates Ranked shortlist (already sliced to a reasonable top
  *   N by the caller — e.g. top 8 — so the rotation stays within titles
@@ -77,9 +90,23 @@ function hashString(input: string): number {
  *   value all day for a stable pick, and a new value the next day for a
  *   new one. Deliberately just a string, not a Date, so callers control
  *   the timezone the day boundary is computed in.
+ *
+ * Deliberately NOT an independent random/hash draw per day — that was the
+ * original approach here, and it meant no memory of what was shown
+ * recently: with an 8-candidate shortlist, drawing a fresh uniformly
+ * random pick every day gives roughly a 60% chance of a repeat within any
+ * 4-day window, which reads as broken even though each individual draw is
+ * "random." Instead this derives one stable per-user shuffle of the
+ * shortlist (seeded by userId + each candidate's own id, never the date,
+ * so it doesn't reshuffle mid-cycle) and walks one position per calendar
+ * day — every candidate is guaranteed to appear once before any repeat.
+ * The cycle only changes when the candidate set itself does (this user's
+ * ratings shift their top directors), which is exactly when a reshuffle
+ * should happen anyway.
  */
-export function pickDirectorOfDay<T>(candidates: T[], userId: string, dateKey: string): T | null {
+export function pickDirectorOfDay<T extends { id: string }>(candidates: T[], userId: string, dateKey: string): T | null {
   if (candidates.length === 0) return null;
-  const seed = hashString(`${userId}:${dateKey}`);
-  return candidates[seed % candidates.length];
+  const order = [...candidates].sort((a, b) => hashString(`${userId}:${a.id}`) - hashString(`${userId}:${b.id}`));
+  const dayIndex = daysSinceEpoch(dateKey);
+  return order[((dayIndex % order.length) + order.length) % order.length];
 }
