@@ -310,6 +310,24 @@ export interface Database {
         Update: Partial<{ poster_url: string | null; backdrop_url: string | null; updated_at: string }>;
         Relationships: [];
       };
+      debug_error_log: {
+        Row: {
+          id: string;
+          created_at: string;
+          digest: string | null;
+          message: string | null;
+          stack: string | null;
+          extra: Record<string, unknown> | null;
+        };
+        Insert: {
+          digest?: string | null;
+          message?: string | null;
+          stack?: string | null;
+          extra?: Record<string, unknown> | null;
+        };
+        Update: Partial<{ digest: string | null; message: string | null; stack: string | null; extra: Record<string, unknown> | null }>;
+        Relationships: [];
+      };
       discover_filter_presets: {
         Row: {
           id: string;

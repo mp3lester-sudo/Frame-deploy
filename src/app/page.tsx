@@ -307,9 +307,21 @@ export default async function HomePage({
           <div className="border-t border-border pt-6">
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-wider text-foreground-muted">Your circle</span>
-              <Link href="/hot-takes" className="text-[11px] uppercase tracking-wider text-foreground-muted hover:text-accent">
-                Hot Takes &rarr;
-              </Link>
+              {/* Clubs used to live only in the desktop-only top nav-bar
+                  list -- zero mobile discoverability, and buried as the
+                  6th item in a row most people never scanned past Discover/
+                  Movie Night. This IS the social/group section of the home
+                  page every signed-in visit already passes through, so it's
+                  a small header link here instead, same treatment as the
+                  existing Hot Takes link right next to it. */}
+              <div className="flex items-center gap-4">
+                <Link href="/clubs" className="text-[11px] uppercase tracking-wider text-foreground-muted hover:text-accent">
+                  Clubs &rarr;
+                </Link>
+                <Link href="/hot-takes" className="text-[11px] uppercase tracking-wider text-foreground-muted hover:text-accent">
+                  Hot Takes &rarr;
+                </Link>
+              </div>
             </div>
 
             {activeNight ? (

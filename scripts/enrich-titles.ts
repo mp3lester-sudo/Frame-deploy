@@ -93,7 +93,44 @@ async function inferTasteMetadata(name: string, overview: string, genres: string
   return JSON.parse(completion.choices[0].message.content ?? "{}");
 }
 
-function buildEmbeddingInput(title: Title, taste: TasteMetadata): string {
+type EmbeddingCredits = { directors: string[]; topCast: string[] };
+
+/** Same cap as src/lib/recommendations/embeddings.ts -- keep these two
+ *  buildEmbeddingInput implementations (this script's copy exists because
+ *  scripts avoid importing "server-only"-guarded app code) producing
+ *  byte-identical input shapes for the same title, or content-similarity
+ *  scoring would silently drift depending on which path embedded a title. */
+const MAX_CAST_FOR_EMBEDDING = 5;
+
+async function fetchEmbeddingCredits(titleId: string): Promise<EmbeddingCredits> {
+  const { data } = await supabase
+    .from("title_credits")
+    .select("credit_type, billing_order, people(name)")
+    .eq("title_id", titleId)
+    .in("credit_type", ["director", "actor"]);
+
+  const rows = (data ?? []) as unknown as {
+    credit_type: string;
+    billing_order: number | null;
+    people: { name: string } | null;
+  }[];
+
+  const directors = rows
+    .filter((r) => r.credit_type === "director")
+    .map((r) => r.people?.name)
+    .filter((n): n is string => !!n);
+
+  const topCast = rows
+    .filter((r) => r.credit_type === "actor")
+    .sort((a, b) => (a.billing_order ?? 999) - (b.billing_order ?? 999))
+    .slice(0, MAX_CAST_FOR_EMBEDDING)
+    .map((r) => r.people?.name)
+    .filter((n): n is string => !!n);
+
+  return { directors, topCast };
+}
+
+function buildEmbeddingInput(title: Title, taste: TasteMetadata, credits: EmbeddingCredits): string {
   const parts = [
     `Title: ${title.name}`,
     title.overview ? `Overview: ${title.overview}` : null,
@@ -106,6 +143,8 @@ function buildEmbeddingInput(title: Title, taste: TasteMetadata): string {
     `Violence level (0-5): ${taste.violence_level}`,
     `Comedy level (0-5): ${taste.comedy_level}`,
     `Emotional intensity (0-5): ${taste.emotional_intensity}`,
+    credits.directors.length ? `Director: ${credits.directors.join(", ")}` : null,
+    credits.topCast.length ? `Starring: ${credits.topCast.join(", ")}` : null,
   ];
   return parts.filter(Boolean).join("\n");
 }
@@ -142,7 +181,8 @@ async function enrichOne(title: Title) {
     .eq("id", title.id);
   if (updateError) throw new Error(`update titles failed: ${updateError.message}`);
 
-  const input = buildEmbeddingInput(title, taste);
+  const credits = await fetchEmbeddingCredits(title.id);
+  const input = buildEmbeddingInput(title, taste, credits);
   const embeddingResponse = await openai.embeddings.create({ model: EMBEDDING_MODEL, input });
   const embedding = embeddingResponse.data[0].embedding;
 
