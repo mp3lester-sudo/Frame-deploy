@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { postToClub, type NewClubPost } from "@/lib/actions/clubs";
@@ -76,10 +77,14 @@ export function ClubFeed({
         <div className="flex flex-col gap-4">
           {posts.map((p) => (
             <div key={p.id} className="flex items-start gap-3">
-              <Avatar name={p.username} src={p.avatarUrl} size={32} />
+              <Link href={`/profile/${p.username}`} className="shrink-0 hover:opacity-80">
+                <Avatar name={p.username} src={p.avatarUrl} size={32} />
+              </Link>
               <div className="min-w-0 flex-1">
                 <p className="text-sm">
-                  <span className="font-medium">{p.username}</span>{" "}
+                  <Link href={`/profile/${p.username}`} className="font-medium hover:text-accent">
+                    {p.username}
+                  </Link>{" "}
                   <span className="text-xs text-foreground-muted">{formatDistanceToNow(p.createdAt)}</span>
                 </p>
                 <p className="mt-0.5 text-sm leading-relaxed">{p.body}</p>

@@ -34,9 +34,16 @@ export function CircleFeed({ items }: { items: CircleEvent[] }) {
         {items.map((item) => {
           const name = item.profiles?.username ?? "Someone";
           const copy = EVENT_COPY[item.event_type]?.(name, item.titles?.name ?? "a title") ?? "New activity";
+          const username = item.profiles?.username;
           return (
             <Card key={item.id} className="flex items-center gap-3">
-              <Avatar name={name} src={item.profiles?.avatar_url} size={36} />
+              {username ? (
+                <Link href={`/profile/${username}`} className="shrink-0 hover:opacity-80">
+                  <Avatar name={name} src={item.profiles?.avatar_url} size={36} />
+                </Link>
+              ) : (
+                <Avatar name={name} src={item.profiles?.avatar_url} size={36} />
+              )}
               <div className="flex-1">
                 <p className="text-sm">{copy}</p>
                 <p className="text-[11px] text-foreground-muted">{formatDistanceToNow(item.created_at)}</p>

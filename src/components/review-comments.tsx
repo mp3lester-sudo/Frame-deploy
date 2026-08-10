@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { addComment, deleteComment, type NewComment } from "@/lib/actions/comments";
@@ -88,10 +89,14 @@ export function ReviewComments({
         <div className="mt-2 flex flex-col gap-2 border-l border-border pl-3">
           {comments.map((c) => (
             <div key={c.id} className="flex items-start gap-2">
-              <Avatar name={c.username} src={c.avatarUrl} size={20} />
+              <Link href={`/profile/${c.username}`} className="shrink-0 hover:opacity-80">
+                <Avatar name={c.username} src={c.avatarUrl} size={20} />
+              </Link>
               <div className="min-w-0 flex-1">
                 <p className="text-xs">
-                  <span className="font-medium">{c.username}</span>{" "}
+                  <Link href={`/profile/${c.username}`} className="font-medium hover:text-accent">
+                    {c.username}
+                  </Link>{" "}
                   <span className="text-foreground-muted">{formatDistanceToNow(c.createdAt)}</span>
                 </p>
                 <p className="text-sm leading-snug">{c.body}</p>

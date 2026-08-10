@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { createClient } from "@/lib/supabase/client";
 import { getMovieNightParticipants, type MovieNightParticipantRow } from "@/lib/actions/movie-night";
@@ -46,19 +47,29 @@ export function LiveParticipants({
 
   return (
     <div className="mt-4 flex flex-wrap gap-3">
-      {participants.map((p) => (
-        <div
-          key={p.user_id}
-          className="flex items-center gap-2 rounded-[var(--radius-full)] border border-border bg-surface py-1.5 pl-1.5 pr-3"
-        >
-          <Avatar name={p.profiles?.display_name ?? p.profiles?.username ?? "?"} src={p.profiles?.avatar_url} size={24} />
-          <span className="text-xs">
-            {p.profiles?.display_name ?? p.profiles?.username ?? "Unknown"}
-            {p.user_id === hostId && " (host)"}
-          </span>
-          {p.mood && <span className="text-[11px] text-foreground-muted">&middot; {p.mood}</span>}
-        </div>
-      ))}
+      {participants.map((p) => {
+        const chipContent = (
+          <>
+            <Avatar name={p.profiles?.display_name ?? p.profiles?.username ?? "?"} src={p.profiles?.avatar_url} size={24} />
+            <span className="text-xs">
+              {p.profiles?.display_name ?? p.profiles?.username ?? "Unknown"}
+              {p.user_id === hostId && " (host)"}
+            </span>
+            {p.mood && <span className="text-[11px] text-foreground-muted">&middot; {p.mood}</span>}
+          </>
+        );
+        const chipClassName =
+          "flex items-center gap-2 rounded-[var(--radius-full)] border border-border bg-surface py-1.5 pl-1.5 pr-3";
+        return p.profiles?.username ? (
+          <Link key={p.user_id} href={`/profile/${p.profiles.username}`} className={`${chipClassName} hover:border-border-strong`}>
+            {chipContent}
+          </Link>
+        ) : (
+          <div key={p.user_id} className={chipClassName}>
+            {chipContent}
+          </div>
+        );
+      })}
     </div>
   );
 }

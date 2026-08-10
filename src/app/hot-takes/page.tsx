@@ -91,6 +91,7 @@ export default async function HotTakesPage() {
                   reviewId={review.id}
                   authorId={review.user_id}
                   authorName={profile?.username ?? "Someone"}
+                  authorUsername={profile?.username}
                   authorAvatarUrl={profile?.avatar_url}
                   body={review.body}
                   containsSpoilers={review.contains_spoilers}

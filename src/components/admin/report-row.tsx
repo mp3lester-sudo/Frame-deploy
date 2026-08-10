@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { resolveReport } from "@/lib/actions/admin";
 import type { ReportableContentType } from "@/lib/moderation/validate";
 
@@ -51,7 +52,14 @@ export function ReportRow({
           </p>
           {report.note && <p className="mt-1 text-sm text-foreground-muted">Note: &ldquo;{report.note}&rdquo;</p>}
           <p className="mt-2 text-xs text-foreground-muted">
-            Reported by {reporter ? `@${reporter.username}` : "a deleted account"}
+            Reported by{" "}
+            {reporter ? (
+              <Link href={`/profile/${reporter.username}`} className="hover:text-accent">
+                @{reporter.username}
+              </Link>
+            ) : (
+              "a deleted account"
+            )}
           </p>
         </div>
 

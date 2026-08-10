@@ -52,7 +52,12 @@ export default async function MovieNightJoinPage({ params }: { params: Promise<{
         )}
       </div>
 
-      <h1 className="font-display text-2xl">{hostName} wants your pick</h1>
+      <h1 className="font-display text-2xl">
+        <Link href={`/profile/${preview.host_username}`} className="hover:text-accent">
+          {hostName}
+        </Link>{" "}
+        wants your pick
+      </h1>
       <p className="mt-2 text-sm text-foreground-muted">
         {preview.participant_count} {preview.participant_count === 1 ? "person is" : "people are"} deciding what to
         watch tonight. Join in and vote on something everyone&apos;s taste agrees on.
