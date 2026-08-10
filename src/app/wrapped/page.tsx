@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getMyWrapped, getMyRecentWrapped } from "@/lib/actions/wrapped";
 import { WrappedStory } from "@/components/wrapped/wrapped-story";
+import { WrappedFullStory } from "@/components/wrapped/wrapped-full-story";
 import { Button } from "@/components/ui/button";
 import { PremiumUpsell } from "@/components/premium-upsell";
 import { MIN_RATINGS_FOR_WRAPPED, getMonthRange, getWeekRange } from "@/lib/taste-dna/wrapped";
@@ -83,11 +84,10 @@ export default async function WrappedPage({
           </Link>
         </div>
       ) : (
-        <WrappedStory
+        <WrappedFullStory
           result={result}
           headline={`Your ${isCurrentYear ? `${year} So Far` : `${year} Wrapped`}`}
           shareYear={year}
-          variant="full"
         />
       )}
     </section>

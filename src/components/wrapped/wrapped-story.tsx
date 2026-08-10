@@ -44,6 +44,7 @@ export function WrappedStory({
   headline,
   shareYear,
   variant = "full",
+  onClose,
 }: {
   result: WrappedResult;
   headline: string;
@@ -53,6 +54,10 @@ export function WrappedStory({
    *  offering a broken one. */
   shareYear?: number;
   variant?: "full" | "compact";
+  /** Full-screen takeover close control (see WrappedFullStory) -- only
+   *  ever passed for variant="full", the only variant that renders as a
+   *  fixed, viewport-covering overlay instead of an in-flow card. */
+  onClose?: () => void;
 }) {
   const slides = useMemo(() => buildWrappedSlides(result, headline), [result, headline]);
   const lastIndex = slides.length - 1;
@@ -95,13 +100,23 @@ export function WrappedStory({
   }, [variant, index, lastIndex]);
 
   const current = slides[index];
-  const shellHeight = variant === "full" ? "h-[560px] sm:h-[640px]" : "h-[360px] sm:h-[420px]";
+  const isFullScreen = variant === "full";
+  // Compact keeps its old fixed-height boxed card; full now takes over
+  // the entire viewport (fixed inset-0, real device height via dvh so
+  // mobile browser chrome doesn't clip it) instead of sitting as a card
+  // inside the page's own max-width/padding -- see task "wrapped should
+  // take up the screen in its entirety". z-50 matches the greeting
+  // splash's own full-screen overlay convention (home page) and sits
+  // above both nav bars (z-40).
+  const shellClass = isFullScreen
+    ? "fixed inset-0 z-50 h-dvh w-full"
+    : "relative w-full h-[360px] sm:h-[420px] rounded-[var(--radius-lg)]";
   const backdropPoster =
     result.backdropPosterUrls.length > 0 ? result.backdropPosterUrls[index % result.backdropPosterUrls.length] : null;
 
   return (
     <div
-      className={`relative w-full overflow-hidden rounded-[var(--radius-lg)] bg-surface-raised ${shellHeight}`}
+      className={`${shellClass} overflow-hidden bg-surface-raised`}
       onPointerDown={() => setPaused(true)}
       onPointerUp={() => setPaused(false)}
       onPointerLeave={() => setPaused(false)}
@@ -113,8 +128,12 @@ export function WrappedStory({
           doc comment). The active segment's fill animation IS the
           auto-advance timer: onAnimationEnd fires handleNext, so the
           visual bar and the actual timing can never drift apart the way
-          a bar driven by a separate setTimeout could. */}
-      <div className="absolute inset-x-3 top-3 z-20 flex gap-1">
+          a bar driven by a separate setTimeout could. Left room on the
+          right for the close button in full-screen mode so they don't
+          overlap. */}
+      <div
+        className={`absolute inset-x-3 z-20 flex gap-1 ${isFullScreen ? "top-[max(0.75rem,env(safe-area-inset-top))] pr-12" : "top-3"}`}
+      >
         {slides.slice(0, lastIndex).map((slide, i) => (
           <div key={i} className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/20">
             {i < index ? (
@@ -131,6 +150,23 @@ export function WrappedStory({
           </div>
         ))}
       </div>
+
+      {/* Close control -- only in full-screen mode, since that's the
+          only variant that covers the whole viewport (including the
+          site nav) and therefore needs its own explicit way out. Sits
+          above the tap zones (z-30) so it's always clickable even
+          though the right two-thirds of the screen is a "next" tap
+          target underneath it. */}
+      {isFullScreen && onClose && (
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onClose}
+          className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 flex h-8 w-8 items-center justify-center rounded-full bg-black/30 text-foreground backdrop-blur-md transition hover:bg-black/50"
+        >
+          <span aria-hidden="true" className="text-lg leading-none">&times;</span>
+        </button>
+      )}
 
       {/* Tap zones -- left third rewinds, right two-thirds advances,
           matching the Instagram/Spotify-Wrapped convention of "back is a
@@ -156,7 +192,12 @@ export function WrappedStory({
         </div>
       )}
 
-      <div key={`${index}-${playToken}`} className="wrapped-slide relative z-[5] flex h-full w-full items-center justify-center px-6 pb-6 pt-12 sm:px-10">
+      <div
+        key={`${index}-${playToken}`}
+        className={`wrapped-slide relative z-[5] flex h-full w-full items-center justify-center px-6 sm:px-10 ${
+          isFullScreen ? "pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-16" : "pb-6 pt-12"
+        }`}
+      >
         <SlideContent
           slide={current}
           variant={variant}
