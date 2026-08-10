@@ -297,7 +297,7 @@ function IntroSlide({ headline }: { headline: string }) {
   return (
     <div className="stagger-card flex flex-col items-center gap-3 text-center">
       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
-      <h2 className="font-section-heading text-3xl sm:text-4xl">{headline}</h2>
+      <h2 className="font-hollywood text-4xl uppercase tracking-[0.03em] sm:text-5xl">{headline}</h2>
       <p className="mt-1 text-sm text-foreground-muted">Tap to begin</p>
     </div>
   );
@@ -332,8 +332,8 @@ function StatSlide({
         <p
           className={
             isText
-              ? "font-section-heading max-w-xs text-3xl sm:text-4xl"
-              : "font-display text-6xl text-accent sm:text-7xl"
+              ? "font-hollywood max-w-xs text-4xl uppercase tracking-[0.02em] sm:text-5xl"
+              : "font-hollywood text-6xl text-accent sm:text-7xl"
           }
         >
           {value}
@@ -352,7 +352,7 @@ function GenresSlide({ genres }: { genres: { genre: string; count: number }[] })
       <div className="flex flex-col items-center gap-4 text-center">
         <div className="badge-pop">
           <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Your most-watched genre</p>
-          <p className="font-display mt-1 text-4xl text-accent sm:text-5xl">{top.genre}</p>
+          <p className="font-hollywood mt-1 text-4xl uppercase tracking-[0.02em] text-accent sm:text-5xl">{top.genre}</p>
           <p className="mt-1 text-xs text-foreground-muted">{top.count} titles</p>
         </div>
         {rest.length > 0 && (
@@ -382,12 +382,12 @@ function ArchetypeSlide({ name, percent }: { name: string; percent: number }) {
           style={{ background: `conic-gradient(var(--accent) ${percent}%, rgba(217,184,118,0.15) ${percent}%)` }}
         >
           <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#1f0f13]">
-            <span className="font-display text-2xl text-accent">{percent}%</span>
+            <span className="font-hollywood text-2xl text-accent">{percent}%</span>
           </div>
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-wider text-foreground-muted">You were, above all</p>
-          <p className="font-section-heading mt-1 text-2xl sm:text-3xl">{name}</p>
+          <p className="font-hollywood mt-1 text-3xl uppercase tracking-[0.02em] sm:text-4xl">{name}</p>
         </div>
       </div>
     </FrostedPanel>
@@ -404,7 +404,7 @@ function TitleSlide({ label, title }: { label: string; title: WrappedTitleRef })
       )}
       <div className="stagger-card" style={{ animationDelay: "160ms" }}>
         <p className="text-[11px] uppercase tracking-wider text-accent">{label}</p>
-        <p className="font-section-heading mt-1 text-2xl">{title.name}</p>
+        <p className="font-hollywood mt-1 text-3xl uppercase tracking-[0.02em]">{title.name}</p>
         <div className="mt-2 flex justify-center">
           <RatingStars value={title.score} size={16} />
         </div>
@@ -431,7 +431,7 @@ function FinaleSlide({
       <div className="stagger-card flex w-full flex-col items-center gap-5 text-center">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
-          <h2 className="font-section-heading mt-1 text-2xl sm:text-3xl">{headline}</h2>
+          <h2 className="font-hollywood mt-1 text-3xl uppercase tracking-[0.02em] sm:text-4xl">{headline}</h2>
           <p className="font-section-body mt-2 text-sm text-foreground-muted">{summary}</p>
         </div>
 

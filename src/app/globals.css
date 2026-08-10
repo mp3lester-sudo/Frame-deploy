@@ -67,7 +67,10 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-instrument-serif);
-  /* Reserved for the Backlot wordmark only — see layout.tsx. */
+  /* The Backlot wordmark's font (see layout.tsx) -- also used for
+     Wrapped's headline/stat typography (see wrapped-story.tsx) so the
+     "your year in film" moment reads like it's set in the same
+     marquee-logotype voice as the brand itself. */
   --font-hollywood: var(--font-bebas);
   /* Base letterforms for the greeting's first name specifically — the
      actual "row of light bulbs" look comes from the .marquee-bulbs
