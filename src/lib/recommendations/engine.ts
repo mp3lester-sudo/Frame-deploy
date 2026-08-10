@@ -10,6 +10,7 @@ import { diversifyRecommendations, type DiversifiableCandidate } from "./diversi
 import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
 import { logRecommendationImpressions } from "./log-impressions";
 import { dislikePenaltyMultiplier } from "./dislike-penalty";
+import { implicitAffinityMultiplier } from "./implicit-affinity";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
@@ -149,7 +150,7 @@ export async function getRecommendationsForUser(
   // violence_level, pacing, ...), so fetch full rows for the whole
   // candidate pool up front rather than only for the eventual top N.
   const candidateIds = [...blended.keys()];
-  const [{ data: candidateTitles }, { data: dislikeSimilarities }] = await Promise.all([
+  const [{ data: candidateTitles }, { data: dislikeSimilarities }, { data: implicitSimilarities }] = await Promise.all([
     supabase.from("titles").select("*").in("id", candidateIds),
     // Title-level negative feedback: how close each candidate is to the
     // user's single most similar disliked (rated <= 2.5) title -- the
@@ -157,9 +158,14 @@ export async function getRecommendationsForUser(
     // below (CONTENT_MATCH_THRESHOLD). See dislike-penalty.ts and
     // migration 0052.
     supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds }),
+    // Implicit signals: how close each candidate is to something on the
+    // user's watchlist or watched-but-unrated -- see implicit-affinity.ts
+    // and migration 0053.
+    supabase.rpc("similarity_to_implicit_positive_titles", { p_user_id: userId, p_title_ids: candidateIds }),
   ]);
   const byId = new Map((candidateTitles ?? []).map((t) => [t.id, t]));
   const dislikeSimilarityById = new Map((dislikeSimilarities ?? []).map((d) => [d.title_id, d.max_similarity]));
+  const implicitSimilarityById = new Map((implicitSimilarities ?? []).map((d) => [d.title_id, d.max_similarity]));
 
   // Non-taste adjustments (context/weather/quality/genre-affinity) combine
   // as a SUM of deltas-from-1, not a product. Multiplying four independent
@@ -184,8 +190,14 @@ export async function getRecommendationsForUser(
     const qualityMult = qualityMultiplier(title.weighted_rating);
     const genreMult = genreAffinityMultiplier(title.genres, genreAffinity);
     const dislikeMult = dislikePenaltyMultiplier(dislikeSimilarityById.get(id) ?? 0, CONTENT_MATCH_THRESHOLD);
+    const implicitMult = implicitAffinityMultiplier(implicitSimilarityById.get(id) ?? 0, CONTENT_MATCH_THRESHOLD);
     const totalDelta =
-      (contextMult - 1) + (weatherMult - 1) + (qualityMult - 1) + (genreMult - 1) + (dislikeMult - 1);
+      (contextMult - 1) +
+      (weatherMult - 1) +
+      (qualityMult - 1) +
+      (genreMult - 1) +
+      (dislikeMult - 1) +
+      (implicitMult - 1);
     const totalAdjustment = Math.max(MIN_TOTAL_ADJUSTMENT, Math.min(MAX_TOTAL_ADJUSTMENT, 1 + totalDelta));
     adjusted.push({ id, score: score * totalAdjustment });
   }
