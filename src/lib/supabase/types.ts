@@ -328,6 +328,33 @@ export interface Database {
         Update: Partial<{ digest: string | null; message: string | null; stack: string | null; extra: Record<string, unknown> | null }>;
         Relationships: [];
       };
+      recommendation_impressions: {
+        Row: {
+          id: string;
+          user_id: string;
+          title_id: string;
+          match_percent: number | null;
+          is_cold_start: boolean;
+          reason: string | null;
+          source: string;
+          served_at: string;
+        };
+        Insert: {
+          user_id: string;
+          title_id: string;
+          match_percent?: number | null;
+          is_cold_start?: boolean;
+          reason?: string | null;
+          source?: string;
+        };
+        Update: Partial<{
+          match_percent: number | null;
+          is_cold_start: boolean;
+          reason: string | null;
+          source: string;
+        }>;
+        Relationships: [];
+      };
       discover_filter_presets: {
         Row: {
           id: string;

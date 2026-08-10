@@ -8,6 +8,7 @@ import { computeCurationConfidence, computeBlendWeights, computeAdjustmentBand }
 import { calibrateMatchPercents } from "./match-percent";
 import { diversifyRecommendations, type DiversifiableCandidate } from "./diversify";
 import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
+import { logRecommendationImpressions } from "./log-impressions";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
@@ -63,9 +64,28 @@ export async function getRecommendationsForUser(
     limit = 5,
     context,
     weather,
-  }: { limit?: number; context?: CircumstantialContext; weather?: WeatherTimeSignal } = {}
+    // Which surface is asking -- threaded through to
+    // recommendation_impressions (see log-impressions.ts) so a later query
+    // can separate "home page" served picks from "onboarding completion"
+    // ones rather than lumping every caller together as one signal.
+    source = "home",
+  }: {
+    limit?: number;
+    context?: CircumstantialContext;
+    weather?: WeatherTimeSignal;
+    source?: string;
+  } = {}
 ): Promise<RecommendationResult> {
   const supabase = await createClient();
+
+  // Fires recommendation_impressions logging (migration 0051) on every
+  // exit path below -- see log-impressions.ts for why this matters and
+  // why it's deliberately not awaited (a logging failure/slowness must
+  // never affect what the caller gets back).
+  const finish = (result: RecommendationResult) => {
+    void logRecommendationImpressions(userId, result.recommendations, { isColdStart: result.isColdStart, source });
+    return result;
+  };
 
   const { data: tasteVector } = await supabase
     .from("taste_vectors")
@@ -74,7 +94,7 @@ export async function getRecommendationsForUser(
     .maybeSingle();
 
   if (!tasteVector) {
-    return { recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true };
+    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true });
   }
 
   // Over-fetch candidates well beyond `limit` — context weighting (below)
@@ -121,7 +141,7 @@ export async function getRecommendationsForUser(
   }
 
   if (blended.size === 0) {
-    return { recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true };
+    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true });
   }
 
   // Context weighting needs each candidate's taste metadata (runtime,
@@ -172,7 +192,7 @@ export async function getRecommendationsForUser(
   const rankedIds = diversifyRecommendations(diversifyCandidates, limit).map((r) => r.id);
 
   if (rankedIds.length === 0) {
-    return { recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true };
+    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true });
   }
 
   // Citations ("Because you loved X") only make sense for the final,
@@ -263,7 +283,7 @@ export async function getRecommendationsForUser(
     };
   });
 
-  return { recommendations, isColdStart: false };
+  return finish({ recommendations, isColdStart: false });
 }
 
 async function getColdStartRecommendations(

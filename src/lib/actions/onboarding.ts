@@ -23,6 +23,6 @@ export async function getOnboardingCompletionPicks(): Promise<OnboardingCompleti
   const user = await getVerifiedUser();
   if (!user) return [];
 
-  const { recommendations } = await getRecommendationsForUser(user.id, { limit: COMPLETION_PICK_COUNT });
+  const { recommendations } = await getRecommendationsForUser(user.id, { limit: COMPLETION_PICK_COUNT, source: "onboarding" });
   return recommendations.map((r) => ({ id: r.title.id, name: r.title.name, posterUrl: r.title.poster_url }));
 }
