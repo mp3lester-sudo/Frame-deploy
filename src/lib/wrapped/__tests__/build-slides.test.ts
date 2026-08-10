@@ -13,6 +13,7 @@ function fullResult(overrides: Partial<WrappedResult> = {}): WrappedResult {
     hiddenGem: { id: "t2", name: "Obscure Gem", posterUrl: "https://x/gem.jpg", score: 5 },
     topArchetype: { name: "Neo-Noir", percent: 34 },
     summary: "A year of dark, twisty stories.",
+    backdropPosterUrls: ["https://x/se7en.jpg", "https://x/gem.jpg"],
     ...overrides,
   };
 }

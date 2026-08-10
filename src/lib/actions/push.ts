@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { z } from "zod";
+import { TOGGLABLE_NOTIFICATION_TYPES, type TogglableNotificationType } from "@/lib/constants/notifications";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -52,18 +53,6 @@ export async function unsubscribeFromPush(input: z.infer<typeof unsubscribeSchem
   await supabase.from("push_subscriptions").delete().eq("user_id", user.id).eq("endpoint", endpoint);
 }
 
-
-/** The subset of NotificationType a user can actually toggle -- keep this
- *  in sync with migration 0043's check constraint. "payment_failed" is
- *  deliberately excluded everywhere (see that migration's comment). */
-export const TOGGLABLE_NOTIFICATION_TYPES = [
-  "follow",
-  "comment",
-  "reaction",
-  "movie_night_invite",
-  "movie_night_decided",
-] as const;
-export type TogglableNotificationType = (typeof TOGGLABLE_NOTIFICATION_TYPES)[number];
 
 /**
  * Returns push-enabled state for every togglable type, defaulting to

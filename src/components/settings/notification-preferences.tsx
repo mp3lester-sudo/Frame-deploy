@@ -1,12 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import {
-  getNotificationPreferences,
-  setNotificationPreference,
-  TOGGLABLE_NOTIFICATION_TYPES,
-  type TogglableNotificationType,
-} from "@/lib/actions/push";
+import { getNotificationPreferences, setNotificationPreference } from "@/lib/actions/push";
+import { TOGGLABLE_NOTIFICATION_TYPES, type TogglableNotificationType } from "@/lib/constants/notifications";
 
 const LABELS: Record<TogglableNotificationType, string> = {
   follow: "New followers",

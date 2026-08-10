@@ -6,6 +6,7 @@ import { RatingStars } from "@/components/ui/rating-stars";
 import { Button } from "@/components/ui/button";
 import { ShareWrappedButton } from "@/components/wrapped/share-button";
 import { buildWrappedSlides, formatHoursAsDaysAndHours, type WrappedSlide } from "@/lib/wrapped/build-slides";
+import { getPosterGlow } from "@/lib/wrapped/poster-glow";
 import type { WrappedResult, WrappedTitleRef } from "@/lib/taste-dna/wrapped";
 
 /** How long each auto-advancing slide stays up before moving on -- title
@@ -22,6 +23,16 @@ function durationForSlide(slide: WrappedSlide): number {
  * slide with the real Share action. Pure presentation -- all the "what
  * slides exist" logic lives in buildWrappedSlides (lib/wrapped/build-
  * slides.ts) so this component only has to walk an array and render.
+ *
+ * Every slide now sits on a poster-driven backdrop instead of a flat
+ * surface color -- stat slides (which aren't tied to one specific title)
+ * cycle through result.backdropPosterUrls (highest-rated titles from the
+ * period, see computeWrapped) as a dimmed, blurred full-bleed image with
+ * a frosted glass panel holding the actual stat; the two title-reveal
+ * slides (favorite/hidden gem) instead get a "color-extracted" duotone
+ * glow keyed off that title's id (see poster-glow.ts) with the poster
+ * itself floating centered in front of it, rather than a small corner
+ * thumbnail on a plain background.
  *
  * variant="compact" is used for the secondary weekly/monthly recap on
  * the same page (task #342) -- same mechanics, smaller shell, no
@@ -85,6 +96,8 @@ export function WrappedStory({
 
   const current = slides[index];
   const shellHeight = variant === "full" ? "h-[560px] sm:h-[640px]" : "h-[360px] sm:h-[420px]";
+  const backdropPoster =
+    result.backdropPosterUrls.length > 0 ? result.backdropPosterUrls[index % result.backdropPosterUrls.length] : null;
 
   return (
     <div
@@ -93,13 +106,7 @@ export function WrappedStory({
       onPointerUp={() => setPaused(false)}
       onPointerLeave={() => setPaused(false)}
     >
-      {/* Ambient background: dark base + a soft gold spotlight breathing
-          behind everything, same "breathe-glow" loop used on the profile
-          page -- ties the story shell back into the rest of the app's
-          velvet-and-foil language instead of reading as a bolted-on
-          widget. */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(217,184,118,0.14),transparent_60%)]" />
-      <div className="breathe-glow pointer-events-none absolute left-1/2 top-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-accent/10 blur-3xl" />
+      <SlideBackdrop slide={current} backdropPoster={backdropPoster} />
 
       {/* Segmented progress bar -- one segment per auto-advancing slide,
           intentionally excluding the finale (it's static, see the class
@@ -149,7 +156,7 @@ export function WrappedStory({
         </div>
       )}
 
-      <div key={`${index}-${playToken}`} className="wrapped-slide relative z-0 flex h-full w-full items-center justify-center px-6 pb-6 pt-12 sm:px-10">
+      <div key={`${index}-${playToken}`} className="wrapped-slide relative z-[5] flex h-full w-full items-center justify-center px-6 pb-6 pt-12 sm:px-10">
         <SlideContent
           slide={current}
           variant={variant}
@@ -157,6 +164,46 @@ export function WrappedStory({
           onRestart={handleRestart}
         />
       </div>
+    </div>
+  );
+}
+
+/**
+ * The full-bleed imagery behind every slide. Two modes:
+ *  - "glow": favoriteTitle/hiddenGem slides get a radial duotone pulled
+ *    from getPosterGlow(title.id) -- same title always gets the same
+ *    glow, so replaying the story or the recap on the profile page never
+ *    flickers to a different color for the same film.
+ *  - "frosted": everything else gets a dimmed, blurred backdrop poster
+ *    (cycled from result.backdropPosterUrls) with a bottom-heavy scrim so
+ *    the stat text sitting in front always stays legible regardless of
+ *    how bright the underlying poster is.
+ * Renders nothing (falls back to the shell's own bg-surface-raised) when
+ * there's no poster to show at all -- a brand-new account with exactly
+ * MIN_RATINGS_FOR_WRAPPED titles and no posters on file shouldn't get a
+ * broken-looking blank glow.
+ */
+function SlideBackdrop({ slide, backdropPoster }: { slide: WrappedSlide; backdropPoster: string | null }) {
+  if (slide.type === "favoriteTitle" || slide.type === "hiddenGem") {
+    const glow = getPosterGlow(slide.title.id);
+    return (
+      <div
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{ background: `radial-gradient(ellipse at 50% 38%, ${glow.from} 0%, ${glow.to} 70%)` }}
+      />
+    );
+  }
+
+  if (!backdropPoster) {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top,rgba(217,184,118,0.14),transparent_60%)]" />
+    );
+  }
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <Image src={backdropPoster} alt="" fill className="scale-110 object-cover opacity-40 blur-sm" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[rgba(18,7,8,0.55)] via-[rgba(18,7,8,0.55)] to-[rgba(18,7,8,0.96)]" />
     </div>
   );
 }
@@ -215,6 +262,18 @@ function IntroSlide({ headline }: { headline: string }) {
   );
 }
 
+/** Frosted glass panel wrapping stat text over the full-bleed backdrop
+ *  poster -- the blur + translucent fill is what keeps a stat legible
+ *  regardless of how bright or busy the poster behind it is, instead of
+ *  the old plain-background centered text. */
+function FrostedPanel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="w-full max-w-xs rounded-[var(--radius-lg)] border border-white/10 bg-[rgba(20,10,12,0.55)] px-6 py-6 backdrop-blur-md">
+      {children}
+    </div>
+  );
+}
+
 function StatSlide({
   value,
   label,
@@ -227,64 +286,70 @@ function StatSlide({
   isText?: boolean;
 }) {
   return (
-    <div className="badge-pop flex flex-col items-center gap-2 text-center">
-      <p
-        className={
-          isText
-            ? "font-section-heading max-w-xs text-3xl sm:text-4xl"
-            : "font-display text-6xl text-accent sm:text-7xl"
-        }
-      >
-        {value}
-      </p>
-      <p className="font-section-body text-sm uppercase tracking-wider text-foreground-muted">{label}</p>
-      {sublabel && <p className="text-xs text-foreground-muted/70">{sublabel}</p>}
-    </div>
+    <FrostedPanel>
+      <div className="badge-pop flex flex-col items-center gap-2 text-center">
+        <p
+          className={
+            isText
+              ? "font-section-heading max-w-xs text-3xl sm:text-4xl"
+              : "font-display text-6xl text-accent sm:text-7xl"
+          }
+        >
+          {value}
+        </p>
+        <p className="font-section-body text-sm uppercase tracking-wider text-foreground-muted">{label}</p>
+        {sublabel && <p className="text-xs text-foreground-muted/70">{sublabel}</p>}
+      </div>
+    </FrostedPanel>
   );
 }
 
 function GenresSlide({ genres }: { genres: { genre: string; count: number }[] }) {
   const [top, ...rest] = genres;
   return (
-    <div className="flex flex-col items-center gap-4 text-center">
-      <div className="badge-pop">
-        <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Your most-watched genre</p>
-        <p className="font-display mt-1 text-4xl text-accent sm:text-5xl">{top.genre}</p>
-        <p className="mt-1 text-xs text-foreground-muted">{top.count} titles</p>
-      </div>
-      {rest.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-2">
-          {rest.slice(0, 5).map((g, i) => (
-            <span
-              key={g.genre}
-              className="stagger-card rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs"
-              style={{ animationDelay: `${140 + i * 90}ms` }}
-            >
-              {g.genre} &middot; {g.count}
-            </span>
-          ))}
+    <FrostedPanel>
+      <div className="flex flex-col items-center gap-4 text-center">
+        <div className="badge-pop">
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Your most-watched genre</p>
+          <p className="font-display mt-1 text-4xl text-accent sm:text-5xl">{top.genre}</p>
+          <p className="mt-1 text-xs text-foreground-muted">{top.count} titles</p>
         </div>
-      )}
-    </div>
+        {rest.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-2">
+            {rest.slice(0, 5).map((g, i) => (
+              <span
+                key={g.genre}
+                className="stagger-card rounded-[var(--radius-full)] border border-white/15 bg-white/5 px-3 py-1 text-xs"
+                style={{ animationDelay: `${140 + i * 90}ms` }}
+              >
+                {g.genre} &middot; {g.count}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </FrostedPanel>
   );
 }
 
 function ArchetypeSlide({ name, percent }: { name: string; percent: number }) {
   return (
-    <div className="wheel-in flex flex-col items-center gap-4 text-center">
-      <div
-        className="relative flex h-32 w-32 items-center justify-center rounded-full"
-        style={{ background: `conic-gradient(var(--accent) ${percent}%, rgba(217,184,118,0.15) ${percent}%)` }}
-      >
-        <div className="flex h-24 w-24 items-center justify-center rounded-full bg-surface-raised">
-          <span className="font-display text-2xl text-accent">{percent}%</span>
+    <FrostedPanel>
+      <div className="wheel-in flex flex-col items-center gap-4 text-center">
+        <div
+          className="relative flex h-32 w-32 items-center justify-center rounded-full"
+          style={{ background: `conic-gradient(var(--accent) ${percent}%, rgba(217,184,118,0.15) ${percent}%)` }}
+        >
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#1f0f13]">
+            <span className="font-display text-2xl text-accent">{percent}%</span>
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">You were, above all</p>
+          <p className="font-section-heading mt-1 text-2xl sm:text-3xl">{name}</p>
         </div>
       </div>
-      <div>
-        <p className="text-[11px] uppercase tracking-wider text-foreground-muted">You were, above all</p>
-        <p className="font-section-heading mt-1 text-2xl sm:text-3xl">{name}</p>
-      </div>
-    </div>
+    </FrostedPanel>
   );
 }
 
@@ -292,7 +357,7 @@ function TitleSlide({ label, title }: { label: string; title: WrappedTitleRef })
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       {title.posterUrl && (
-        <div className="poster-fan-in relative h-56 w-36 overflow-hidden rounded-[var(--radius-lg)] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.7)] sm:h-64 sm:w-40">
+        <div className="poster-fan-in relative h-64 w-44 overflow-hidden rounded-[var(--radius-lg)] shadow-[0_28px_60px_-14px_rgba(0,0,0,0.85)] sm:h-72 sm:w-48">
           <Image src={title.posterUrl} alt={title.name} fill className="object-cover" />
         </div>
       )}
@@ -321,33 +386,35 @@ function FinaleSlide({
   onRestart: () => void;
 }) {
   return (
-    <div className="stagger-card flex w-full max-w-sm flex-col items-center gap-5 text-center">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
-        <h2 className="font-section-heading mt-1 text-2xl sm:text-3xl">{headline}</h2>
-        <p className="font-section-body mt-2 text-sm text-foreground-muted">{summary}</p>
-      </div>
+    <FrostedPanel>
+      <div className="stagger-card flex w-full flex-col items-center gap-5 text-center">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+          <h2 className="font-section-heading mt-1 text-2xl sm:text-3xl">{headline}</h2>
+          <p className="font-section-body mt-2 text-sm text-foreground-muted">{summary}</p>
+        </div>
 
-      <div className="grid w-full grid-cols-2 gap-2">
-        <MiniStat label="Films" value={String(result.totalRated)} />
-        <MiniStat label="Hours" value={String(result.totalHours)} />
-        {result.topGenres[0] && <MiniStat label="Top genre" value={result.topGenres[0].genre} />}
-        {result.topArchetype && <MiniStat label="Archetype" value={result.topArchetype.name} />}
-      </div>
+        <div className="grid w-full grid-cols-2 gap-2">
+          <MiniStat label="Films" value={String(result.totalRated)} />
+          <MiniStat label="Hours" value={String(result.totalHours)} />
+          {result.topGenres[0] && <MiniStat label="Top genre" value={result.topGenres[0].genre} />}
+          {result.topArchetype && <MiniStat label="Archetype" value={result.topArchetype.name} />}
+        </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {shareYear != null && <ShareWrappedButton year={shareYear} />}
-        <Button type="button" variant="secondary" size="sm" onClick={onRestart}>
-          Watch again
-        </Button>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {shareYear != null && <ShareWrappedButton year={shareYear} />}
+          <Button type="button" variant="secondary" size="sm" onClick={onRestart}>
+            Watch again
+          </Button>
+        </div>
       </div>
-    </div>
+    </FrostedPanel>
   );
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[var(--radius-md)] border border-border bg-surface px-2 py-2">
+    <div className="rounded-[var(--radius-md)] border border-white/10 bg-white/5 px-2 py-2">
       <p className="truncate text-sm font-medium text-accent">{value}</p>
       <p className="text-[10px] uppercase tracking-wider text-foreground-muted">{label}</p>
     </div>

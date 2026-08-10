@@ -112,6 +112,27 @@ describe("computeWrapped", () => {
     expect(result.hiddenGem?.id).toBe("c");
   });
 
+  it("builds backdropPosterUrls from rated titles, highest score first", () => {
+    const rated = [
+      makeRated({ titleId: "a", score: 3, posterUrl: "/a.jpg" }),
+      makeRated({ titleId: "b", score: 5, posterUrl: "/b.jpg" }),
+      makeRated({ titleId: "c", score: 4, posterUrl: "/c.jpg" }),
+      makeRated({ titleId: "d", score: 2, posterUrl: null }),
+    ];
+    const result = computeWrapped(rated, 2026)!;
+    expect(result.backdropPosterUrls).toEqual(["/b.jpg", "/c.jpg", "/a.jpg"]);
+  });
+
+  it("dedupes and caps backdropPosterUrls at 8", () => {
+    const rated = [
+      ...Array.from({ length: 10 }, (_, i) => makeRated({ titleId: `t${i}`, score: 5, posterUrl: `/p${i}.jpg` })),
+      makeRated({ titleId: "dup", score: 4.9, posterUrl: "/p0.jpg" }),
+    ];
+    const result = computeWrapped(rated, 2026)!;
+    expect(result.backdropPosterUrls.length).toBe(8);
+    expect(new Set(result.backdropPosterUrls).size).toBe(8);
+  });
+
   it("surfaces the top archetype when there's a real signal", () => {
     const rated = [
       makeRated({ genres: ["Crime", "Thriller"], tone: ["noir", "cynical"], weight: 2.5 }),

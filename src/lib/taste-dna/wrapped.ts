@@ -38,6 +38,13 @@ export interface WrappedResult {
   hiddenGem: WrappedTitleRef | null;
   topArchetype: { name: string; percent: number } | null;
   summary: string;
+  /** Posters from the period's rated titles, highest-scored first, deduped
+   *  and capped -- backs the full-bleed poster backdrop on stat slides
+   *  (WrappedStory) that don't otherwise have one title of their own to
+   *  show. Deliberately just a plain list of URLs, not full title refs --
+   *  nothing downstream needs to link back to a specific title from these,
+   *  only render them as ambient imagery. */
+  backdropPosterUrls: string[];
 }
 
 /** Below this many ratings in the period, there isn't enough to call it a
@@ -156,6 +163,8 @@ export function computeWrapped(
   const dna = computeTasteDnaFromRatings(rated);
   const topArchetype = dna.archetypes[0] && dna.archetypes[0].percent > 0 ? dna.archetypes[0] : null;
 
+  const backdropPosterUrls = [...new Set(favoriteSorted.map((r) => r.posterUrl).filter((url): url is string => url != null))].slice(0, 8);
+
   const parts: string[] = [pluralize(totalRated, "film")];
   if (totalHours > 0) parts.push(`${pluralize(totalHours, "hour")} of screen time`);
   if (topArchetype) parts.push(`a strong ${topArchetype.name} streak`);
@@ -172,5 +181,6 @@ export function computeWrapped(
     hiddenGem,
     topArchetype,
     summary,
+    backdropPosterUrls,
   };
 }
