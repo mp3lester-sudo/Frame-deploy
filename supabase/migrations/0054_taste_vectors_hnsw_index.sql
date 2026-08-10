@@ -1,0 +1,32 @@
+-- The one real scaling gap found in a backend architecture review: unlike
+-- title_embeddings (ivfflat index since migration 0001, tuned for recall
+-- in migration 0026), taste_vectors has never had a vector index at all.
+--
+-- similar_users_liked (the collaborative-filtering half of every single
+-- recommendation call -- home page load, onboarding completion) does
+-- `order by tv.embedding <=> target.embedding limit 200` directly against
+-- taste_vectors to find the 200 closest-tasting users. With no index,
+-- that's a full sequential scan + distance computation over EVERY row in
+-- the table -- every registered user who has ever rated enough to get a
+-- vector -- on every single call. It scales with total users, not
+-- concurrent traffic: it gets slower as signups/ratings accumulate
+-- regardless of how many people are online right now, and was on track to
+-- become the dominant cost on every home page load well before Vercel
+-- function concurrency or Supabase storage would ever be the limiting
+-- factor.
+--
+-- HNSW rather than ivfflat (unlike title_embeddings): ivfflat's `lists`
+-- parameter has to be sized to the table's row count and periodically
+-- retuned/rebuilt as it grows -- that's exactly why migration 0026 existed
+-- for title_embeddings once the catalogue got large. title_embeddings is
+-- bulk-loaded in batches (ingestion runs), so a one-time tuning pass makes
+-- sense there. taste_vectors instead grows continuously, one row at a
+-- time, with every new signup/rating -- an index that doesn't need manual
+-- retuning as it grows is the better fit. HNSW builds incrementally and
+-- gives strong recall with its defaults; if recall or latency ever needs
+-- tuning later, `hnsw.ef_search` (default 40) is the equivalent knob to
+-- ivfflat.probes and can be set the same way migration 0026 set
+-- ivfflat.probes -- via set_config(...) inside the RPC, not a session-level
+-- SET (Supabase restricts that at the function level).
+create index if not exists taste_vectors_hnsw_idx on public.taste_vectors
+  using hnsw (embedding vector_cosine_ops);
