@@ -724,6 +724,10 @@ export interface Database {
         Args: { p_key: string; p_max_requests: number; p_window_seconds: number };
         Returns: boolean;
       };
+      prune_rate_limit_buckets: {
+        Args: Record<PropertyKey, never>;
+        Returns: void;
+      };
       titles_matching_names: {
         Args: { p_names: string[] };
         Returns: { id: string; name: string; release_date: string | null }[];

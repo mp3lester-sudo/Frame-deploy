@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runReengagementCampaign } from "@/lib/reengagement/campaign";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 
 /**
  * Triggered daily by Vercel Cron (see vercel.json). Vercel automatically
@@ -20,5 +21,19 @@ export async function GET(request: Request) {
   }
 
   const summary = await runReengagementCampaign();
+
+  // Piggybacks on this same daily tick rather than its own cron entry --
+  // rate_limit_buckets (migration 0007) now gets written on every signup/
+  // login/password-reset attempt (see auth.ts) on top of the AI endpoints
+  // it already covered, so old buckets need regular pruning or the table
+  // grows forever. prune_rate_limit_buckets() only deletes rows already
+  // past their window, so this is safe to run on any schedule; a failure
+  // here shouldn't fail the whole cron tick since the reengagement emails
+  // above already sent successfully.
+  const { error: pruneError } = await createServiceRoleClient().rpc("prune_rate_limit_buckets");
+  if (pruneError) {
+    console.error("[cron] prune_rate_limit_buckets failed:", pruneError.message);
+  }
+
   return NextResponse.json(summary);
 }

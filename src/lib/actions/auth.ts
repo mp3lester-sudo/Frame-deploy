@@ -11,6 +11,8 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { REFERRAL_BONUS_DAYS } from "@/lib/referrals/constants";
 import { notify } from "@/lib/actions/notifications";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { getClientIp } from "@/lib/auth/client-ip";
+import { isRateLimited } from "@/lib/rate-limit";
 
 const signUpSchema = z.object({
   email: z.string().email(),
@@ -81,6 +83,19 @@ async function claimAnonymousSwipes(
 }
 
 export async function signUp(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  // IP-keyed (not user-keyed -- there's no user yet) since this endpoint is
+  // exactly what mass bot signups target once a signup link gets real
+  // visibility (a marketing push, going viral, etc). See getClientIp for
+  // why IP is the only signal available pre-auth, and isRateLimited
+  // (rate-limit.ts) for why this is Postgres-backed rather than an
+  // in-memory counter -- Vercel doesn't guarantee the same serverless
+  // instance handles consecutive requests. 5/hour is generous enough for a
+  // shared household/office IP creating a few real accounts, tight enough
+  // to blunt a scripted signup flood.
+  if (await isRateLimited(`signup:${await getClientIp()}`, { maxRequests: 5, windowSeconds: 3600 })) {
+    return { error: "Too many signup attempts from this network — try again in a bit" };
+  }
+
   const parsed = signUpSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -209,6 +224,15 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
 }
 
 export async function signIn(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  // Defense in depth alongside Supabase Auth's own per-account brute-force
+  // protection -- that's keyed on the email being attempted, so it doesn't
+  // stop one IP spraying many different email/password combinations
+  // (credential stuffing). 20/10min per IP is loose enough that a real
+  // person fumbling their password a few times never sees this.
+  if (await isRateLimited(`signin:${await getClientIp()}`, { maxRequests: 20, windowSeconds: 600 })) {
+    return { error: "Too many login attempts from this network — try again in a few minutes" };
+  }
+
   const parsed = signInSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -298,6 +322,16 @@ export async function requestPasswordReset(
   _prev: { error?: string; success?: boolean } | null,
   formData: FormData
 ): Promise<{ error?: string; success?: boolean }> {
+  // This sends a real email through Resend on every call -- unlimited,
+  // it's both an inbox-spam vector against whoever's email gets entered
+  // and a way to burn through Resend's sending quota/reputation. Returns
+  // the same generic success shape on the rate-limited path as everywhere
+  // else in this function (see the doc comment below) so this can't be
+  // used to distinguish "rate limited" from "email doesn't exist" either.
+  if (await isRateLimited(`pwreset:${await getClientIp()}`, { maxRequests: 5, windowSeconds: 3600 })) {
+    return { success: true };
+  }
+
   const parsed = forgotPasswordSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Enter a valid email" };
