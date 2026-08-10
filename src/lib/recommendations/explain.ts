@@ -1,7 +1,7 @@
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
 import { contextNote, type ContextualTitle } from "./context-weighting";
 
-export type MatchKind = "content" | "collaborative" | "mood" | "generic";
+export type MatchKind = "content" | "behavioral" | "collaborative" | "mood" | "generic";
 
 /** Minimal shape reasoning needs from a title row. */
 export type ExplainableTitle = ContextualTitle & {
@@ -28,10 +28,16 @@ export interface ReasonDetail {
 
 function determineMatchKind(
   hasStrongContentMatch: boolean,
+  hasBehavioralEdge: boolean,
   hasCollaborativeEdge: boolean,
   hasMoodTags: boolean
 ): MatchKind {
   if (hasStrongContentMatch) return "content";
+  // Real behavioral overlap (people who rated the exact titles you loved
+  // also loved this — see behavioral-collaborative.ts) is a stronger,
+  // more concrete claim than the embedding-neighbor signal below, so it
+  // takes precedence when both are present.
+  if (hasBehavioralEdge) return "behavioral";
   if (hasCollaborativeEdge) return "collaborative";
   if (hasMoodTags) return "mood";
   return "generic";
@@ -41,6 +47,10 @@ export function buildReasonDetail(params: {
   title: ExplainableTitle;
   hasStrongContentMatch: boolean;
   hasCollaborativeEdge: boolean;
+  /** Optional since not every caller (e.g. taste-dna/signature-pick.ts)
+   *  computes a behavioral-CF edge for its single citation -- defaults to
+   *  false, same as omitting it entirely. */
+  hasBehavioralEdge?: boolean;
   citedTitles: string[];
   context?: CircumstantialContext;
   /** Set by the engine when weather/time materially nudged this pick (see
@@ -49,12 +59,20 @@ export function buildReasonDetail(params: {
    *  codes or hours, just the sentence fragment to fold in. */
   weatherNote?: string | null;
 }): ReasonDetail {
-  const { title, hasStrongContentMatch, hasCollaborativeEdge, citedTitles, context, weatherNote } = params;
+  const {
+    title,
+    hasStrongContentMatch,
+    hasCollaborativeEdge,
+    hasBehavioralEdge = false,
+    citedTitles,
+    context,
+    weatherNote,
+  } = params;
   const themes = title.themes ?? [];
   const tone = title.tone ?? [];
   const moodTags = title.mood_tags ?? [];
 
-  const matchKind = determineMatchKind(hasStrongContentMatch, hasCollaborativeEdge, moodTags.length > 0);
+  const matchKind = determineMatchKind(hasStrongContentMatch, hasBehavioralEdge, hasCollaborativeEdge, moodTags.length > 0);
 
   const contextSuffixNote = context ? contextNote(title, context) : null;
   const notes = [contextSuffixNote, weatherNote].filter((n): n is string => !!n);
@@ -75,6 +93,13 @@ export function buildReasonDetail(params: {
     }
   } else if (matchKind === "content") {
     headline = `Matches your taste closely — similar tone and pacing to what you love.${suffix}`;
+  } else if (matchKind === "behavioral") {
+    // Deliberately more specific/concrete than the embedding-collaborative
+    // copy below — it's a stronger, more literal claim ("people who rated
+    // the same movies you did also loved this"), not a vague algorithmic
+    // gesture, and it's true: this only fires when behavioral_collaborative_recs
+    // (migration 0056) found real shared-rating overlap for this title.
+    headline = `Rated highly by other users who loved the same titles you did.${suffix}`;
   } else if (matchKind === "collaborative") {
     headline = `Loved by people whose taste overlaps with yours.${suffix}`;
   } else if (matchKind === "mood") {

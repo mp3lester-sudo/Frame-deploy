@@ -11,6 +11,7 @@ import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./ex
 import { logRecommendationImpressions } from "./log-impressions";
 import { dislikePenaltyMultiplier } from "./dislike-penalty";
 import { implicitAffinityMultiplier } from "./implicit-affinity";
+import { computeCollaborativeSplit } from "./behavioral-collaborative";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
@@ -45,8 +46,13 @@ export const CONTENT_MATCH_THRESHOLD = 0.5;
  * Hybrid recommendation: blends
  *  1) content similarity — cosine distance between the user's taste vector
  *     and every title's embedding (match_titles_for_user, Postgres function)
- *  2) collaborative signal — what taste-similar users rated highly
- *     (similar_users_liked, Postgres function)
+ *  2) embedding-neighbor collaborative signal — what taste-vector-similar
+ *     users rated highly (similar_users_liked, Postgres function)
+ *  3) real behavioral collaborative signal — what users who rated the SAME
+ *     titles highly also loved, computed straight from the ratings matrix
+ *     with no embeddings involved (behavioral_collaborative_recs, migration
+ *     0056) — see behavioral-collaborative.ts for why this catches
+ *     correlations the embedding-mediated signals above structurally can't.
  * then re-ranks and attaches a short, rule-based explanation per title.
  *
  * Falls back to a popularity-sorted list for users with no taste vector yet
@@ -104,9 +110,13 @@ export async function getRecommendationsForUser(
   // (something_short's runtime cap), so ranking needs a wide enough pool
   // that a hard exclusion doesn't leave the final list short.
   const CANDIDATE_POOL_MULTIPLIER = 6;
-  const [{ data: contentMatches }, { data: collabMatches }, { data: userRatings }] = await Promise.all([
+  const [{ data: contentMatches }, { data: collabMatches }, { data: behavioralMatches }, { data: userRatings }] = await Promise.all([
     supabase.rpc("match_titles_for_user", { p_user_id: userId, p_match_count: limit * CANDIDATE_POOL_MULTIPLIER }),
     supabase.rpc("similar_users_liked", { p_user_id: userId, p_match_count: limit * CANDIDATE_POOL_MULTIPLIER }),
+    // Real behavioral CF — see behavioral-collaborative.ts and migration
+    // 0056. Distinct from similar_users_liked above: neighbors here come
+    // from shared ratings, not embedding proximity.
+    supabase.rpc("behavioral_collaborative_recs", { p_user_id: userId, p_match_count: limit * CANDIDATE_POOL_MULTIPLIER }),
     // Feeds genre-level negative signal (below) — deliberately a plain
     // ratings query, not the RPCs above, since this needs the user's own
     // raw scores + genres, not a similarity metric.
@@ -132,6 +142,13 @@ export async function getRecommendationsForUser(
   const highRatedCount = (userRatings ?? []).filter((r) => r.score >= 4).length;
   const confidence = computeCurationConfidence(highRatedCount);
   const { vectorWeight, collaborativeWeight } = computeBlendWeights(confidence);
+  // Split the crowd-signal share of the blend between the two
+  // collaborative sources — see behavioral-collaborative.ts for why this
+  // only pulls weight toward the behavioral signal once it actually has
+  // something to say for this user.
+  const { embeddingShare, behavioralShare } = computeCollaborativeSplit((behavioralMatches ?? []).length > 0);
+  const embeddingCollabWeight = collaborativeWeight * embeddingShare;
+  const behavioralCollabWeight = collaborativeWeight * behavioralShare;
 
   const blended = new Map<string, number>();
   for (const m of contentMatches ?? []) {
@@ -139,7 +156,11 @@ export async function getRecommendationsForUser(
   }
   for (const m of collabMatches ?? []) {
     const normalized = Math.min(m.score, 1);
-    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + normalized * collaborativeWeight);
+    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + normalized * embeddingCollabWeight);
+  }
+  for (const m of behavioralMatches ?? []) {
+    const normalized = Math.min(m.score, 1);
+    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + normalized * behavioralCollabWeight);
   }
 
   if (blended.size === 0) {
@@ -223,13 +244,22 @@ export async function getRecommendationsForUser(
   // already-ranked short list — computing them for the whole over-fetched
   // candidate pool would be wasted work most of it never surfaces.
   //
-  const matchFlags = new Map<string, { hasStrongContentMatch: boolean; hasCollaborativeEdge: boolean }>();
+  const matchFlags = new Map<
+    string,
+    { hasStrongContentMatch: boolean; hasCollaborativeEdge: boolean; hasBehavioralEdge: boolean }
+  >();
   for (const id of rankedIds) {
     const inContent = (contentMatches ?? []).find((m) => m.title_id === id);
     const inCollab = (collabMatches ?? []).find((m) => m.title_id === id);
+    const inBehavioral = (behavioralMatches ?? []).find((m) => m.title_id === id);
     matchFlags.set(id, {
       hasStrongContentMatch: !!inContent && inContent.similarity > CONTENT_MATCH_THRESHOLD,
       hasCollaborativeEdge: !!inCollab && (!inContent || inContent.similarity < inCollab.score),
+      // Real behavioral overlap is the stronger, more concrete claim when
+      // it's present (see explain.ts precedence) — checked the same way as
+      // the embedding-collaborative edge above, just against the
+      // behavioral RPC's own scores.
+      hasBehavioralEdge: !!inBehavioral && (!inContent || inContent.similarity < inBehavioral.score),
     });
   }
 
@@ -288,12 +318,17 @@ export async function getRecommendationsForUser(
 
   const recommendations = finalIds.map((id, i) => {
     const title = byId.get(id)!;
-    const flags = matchFlags.get(id) ?? { hasStrongContentMatch: false, hasCollaborativeEdge: false };
+    const flags = matchFlags.get(id) ?? {
+      hasStrongContentMatch: false,
+      hasCollaborativeEdge: false,
+      hasBehavioralEdge: false,
+    };
     const weatherNote = weather ? weatherTimeNote(title, weather) : null;
     const detail = buildReasonDetail({
       title,
       hasStrongContentMatch: flags.hasStrongContentMatch,
       hasCollaborativeEdge: flags.hasCollaborativeEdge,
+      hasBehavioralEdge: flags.hasBehavioralEdge,
       citedTitles: citedTitleNamesByRecId.get(id) ?? [],
       context,
       weatherNote,

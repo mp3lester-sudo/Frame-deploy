@@ -678,6 +678,10 @@ export interface Database {
         Args: { p_user_id: string; p_match_count?: number };
         Returns: { title_id: string; score: number }[];
       };
+      behavioral_collaborative_recs: {
+        Args: { p_user_id: string; p_match_count?: number; p_min_shared_likes?: number };
+        Returns: { title_id: string; score: number }[];
+      };
       similarity_to_disliked_titles: {
         Args: { p_user_id: string; p_title_ids: string[]; p_dislike_max_score?: number };
         Returns: { title_id: string; max_similarity: number }[];
