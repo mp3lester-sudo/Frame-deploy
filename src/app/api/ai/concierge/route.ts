@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { askConcierge } from "@/lib/ai/concierge";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -77,6 +78,7 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch (err) {
     console.error("[concierge]", err);
+    await captureServerError(err, { route: "ai/concierge", userId: user.id });
     return NextResponse.json({ error: "The concierge is unavailable right now" }, { status: 500 });
   }
 }

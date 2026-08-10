@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { explainTitle } from "@/lib/ai/ending-explainer";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isRateLimited } from "@/lib/rate-limit";
 import { z } from "zod";
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ answer });
   } catch (err) {
     console.error("[explain]", err);
+    await captureServerError(err, { route: "ai/explain", userId: user.id, titleId: parsed.data.titleId });
     return NextResponse.json({ error: "Couldn't answer that right now" }, { status: 500 });
   }
 }
