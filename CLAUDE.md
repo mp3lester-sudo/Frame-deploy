@@ -31,11 +31,11 @@ TMDB_API_KEY=
 OMDB_API_KEY=
 ```
 
-**Never commit these, never put them in this file, and treat any of them as
-compromised the moment they're pasted into any AI chat (yours, mine, anyone's) —
-chat transcripts get logged, so the only safe response is to rotate the credential,
-not hope it wasn't seen.** Rotate in each provider's dashboard, then update both
-Vercel's env vars and every local `.env.local` in use.
+**Never commit these, never put them in this file.** Credential rotation is
+deferred to a single full rotation pass at the end of the build, not done
+incrementally after each time a token is pasted into chat. When that pass
+happens, rotate every credential in each provider's dashboard, then update
+both Vercel's env vars and every local `.env.local` in use.
 
 ## Conventions this project follows
 
