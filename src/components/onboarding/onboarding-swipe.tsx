@@ -31,7 +31,12 @@ const RATING_FOR = { not_for_me: 1, its_fine: 3, love_it: 5 } as const;
 type Phase = "intro-video" | "intro-title" | "swiping" | "loading" | "done";
 type ExitDirection = "left" | "right" | "fade";
 
-const INTRO_SEEN_KEY = "backlot-onboarding-intro-seen";
+// Shared with the home page's own cinematic-intro overlay (see
+// src/app/page.tsx) -- whichever surface plays the video+title first in
+// a session sets this, so a just-signed-up user redirected from
+// onboarding straight to Home doesn't see the same footage twice back
+// to back.
+const INTRO_SEEN_KEY = "backlot:cinematic-intro-shown";
 const INTRO_VIDEO_MS = 4500;
 const INTRO_TITLE_MS = 2200;
 const SWIPE_THRESHOLD = 110;

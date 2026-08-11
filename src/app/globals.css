@@ -502,6 +502,62 @@ body {
 html.splash-shown .greeting-splash {
   display: none;
 }
+/* Fresh session: greeting waits for the cinematic intro (video + title
+   card, ~6.9s total) to clear before it starts. If the intro already
+   played this session -- either a repeat Home visit (intro-shown set
+   below) or the user just came from onboarding, which sets the same
+   shared key -- there's nothing to wait for, so no delay. */
+html:not(.intro-shown) .greeting-splash {
+  animation-delay: 6900ms;
+}
+/* Home page cinematic intro -- video fades out first, title card
+   overlaps and fades in right after, then fades out just before the
+   greeting splash's delayed animation starts (see the delay rule
+   above). Both self-hide via animation-fill-mode: both, same technique
+   as .greeting-splash, and both go instantly display:none on a repeat
+   session visit via the html.intro-shown class the inline script in
+   page.tsx sets -- no JS timers, no client component. */
+@keyframes cinematic-intro-video-fade {
+  0% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.cinematic-intro-video {
+  animation: cinematic-intro-video-fade 4700ms ease-in-out both;
+}
+@keyframes cinematic-intro-title-fade {
+  0% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.cinematic-intro-title {
+  animation: cinematic-intro-title-fade 2400ms ease-in-out 4500ms both;
+}
+html.intro-shown .cinematic-intro-video,
+html.intro-shown .cinematic-intro-title {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-intro-video,
+  .cinematic-intro-title {
+    display: none;
+  }
+}
 /* Set by the inline script in layout.tsx when the analytics-consent
    cookie/localStorage already has a value -- hides the cookie banner
    instantly for returning visitors, before React ever hydrates, so

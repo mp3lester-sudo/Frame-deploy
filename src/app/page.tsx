@@ -263,6 +263,11 @@ export default async function HomePage({
       <script
         dangerouslySetInnerHTML={{
           __html: `try {
+  if (sessionStorage.getItem('backlot:cinematic-intro-shown')) {
+    document.documentElement.classList.add('intro-shown');
+  } else {
+    sessionStorage.setItem('backlot:cinematic-intro-shown', '1');
+  }
   if (sessionStorage.getItem('backlot:greeting-splash-shown')) {
     document.documentElement.classList.add('splash-shown');
   } else {
@@ -271,6 +276,36 @@ export default async function HomePage({
 } catch (e) {}`,
         }}
       />
+      {/* Vintage cinematic intro -- same public-domain footage as the
+          onboarding flow's first-run sequence (see onboarding-swipe.tsx),
+          now also playing at the top of every fresh Home session, not
+          just right after signup. Built the same server-rendered, zero-
+          client-JS way as the greeting splash right below it (CSS
+          keyframes only, gated by the html.intro-shown class the inline
+          script above sets) rather than porting onboarding's stateful
+          React version -- there's no Skip button here because both
+          layers are pointer-events-none, so they never block the page
+          underneath; a user can start scrolling/tapping immediately if
+          they don't want to wait. The intro-shown flag is shared with
+          onboarding's own key, so a just-signed-up user redirected here
+          doesn't see the same footage twice in a row -- they still get
+          the greeting splash below, though (see the delay rule in
+          globals.css keyed off :not(.intro-shown)). */}
+      <div className="cinematic-intro-video pointer-events-none fixed inset-0 z-[60] overflow-hidden bg-black" aria-hidden="true">
+        <video autoPlay muted loop playsInline className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)" }}>
+          <source src="/videos/onboarding-intro.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.85) 100%)" }} />
+        <div className="onboarding-intro-grain absolute inset-0" />
+      </div>
+      <div className="cinematic-intro-title pointer-events-none fixed inset-0 z-[59] flex flex-col items-center justify-center overflow-hidden bg-[#0A0A09]" aria-hidden="true">
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, rgba(255,250,235,0.09) 0%, transparent 60%)" }} />
+        <div className="onboarding-intro-grain absolute inset-0" />
+        <p className="text-gold-foil font-hollywood relative text-5xl tracking-[0.3em]">Backlot</p>
+        <div className="relative my-4 h-px w-16 bg-white/40" />
+        <p className="font-display relative text-sm italic text-white/60">a picture house, for your taste</p>
+      </div>
       {/* Screen-centered marquee card -- both axes, via fixed inset-0
           flex centering -- rather than the inline "Good evening Name"
           sentence the persistent in-page heading below still uses.
