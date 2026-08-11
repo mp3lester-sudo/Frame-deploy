@@ -16,6 +16,7 @@ export interface SwipeTitle {
   director: string | null;
   runtimeMinutes: number | null;
   genres: string[];
+  trailerKey: string | null;
 }
 
 const RATING_FOR = { not_for_me: 1, its_fine: 3, love_it: 5 } as const;
@@ -143,8 +144,23 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
         />
       </div>
 
-      <div className="relative mb-6 h-72 w-full overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface-raised">
-        {current.posterUrl ? (
+      <div key={current.id} className="relative mb-6 h-72 w-full overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface-raised">
+        {current.trailerKey ? (
+          // Muted autoplay + loop -- same "always allowed without a user
+          // gesture" pattern as the movie detail page's backdrop hero
+          // (see backdrop-hero.tsx). Sized by height rather than viewport
+          // width since this card, unlike that full-bleed hero, is a
+          // fixed ~4:3 box: an iframe scaled to the box's height (rather
+          // than its width) always ends up wider than a 16:9 video needs
+          // to be to fill it, so centering + overflow-hidden here crops
+          // the horizontal excess instead of letterboxing top/bottom.
+          <iframe
+            className="absolute left-1/2 top-1/2 h-full w-auto min-w-full aspect-video -translate-x-1/2 -translate-y-1/2 border-0"
+            src={`https://www.youtube.com/embed/${current.trailerKey}?autoplay=1&mute=1&loop=1&playlist=${current.trailerKey}&controls=0&rel=0&playsinline=1&modestbranding=1`}
+            title={`${current.name} trailer`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+          />
+        ) : current.posterUrl ? (
           <Image src={current.posterUrl} alt={current.name} fill className="object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center px-2 text-center text-[10px] font-semibold uppercase tracking-widest text-foreground-muted">

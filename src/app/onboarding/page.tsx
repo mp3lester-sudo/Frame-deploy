@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { OnboardingSwipe, type SwipeTitle } from "@/components/onboarding/onboarding-swipe";
 import { buildDiverseDeck } from "@/lib/catalogue/diverse-deck";
+import { getTmdbTrailer } from "@/lib/external/tmdb-videos";
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
@@ -36,7 +37,15 @@ export default async function OnboardingPage() {
     if (name && !directorByTitle.has(c.title_id)) directorByTitle.set(c.title_id, name);
   }
 
-  const swipeTitles: SwipeTitle[] = titles.map((t) => ({
+  // Fetched in parallel and cached 24h server-side (see getTmdbTrailer) --
+  // this only pulls the YouTube video id per title, not the video itself,
+  // so it's cheap even for a full ~14-title deck. Cards fall back to the
+  // poster still whenever a title has no trailer on TMDB.
+  const trailers = await Promise.all(
+    titles.map((t) => (t.tmdbId ? getTmdbTrailer(t.tmdbId, t.type) : Promise.resolve(null)))
+  );
+
+  const swipeTitles: SwipeTitle[] = titles.map((t, i) => ({
     id: t.id,
     name: t.name,
     overview: t.overview,
@@ -45,6 +54,7 @@ export default async function OnboardingPage() {
     director: directorByTitle.get(t.id) ?? null,
     runtimeMinutes: t.runtimeMinutes,
     genres: t.genres,
+    trailerKey: trailers[i]?.key ?? null,
   }));
 
   return (

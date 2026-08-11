@@ -41,6 +41,8 @@ export interface DeckTitle {
   year: string | null;
   runtimeMinutes: number | null;
   genres: string[];
+  tmdbId: number | null;
+  type: "movie" | "tv";
 }
 
 // How many candidates to pull per genre before falling back to the next
@@ -62,7 +64,7 @@ export async function buildDiverseDeck(
     ANCHOR_GENRES.map((genre) => {
       let query = supabase
         .from("titles")
-        .select("id, name, overview, poster_url, release_date, runtime_minutes, genres")
+        .select("id, name, overview, poster_url, release_date, runtime_minutes, genres, tmdb_id, type")
         .contains("genres", [genre])
         .not("poster_url", "is", null)
         .order("weighted_rating", { ascending: false, nullsFirst: false })
@@ -106,6 +108,8 @@ export async function buildDiverseDeck(
         year: pick.release_date?.slice(0, 4) ?? null,
         runtimeMinutes: pick.runtime_minutes,
         genres: pick.genres ?? [],
+        tmdbId: pick.tmdb_id,
+        type: pick.type,
       });
       madeProgressThisLap = true;
     }
