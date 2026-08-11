@@ -1,3 +1,5 @@
+import { tokenizeSearchQuery } from "@/lib/search/tokenize";
+
 // Pure helpers for the people-search filter, kept separate from
 // src/lib/actions/users.ts (a "use server" file, which may only export async
 // functions) so this logic is directly unit-testable.
@@ -13,12 +15,23 @@ export function sanitizeForOrFilter(query: string): string {
 }
 
 /**
- * Builds the .or() filter string for matching a search query against either
- * a profile's username or display_name. Returns null for a query that's
- * empty after sanitizing (e.g. the user only typed commas/parens).
+ * Builds the .or() filter string for matching a search query against a
+ * profile's username or display_name. A single-word query matches either
+ * field directly. A multi-word query (e.g. "michael lester") requires every
+ * word to appear *somewhere* across the two fields -- not the whole phrase
+ * verbatim in one field -- so "Lester Michael", "Michael J Lester", or a
+ * first/last name split across username vs. display_name all still match,
+ * instead of only the one exact typed order/spacing.
  */
 export function buildUserSearchFilter(rawQuery: string): string | null {
-  const query = sanitizeForOrFilter(rawQuery);
-  if (!query) return null;
-  return `username.ilike.%${query}%,display_name.ilike.%${query}%`;
+  const words = tokenizeSearchQuery(sanitizeForOrFilter(rawQuery));
+  if (words.length === 0) return null;
+
+  if (words.length === 1) {
+    const word = words[0];
+    return `username.ilike.%${word}%,display_name.ilike.%${word}%`;
+  }
+
+  const wordGroups = words.map((word) => `or(username.ilike.%${word}%,display_name.ilike.%${word}%)`);
+  return `and(${wordGroups.join(",")})`;
 }

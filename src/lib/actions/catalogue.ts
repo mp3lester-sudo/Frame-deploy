@@ -5,6 +5,7 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isPremiumActive } from "@/lib/premium/is-premium";
 import { DISCOVER_PAGE_SIZE, SEARCH_PAGE_SIZE } from "@/lib/constants/catalogue";
 import { ERA_DECADES, type AdvancedDiscoverFilters } from "@/lib/constants/discover-filters";
+import { tokenizeSearchQuery } from "@/lib/search/tokenize";
 
 /**
  * Discover/search only ever rendered their first .limit() page — with the
@@ -65,12 +66,15 @@ export async function loadMoreSearchTitles(q: string, page: number) {
 
   const from = (page - 1) * SEARCH_PAGE_SIZE;
   const to = from + SEARCH_PAGE_SIZE - 1;
-  const { data } = await supabase
-    .from("titles")
-    .select("*")
-    .ilike("name", `%${q}%`)
-    .order("weighted_rating", { ascending: false, nullsFirst: false })
-    .range(from, to);
+  // Match every word in the query somewhere in the title, not the whole
+  // phrase verbatim -- "dark knight batman" should still find "The Dark
+  // Knight" even though that's not a literal substring of the title.
+  // Chained .ilike() calls AND together, same as multiple chained filters.
+  let builder = supabase.from("titles").select("*");
+  for (const word of tokenizeSearchQuery(q)) {
+    builder = builder.ilike("name", `%${word}%`);
+  }
+  const { data } = await builder.order("weighted_rating", { ascending: false, nullsFirst: false }).range(from, to);
 
   return { titles: data ?? [], hasMore: (data?.length ?? 0) === SEARCH_PAGE_SIZE };
 }

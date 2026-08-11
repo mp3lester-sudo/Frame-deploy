@@ -11,6 +11,7 @@ import { searchCastCrew, loadMoreCastCrew } from "@/lib/actions/cast-crew";
 import { SEARCH_PAGE_SIZE } from "@/lib/constants/catalogue";
 import { findCompanyMatch } from "@/lib/search/company-search";
 import { getTmdbIdsForCompany, orderByTmdbIdSequence } from "@/lib/search/company-titles";
+import { tokenizeSearchQuery } from "@/lib/search/tokenize";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/supabase/types";
 
@@ -53,10 +54,14 @@ export default async function SearchPage({
       // browse of everything that studio has made.
       titlesHaveMore = false;
     } else {
-      const { data } = await supabase
-        .from("titles")
-        .select("*")
-        .ilike("name", `%${q}%`)
+      // Match every word in the query somewhere in the title rather than
+      // requiring the whole phrase verbatim in that exact order -- see
+      // loadMoreSearchTitles (same approach, kept in sync deliberately).
+      let titleBuilder = supabase.from("titles").select("*");
+      for (const word of tokenizeSearchQuery(q)) {
+        titleBuilder = titleBuilder.ilike("name", `%${word}%`);
+      }
+      const { data } = await titleBuilder
         .order("weighted_rating", { ascending: false, nullsFirst: false })
         .range(0, SEARCH_PAGE_SIZE - 1);
       titles = data ?? [];

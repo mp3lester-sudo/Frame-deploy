@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { PEOPLE_SEARCH_PAGE_SIZE } from "@/lib/constants/social";
+import { tokenizeSearchQuery } from "@/lib/search/tokenize";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 /**
  * Search over real film cast/crew (the `people` table -- actors,
@@ -19,20 +21,25 @@ export interface CastCrewSearchResult {
 }
 
 async function searchCastCrewPage(rawQuery: string, from: number, to: number) {
-  const query = rawQuery.trim();
-  if (!query) return { people: [] as CastCrewSearchResult[], hasMore: false };
+  const words = tokenizeSearchQuery(rawQuery);
+  if (words.length === 0) return { people: [] as CastCrewSearchResult[], hasMore: false };
 
   const supabase = await createClient();
   // No .or() filter needed here (unlike buildUserSearchFilter) -- there's
   // only one searchable column, and .ilike() passes the pattern as a
   // parameter rather than splicing it into a raw filter string, so the
-  // comma/paren-escaping that filter needs doesn't apply here.
-  const { data } = await supabase
-    .from("people")
-    .select("id, name, role, photo_url")
-    .ilike("name", `%${query}%`)
-    .order("name")
-    .range(from, to);
+  // comma/paren-escaping that filter needs doesn't apply here. Matching
+  // every word (chained .ilike() calls AND together) instead of the whole
+  // phrase verbatim means "spielberg steven" still finds "Steven Spielberg".
+  let builder = supabase.from("people").select("id, name, role, photo_url");
+  for (const word of words) {
+    builder = builder.ilike("name", `%${word}%`);
+  }
+  const { data, error } = await builder.order("name").range(from, to);
+  if (error) {
+    await captureServerError(error, { action: "searchCastCrewPage", query: rawQuery });
+    return { people: [], hasMore: false };
+  }
 
   const people: CastCrewSearchResult[] = (data ?? []).map((p) => ({
     id: p.id,

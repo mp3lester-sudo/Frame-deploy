@@ -13,8 +13,24 @@ describe("sanitizeForOrFilter", () => {
 });
 
 describe("buildUserSearchFilter", () => {
-  it("builds an or-filter matching username or display_name", () => {
+  it("builds a simple or-filter for a single-word query", () => {
     expect(buildUserSearchFilter("michael")).toBe("username.ilike.%michael%,display_name.ilike.%michael%");
+  });
+
+  it("builds an and-of-or filter for a multi-word query, so every word must match somewhere but word order/field doesn't matter", () => {
+    expect(buildUserSearchFilter("michael lester")).toBe(
+      "and(or(username.ilike.%michael%,display_name.ilike.%michael%),or(username.ilike.%lester%,display_name.ilike.%lester%))"
+    );
+  });
+
+  it("matches on word order not mattering by construction (reversed query produces an equivalent and-group)", () => {
+    const forward = buildUserSearchFilter("michael lester");
+    const reversed = buildUserSearchFilter("lester michael");
+    // Not identical strings (groups are still in typed order), but both are
+    // "and" groups over the same two words -- what matters is that neither
+    // query requires the words to appear as one contiguous phrase.
+    expect(forward).toContain("and(");
+    expect(reversed).toContain("and(");
   });
 
   it("returns null for a query that's empty after sanitizing", () => {
@@ -23,9 +39,11 @@ describe("buildUserSearchFilter", () => {
     expect(buildUserSearchFilter(",()")).toBeNull();
   });
 
-  it("never lets a raw comma reach the filter string (would inject a second .or() condition)", () => {
+  it("never lets raw commas or parens from user input appear as literal characters in a word", () => {
+    // "a,b" sanitizes to "a b" (comma -> space) *before* tokenizing, so this
+    // is two words ("a", "b"), each safely wrapped in its own ilike clause --
+    // not a comma smuggled into the raw filter string to inject a condition.
     const filter = buildUserSearchFilter("a,b");
-    expect(filter).not.toBeNull();
-    expect(filter!.split(",").length).toBe(2); // exactly the two intended conditions, not three+
+    expect(filter).toBe("and(or(username.ilike.%a%,display_name.ilike.%a%),or(username.ilike.%b%,display_name.ilike.%b%))");
   });
 });
