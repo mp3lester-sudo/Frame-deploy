@@ -711,3 +711,38 @@ html.consent-decided .cookie-consent-banner {
     animation-duration: 1ms !important;
   }
 }
+
+/* Onboarding intro sequence -- vintage b&w video montage slow-zooming
+   under grain/vignette, then a title card, before the swipe deck itself.
+   .flicker-slow (above, flicker-text keyframes) is reused for the old
+   -projector flicker rather than defining a near-duplicate. */
+@keyframes onboarding-intro-zoom {
+  from {
+    transform: scale(1.05);
+  }
+  to {
+    transform: scale(1.18);
+  }
+}
+.onboarding-intro-zoom {
+  animation: onboarding-intro-zoom 9s ease-in-out infinite alternate;
+}
+
+/* Repeating horizontal grain lines, blended over the video so compression
+   artifacts read as film texture instead of noise. */
+.onboarding-intro-grain {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-intro-zoom {
+    animation: none;
+  }
+}
