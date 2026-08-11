@@ -746,3 +746,27 @@ html.consent-decided .cookie-consent-banner {
     animation: none;
   }
 }
+
+/* Onboarding swipe card + loading/reveal polish -- the drag-to-swipe
+   card itself is animated via inline transform/transition in
+   onboarding-swipe.tsx (values depend on live pointer position, not
+   something a fixed keyframe can express), but the gold ring loader
+   below is static enough to live here, matching how every other loop
+   animation in this file works. Reveal-screen posters reuse the
+   existing sitewide .stagger-card + animationDelay convention (see
+   title-card.tsx) rather than a new keyframe. */
+@keyframes onboarding-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.onboarding-ring-spin {
+  animation: onboarding-ring-spin 1s linear infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-ring-spin {
+    animation: none;
+  }
+}
