@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { PEOPLE_SEARCH_PAGE_SIZE } from "@/lib/constants/social";
 import { buildUserSearchFilter } from "@/lib/search/user-search";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 export interface UserSearchResult {
   id: string;
@@ -31,7 +32,15 @@ async function searchUsersPage(rawQuery: string, from: number, to: number) {
 
   if (viewer) builder = builder.neq("id", viewer.id);
 
-  const { data } = await builder;
+  const { data, error } = await builder;
+  if (error) {
+    // Was previously swallowed silently (destructured `data` only), which
+    // made a broken query indistinguishable from "genuinely no matches" in
+    // the UI -- surface it so a bad filter/RLS change shows up in Sentry
+    // instead of just quietly returning zero results forever.
+    await captureServerError(error, { action: "searchUsersPage", query: rawQuery });
+    return { users: [], hasMore: false };
+  }
   if (!data || data.length === 0) return { users: [], hasMore: false };
 
   const ids = data.map((p) => p.id);

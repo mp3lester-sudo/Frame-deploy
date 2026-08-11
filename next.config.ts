@@ -7,6 +7,17 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "image.tmdb.org" },
       // Supabase Storage (avatars, uploads)
       { protocol: "https", hostname: "*.supabase.co" },
+      // Trade-press article thumbnails (Indie Spotlight news cards) --
+      // media:thumbnail URLs come straight off variety.com/deadline.com's
+      // own domain, og:image scrapes off indiewire.com/hollywoodreporter.com's.
+      // Wildcards cover the occasional CDN subdomain these WordPress VIP
+      // sites serve responsive images from, alongside the bare domain.
+      { protocol: "https", hostname: "*.variety.com" },
+      { protocol: "https", hostname: "variety.com" },
+      { protocol: "https", hostname: "*.deadline.com" },
+      { protocol: "https", hostname: "deadline.com" },
+      { protocol: "https", hostname: "*.indiewire.com" },
+      { protocol: "https", hostname: "*.hollywoodreporter.com" },
     ],
     // AVIF/WebP are meaningfully smaller than the source JPEGs TMDB serves
     // (posters/backdrops are the single largest asset class on nearly
