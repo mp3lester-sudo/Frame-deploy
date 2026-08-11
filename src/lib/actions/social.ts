@@ -46,6 +46,15 @@ export async function rateTitle(input: z.infer<typeof rateSchema>) {
 
   revalidatePath(`/movie/${titleId}`);
   revalidatePath("/");
+  // Taste DNA (and the Watched tab on the profile) both read straight from
+  // `ratings`, so every review/log already feeds them, not just onboarding
+  // -- but neither of those routes was ever told to refresh after a new
+  // rating, so they kept showing whatever was cached from the last visit
+  // (often just what onboarding produced) until something else happened to
+  // bust the cache. unrateTitle (below) already revalidated the profile
+  // path; this was the missing half.
+  revalidatePath("/taste-dna");
+  revalidatePath("/profile/me");
 }
 
 /**
@@ -76,7 +85,7 @@ export async function unrateTitle(titleId: string) {
   revalidatePath(`/movie/${id}`);
   revalidatePath("/");
   revalidatePath("/profile/me");
-  revalidatePath(`/profile/${user.id}`);
+  revalidatePath("/taste-dna");
 }
 
 const reviewSchema = z.object({
