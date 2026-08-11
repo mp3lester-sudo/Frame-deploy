@@ -39,9 +39,14 @@ async function searchUsersPage(rawQuery: string, from: number, to: number) {
     // the UI -- surface it so a bad filter/RLS change shows up in Sentry
     // instead of just quietly returning zero results forever.
     await captureServerError(error, { action: "searchUsersPage", query: rawQuery });
-    return { users: [], hasMore: false };
+    // TEMP DEBUG (remove once the live "no users found" report is
+    // resolved): render the actual DB error in the UI since this
+    // environment has no direct Sentry/DB access to inspect it otherwise.
+    return { users: [], hasMore: false, debug: `error: ${error.message} (code ${error.code})` };
   }
-  if (!data || data.length === 0) return { users: [], hasMore: false };
+  if (!data || data.length === 0) {
+    return { users: [], hasMore: false, debug: `filter="${filter}" rows=0` };
+  }
 
   const ids = data.map((p) => p.id);
   const { data: followingRows } = viewer
@@ -50,10 +55,12 @@ async function searchUsersPage(rawQuery: string, from: number, to: number) {
   const followingSet = new Set((followingRows ?? []).map((f) => f.followee_id));
 
   const users: UserSearchResult[] = data.map((p) => ({ ...p, isFollowing: followingSet.has(p.id) }));
-  return { users, hasMore: data.length === to - from + 1 };
+  return { users, hasMore: data.length === to - from + 1, debug: `filter="${filter}" rows=${data.length}` };
 }
 
-export async function searchUsers(query: string): Promise<{ users: UserSearchResult[]; hasMore: boolean }> {
+export async function searchUsers(
+  query: string
+): Promise<{ users: UserSearchResult[]; hasMore: boolean; debug?: string }> {
   return searchUsersPage(query, 0, PEOPLE_SEARCH_PAGE_SIZE - 1);
 }
 

@@ -64,7 +64,11 @@ export default async function SearchPage({
     }
   }
 
-  const { users, hasMore: usersHaveMore } = mode === "people" && q ? await searchUsers(q) : { users: [], hasMore: false };
+  const {
+    users,
+    hasMore: usersHaveMore,
+    debug: usersDebug,
+  } = mode === "people" && q ? await searchUsers(q) : { users: [], hasMore: false, debug: undefined };
   const { people: castCrew, hasMore: castCrewHaveMore } =
     mode === "cast" && q ? await searchCastCrew(q) : { people: [], hasMore: false };
 
@@ -135,6 +139,7 @@ export default async function SearchPage({
       {mode === "people" && (
         <>
           {q && !users.length && <p className="text-sm text-foreground-muted">No one found for &ldquo;{q}&rdquo;.</p>}
+          {q && usersDebug && <p className="text-xs text-foreground-muted/60">[debug] {usersDebug}</p>}
           {q && (
             <LoadMorePeople
               key={q}
