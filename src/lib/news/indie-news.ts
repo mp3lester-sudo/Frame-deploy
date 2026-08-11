@@ -32,12 +32,12 @@ const FEED_SOURCES: { url: string; source: string }[] = [
   { url: "https://www.hollywoodreporter.com/c/movies/feed/", source: "The Hollywood Reporter" },
 ];
 
-// Only the top few merged stories get real visual treatment in the
-// redesigned IndieSpotlight (a featured card + a small grid); the rest
-// render as a plain text list. Capping the best-effort og:image fetch to
-// this many keeps the extra per-article network round trips small and
-// bounded rather than scaling with the whole feed.
-const FEATURED_IMAGE_COUNT = 3;
+// Every story IndieSpotlight renders gets a real, article-specific photo
+// -- either the feed's own embedded thumbnail (Variety/Deadline) or a
+// best-effort og:image scrape of the article's own page (IndieWire/THR,
+// whose feeds carry no image data at all). Capping the default limit
+// (rather than the enrichment) keeps the worst-case number of extra
+// per-article fetches on a cold cache bounded and predictable.
 
 function textOf(value: unknown): string {
   if (value == null) return "";
@@ -120,7 +120,7 @@ function byRecency(a: IndieNewsItem, b: IndieNewsItem): number {
  * for the handful of top stories that get featured visual treatment and
  * didn't already carry a media:thumbnail from their own feed.
  */
-export async function getIndieNews(limit = 10): Promise<IndieNewsItem[]> {
+export async function getIndieNews(limit = 8): Promise<IndieNewsItem[]> {
   const results = await Promise.allSettled(FEED_SOURCES.map(({ url, source }) => fetchFeed(url, source)));
 
   const merged = results
@@ -130,8 +130,8 @@ export async function getIndieNews(limit = 10): Promise<IndieNewsItem[]> {
     .slice(0, limit);
 
   const enriched = await Promise.all(
-    merged.map(async (item, i) => {
-      if (item.imageUrl || i >= FEATURED_IMAGE_COUNT) return item;
+    merged.map(async (item) => {
+      if (item.imageUrl) return item;
       const imageUrl = await getArticleImage(item.url);
       return imageUrl ? { ...item, imageUrl } : item;
     })

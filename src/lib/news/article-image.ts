@@ -22,6 +22,10 @@ export async function getArticleImage(url: string): Promise<string | null> {
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; BacklotBot/1.0; +https://taste-green-tau.vercel.app)" },
       next: { revalidate: 3600 },
+      // Several of these can run concurrently (one per trade article on the
+      // home page) -- cap each at a few seconds so one slow/unresponsive
+      // outlet can't stall the whole batch.
+      signal: AbortSignal.timeout(6000),
     });
     if (!res.ok) return null;
 

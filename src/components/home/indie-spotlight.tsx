@@ -8,8 +8,12 @@ import type { IndieNewsItem } from "@/lib/news/indie-news";
  * upcoming releases from indie-leaning distributors (A24, NEON, Magnolia,
  * Searchlight), paired with a trade-press headline block merged live from
  * four outlets (IndieWire, Variety, Deadline, The Hollywood Reporter).
- * Renders nothing if both live fetches came back empty (network hiccup,
- * rate limit, etc.) rather than showing an awkward empty section.
+ * Every trade story shown carries its own real, article-specific photo
+ * (see indie-news.ts) -- never a generic/stock image -- with a quiet
+ * source-branded placeholder only for the rare case a thumbnail truly
+ * couldn't be found. Renders nothing if both live fetches came back
+ * empty (network hiccup, rate limit, etc.) rather than showing an
+ * awkward empty section.
  */
 export function IndieSpotlight({ releases, news }: { releases: IndieRelease[]; news: IndieNewsItem[] }) {
   if (!releases.length && !news.length) return null;
@@ -100,7 +104,7 @@ export function IndieSpotlight({ releases, news }: { releases: IndieRelease[]; n
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
-                    <NewsPlaceholder source={item.source} compact />
+                    <NewsPlaceholder source={item.source} size="compact" />
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 p-2.5">
@@ -113,17 +117,20 @@ export function IndieSpotlight({ releases, news }: { releases: IndieRelease[]; n
           )}
 
           {list.length > 0 && (
-            <div className="mt-4 flex flex-col gap-2.5 border-t border-border pt-3">
+            <div className="mt-4 flex flex-col gap-3 border-t border-border pt-3">
               {list.map((item, i) => (
-                <a
-                  key={i}
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm leading-snug text-foreground hover:text-accent"
-                >
-                  {item.title}
-                  <span className="ml-2 text-[11px] uppercase tracking-wide text-foreground-muted">{item.source}</span>
+                <a key={i} href={item.url} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-border bg-surface-raised">
+                    {item.imageUrl ? (
+                      <Image src={item.imageUrl} alt={item.title} fill sizes="48px" className="object-cover" />
+                    ) : (
+                      <NewsPlaceholder source={item.source} size="tiny" />
+                    )}
+                  </div>
+                  <span className="min-w-0">
+                    <span className="line-clamp-2 text-sm leading-snug text-foreground group-hover:text-accent">{item.title}</span>
+                    <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-foreground-muted">{item.source}</span>
+                  </span>
                 </a>
               ))}
             </div>
@@ -135,17 +142,14 @@ export function IndieSpotlight({ releases, news }: { releases: IndieRelease[]; n
 }
 
 /** Best-effort thumbnails aren't always available (og:image fetch failed,
- * or the story wasn't one of the few featured slots that get one) --
- * rather than a broken image or a blank tile, show a quiet source-branded
- * gradient card, same "omit rather than fake it" spirit as the rest of
- * the news pipeline. */
-function NewsPlaceholder({ source, compact = false }: { source: string; compact?: boolean }) {
+ * or timed out) -- rather than a broken image or a blank tile, show a
+ * quiet source-branded gradient card, same "omit rather than fake it"
+ * spirit as the rest of the news pipeline. */
+function NewsPlaceholder({ source, size = "large" }: { source: string; size?: "large" | "compact" | "tiny" }) {
+  const textSize = size === "large" ? "text-4xl" : size === "compact" ? "text-2xl" : "text-sm";
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-surface-raised to-background">
-      <span
-        className={`font-serif text-accent/40 ${compact ? "text-2xl" : "text-4xl"}`}
-        style={{ fontFamily: "var(--font-display)" }}
-      >
+      <span className={`font-serif text-accent/40 ${textSize}`} style={{ fontFamily: "var(--font-display)" }}>
         {source[0]}
       </span>
     </div>
