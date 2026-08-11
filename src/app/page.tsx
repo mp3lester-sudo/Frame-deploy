@@ -7,7 +7,7 @@ import { getLandingSwipeDeck } from "@/lib/actions/landing-teaser";
 import { TasteTeaser } from "@/components/landing/taste-teaser";
 import { getRequestGeo } from "@/lib/geo";
 import { getCurrentWeather } from "@/lib/weather";
-import { SpotlightRecommendation } from "@/components/home/spotlight-recommendation";
+import { RecommendationReveal, type RevealPick } from "@/components/home/recommendation-reveal";
 import { MoodRow } from "@/components/home/mood-row";
 import { MovieNightCard } from "@/components/home/movie-night-card";
 import { createMovieNight } from "@/lib/actions/movie-night";
@@ -123,7 +123,12 @@ export default async function HomePage({
     isCompanionContext
       ? Promise.resolve({ recommendations: [] as Recommendation[], isColdStart: false })
       : getRecommendationsForUser(user.id, {
-          limit: 7,
+          // 1 hero + 6 for MoodRow ("More picks for you") + 2 held in
+          // reserve purely for RecommendationReveal's "Generate another
+          // pick" cycle -- the reserve pair is deliberately never passed
+          // to MoodRow, so tapping "generate another" on the hero can
+          // never show a poster that's already visible in the rail below it.
+          limit: 9,
           context: activeContext,
           weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
         }),
@@ -140,20 +145,29 @@ export default async function HomePage({
     getIndieNews(),
   ]);
 
-  const [hero, ...morePicks] = recommendations;
+  const hero = recommendations[0];
+  const morePicks = recommendations.slice(1, 7);
+  // See the `limit: 9` comment above -- these two never render in MoodRow.
+  const heroReserve = recommendations.slice(7, 9);
+  const heroPool = hero ? [hero, ...heroReserve] : [];
   const nightIds = (memberships ?? []).map((m) => m.movie_night_id);
   const followeeIds = (following ?? []).map((f) => f.followee_id);
 
-  const [heroDirectorResult, night, events, hiddenGem] = await Promise.all([
-    hero
+  const [heroPoolDirectorsResult, night, events, hiddenGem] = await Promise.all([
+    // Batched across the whole hero pool (hero + reserve), not just hero
+    // alone -- RecommendationReveal's "Generate another pick" can land on
+    // any of them, so each one needs its own director for the meta line
+    // rather than only the one shown first.
+    heroPool.length
       ? supabase
           .from("title_credits")
-          .select("people(name)")
-          .eq("title_id", hero.title.id)
+          .select("title_id, people(name)")
+          .in(
+            "title_id",
+            heroPool.map((r) => r.title.id)
+          )
           .eq("credit_type", "director")
-          .limit(1)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: [] }),
     nightIds.length
       ? supabase
           .from("movie_nights")
@@ -186,8 +200,22 @@ export default async function HomePage({
     ),
   ]);
 
-  const heroDirector =
-    (heroDirectorResult?.data as unknown as { people: { name: string } | null } | null)?.people?.name ?? null;
+  const directorByTitleId = new Map<string, string>();
+  for (const row of (heroPoolDirectorsResult?.data ?? []) as unknown as {
+    title_id: string;
+    people: { name: string } | null;
+  }[]) {
+    if (!directorByTitleId.has(row.title_id) && row.people?.name) {
+      directorByTitleId.set(row.title_id, row.people.name);
+    }
+  }
+  const heroRevealPicks: RevealPick[] = heroPool.map((r) => ({
+    title: r.title,
+    reason: r.reason,
+    detail: r.detail,
+    matchPercent: r.matchPercent,
+    director: directorByTitleId.get(r.title.id) ?? null,
+  }));
   let activeNight: { id: string; hostId: string; participants: Participant[] } | null = null;
   if (night) {
     const { data: participantRows } = await supabase
@@ -399,20 +427,14 @@ export default async function HomePage({
                 Hidden Gem, or nothing obscure-enough-and-good-enough to
                 surface today). Same slot Director of the Day occupied
                 before it moved to /daily. */}
-            {(hero || hiddenGem) && (
+            {(heroRevealPicks.length > 0 || hiddenGem) && (
               <div
                 className={`grid gap-5 lg:items-stretch ${
-                  hero && hiddenGem ? "lg:grid-cols-[1.6fr_1fr]" : "lg:grid-cols-1"
+                  heroRevealPicks.length > 0 && hiddenGem ? "lg:grid-cols-[1.6fr_1fr]" : "lg:grid-cols-1"
                 }`}
               >
-                {hero && (
-                  <SpotlightRecommendation
-                    title={hero.title}
-                    reason={hero.reason}
-                    detail={hero.detail}
-                    matchPercent={hero.matchPercent}
-                    director={heroDirector}
-                  />
+                {heroRevealPicks.length > 0 && (
+                  <RecommendationReveal picks={heroRevealPicks} isColdStart={isColdStart} />
                 )}
                 {hiddenGem && <HiddenGemCard title={hiddenGem.title} matchPercent={hiddenGem.matchPercent} />}
               </div>
