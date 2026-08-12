@@ -113,11 +113,24 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
 
   function generateAnother() {
     if (phase !== "revealed" || picks.length < 2) return;
+    // Resolve the next pick's index up front (not inside the timeouts
+    // below) so the SWEEP_MS timeout can read ITS matchPercent directly,
+    // rather than closing over `current` from render time -- by the time
+    // that timeout fires, setIndex has already run and `current` in this
+    // closure would still point at the pick being cycled away FROM, not
+    // the one being cycled TO. (Bug fixed here: the badge was showing a
+    // stuck "0% match" after every cycle because displayPercent was reset
+    // to 0 for the sweep but nothing ever set it back afterward.)
+    const nextIndex = (index + 1) % picks.length;
+    const nextPercent = picks[nextIndex].matchPercent;
     setPhase("sweeping");
     setDisplayPercent(0);
     timers.current.push(
-      setTimeout(() => setIndex((i) => (i + 1) % picks.length), CYCLE_SWAP_MS),
-      setTimeout(() => setPhase("revealed"), SWEEP_MS)
+      setTimeout(() => setIndex(nextIndex), CYCLE_SWAP_MS),
+      setTimeout(() => {
+        setDisplayPercent(nextPercent ?? 0);
+        setPhase("revealed");
+      }, SWEEP_MS)
     );
   }
 
