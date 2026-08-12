@@ -37,8 +37,8 @@ type ExitDirection = "left" | "right" | "fade";
 // onboarding straight to Home doesn't see the same footage twice back
 // to back.
 const INTRO_SEEN_KEY = "backlot:cinematic-intro-shown";
-const INTRO_VIDEO_MS = 4500;
-const INTRO_TITLE_MS = 2200;
+const INTRO_VIDEO_MS = 3400;
+const INTRO_TITLE_MS = 1400;
 const SWIPE_THRESHOLD = 110;
 const EXIT_DURATION_MS = 260;
 
@@ -191,12 +191,18 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
 
   if (phase === "intro-video") {
     return (
-      <div className="flicker-slow fixed inset-0 z-50 overflow-hidden bg-black">
-        {/* Public-domain 1945 footage (Hollywood and Vine), self-hosted --
-            see public/videos/onboarding-intro.mp4. Muted autoplay + loop
+      <div
+        onClick={skipIntro}
+        className="flicker-slow fixed inset-0 z-50 cursor-pointer overflow-hidden bg-black"
+      >
+        {/* Public-domain 1920s/1940s footage (the Hollywoodland sign +
+            a 1941 Academy Awards newsreel), self-hosted -- see
+            public/videos/onboarding-intro.mp4. Muted autoplay + loop
             needs no user gesture in any browser, same pattern as the
             movie page's backdrop hero and the swipe deck's own trailer
-            embeds. */}
+            embeds. The whole overlay is clickable (not just the Skip
+            label) so anyone who wants straight to the swipe deck can
+            tap anywhere to get there. */}
         <video
           autoPlay
           muted
@@ -218,7 +224,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
           onClick={skipIntro}
           className="absolute bottom-6 right-6 font-sans text-xs tracking-wide text-white/50 transition-colors hover:text-white/85"
         >
-          Skip
+          Tap to skip
         </button>
       </div>
     );
@@ -226,7 +232,10 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
 
   if (phase === "intro-title") {
     return (
-      <div className="page-transition fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-[#0A0A09]">
+      <div
+        onClick={skipIntro}
+        className="page-transition fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center overflow-hidden bg-[#0A0A09]"
+      >
         <div
           className="absolute inset-0"
           style={{ background: "radial-gradient(ellipse at center, rgba(255,250,235,0.09) 0%, transparent 60%)" }}
@@ -240,7 +249,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
           onClick={skipIntro}
           className="absolute bottom-6 right-6 font-sans text-xs tracking-wide text-white/40 transition-colors hover:text-white/70"
         >
-          Skip
+          Tap to skip
         </button>
       </div>
     );

@@ -285,22 +285,45 @@ export default async function HomePage({
           onboarding's own key, so a just-signed-up user redirected here
           doesn't see the same footage twice in a row -- they still get
           the greeting splash below, though (see the delay rule in
-          globals.css keyed off :not(.intro-shown)). */}
-      <div className="cinematic-intro-video pointer-events-none fixed inset-0 z-[60] overflow-hidden bg-black" aria-hidden="true">
-        <video autoPlay muted loop playsInline className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)" }}>
-          <source src="/videos/onboarding-intro.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.85) 100%)" }} />
-        <div className="onboarding-intro-grain absolute inset-0" />
+          globals.css keyed off :not(.intro-shown)).
+
+          Wrapped in a tap-zone div (id below) so a tap/click anywhere
+          dismisses the whole intro instantly instead of waiting out the
+          fade -- the plain <script> right after registers the one
+          listener needed for that, same zero-framework approach as the
+          sessionStorage script above (no client component needed just
+          for this). The video/title layers themselves stay
+          pointer-events-none so the tap-zone (not them) is what's
+          actually clickable. */}
+      <div id="cinematic-intro-tapzone" className="fixed inset-0 z-[60] cursor-pointer">
+        <div className="cinematic-intro-video pointer-events-none absolute inset-0 z-[2] overflow-hidden bg-black" aria-hidden="true">
+          <video autoPlay muted loop playsInline className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)" }}>
+            <source src="/videos/onboarding-intro.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
+          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.85) 100%)" }} />
+          <div className="onboarding-intro-grain absolute inset-0" />
+        </div>
+        <div className="cinematic-intro-title pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center overflow-hidden bg-[#0A0A09]" aria-hidden="true">
+          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, rgba(255,250,235,0.09) 0%, transparent 60%)" }} />
+          <div className="onboarding-intro-grain absolute inset-0" />
+          <p className="text-gold-foil font-hollywood relative text-5xl tracking-[0.3em]">Backlot</p>
+          <div className="relative my-4 h-px w-16 bg-white/40" />
+          <p className="font-display relative text-sm italic text-white/60">a picture house, for your taste</p>
+        </div>
       </div>
-      <div className="cinematic-intro-title pointer-events-none fixed inset-0 z-[59] flex flex-col items-center justify-center overflow-hidden bg-[#0A0A09]" aria-hidden="true">
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, rgba(255,250,235,0.09) 0%, transparent 60%)" }} />
-        <div className="onboarding-intro-grain absolute inset-0" />
-        <p className="text-gold-foil font-hollywood relative text-5xl tracking-[0.3em]">Backlot</p>
-        <div className="relative my-4 h-px w-16 bg-white/40" />
-        <p className="font-display relative text-sm italic text-white/60">a picture house, for your taste</p>
-      </div>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `try {
+  var tz = document.getElementById('cinematic-intro-tapzone');
+  if (tz) {
+    tz.addEventListener('click', function () {
+      document.documentElement.classList.add('cinematic-intro-dismissed');
+    }, { once: true });
+  }
+} catch (e) {}`,
+        }}
+      />
       {/* Screen-centered marquee card -- both axes, via fixed inset-0
           flex centering -- rather than the inline "Good evening Name"
           sentence the persistent in-page heading below still uses.

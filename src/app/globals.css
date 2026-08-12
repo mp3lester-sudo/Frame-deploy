@@ -508,7 +508,7 @@ html.splash-shown .greeting-splash {
    below) or the user just came from onboarding, which sets the same
    shared key -- there's nothing to wait for, so no delay. */
 html:not(.intro-shown) .greeting-splash {
-  animation-delay: 6900ms;
+  animation-delay: 4800ms;
 }
 /* Home page cinematic intro -- video fades out first, title card
    overlaps and fades in right after, then fades out just before the
@@ -529,7 +529,7 @@ html:not(.intro-shown) .greeting-splash {
   }
 }
 .cinematic-intro-video {
-  animation: cinematic-intro-video-fade 4700ms ease-in-out both;
+  animation: cinematic-intro-video-fade 3500ms ease-in-out both;
 }
 @keyframes cinematic-intro-title-fade {
   0% {
@@ -546,10 +546,19 @@ html:not(.intro-shown) .greeting-splash {
   }
 }
 .cinematic-intro-title {
-  animation: cinematic-intro-title-fade 2400ms ease-in-out 4500ms both;
+  animation: cinematic-intro-title-fade 1500ms ease-in-out 3300ms both;
 }
 html.intro-shown .cinematic-intro-video,
 html.intro-shown .cinematic-intro-title {
+  display: none;
+}
+/* Tap-to-skip: the tap-zone's own click listener (page.tsx) adds this
+   class the instant someone taps anywhere on the intro, hiding both
+   layers immediately rather than waiting out the fade. Also covers the
+   already-seen-this-session case so the (otherwise invisible) tap-zone
+   never sits there capturing clicks meant for the real page. */
+html.cinematic-intro-dismissed #cinematic-intro-tapzone,
+html.intro-shown #cinematic-intro-tapzone {
   display: none;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -774,10 +783,10 @@ html.consent-decided .cookie-consent-banner {
    -projector flicker rather than defining a near-duplicate. */
 @keyframes onboarding-intro-zoom {
   from {
-    transform: scale(1.05);
+    transform: scale(1.02);
   }
   to {
-    transform: scale(1.18);
+    transform: scale(1.08);
   }
 }
 .onboarding-intro-zoom {
