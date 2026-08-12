@@ -31,7 +31,7 @@ const METER_MS = 1400;
 // over METER_MS. High enough that nothing about the pick is guessable
 // before the tap, low enough that the shape/lighting still reads as "a
 // real photo," not noise -- part of the tease.
-const MAX_BLUR_PX = 20;
+const MAX_BLUR_PX = 36;
 const RING_RADIUS = 44;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
@@ -158,8 +158,16 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
             alt=""
             fill
             priority
-            className="object-cover transition-[filter] duration-[1400ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
-            style={{ filter: `blur(${blurPx}px) grayscale(0.15) brightness(0.75)` }}
+            className="object-cover transition-[filter,transform] duration-[1400ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
+            style={{
+              filter: `blur(${blurPx}px) grayscale(0.15) brightness(0.75)`,
+              // Scaled up while blurred so the heavy blur radius doesn't
+              // sample past the image's own edge into the container's
+              // empty padding (which reads as a faint soft halo at the
+              // border) -- settles back to 1 in step with the blur
+              // clearing.
+              transform: phase === "sealed" ? "scale(1.08)" : "scale(1)",
+            }}
             sizes="(max-width: 1024px) 100vw, 60vw"
           />
         </Link>
