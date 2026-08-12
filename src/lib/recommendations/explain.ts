@@ -14,6 +14,12 @@ export type ExplainableTitle = ContextualTitle & {
 export interface ReasonDetail {
   /** One-line summary — what MoodRow shows, and what Hero shows collapsed. */
   headline: string;
+  /** Multi-sentence expansion of `headline` — shown in the "Why this pick"
+   *  expandable section. Built entirely from real signals this pick
+   *  actually had (citations, match kind, the title's own themes/tone/mood/
+   *  pacing/ending, context/weather notes) — never a generic filler
+   *  sentence, and never a signal that wasn't actually true for this pick. */
+  longReason: string;
   themes: string[];
   tone: string[];
   moodTags: string[];
@@ -108,8 +114,20 @@ export function buildReasonDetail(params: {
     headline = `Picked for you based on your Taste Graph.${suffix}`;
   }
 
+  const longReason = buildLongReason({
+    matchKind,
+    title,
+    themes,
+    tone,
+    moodTags,
+    citedTitles,
+    contextSuffixNote,
+    weatherNote: weatherNote ?? null,
+  });
+
   return {
     headline,
+    longReason,
     themes,
     tone,
     moodTags,
@@ -119,14 +137,102 @@ export function buildReasonDetail(params: {
   };
 }
 
+/** Joins a list into "a", "a and b", or "a, b, and c" — used to fold
+ *  multiple themes/tones into one readable sentence instead of a
+ *  comma-splice or a truncated single trait. */
+function joinList(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+/**
+ * The fuller, multi-sentence explanation behind `headline` — this is what
+ * "learn each individual user to an absolute tee" actually looks like from
+ * the outside: naming the specific titles, themes, tone, and pacing that
+ * drove the pick, not just a one-line algorithmic gesture. Every clause
+ * here maps to a real, checkable signal that was actually true for this
+ * pick — nothing is invented to sound more personalized than it is.
+ */
+function buildLongReason(params: {
+  matchKind: MatchKind;
+  title: ExplainableTitle;
+  themes: string[];
+  tone: string[];
+  moodTags: string[];
+  citedTitles: string[];
+  contextSuffixNote: string | null;
+  weatherNote: string | null;
+}): string {
+  const { matchKind, title, themes, tone, moodTags, citedTitles, contextSuffixNote, weatherNote } = params;
+
+  const themeText = themes.length ? joinList(themes.slice(0, 3)) : null;
+  const toneText = tone.length ? joinList(tone.slice(0, 2)) : null;
+  const pacing = title.pacing;
+  const endingType = title.ending_type;
+
+  const sentences: string[] = [];
+
+  if (matchKind === "content" && citedTitles.length > 0) {
+    const citedText = joinList(citedTitles);
+    sentences.push(
+      citedTitles.length === 1
+        ? `We matched this to ${citedText} specifically — of everything in your rated history, it's the closest thing to this pick in our taste model, not just a genre-level guess.`
+        : `We matched this to ${citedText} specifically — both sit closest to this pick in your taste model, which is a stronger signal than either alone.`
+    );
+    if (themeText) sentences.push(`Like those, it centers on ${themeText}${toneText ? `, carried with a ${toneText} tone` : ""}.`);
+    else if (toneText) sentences.push(`It shares the same ${toneText} tone you responded to there.`);
+  } else if (matchKind === "content") {
+    sentences.push("Your taste profile — built from everything you've rated, not a generic category — places this as one of your closest overall matches in the catalogue.");
+    if (themeText) sentences.push(`It leans into ${themeText}${toneText ? ` with a ${toneText} tone` : ""}, the register your ratings consistently favor.`);
+  } else if (matchKind === "behavioral") {
+    sentences.push("This isn't a thematic guess: it comes from real overlap in the ratings data — other viewers who rated the exact same titles you loved also rated this one highly.");
+    if (themeText) sentences.push(`On top of that behavioral overlap, it also shares ${themeText} with titles you've responded well to.`);
+  } else if (matchKind === "collaborative") {
+    sentences.push("Viewers whose taste vector is closest to yours across the whole catalogue rated this highly, so it's surfacing through pattern overlap even beyond your own direct ratings.");
+    if (themeText) sentences.push(`It also carries ${themeText}${toneText ? ` and a ${toneText} tone` : ""}, consistent with what you tend to rate well.`);
+  } else if (matchKind === "mood" && moodTags.length) {
+    sentences.push(`This fits where your recent activity has been leaning: ${joinList(moodTags.slice(0, 3))}.`);
+    if (themeText) sentences.push(`It's built around ${themeText}${toneText ? ` with a ${toneText} tone` : ""}.`);
+  } else {
+    sentences.push("We don't have a strong direct signal for this one yet, so it's leaning on your broader Taste Graph rather than a specific citation.");
+    if (themeText) sentences.push(`It's centered on ${themeText}${toneText ? ` with a ${toneText} tone` : ""}.`);
+  }
+
+  if (pacing || endingType) {
+    const bits = [pacing ? `${pacing} pacing` : null, endingType ? `a ${endingType} ending` : null].filter(
+      (b): b is string => !!b
+    );
+    sentences.push(`Expect ${joinList(bits)}.`);
+  }
+
+  if (contextSuffixNote) sentences.push(`${contextSuffixNote.charAt(0).toUpperCase()}${contextSuffixNote.slice(1)}.`);
+  if (weatherNote) sentences.push(`${weatherNote.charAt(0).toUpperCase()}${weatherNote.slice(1)}.`);
+
+  return sentences.join(" ");
+}
+
 /** Cold start (no taste vector yet) still surfaces the title's own
  *  theme/tone/mood detail in the expandable section — just with an honest
  *  headline that doesn't claim personalization that hasn't happened yet. */
 export function buildColdStartDetail(title: ExplainableTitle): ReasonDetail {
+  const themes = title.themes ?? [];
+  const tone = title.tone ?? [];
+  const themeText = themes.length ? joinList(themes.slice(0, 3)) : null;
+  const toneText = tone.length ? joinList(tone.slice(0, 2)) : null;
+  const longReason = [
+    "You haven't rated enough yet for a personalized match, so this is one of the best-reviewed titles in the catalogue rather than something picked for your taste specifically.",
+    themeText ? `It's built around ${themeText}${toneText ? ` with a ${toneText} tone` : ""}.` : null,
+    "Rate a handful of titles and picks like this one will start reflecting your actual taste instead of general popularity.",
+  ]
+    .filter((s): s is string => !!s)
+    .join(" ");
   return {
     headline: "Popular right now — rate a few titles to personalize this.",
-    themes: title.themes ?? [],
-    tone: title.tone ?? [],
+    longReason,
+    themes,
+    tone,
     moodTags: title.mood_tags ?? [],
     pacing: title.pacing ?? null,
     endingType: title.ending_type ?? null,

@@ -30,15 +30,50 @@ export interface MovieNightCandidate {
 /** Plain detail with no citations -- used for the two popularity-fallback
  *  branches below, where there's no personalized signal at all yet. */
 function genericDetail(title: Title, headline: string): ReasonDetail {
+  const themes = title.themes ?? [];
+  const tone = title.tone ?? [];
+  const longReason = [
+    "There's no personalized signal for the group yet, so this is ranked on general fit rather than anyone's specific ratings.",
+    themes.length ? `It's built around ${themes.slice(0, 3).join(", ")}${tone.length ? ` with a ${tone.slice(0, 2).join(" and ")} tone` : ""}.` : null,
+  ]
+    .filter((s): s is string => !!s)
+    .join(" ");
   return {
     headline,
-    themes: title.themes ?? [],
-    tone: title.tone ?? [],
+    longReason,
+    themes,
+    tone,
     moodTags: title.mood_tags ?? [],
     pacing: title.pacing ?? null,
     endingType: title.ending_type ?? null,
     citedTitles: [],
   };
+}
+
+/** Multi-sentence expansion for a group pick's "Why this pick" -- built
+ *  from the same real signals the short `note` headline draws on (per-
+ *  participant citations) plus the title's own themes/tone, framed for a
+ *  group rather than a single user. */
+function buildGroupLongReason(title: Title, citations: ParticipantCitation[], allCited: string[]): string {
+  const themes = title.themes ?? [];
+  const tone = title.tone ?? [];
+  const sentences: string[] = [];
+
+  if (allCited.length) {
+    sentences.push(
+      `This was ranked using each participant's own rating history: ${citations
+        .filter((c) => c.citedTitles.length)
+        .length} of ${citations.length} people have a real close match in their own ratings (${allCited
+        .slice(0, 4)
+        .join(", ")}), not just a generic group-average guess.`
+    );
+  } else {
+    sentences.push("This is ranked by combining everyone's taste vector, weighted so no single participant's preferences dominate the pick.");
+  }
+  if (themes.length) {
+    sentences.push(`It centers on ${themes.slice(0, 3).join(", ")}${tone.length ? ` with a ${tone.slice(0, 2).join(" and ")} tone` : ""}.`);
+  }
+  return sentences.join(" ");
 }
 
 // How many of each participant's own top matches seed the shared candidate
@@ -316,6 +351,7 @@ export async function getCandidatesForUserGroup({
       note,
       detail: {
         headline: note,
+        longReason: buildGroupLongReason(r.title, citations, allCited),
         themes: r.title.themes ?? [],
         tone: r.title.tone ?? [],
         moodTags: r.title.mood_tags ?? [],

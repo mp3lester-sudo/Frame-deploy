@@ -94,6 +94,30 @@ describe("buildReasonDetail", () => {
     expect(detail.headline).toContain("87 minutes");
   });
 
+  it("builds a longer, multi-sentence longReason that names the cited title and themes", () => {
+    const detail = buildReasonDetail({
+      title: title(),
+      hasStrongContentMatch: true,
+      hasCollaborativeEdge: false,
+      citedTitles: ["Se7en"],
+    });
+    expect(detail.longReason).toContain("Se7en");
+    expect(detail.longReason).toContain("betrayal");
+    expect(detail.longReason.split(". ").length).toBeGreaterThan(1);
+  });
+
+  it("builds a distinct, honest longReason for the behavioral-collaborative branch (no fabricated citation)", () => {
+    const detail = buildReasonDetail({
+      title: title(),
+      hasStrongContentMatch: false,
+      hasCollaborativeEdge: false,
+      hasBehavioralEdge: true,
+      citedTitles: [],
+    });
+    expect(detail.longReason).toContain("ratings data");
+    expect(detail.longReason).not.toContain("undefined");
+  });
+
   it("always surfaces the full theme/tone/mood/pacing/ending detail regardless of headline branch", () => {
     const detail = buildReasonDetail({
       title: title(),

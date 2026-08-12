@@ -42,6 +42,22 @@ export interface Recommendation {
 // separate constant.
 export const CONTENT_MATCH_THRESHOLD = 0.5;
 
+// Inclusion floors for the two zero-floor candidate RPCs (see migration
+// 0058) -- deliberately a lower, separate bar from CONTENT_MATCH_THRESHOLD
+// above. CONTENT_MATCH_THRESHOLD decides "is this good enough to cite by
+// name in the reason text"; these decide "is this even worth scoring as a
+// candidate at all." Without a floor here, a user whose taste vector sits
+// in a sparse region of the embedding space (or a user with few/unusual
+// ratings) could get the RPC's p_match_count worth of candidates back even
+// when the closest available titles/neighbors are only weakly related --
+// which is how tangential, seemingly-random recommendations were sneaking
+// into the final slate. Calibrated conservatively (permissive) since
+// there's no production data available to sample real similarity
+// distributions from this session -- raise these if weak matches are still
+// getting through, lower them if the pool is coming back too thin.
+const MIN_CONTENT_SIMILARITY = 0.2;
+const MIN_NEIGHBOR_CLOSENESS = 0.1;
+
 /**
  * Hybrid recommendation: blends
  *  1) content similarity — cosine distance between the user's taste vector
@@ -111,8 +127,16 @@ export async function getRecommendationsForUser(
   // that a hard exclusion doesn't leave the final list short.
   const CANDIDATE_POOL_MULTIPLIER = 6;
   const [{ data: contentMatches }, { data: collabMatches }, { data: behavioralMatches }, { data: userRatings }] = await Promise.all([
-    supabase.rpc("match_titles_for_user", { p_user_id: userId, p_match_count: limit * CANDIDATE_POOL_MULTIPLIER }),
-    supabase.rpc("similar_users_liked", { p_user_id: userId, p_match_count: limit * CANDIDATE_POOL_MULTIPLIER }),
+    supabase.rpc("match_titles_for_user", {
+      p_user_id: userId,
+      p_match_count: limit * CANDIDATE_POOL_MULTIPLIER,
+      p_min_similarity: MIN_CONTENT_SIMILARITY,
+    }),
+    supabase.rpc("similar_users_liked", {
+      p_user_id: userId,
+      p_match_count: limit * CANDIDATE_POOL_MULTIPLIER,
+      p_min_closeness: MIN_NEIGHBOR_CLOSENESS,
+    }),
     // Real behavioral CF — see behavioral-collaborative.ts and migration
     // 0056. Distinct from similar_users_liked above: neighbors here come
     // from shared ratings, not embedding proximity.

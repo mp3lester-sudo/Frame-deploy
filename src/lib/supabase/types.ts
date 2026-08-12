@@ -663,7 +663,12 @@ export interface Database {
         Returns: Database["public"]["Tables"]["game_pass_seasons"]["Row"];
       };
       match_titles_for_user: {
-        Args: { p_user_id: string; p_match_count?: number; p_exclude_watched?: boolean };
+        Args: {
+          p_user_id: string;
+          p_match_count?: number;
+          p_exclude_watched?: boolean;
+          p_min_similarity?: number;
+        };
         Returns: { title_id: string; similarity: number }[];
       };
       title_similarity_for_user: {
@@ -675,7 +680,7 @@ export interface Database {
         Returns: { title_id: string }[];
       };
       similar_users_liked: {
-        Args: { p_user_id: string; p_match_count?: number };
+        Args: { p_user_id: string; p_match_count?: number; p_min_closeness?: number };
         Returns: { title_id: string; score: number }[];
       };
       behavioral_collaborative_recs: {

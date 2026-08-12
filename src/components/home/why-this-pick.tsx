@@ -20,7 +20,7 @@ export function WhyThisPick({ detail }: { detail: ReasonDetail }) {
     detail.endingType ? `${detail.endingType} ending` : null,
   ].filter((c): c is string => !!c);
 
-  if (chips.length === 0) return null;
+  if (chips.length === 0 && !detail.longReason) return null;
 
   return (
     <div className="mt-3">
@@ -33,15 +33,22 @@ export function WhyThisPick({ detail }: { detail: ReasonDetail }) {
         {open ? "Hide details" : "Why this pick"} {open ? "‹" : "›"}
       </button>
       {open && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {chips.map((chip) => (
-            <span
-              key={chip}
-              className="rounded-[var(--radius-full)] border border-border px-2.5 py-1 text-[11px] text-foreground-muted"
-            >
-              {chip}
-            </span>
-          ))}
+        <div className="mt-2 max-w-xl">
+          {detail.longReason && (
+            <p className="text-sm leading-relaxed text-foreground-muted">{detail.longReason}</p>
+          )}
+          {chips.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {chips.map((chip) => (
+                <span
+                  key={chip}
+                  className="rounded-[var(--radius-full)] border border-border px-2.5 py-1 text-[11px] text-foreground-muted"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
