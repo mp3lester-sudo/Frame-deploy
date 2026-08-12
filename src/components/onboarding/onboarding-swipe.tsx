@@ -97,6 +97,22 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
     return () => clearTimeout(timer);
   }, [phase]);
 
+  // Belt-and-suspenders nav hiding: the intro overlay is already a fixed
+  // z-50 layer that paints over the sticky z-40 nav header, but that only
+  // holds once the overlay has actually mounted -- phase starts out
+  // `null` for a tick (see the comment on that state) and the shared
+  // NavBar lives in a completely different part of the tree (root
+  // layout.tsx), so there's no prop path to it from here. Toggling a
+  // class on <html> is the same zero-prop-drilling technique the home
+  // page's own intro uses for hiding it (see globals.css) -- just driven
+  // by real state here instead of a CSS-only :has() selector, since this
+  // component already is a client component with the phase in hand.
+  useEffect(() => {
+    const introActive = phase === "intro-video" || phase === "intro-title";
+    document.documentElement.classList.toggle("onboarding-intro-active", introActive);
+    return () => document.documentElement.classList.remove("onboarding-intro-active");
+  }, [phase]);
+
   // Neutralizes any leftover drag/exit transform the instant a new card
   // takes over -- see exitCard() below for why this can't just happen
   // inside the exit timeout (it would snap the still-visible outgoing
@@ -208,7 +224,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
           muted
           loop
           playsInline
-          className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover"
+          className="onboarding-intro-zoom absolute inset-0 h-full w-full object-contain"
           style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)" }}
         >
           <source src="/videos/onboarding-intro.mp4" type="video/mp4" />

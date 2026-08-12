@@ -297,7 +297,7 @@ export default async function HomePage({
           actually clickable. */}
       <div id="cinematic-intro-tapzone" className="fixed inset-0 z-[60] cursor-pointer">
         <div className="cinematic-intro-video pointer-events-none absolute inset-0 z-[2] overflow-hidden bg-black" aria-hidden="true">
-          <video autoPlay muted loop playsInline className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)" }}>
+          <video autoPlay muted loop playsInline className="onboarding-intro-zoom absolute inset-0 h-full w-full object-contain" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)" }}>
             <source src="/videos/onboarding-intro.mp4" type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />

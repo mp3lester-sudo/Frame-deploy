@@ -81,7 +81,7 @@ export function NavBar({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur transition-transform duration-300 ease-in-out",
+        "nav-bar-header sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur transition-transform duration-300 ease-in-out",
         hidden ? "-translate-y-full" : "translate-y-0"
       )}
     >
