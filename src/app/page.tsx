@@ -20,10 +20,9 @@ import { HiddenGemCard } from "@/components/home/hidden-gem-card";
 import { getHiddenGemForUser } from "@/lib/recommendations/hidden-gem";
 import { isCircumstantialContext } from "@/lib/context/circumstantial";
 import { PreciseLocation } from "@/components/home/precise-location";
-import { IndieSpotlight } from "@/components/home/indie-spotlight";
-import { getIndieReleases } from "@/lib/news/tmdb-releases";
-import { getIndieNews } from "@/lib/news/indie-news";
+import { IndieSpotlightSection, IndieSpotlightSkeleton } from "@/components/home/indie-spotlight";
 import type { Recommendation } from "@/lib/recommendations/engine";
+import { Suspense } from "react";
 
 type Participant = { username: string; display_name: string | null; avatar_url: string | null };
 
@@ -113,13 +112,7 @@ export default async function HomePage({
   // nobody would see.
   const isCompanionContext = activeContext === "date_night" || activeContext === "with_friends";
 
-  const [
-    { recommendations, isColdStart },
-    { data: memberships },
-    { data: following },
-    indieReleases,
-    indieNews,
-  ] = await Promise.all([
+  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }] = await Promise.all([
     isCompanionContext
       ? Promise.resolve({ recommendations: [] as Recommendation[], isColdStart: false })
       : getRecommendationsForUser(user.id, {
@@ -138,11 +131,13 @@ export default async function HomePage({
     // Recent activity from people the user follows — omitted entirely
     // rather than shown with placeholder people when there's nothing real yet.
     supabase.from("follows").select("followee_id").eq("follower_id", user.id),
-    // Indie Spotlight data (release calendar + IndieWire headlines) is the
-    // same for every visitor, not scoped to this user at all -- rides
-    // along in this same batch rather than adding a sequential fetch.
-    getIndieReleases(),
-    getIndieNews(),
+    // Indie Spotlight (four live trade-press RSS feeds + best-effort image
+    // scraping) used to ride along in this same batch -- it's the least
+    // time-sensitive thing on the page but was blocking the hero
+    // recommendation behind it on every single request. It's now its own
+    // <Suspense> boundary further down instead (see IndieSpotlightSection),
+    // so a slow/rate-limiting outlet only delays that one section, not the
+    // whole page.
   ]);
 
   const hero = recommendations[0];
@@ -495,8 +490,13 @@ export default async function HomePage({
       {/* Same section either way (solo or companion context) -- it's not
           personalized at all, just a live release calendar + news pull,
           so it sits outside the IIFE above rather than being duplicated
-          in both branches. */}
-      <IndieSpotlight releases={indieReleases} news={indieNews} />
+          in both branches. Streamed in via its own Suspense boundary (see
+          the comment above the removed Promise.all entries) so the four
+          live trade-press RSS fetches + og:image scraping never delay the
+          personalized content above it. */}
+      <Suspense fallback={<IndieSpotlightSkeleton />}>
+        <IndieSpotlightSection />
+      </Suspense>
     </div>
   );
 }

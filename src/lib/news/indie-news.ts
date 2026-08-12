@@ -96,6 +96,15 @@ async function fetchFeed(url: string, source: string): Promise<IndieNewsItem[]> 
       // signature on server-to-server requests.
       headers: { "User-Agent": "Mozilla/5.0 (compatible; BacklotBot/1.0; +https://taste-green-tau.vercel.app)" },
       next: { revalidate: 3600 },
+      // Without this, a slow/unresponsive outlet has no upper bound at all
+      // -- getArticleImage already caps its own fetch at 6s (see
+      // article-image.ts) but this one, the feed fetch itself, never had a
+      // matching timeout. One hung trade-press feed could stall this
+      // Promise.allSettled call far longer than any of the caches around it
+      // expect, which (before the home page section below was moved behind
+      // its own Suspense boundary) meant a single slow outlet could hold up
+      // the entire home page.
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return [];
     const xml = await res.text();

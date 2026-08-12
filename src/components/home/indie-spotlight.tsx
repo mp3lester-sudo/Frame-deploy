@@ -1,7 +1,8 @@
 import Image from "@/components/ui/fade-image";
 import type { IndieRelease } from "@/lib/news/tmdb-releases";
-import { formatReleaseDate } from "@/lib/news/tmdb-releases";
+import { formatReleaseDate, getIndieReleases } from "@/lib/news/tmdb-releases";
 import type { IndieNewsItem } from "@/lib/news/indie-news";
+import { getIndieNews } from "@/lib/news/indie-news";
 
 /**
  * Home page "Indie Spotlight" section -- a horizontal strip of new/
@@ -15,7 +16,43 @@ import type { IndieNewsItem } from "@/lib/news/indie-news";
  * empty (network hiccup, rate limit, etc.) rather than showing an
  * awkward empty section.
  */
-export function IndieSpotlight({ releases, news }: { releases: IndieRelease[]; news: IndieNewsItem[] }) {
+/**
+ * Self-fetching async wrapper -- pulled out of the home page's main data
+ * Promise.all (see src/app/page.tsx) and rendered inside its own
+ * <Suspense> boundary instead. This section is the least time-sensitive
+ * thing on the page (four live trade-press RSS feeds plus best-effort
+ * og:image scraping for two of them, see indie-news.ts/article-image.ts)
+ * and was, before this change, on the SAME critical path as the hero
+ * recommendation -- a single slow/rate-limiting outlet held up the entire
+ * home page render, hero included, even though nothing about it depends
+ * on this section's data. Streaming it in separately means the important,
+ * personalized content above it can paint as soon as it's ready,
+ * regardless of how the news pipeline performs on any given request.
+ */
+export async function IndieSpotlightSection() {
+  const [releases, news] = await Promise.all([getIndieReleases(), getIndieNews()]);
+  return <IndieSpotlight releases={releases} news={news} />;
+}
+
+/** Lightweight shimmer shown while IndieSpotlightSection's Suspense
+ *  boundary is still resolving -- roughly matches the real section's
+ *  shape (poster strip + featured headline block) so there's no layout
+ *  jump when the real content streams in. */
+export function IndieSpotlightSkeleton() {
+  return (
+    <section className="mt-8 border-t border-border pt-6">
+      <div className="mb-4 h-3 w-32 skeleton rounded" />
+      <div className="flex gap-4 overflow-hidden">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="aspect-[2/3] w-[112px] shrink-0 skeleton rounded-[var(--radius-md)] sm:w-[128px]" />
+        ))}
+      </div>
+      <div className="mt-6 aspect-[16/9] w-full skeleton rounded-[var(--radius-md)] sm:aspect-[21/9]" />
+    </section>
+  );
+}
+
+function IndieSpotlight({ releases, news }: { releases: IndieRelease[]; news: IndieNewsItem[] }) {
   if (!releases.length && !news.length) return null;
 
   const [featured, ...rest] = news;
