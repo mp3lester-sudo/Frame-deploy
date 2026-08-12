@@ -192,6 +192,70 @@ function topEntries(map: Map<string, number>, n: number): string[] {
     .map(([key]) => key);
 }
 
+interface CitationCandidate {
+  id: string;
+  name: string;
+  weight: number;
+  /** True if this title matched via a tone/theme/mood keyword rather than
+   *  (or in addition to) a bare genre overlap -- see the comment above the
+   *  candidates map that sets this. Preferred as citation evidence since
+   *  it's more specific to the archetype than genre alone. */
+  keywordMatch: boolean;
+}
+
+/** How many different archetypes any single title is allowed to be cited
+ *  under. Without a cap, a handful of five-star titles that happen to span
+ *  many genres end up "explaining" almost every archetype at once, which
+ *  reads as the app reusing the same few movies rather than actually
+ *  drawing on someone's full rated catalogue. 2 lets a title that
+ *  genuinely straddles two categories (a film can honestly be both
+ *  Neo-Noir and Prestige Drama) show up twice, but no more. */
+const MAX_CITATIONS_PER_TITLE = 2;
+
+/**
+ * Picks each archetype's displayed citedTitles from its candidate pool
+ * with a view across ALL archetypes at once, instead of each archetype
+ * picking independently (which is what let the same few high-weight,
+ * multi-genre titles dominate every category's "evidence"). Archetypes
+ * with the highest percent get first pick of their best evidence; once a
+ * title has been cited MAX_CITATIONS_PER_TITLE times anywhere, later
+ * (lower-confidence) archetypes simply leave it out rather than reusing
+ * it anyway -- an archetype showing 1-2 citations instead of 3 is a more
+ * honest result than forcing in a title that's already "spoken for"
+ * elsewhere. (An archetype with zero eligible candidates, capped-out or
+ * otherwise, already renders fine with an empty citedTitles -- see the
+ * "Horror & Dread" case in the tests.)
+ */
+function assignCitations(
+  archetypeStats: { name: string; percent: number; candidates: CitationCandidate[] }[]
+): Map<string, { id: string; name: string }[]> {
+  const useCount = new Map<string, number>();
+  const result = new Map<string, { id: string; name: string }[]>();
+
+  const byConfidence = [...archetypeStats].sort((a, b) => b.percent - a.percent);
+
+  for (const stat of byConfidence) {
+    const ranked = [...stat.candidates].sort((a, b) => {
+      if (a.keywordMatch !== b.keywordMatch) return a.keywordMatch ? -1 : 1;
+      return b.weight - a.weight;
+    });
+
+    const picked: CitationCandidate[] = [];
+    for (const c of ranked) {
+      if (picked.length >= 3) break;
+      if ((useCount.get(c.id) ?? 0) < MAX_CITATIONS_PER_TITLE) picked.push(c);
+    }
+
+    for (const p of picked) useCount.set(p.id, (useCount.get(p.id) ?? 0) + 1);
+    result.set(
+      stat.name,
+      picked.map((p) => ({ id: p.id, name: p.name }))
+    );
+  }
+
+  return result;
+}
+
 function weightedAverage(values: { value: number; weight: number }[]): number | null {
   const totalWeight = values.reduce((sum, v) => sum + v.weight, 0);
   if (totalWeight === 0) return null;
@@ -240,9 +304,22 @@ export function computeTasteDnaFromRatings(rated: RatedTitleFeatures[]): TasteDn
     }
   }
 
-  const archetypes: ArchetypeScore[] = ARCHETYPES.map((archetype) => {
+  // Citation evidence is assigned in two phases. Phase 1 (below) builds,
+  // per archetype, the full pool of titles that actually matched its
+  // genre/keyword criteria -- same as before. Phase 2 (assignCitations,
+  // after this map) then picks each archetype's displayed citedTitles from
+  // that pool with a cross-archetype view, rather than each archetype
+  // independently grabbing its own highest-weight matches. Independent
+  // per-archetype picking is what caused the same handful of five-star,
+  // multi-genre-spanning titles (a Drama/Thriller epic, say) to get cited
+  // as "evidence" under nearly every archetype -- they legitimately match
+  // many archetypes' criteria AND always have the highest weight, so they
+  // won every tie. Phase 2 spreads citations across the user's full rated
+  // catalogue by capping how many different archetypes any one title can
+  // be cited under.
+  const archetypeStats = ARCHETYPES.map((archetype) => {
     let genreHitWeight = 0;
-    const citedByWeight = new Map<string, { name: string; weight: number }>();
+    const candidates = new Map<string, CitationCandidate>();
 
     for (const r of positivelyRated) {
       const genreHit = archetype.genres.length > 0 && r.genres.some((g) => archetype.genres.includes(g));
@@ -250,9 +327,14 @@ export function computeTasteDnaFromRatings(rated: RatedTitleFeatures[]): TasteDn
       if (genreHit || extraHit) {
         genreHitWeight += r.weight;
         if (r.titleId && r.titleName) {
-          const existing = citedByWeight.get(r.titleId);
+          const existing = candidates.get(r.titleId);
           if (!existing || r.weight > existing.weight) {
-            citedByWeight.set(r.titleId, { name: r.titleName, weight: r.weight });
+            candidates.set(r.titleId, {
+              id: r.titleId,
+              name: r.titleName,
+              weight: r.weight,
+              keywordMatch: existing?.keywordMatch ?? false,
+            });
           }
         }
       }
@@ -267,10 +349,17 @@ export function computeTasteDnaFromRatings(rated: RatedTitleFeatures[]): TasteDn
       if (matched.length > 0) {
         tagHitWeight += r.weight;
         if (r.titleId && r.titleName) {
-          const existing = citedByWeight.get(r.titleId);
-          if (!existing || r.weight > existing.weight) {
-            citedByWeight.set(r.titleId, { name: r.titleName, weight: r.weight });
-          }
+          const existing = candidates.get(r.titleId);
+          candidates.set(r.titleId, {
+            id: r.titleId,
+            name: r.titleName,
+            weight: existing ? Math.max(existing.weight, r.weight) : r.weight,
+            // A keyword hit is more specific evidence than a bare genre
+            // overlap (lots of titles are "Drama"; far fewer are tagged
+            // "morally gray"), so once true this should stick even if the
+            // title was first added via the genre pass above.
+            keywordMatch: true,
+          });
         }
         for (const kw of matched) keywordCounts.set(kw, (keywordCounts.get(kw) ?? 0) + 1);
       }
@@ -279,20 +368,24 @@ export function computeTasteDnaFromRatings(rated: RatedTitleFeatures[]): TasteDn
 
     const blended = totalTaggedWeight > 0 ? 0.55 * genreShare + 0.45 * tagShare : genreShare;
 
-    const citedTitles = [...citedByWeight.entries()]
-      .sort((a, b) => b[1].weight - a[1].weight)
-      .slice(0, 3)
-      .map(([id, { name }]) => ({ id, name }));
-
-    const matchedKeywords = topEntries(keywordCounts, 3);
-
     return {
       name: archetype.name,
       percent: Math.round(Math.min(blended, 1) * 100),
-      citedTitles,
-      matchedKeywords,
+      candidates: [...candidates.values()],
+      matchedKeywords: topEntries(keywordCounts, 3),
     };
-  }).sort((a, b) => b.percent - a.percent);
+  });
+
+  const citedByArchetype = assignCitations(archetypeStats);
+
+  const archetypes: ArchetypeScore[] = archetypeStats
+    .map((stat) => ({
+      name: stat.name,
+      percent: stat.percent,
+      citedTitles: citedByArchetype.get(stat.name) ?? [],
+      matchedKeywords: stat.matchedKeywords,
+    }))
+    .sort((a, b) => b.percent - a.percent);
 
   const pacingCounts = new Map<string, number>();
   for (const r of positivelyRated) {

@@ -138,6 +138,41 @@ describe("computeTasteDnaFromRatings", () => {
     expect(horror.citedTitles).toEqual([]);
   });
 
+  it("caps how many different archetypes a single multi-genre title can be cited under, spreading citations across the catalogue instead of reusing the same few titles everywhere", () => {
+    // A five-star title that genuinely spans a lot of genres (Drama +
+    // Thriller + History + War + Mystery) will, on weight alone, out-rank
+    // every other candidate in several archetypes at once. Before the
+    // fix, that meant it got cited as "evidence" for nearly every one of
+    // them. Each archetype below also has a second, distinct titleId
+    // available so there's always a legitimate alternative once the
+    // five-star title has hit its reuse cap.
+    const rated: RatedTitleFeatures[] = [
+      makeRated({
+        titleId: "epic",
+        titleName: "The Omnibus Epic",
+        genres: ["Drama", "Thriller", "Mystery", "History", "War"],
+        tone: ["psycholog", "somber"],
+        weight: 2.5,
+      }),
+      makeRated({ titleId: "psych2", titleName: "Quiet Unraveling", genres: ["Thriller"], tone: ["obsess"], weight: 1 }),
+      makeRated({ titleId: "prestige2", titleName: "The Long March", genres: ["History", "War"], tone: ["legacy"], weight: 1 }),
+      makeRated({ titleId: "emo2", titleName: "After the Rain", genres: ["Drama"], tone: ["grief"], weight: 1 }),
+    ];
+
+    const result = computeTasteDnaFromRatings(rated);
+    const relevant = result.archetypes.filter((a) =>
+      ["Psychological Slow Burn", "Prestige Drama", "Emotional Character Study"].includes(a.name)
+    );
+
+    const timesCited = relevant.filter((a) => a.citedTitles.some((t) => t.id === "epic")).length;
+    expect(timesCited).toBeLessThanOrEqual(2);
+
+    // And the alternative titles should actually get surfaced rather than
+    // being crowded out entirely.
+    const allCitedIds = new Set(relevant.flatMap((a) => a.citedTitles.map((t) => t.id)));
+    expect(allCitedIds.has("psych2") || allCitedIds.has("prestige2") || allCitedIds.has("emo2")).toBe(true);
+  });
+
   it("leaves citedTitles empty when rows have no titleId/titleName (e.g. existing callers)", () => {
     const rated: RatedTitleFeatures[] = [makeRated({ genres: ["Horror"], tone: ["dread"], weight: 2 })];
     const result = computeTasteDnaFromRatings(rated);
