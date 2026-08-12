@@ -6,46 +6,37 @@ import { formatRuntime } from "@/lib/utils";
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
 /**
- * Fills the slot Director of the Day used to occupy next to
- * SpotlightRecommendation (same fixed height, so the two still pair as one
- * row) -- a single title that's both a strong taste match AND genuinely
- * obscure (see lib/recommendations/hidden-gem.ts for the exact bars),
- * framed as a deliberate discovery rather than just another ranked pick.
+ * Compact horizontal card -- a small poster thumbnail plus a couple of
+ * text lines, not a full backdrop-image card. Used to be the same fixed
+ * h-[368px]/h-[440px] height as RecommendationReveal so the two competed
+ * as equal partners in a row; now it's deliberately small and quiet,
+ * living in the demoted area below the hero pick instead of beside it,
+ * so there's no question which recommendation the page wants you to
+ * look at first. See page.tsx for where it's placed.
  */
 export function HiddenGemCard({ title, matchPercent }: { title: Title; matchPercent: number }) {
   const year = title.release_date?.slice(0, 4);
   const meta = [year, formatRuntime(title.runtime_minutes)].filter(Boolean).join(" · ");
-  const image = title.backdrop_url ?? title.poster_url;
 
   return (
     <Link
       href={`/movie/${title.id}`}
-      className="flex h-[368px] flex-col overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface transition-colors hover:border-border-strong sm:h-[440px]"
+      className="flex items-center gap-3 rounded-[var(--radius-md)] border border-border bg-surface p-3 transition-colors hover:border-border-strong"
     >
-      <div className="relative h-[55%] w-full shrink-0 overflow-hidden bg-surface-raised">
-        {image && (
-          <Image
-            src={image}
-            alt={title.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 1024px) 100vw, 40vw"
-          />
+      <div className="relative aspect-[2/3] w-12 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-surface-raised">
+        {title.poster_url && (
+          <Image src={title.poster_url} alt={title.name} fill className="object-cover" sizes="48px" />
         )}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-surface to-transparent" />
-        <span className="absolute left-3 top-3 rounded-full border border-accent/40 bg-background/80 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-accent">
-          Hidden gem
-        </span>
       </div>
-      <div className="flex flex-1 flex-col p-4">
-        <p className="text-lg font-medium text-foreground">{title.name}</p>
-        {meta && <p className="mt-0.5 text-xs uppercase tracking-wider text-foreground-muted">{meta}</p>}
-        <span className="mt-2 inline-flex w-fit rounded-[var(--radius-full)] border border-accent/50 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
-          {matchPercent}% match
-        </span>
-        <p className="mt-3 line-clamp-3 text-xs leading-relaxed text-foreground-muted">
-          A close match to your taste, but flying under the radar — barely anyone&apos;s rated it yet.
-        </p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 rounded-[var(--radius-sm)] border border-accent/40 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-accent">
+            Hidden gem
+          </span>
+          <span className="shrink-0 text-[11px] font-semibold text-accent">{matchPercent}% match</span>
+        </div>
+        <p className="mt-1 truncate text-sm font-medium text-foreground">{title.name}</p>
+        {meta && <p className="truncate text-[11px] uppercase tracking-wider text-foreground-muted">{meta}</p>}
       </div>
     </Link>
   );

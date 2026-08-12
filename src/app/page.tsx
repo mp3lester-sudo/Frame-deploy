@@ -462,25 +462,26 @@ export default async function HomePage({
                 Hidden Gem, or nothing obscure-enough-and-good-enough to
                 surface today). Same slot Director of the Day occupied
                 before it moved to /daily. */}
-            {(heroRevealPicks.length > 0 || hiddenGem) && (
-              <div
-                className={`grid gap-5 lg:items-stretch ${
-                  heroRevealPicks.length > 0 && hiddenGem ? "lg:grid-cols-[1.6fr_1fr]" : "lg:grid-cols-1"
-                }`}
-              >
-                {heroRevealPicks.length > 0 && (
-                  <RecommendationReveal picks={heroRevealPicks} isColdStart={isColdStart} />
-                )}
-                {hiddenGem && <HiddenGemCard title={hiddenGem.title} matchPercent={hiddenGem.matchPercent} />}
-              </div>
+            {/* The recommendation is now the unambiguous focal point of
+                the page -- full column width, alone, dramatically taller
+                than everything below it (see recommendation-reveal.tsx).
+                It used to share a 1.6fr/1fr row with HiddenGemCard at
+                matching height, which made the two compete as equal
+                partners; HiddenGemCard is now a small demoted card
+                directly below instead, not a rival hero. */}
+            {heroRevealPicks.length > 0 && (
+              <RecommendationReveal picks={heroRevealPicks} isColdStart={isColdStart} />
             )}
 
-            {/* Mood Row and Your Circle both used to share this same
-                narrow 1.4fr/1fr split with each other, which left neither
-                much room -- full width for each instead, stacked, gives
-                Mood Row's poster tiles more room and lets the social
-                feed (Movie Night card, circle activity) breathe rather
-                than living in a cramped sidebar. */}
+            {/* Everything from here down is deliberately quieter than the
+                hero above: smaller text, muted borders, compact cards --
+                a demoted zone, not a second row of equally-weighted
+                content. */}
+            {hiddenGem && (
+              <div className="mt-5">
+                <HiddenGemCard title={hiddenGem.title} matchPercent={hiddenGem.matchPercent} />
+              </div>
+            )}
             {morePicks.length > 0 && (
               <div className="mt-8">
                 <MoodRow picks={morePicks} isColdStart={isColdStart} />

@@ -103,7 +103,14 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
   const revealed = phase === "revealed";
 
   return (
-    <div className="relative h-[368px] overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface-raised sm:h-[440px]">
+    // Dramatically taller than the old 368/440px card, and no longer
+    // paired 1.6fr/1fr next to HiddenGemCard (see page.tsx) -- the AI
+    // recommendation is Backlot's whole differentiator, so this is now
+    // the unambiguous focal point of the page: full column width, the
+    // tallest single element on the home page by a wide margin, with
+    // everything else (mood row, social feed, hidden gem) demoted below
+    // it at a visibly smaller, quieter scale.
+    <div className="relative h-[480px] overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface-raised sm:h-[600px] lg:h-[680px]">
       {phase === "sealed" && (
         <button
           type="button"
@@ -147,59 +154,66 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
             </Link>
           )}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-background via-background/80 to-transparent" />
-          <div className="reveal-glow absolute inset-x-0 bottom-0 p-5 sm:p-6">
-            <Link href={href} className="block">
-              <p className="reveal-fade-up text-[10px] font-medium uppercase tracking-wider text-accent">
-                {isColdStart ? "A pick for you" : "Tonight's pick"}
-              </p>
-              <h2
-                className="font-display reveal-fade-up mt-1 text-2xl text-foreground [animation-delay:60ms] sm:text-3xl"
-                style={{ textShadow: "0 0 16px rgba(217,184,118,0.55), 0 0 36px rgba(217,184,118,0.35)" }}
-              >
-                {title.name}
-              </h2>
-              {meta && (
-                <p className="reveal-fade-up mt-1 text-xs uppercase tracking-wider text-foreground-muted [animation-delay:110ms]">
-                  {meta}
-                </p>
-              )}
-            </Link>
-
-            <div className="reveal-fade-up mt-3 flex flex-wrap items-center gap-2 [animation-delay:160ms]">
-              {title.genres?.[0] && (
-                <span className="rounded-[var(--radius-sm)] border border-accent/40 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-accent">
-                  {title.genres[0]}
-                </span>
-              )}
+          <div className="reveal-glow absolute inset-x-0 bottom-0 p-5 sm:p-8">
+            {/* Badge + meta share one baseline-aligned line instead of
+                the match% pill floating in a separate row below the
+                title -- cleaner reading order: what is it, is it a good
+                match, then the title itself gets its own full-size line
+                with nothing competing on it. */}
+            <div className="reveal-fade-up flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
               {matchPercent !== null && (
-                <span className="rounded-[var(--radius-full)] border border-accent/50 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
-                  {displayPercent}% match
+                <span className="bg-gold-foil text-accent-foreground rounded-[var(--radius-sm)] px-2.5 py-1 text-xs font-bold tracking-wide">
+                  {displayPercent}% MATCH
                 </span>
+              )}
+              {meta && <span className="text-xs text-foreground-muted">{meta}</span>}
+              {title.genres?.[0] && (
+                <span className="text-xs uppercase tracking-wider text-accent-soft">{title.genres[0]}</span>
               )}
             </div>
 
-            <Link href={href} className="reveal-fade-up mt-3 block [animation-delay:210ms]">
-              <p className="font-display line-clamp-2 border-l-2 border-accent pl-3 text-sm italic leading-relaxed text-foreground-muted sm:text-base">
+            <Link href={href} className="block">
+              <h2
+                className="font-display reveal-fade-up mt-2 text-3xl leading-[1.08] text-foreground [animation-delay:60ms] sm:text-5xl"
+                style={{ textShadow: "0 0 20px rgba(217,184,118,0.5), 0 0 44px rgba(217,184,118,0.3)" }}
+              >
+                {title.name}
+              </h2>
+
+              {/* A real sentence now, not a truncated blockquote fragment
+                  -- reads as the reason this was picked FOR you, not a
+                  decorative caption. */}
+              <p className="reveal-fade-up mt-3 max-w-xl text-sm leading-relaxed text-foreground-muted [animation-delay:110ms] sm:text-base">
                 {reason}
               </p>
             </Link>
 
-            <div className="reveal-fade-up [animation-delay:260ms]">
+            <div className="reveal-fade-up mt-2 [animation-delay:160ms]">
               <WhyThisPick detail={detail} />
             </div>
 
-            {picks.length > 1 && (
-              <button
-                type="button"
-                onClick={generateAnother}
-                className="reveal-fade-up mt-3 flex items-center gap-1.5 rounded-[var(--radius-full)] border border-accent/30 px-3 py-1.5 text-[11px] uppercase tracking-wider text-accent-soft transition-colors hover:border-accent/60 hover:text-accent [animation-delay:310ms]"
+            {/* Primary CTA -- previously there was no direct call to
+                action at all, only the secondary "generate another"
+                cycle button. Same gold-foil treatment as every other
+                primary button in the app (wordmark, sign-up, onboarding
+                CTAs). */}
+            <div className="reveal-fade-up mt-5 flex flex-wrap items-center gap-4 [animation-delay:210ms]">
+              <Link
+                href={href}
+                className="bg-gold-foil text-accent-foreground inline-flex h-12 items-center justify-center rounded-[var(--radius-md)] px-7 text-sm font-semibold uppercase tracking-wide shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] transition-[filter] hover:brightness-110"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path d="M21 12a9 9 0 1 1-2.64-6.36M21 4v5h-5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Generate another pick
-              </button>
-            )}
+                Watch tonight
+              </Link>
+              {picks.length > 1 && (
+                <button
+                  type="button"
+                  onClick={generateAnother}
+                  className="flex items-center gap-1.5 text-xs text-foreground-muted transition-colors hover:text-accent"
+                >
+                  Not feeling it? Generate another pick
+                </button>
+              )}
+            </div>
           </div>
         </>
       )}
