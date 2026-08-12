@@ -693,7 +693,7 @@ export interface Database {
       };
       similarity_to_implicit_positive_titles: {
         Args: { p_user_id: string; p_title_ids: string[] };
-        Returns: { title_id: string; max_similarity: number }[];
+        Returns: { title_id: string; max_similarity_watchlist: number; max_similarity_watched_unrated: number }[];
       };
       upsert_taste_vector_from_rating: {
         Args: { p_user_id: string; p_title_id: string; p_score: number };

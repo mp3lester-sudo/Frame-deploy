@@ -195,22 +195,38 @@ export async function getRecommendationsForUser(
   // violence_level, pacing, ...), so fetch full rows for the whole
   // candidate pool up front rather than only for the eventual top N.
   const candidateIds = [...blended.keys()];
-  const [{ data: candidateTitles }, { data: dislikeSimilarities }, { data: implicitSimilarities }] = await Promise.all([
-    supabase.from("titles").select("*").in("id", candidateIds),
-    // Title-level negative feedback: how close each candidate is to the
-    // user's single most similar disliked (rated <= 2.5) title -- the
-    // negative counterpart to the "because you loved X" citation logic
-    // below (CONTENT_MATCH_THRESHOLD). See dislike-penalty.ts and
-    // migration 0052.
-    supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds }),
-    // Implicit signals: how close each candidate is to something on the
-    // user's watchlist or watched-but-unrated -- see implicit-affinity.ts
-    // and migration 0053.
-    supabase.rpc("similarity_to_implicit_positive_titles", { p_user_id: userId, p_title_ids: candidateIds }),
-  ]);
+  const [{ data: candidateTitles }, { data: dislikeSimilarities }, { data: implicitSimilarities }, { data: directorCredits }] =
+    await Promise.all([
+      supabase.from("titles").select("*").in("id", candidateIds),
+      // Title-level negative feedback: how close each candidate is to the
+      // user's single most similar disliked (rated <= 2.5) title -- the
+      // negative counterpart to the "because you loved X" citation logic
+      // below (CONTENT_MATCH_THRESHOLD). See dislike-penalty.ts and
+      // migration 0052.
+      supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds }),
+      // Implicit signals: how close each candidate is to something on the
+      // user's watchlist (deliberate intent) vs. something they watched but
+      // never rated (ambiguous) -- kept as two separate columns since
+      // migration 0060 so they can be weighted differently. See
+      // implicit-affinity.ts.
+      supabase.rpc("similarity_to_implicit_positive_titles", { p_user_id: userId, p_title_ids: candidateIds }),
+      // Director, for diversify.ts's same-director check below -- not on
+      // `titles` itself, lives in title_credits. Public-read table, plain
+      // query rather than an RPC.
+      supabase.from("title_credits").select("title_id, person_id").eq("credit_type", "director").in("title_id", candidateIds),
+    ]);
   const byId = new Map((candidateTitles ?? []).map((t) => [t.id, t]));
+  const directorIdByTitle = new Map<string, string>();
+  for (const c of directorCredits ?? []) {
+    if (!directorIdByTitle.has(c.title_id)) directorIdByTitle.set(c.title_id, c.person_id);
+  }
   const dislikeSimilarityById = new Map((dislikeSimilarities ?? []).map((d) => [d.title_id, d.max_similarity]));
-  const implicitSimilarityById = new Map((implicitSimilarities ?? []).map((d) => [d.title_id, d.max_similarity]));
+  const implicitWatchlistSimilarityById = new Map(
+    (implicitSimilarities ?? []).map((d) => [d.title_id, d.max_similarity_watchlist])
+  );
+  const implicitWatchedUnratedSimilarityById = new Map(
+    (implicitSimilarities ?? []).map((d) => [d.title_id, d.max_similarity_watched_unrated])
+  );
 
   // Non-taste adjustments (context/weather/quality/genre-affinity) combine
   // as a SUM of deltas-from-1, not a product. Multiplying four independent
@@ -235,7 +251,11 @@ export async function getRecommendationsForUser(
     const qualityMult = qualityMultiplier(title.weighted_rating);
     const genreMult = genreAffinityMultiplier(title.genres, genreAffinity);
     const dislikeMult = dislikePenaltyMultiplier(dislikeSimilarityById.get(id) ?? 0, CONTENT_MATCH_THRESHOLD);
-    const implicitMult = implicitAffinityMultiplier(implicitSimilarityById.get(id) ?? 0, CONTENT_MATCH_THRESHOLD);
+    const implicitMult = implicitAffinityMultiplier(
+      implicitWatchlistSimilarityById.get(id) ?? 0,
+      implicitWatchedUnratedSimilarityById.get(id) ?? 0,
+      CONTENT_MATCH_THRESHOLD
+    );
     const totalDelta =
       (contextMult - 1) +
       (weatherMult - 1) +
@@ -257,6 +277,7 @@ export async function getRecommendationsForUser(
     id: a.id,
     score: a.score,
     genres: byId.get(a.id)?.genres ?? null,
+    directorId: directorIdByTitle.get(a.id) ?? null,
   }));
   const rankedIds = diversifyRecommendations(diversifyCandidates, limit).map((r) => r.id);
 

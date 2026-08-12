@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { diversifyRecommendations, type DiversifiableCandidate } from "../diversify";
 
-function c(id: string, score: number, genres: string[] | null): DiversifiableCandidate {
-  return { id, score, genres };
+function c(id: string, score: number, genres: string[] | null, directorId?: string | null): DiversifiableCandidate {
+  return { id, score, genres, directorId };
 }
 
 describe("diversifyRecommendations", () => {
@@ -60,5 +60,33 @@ describe("diversifyRecommendations", () => {
     // -> Jaccard 1/3, well under 0.5, so both should be selectable.
     const candidates = [c("a", 0.9, ["Drama", "Crime", "Action"]), c("b", 0.8, ["Drama"])];
     expect(diversifyRecommendations(candidates, 2).map((x) => x.id)).toEqual(["a", "b"]);
+  });
+
+  it("skips a same-director candidate even when genres don't overlap at all", () => {
+    // a and b share a director but have completely disjoint genres --
+    // genre Jaccard alone would let both through; the director check
+    // should still catch it and prefer c instead.
+    const candidates = [
+      c("a", 0.95, ["Drama"], "director-1"),
+      c("b", 0.9, ["Sci-Fi"], "director-1"),
+      c("c", 0.85, ["Comedy"], "director-2"),
+    ];
+    expect(diversifyRecommendations(candidates, 2).map((x) => x.id)).toEqual(["a", "c"]);
+  });
+
+  it("treats unknown (null/undefined) director as never similar to anything", () => {
+    const candidates = [c("a", 0.9, ["Drama"], null), c("b", 0.85, ["Sci-Fi"], undefined), c("c", 0.8, ["Comedy"], null)];
+    expect(diversifyRecommendations(candidates, 3).map((x) => x.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("falls back to score order when director-clustering leaves nothing eligible", () => {
+    // All three share a director, genres are all distinct -- diversity by
+    // director can't help here, so it should degrade to score order.
+    const candidates = [
+      c("a", 0.9, ["Drama"], "director-1"),
+      c("b", 0.8, ["Sci-Fi"], "director-1"),
+      c("c", 0.7, ["Comedy"], "director-1"),
+    ];
+    expect(diversifyRecommendations(candidates, 3).map((x) => x.id)).toEqual(["a", "b", "c"]);
   });
 });
