@@ -11,14 +11,27 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
   const supabase = await createClient();
   const viewer = await getVerifiedUser();
 
-  const { data: club } = await supabase.from("clubs").select("*").eq("id", id).maybeSingle();
+  // club, memberRows, and postRows each only depend on the route's `id`,
+  // not on each other, so they run as three parallel queries instead of
+  // three sequential round trips -- the notFound()/RLS-empty-array checks
+  // below happen after all three have already resolved together.
+  const [{ data: club }, { data: memberRows }, { data: postRows }] = await Promise.all([
+    supabase.from("clubs").select("*").eq("id", id).maybeSingle(),
+    supabase
+      .from("club_members")
+      .select("user_id, role, profiles(username, display_name, avatar_url)")
+      .eq("club_id", id)
+      .order("joined_at", { ascending: true }),
+    // Posts are RLS-gated to members only — a non-member will just get an
+    // empty array back rather than an error, which is exactly the "join to
+    // see the discussion" state we want to render.
+    supabase
+      .from("club_posts")
+      .select("id, user_id, body, created_at, profiles(username, avatar_url)")
+      .eq("club_id", id)
+      .order("created_at", { ascending: false }),
+  ]);
   if (!club) notFound();
-
-  const { data: memberRows } = await supabase
-    .from("club_members")
-    .select("user_id, role, profiles(username, display_name, avatar_url)")
-    .eq("club_id", id)
-    .order("joined_at", { ascending: true });
 
   const members = (memberRows ?? []).map((m) => ({
     userId: m.user_id,
@@ -29,15 +42,6 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
   const myMembership = viewer ? members.find((m) => m.userId === viewer.id) : undefined;
   const isMember = !!myMembership;
   const isOwner = myMembership?.role === "owner";
-
-  // Posts are RLS-gated to members only — a non-member will just get an
-  // empty array back rather than an error, which is exactly the "join to
-  // see the discussion" state we want to render.
-  const { data: postRows } = await supabase
-    .from("club_posts")
-    .select("id, user_id, body, created_at, profiles(username, avatar_url)")
-    .eq("club_id", id)
-    .order("created_at", { ascending: false });
 
   const posts: ClubPost[] = (postRows ?? []).map((p) => {
     const profile = (p as unknown as { profiles: { username: string; avatar_url: string | null } | null }).profiles;

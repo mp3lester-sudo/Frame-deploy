@@ -24,19 +24,23 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
   const user = await getVerifiedUser();
   if (!user) redirect(`/login?next=/movie-night/${id}`);
 
-  const { data: night } = await supabase
-    .from("movie_nights")
-    .select("id, host_id, status, decided_title_id, invite_token, created_at")
-    .eq("id", id)
-    .maybeSingle();
+  // night and participantRows both only depend on the route's `id`, so
+  // they run in parallel instead of two sequential round trips.
+  const [{ data: night }, { data: participantRows }] = await Promise.all([
+    supabase
+      .from("movie_nights")
+      .select("id, host_id, status, decided_title_id, invite_token, created_at")
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("movie_night_participants")
+      .select("user_id, mood, excluded_genres, profiles(username, display_name, avatar_url)")
+      .eq("movie_night_id", id),
+  ]);
   // RLS already restricts this to hosts/participants, so a null result here
   // means either it doesn't exist or you're not part of it — same UX either way.
   if (!night) notFound();
 
-  const { data: participantRows } = await supabase
-    .from("movie_night_participants")
-    .select("user_id, mood, excluded_genres, profiles(username, display_name, avatar_url)")
-    .eq("movie_night_id", id);
   const participants = (participantRows ?? []) as unknown as ParticipantRow[];
 
   const isHost = night.host_id === user.id;
@@ -52,8 +56,16 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
   // and just skipped, same as the host's own compatibility card would be
   // hidden by TasteCompatibilityCard's hasEnoughData check anyway.
   const otherParticipants = participants.filter((p) => p.user_id !== user.id);
-  const comparisons = (
-    await Promise.all(
+
+  // These four are independent of each other (comparisons needs
+  // participants, already resolved above; decidedTitle/candidates/
+  // voteRows only need night.status/decided_title_id, also already
+  // resolved), so they all run together as one batch instead of four
+  // more sequential round trips. Each keeps its own try/catch exactly as
+  // before -- a bad row in one shouldn't 500 the whole page for the
+  // others, same reasoning as previously.
+  const [comparisonsRaw, decidedTitleResult, candidates, voteRowsResult] = await Promise.all([
+    Promise.all(
       otherParticipants.map(async (p) => {
         try {
           return {
@@ -66,39 +78,33 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
           return null;
         }
       })
-    )
-  ).filter((c): c is NonNullable<typeof c> => c !== null);
-
-  const decidedTitle = night.decided_title_id
-    ? (await supabase.from("titles").select("*").eq("id", night.decided_title_id).maybeSingle()).data
-    : null;
-
-  // Every participant (not just the host) sees and votes on the shared
-  // candidate pool now — see LiveCandidateVoting. A unanimous match decides
-  // the night automatically (castMovieNightVote); if the pool runs dry with
-  // no unanimous pick, any participant can break the tie via decideMovieNight.
-  //
-  // Same reasoning as comparisons above: a bad row anywhere in the group's
-  // combined rating/genre-affinity data would otherwise 500 this whole
-  // page for every participant, not just degrade the one feature that hit
-  // it. LiveCandidateVoting already has a real empty-pool fallback UI, so
-  // an empty array here is a legitimate degraded state, not a dead end.
-  let candidates: Awaited<ReturnType<typeof getCandidatesForMovieNight>> = [];
-  if (night.status === "collecting") {
-    try {
-      candidates = await getCandidatesForMovieNight(id, { viewerId: user.id });
-    } catch (err) {
-      await captureServerError(err, { movieNightId: id, stage: "candidates" });
-    }
-  }
-
-  const { data: voteRows } = night.status === "collecting"
-    ? await supabase
-        .from("movie_night_votes")
-        .select("title_id, user_id, vote")
-        .eq("movie_night_id", id)
-    : { data: null };
-  const initialVotes = voteRows ?? [];
+    ),
+    night.decided_title_id
+      ? supabase.from("titles").select("*").eq("id", night.decided_title_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    // Every participant (not just the host) sees and votes on the shared
+    // candidate pool now — see LiveCandidateVoting. A unanimous match decides
+    // the night automatically (castMovieNightVote); if the pool runs dry with
+    // no unanimous pick, any participant can break the tie via decideMovieNight.
+    //
+    // Same reasoning as comparisons above: a bad row anywhere in the group's
+    // combined rating/genre-affinity data would otherwise 500 this whole
+    // page for every participant, not just degrade the one feature that hit
+    // it. LiveCandidateVoting already has a real empty-pool fallback UI, so
+    // an empty array here is a legitimate degraded state, not a dead end.
+    night.status === "collecting"
+      ? getCandidatesForMovieNight(id, { viewerId: user.id }).catch(async (err) => {
+          await captureServerError(err, { movieNightId: id, stage: "candidates" });
+          return [] as Awaited<ReturnType<typeof getCandidatesForMovieNight>>;
+        })
+      : Promise.resolve([] as Awaited<ReturnType<typeof getCandidatesForMovieNight>>),
+    night.status === "collecting"
+      ? supabase.from("movie_night_votes").select("title_id, user_id, vote").eq("movie_night_id", id)
+      : Promise.resolve({ data: null }),
+  ]);
+  const comparisons = comparisonsRaw.filter((c): c is NonNullable<typeof c> => c !== null);
+  const decidedTitle = decidedTitleResult.data;
+  const initialVotes = voteRowsResult.data ?? [];
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-8">

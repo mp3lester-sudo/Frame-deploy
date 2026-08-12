@@ -15,24 +15,23 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   const viewer = await getVerifiedUser();
   if (!viewer) redirect(`/login?next=/messages/${id}`);
 
-  const { data: conversation } = await supabase.from("conversations").select("*").eq("id", id).maybeSingle();
+  // conversation and messageRows both only depend on the route's `id`
+  // (messageRows filters on conversation_id = id directly, not on
+  // anything read from the conversation row), so they run in parallel.
+  const [{ data: conversation }, { data: messageRows }] = await Promise.all([
+    supabase.from("conversations").select("*").eq("id", id).maybeSingle(),
+    supabase
+      .from("messages")
+      .select("id, sender_id, body, created_at")
+      .eq("conversation_id", id)
+      .order("created_at", { ascending: true }),
+  ]);
   // RLS already scopes this to conversations the viewer is part of, so a
   // conversation belonging to someone else comes back as "not found" rather
   // than leaking that it exists.
   if (!conversation) notFound();
 
   const otherId = conversation.user_a === viewer.id ? conversation.user_b : conversation.user_a;
-  const { data: otherProfile } = await supabase
-    .from("profiles")
-    .select("username, display_name, avatar_url")
-    .eq("id", otherId)
-    .maybeSingle();
-
-  const { data: messageRows } = await supabase
-    .from("messages")
-    .select("id, sender_id, body, created_at")
-    .eq("conversation_id", id)
-    .order("created_at", { ascending: true });
 
   const messages: DisplayMessage[] = (messageRows ?? []).map((m) => ({
     id: m.id,
@@ -41,8 +40,16 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
     createdAt: m.created_at,
   }));
 
-  await markConversationRead(id);
-  const { blocked } = await getBlockStatus(otherId);
+  // otherProfile and getBlockStatus both depend on otherId (only knowable
+  // after conversation resolves above); markConversationRead is a
+  // fire-and-forget-shaped write with no data this render depends on. All
+  // three are independent of each other, so they run together instead of
+  // three more sequential round trips.
+  const [{ data: otherProfile }, , { blocked }] = await Promise.all([
+    supabase.from("profiles").select("username, display_name, avatar_url").eq("id", otherId).maybeSingle(),
+    markConversationRead(id),
+    getBlockStatus(otherId),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">

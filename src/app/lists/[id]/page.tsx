@@ -12,17 +12,20 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
 
   const viewer = await getVerifiedUser();
 
-  const { data: list } = await supabase.from("lists").select("*").eq("id", id).maybeSingle();
+  // list and itemRows both only depend on the route's `id`, so they run
+  // in parallel; the notFound() check happens once both have resolved.
+  const [{ data: list }, { data: itemRows }] = await Promise.all([
+    supabase.from("lists").select("*").eq("id", id).maybeSingle(),
+    supabase
+      .from("list_items")
+      .select("note, titles(*)")
+      .eq("list_id", id)
+      .order("position", { ascending: true }),
+  ]);
   // RLS already hides private lists from non-owners (the row simply won't
   // come back), so a missing list here means either it doesn't exist or the
   // viewer isn't allowed to see it — both render as a 404.
   if (!list) notFound();
-
-  const { data: itemRows } = await supabase
-    .from("list_items")
-    .select("note, titles(*)")
-    .eq("list_id", id)
-    .order("position", { ascending: true });
 
   const items = (itemRows ?? [])
     .map((r) => ({
