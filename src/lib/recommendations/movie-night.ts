@@ -9,6 +9,7 @@ import {
 import { computeGenreAffinity } from "./genre-affinity";
 import { CONTENT_MATCH_THRESHOLD } from "./engine";
 import type { ReasonDetail } from "./explain";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 type ParticipantRow = { user_id: string; excluded_genres: string[] | null };
@@ -204,14 +205,29 @@ export async function getCandidatesForUserGroup({
   let anyoneHasMatches = false;
   const seedResults = await Promise.all(
     userIds.map((userId) =>
-      supabase.rpc("match_titles_for_user", {
-        p_user_id: userId,
-        p_match_count: PER_PARTICIPANT_SEED_COUNT,
-        p_exclude_watched: true,
-      })
+      supabase
+        .rpc("match_titles_for_user", {
+          p_user_id: userId,
+          p_match_count: PER_PARTICIPANT_SEED_COUNT,
+          p_exclude_watched: true,
+        })
+        .then((r) => ({ userId, ...r }))
     )
   );
-  for (const { data: matches } of seedResults) {
+  // An RPC error here used to be silently indistinguishable from "this
+  // participant genuinely has no taste vector yet" -- both just left
+  // `matches` falsy, so a transient failure (or a real bug) quietly fell
+  // through to the same "nobody in the group has rated enough yet"
+  // popularity fallback as an honest cold start, with zero signal that
+  // anything had actually gone wrong. Logging the error (without blocking
+  // the fallback -- a broken seed for one participant shouldn't break the
+  // whole group pick) means a real failure is now diagnosable instead of
+  // looking identical to expected cold-start behavior.
+  for (const { userId, data: matches, error } of seedResults) {
+    if (error) {
+      void captureServerError(error, { where: "getCandidatesForUserGroup:match_titles_for_user", userId });
+      continue;
+    }
     if (matches?.length) {
       anyoneHasMatches = true;
       for (const m of matches) candidateIds.add(m.title_id);
@@ -225,10 +241,11 @@ export async function getCandidatesForUserGroup({
   // every participant's watch history (titles_watched_by_users, migration
   // 0027) and drops anything anyone in the group has already seen.
   if (candidateIds.size > 0) {
-    const { data: watched } = await supabase.rpc("titles_watched_by_users", {
+    const { data: watched, error: watchedError } = await supabase.rpc("titles_watched_by_users", {
       p_user_ids: userIds,
       p_title_ids: [...candidateIds],
     });
+    if (watchedError) void captureServerError(watchedError, { where: "getCandidatesForUserGroup:titles_watched_by_users" });
     for (const w of watched ?? []) candidateIds.delete(w.title_id);
   }
   for (const id of excludeIds) candidateIds.delete(id);
@@ -259,10 +276,11 @@ export async function getCandidatesForUserGroup({
   const allIds = [...candidateIds];
   const participantScores: ParticipantScores[] = [];
   for (const userId of userIds) {
-    const { data: sims } = await supabase.rpc("title_similarity_for_user", {
+    const { data: sims, error: simsError } = await supabase.rpc("title_similarity_for_user", {
       p_user_id: userId,
       p_title_ids: allIds,
     });
+    if (simsError) void captureServerError(simsError, { where: "getCandidatesForUserGroup:title_similarity_for_user", userId });
     participantScores.push({
       userId,
       scores: new Map((sims ?? []).map((s) => [s.title_id, s.similarity])),
