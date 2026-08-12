@@ -89,7 +89,6 @@ async function main() {
   const detail = buildReasonDetail({
     title: fullTitleA!,
     hasStrongContentMatch: true,
-    hasCollaborativeEdge: false,
     citedTitles: [titleB.name],
   });
   if (!detail.headline.includes(titleB.name)) throw new Error(`expected the headline to mention "${titleB.name}", got: ${detail.headline}`);
@@ -107,7 +106,6 @@ async function main() {
     const detailForTop = buildReasonDetail({
       title: topTitle,
       hasStrongContentMatch: strongMatch,
-      hasCollaborativeEdge: false,
       citedTitles: [],
     });
     if (typeof detailForTop.headline !== "string" || detailForTop.headline.length === 0) {

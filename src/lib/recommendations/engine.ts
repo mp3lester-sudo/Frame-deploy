@@ -4,14 +4,13 @@ import { contextMultiplier } from "./context-weighting";
 import { weatherTimeMultiplier, weatherTimeNote, type WeatherTimeSignal } from "./weather-time-weighting";
 import { qualityMultiplier } from "./quality-weighting";
 import { computeGenreAffinity, genreAffinityMultiplier } from "./genre-affinity";
-import { computeCurationConfidence, computeBlendWeights, computeAdjustmentBand } from "./curation-confidence";
+import { computeCurationConfidence, computeAdjustmentBand } from "./curation-confidence";
 import { calibrateMatchPercents } from "./match-percent";
 import { diversifyRecommendations, type DiversifiableCandidate } from "./diversify";
 import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
 import { logRecommendationImpressions } from "./log-impressions";
 import { dislikePenaltyMultiplier } from "./dislike-penalty";
 import { implicitAffinityMultiplier } from "./implicit-affinity";
-import { computeCollaborativeSplit } from "./behavioral-collaborative";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
@@ -42,34 +41,37 @@ export interface Recommendation {
 // separate constant.
 export const CONTENT_MATCH_THRESHOLD = 0.5;
 
-// Inclusion floors for the two zero-floor candidate RPCs (see migration
-// 0058) -- deliberately a lower, separate bar from CONTENT_MATCH_THRESHOLD
-// above. CONTENT_MATCH_THRESHOLD decides "is this good enough to cite by
-// name in the reason text"; these decide "is this even worth scoring as a
+// Inclusion floor for match_titles_for_user (see migration 0058) --
+// deliberately a lower, separate bar from CONTENT_MATCH_THRESHOLD above.
+// CONTENT_MATCH_THRESHOLD decides "is this good enough to cite by name in
+// the reason text"; this decides "is this even worth scoring as a
 // candidate at all." Without a floor here, a user whose taste vector sits
 // in a sparse region of the embedding space (or a user with few/unusual
 // ratings) could get the RPC's p_match_count worth of candidates back even
-// when the closest available titles/neighbors are only weakly related --
-// which is how tangential, seemingly-random recommendations were sneaking
-// into the final slate. Calibrated conservatively (permissive) since
-// there's no production data available to sample real similarity
-// distributions from this session -- raise these if weak matches are still
-// getting through, lower them if the pool is coming back too thin.
+// when the closest available titles are only weakly related -- which is
+// how tangential, seemingly-random recommendations were sneaking into the
+// final slate. Calibrated conservatively (permissive) since there's no
+// production data available to sample real similarity distributions from
+// this session -- raise this if weak matches are still
+// getting through, lower it if the pool is coming back too thin.
 const MIN_CONTENT_SIMILARITY = 0.2;
-const MIN_NEIGHBOR_CLOSENESS = 0.1;
 
 /**
- * Hybrid recommendation: blends
- *  1) content similarity — cosine distance between the user's taste vector
- *     and every title's embedding (match_titles_for_user, Postgres function)
- *  2) embedding-neighbor collaborative signal — what taste-vector-similar
- *     users rated highly (similar_users_liked, Postgres function)
- *  3) real behavioral collaborative signal — what users who rated the SAME
- *     titles highly also loved, computed straight from the ratings matrix
- *     with no embeddings involved (behavioral_collaborative_recs, migration
- *     0056) — see behavioral-collaborative.ts for why this catches
- *     correlations the embedding-mediated signals above structurally can't.
- * then re-ranks and attaches a short, rule-based explanation per title.
+ * Content-based recommendation: scores every title purely on cosine
+ * similarity between the user's own taste vector -- built entirely from
+ * their own ratings, see upsert_taste_vector_from_rating -- and each
+ * title's embedding (match_titles_for_user, Postgres function), then
+ * re-ranks and attaches a short, rule-based explanation per title.
+ *
+ * Deliberately does NOT blend in what other users liked. An earlier
+ * version blended two collaborative-filtering signals (embedding-neighbor
+ * "similar users liked" and real behavioral co-rating overlap) alongside
+ * content similarity -- removed per product direction: a pick should only
+ * ever be explainable by this user's own curated ratings, never "people
+ * whose taste overlaps with yours." dislike-penalty.ts and
+ * implicit-affinity.ts stay in the pipeline below since both are this
+ * user's own behavior (their dislikes, watchlist, watch history), not
+ * anyone else's.
  *
  * Falls back to a popularity-sorted list for users with no taste vector yet
  * (new signups) instead of returning nothing.
@@ -126,23 +128,18 @@ export async function getRecommendationsForUser(
   // (something_short's runtime cap), so ranking needs a wide enough pool
   // that a hard exclusion doesn't leave the final list short.
   const CANDIDATE_POOL_MULTIPLIER = 6;
-  const [{ data: contentMatches }, { data: collabMatches }, { data: behavioralMatches }, { data: userRatings }] = await Promise.all([
+  const [{ data: contentMatches }, { data: userRatings }] = await Promise.all([
+    // The only candidate/scoring source: cosine similarity between this
+    // user's own taste vector and every title's embedding. See the
+    // function doc comment above for why the two collaborative-filtering
+    // RPCs that used to sit alongside this were removed.
     supabase.rpc("match_titles_for_user", {
       p_user_id: userId,
       p_match_count: limit * CANDIDATE_POOL_MULTIPLIER,
       p_min_similarity: MIN_CONTENT_SIMILARITY,
     }),
-    supabase.rpc("similar_users_liked", {
-      p_user_id: userId,
-      p_match_count: limit * CANDIDATE_POOL_MULTIPLIER,
-      p_min_closeness: MIN_NEIGHBOR_CLOSENESS,
-    }),
-    // Real behavioral CF — see behavioral-collaborative.ts and migration
-    // 0056. Distinct from similar_users_liked above: neighbors here come
-    // from shared ratings, not embedding proximity.
-    supabase.rpc("behavioral_collaborative_recs", { p_user_id: userId, p_match_count: limit * CANDIDATE_POOL_MULTIPLIER }),
     // Feeds genre-level negative signal (below) — deliberately a plain
-    // ratings query, not the RPCs above, since this needs the user's own
+    // ratings query, not the RPC above, since this needs the user's own
     // raw scores + genres, not a similarity metric.
     supabase.from("ratings").select("score, title_id").eq("user_id", userId),
   ]);
@@ -159,32 +156,18 @@ export async function getRecommendationsForUser(
     (userRatings ?? []).map((r) => ({ score: r.score, genres: genresByRatedTitleId.get(r.title_id) ?? null }))
   );
 
-  // "User curation is the key": how much a user's own taste vector should
-  // be trusted relative to the crowd (and how much room generic signals get
-  // below) scales with how much they've actually curated — see
-  // curation-confidence.ts for the full rationale.
+  // "User curation is the key": how much room generic signals (context/
+  // weather/quality/genre-affinity/dislike/implicit, all below) get to
+  // move a score away from the pure content match scales with how much
+  // this user has actually curated — see curation-confidence.ts. There's
+  // no crowd-vs-vector split to compute anymore since content similarity
+  // is the only scoring input now.
   const highRatedCount = (userRatings ?? []).filter((r) => r.score >= 4).length;
   const confidence = computeCurationConfidence(highRatedCount);
-  const { vectorWeight, collaborativeWeight } = computeBlendWeights(confidence);
-  // Split the crowd-signal share of the blend between the two
-  // collaborative sources — see behavioral-collaborative.ts for why this
-  // only pulls weight toward the behavioral signal once it actually has
-  // something to say for this user.
-  const { embeddingShare, behavioralShare } = computeCollaborativeSplit((behavioralMatches ?? []).length > 0);
-  const embeddingCollabWeight = collaborativeWeight * embeddingShare;
-  const behavioralCollabWeight = collaborativeWeight * behavioralShare;
 
   const blended = new Map<string, number>();
   for (const m of contentMatches ?? []) {
-    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity * vectorWeight);
-  }
-  for (const m of collabMatches ?? []) {
-    const normalized = Math.min(m.score, 1);
-    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + normalized * embeddingCollabWeight);
-  }
-  for (const m of behavioralMatches ?? []) {
-    const normalized = Math.min(m.score, 1);
-    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + normalized * behavioralCollabWeight);
+    blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity);
   }
 
   if (blended.size === 0) {
@@ -289,22 +272,11 @@ export async function getRecommendationsForUser(
   // already-ranked short list — computing them for the whole over-fetched
   // candidate pool would be wasted work most of it never surfaces.
   //
-  const matchFlags = new Map<
-    string,
-    { hasStrongContentMatch: boolean; hasCollaborativeEdge: boolean; hasBehavioralEdge: boolean }
-  >();
+  const matchFlags = new Map<string, { hasStrongContentMatch: boolean }>();
   for (const id of rankedIds) {
     const inContent = (contentMatches ?? []).find((m) => m.title_id === id);
-    const inCollab = (collabMatches ?? []).find((m) => m.title_id === id);
-    const inBehavioral = (behavioralMatches ?? []).find((m) => m.title_id === id);
     matchFlags.set(id, {
       hasStrongContentMatch: !!inContent && inContent.similarity > CONTENT_MATCH_THRESHOLD,
-      hasCollaborativeEdge: !!inCollab && (!inContent || inContent.similarity < inCollab.score),
-      // Real behavioral overlap is the stronger, more concrete claim when
-      // it's present (see explain.ts precedence) — checked the same way as
-      // the embedding-collaborative edge above, just against the
-      // behavioral RPC's own scores.
-      hasBehavioralEdge: !!inBehavioral && (!inContent || inContent.similarity < inBehavioral.score),
     });
   }
 
@@ -363,17 +335,11 @@ export async function getRecommendationsForUser(
 
   const recommendations = finalIds.map((id, i) => {
     const title = byId.get(id)!;
-    const flags = matchFlags.get(id) ?? {
-      hasStrongContentMatch: false,
-      hasCollaborativeEdge: false,
-      hasBehavioralEdge: false,
-    };
+    const flags = matchFlags.get(id) ?? { hasStrongContentMatch: false };
     const weatherNote = weather ? weatherTimeNote(title, weather) : null;
     const detail = buildReasonDetail({
       title,
       hasStrongContentMatch: flags.hasStrongContentMatch,
-      hasCollaborativeEdge: flags.hasCollaborativeEdge,
-      hasBehavioralEdge: flags.hasBehavioralEdge,
       citedTitles: citedTitleNamesByRecId.get(id) ?? [],
       context,
       weatherNote,

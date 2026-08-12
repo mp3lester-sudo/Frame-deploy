@@ -22,7 +22,6 @@ describe("buildReasonDetail", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
-      hasCollaborativeEdge: false,
       citedTitles: ["Se7en"],
     });
     expect(detail.headline).toContain("Se7en");
@@ -34,7 +33,6 @@ describe("buildReasonDetail", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
-      hasCollaborativeEdge: false,
       citedTitles: ["Se7en", "Zodiac"],
     });
     expect(detail.headline).toContain("Se7en");
@@ -47,27 +45,15 @@ describe("buildReasonDetail", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
-      hasCollaborativeEdge: false,
       citedTitles: [],
     });
     expect(detail.headline).toContain("Matches your taste closely");
   });
 
-  it("uses the collaborative line when there's no content match but a collaborative edge", () => {
-    const detail = buildReasonDetail({
-      title: title(),
-      hasStrongContentMatch: false,
-      hasCollaborativeEdge: true,
-      citedTitles: [],
-    });
-    expect(detail.headline).toContain("Loved by people");
-  });
-
-  it("falls back to mood tags when neither content nor collaborative signal is present", () => {
+  it("falls back to mood tags when there's no content match", () => {
     const detail = buildReasonDetail({
       title: title({ mood_tags: ["cozy", "nostalgic"] }),
       hasStrongContentMatch: false,
-      hasCollaborativeEdge: false,
       citedTitles: [],
     });
     expect(detail.headline).toContain("cozy");
@@ -77,17 +63,32 @@ describe("buildReasonDetail", () => {
     const detail = buildReasonDetail({
       title: title({ mood_tags: [] }),
       hasStrongContentMatch: false,
-      hasCollaborativeEdge: false,
       citedTitles: [],
     });
     expect(detail.headline).toContain("Taste Graph");
+  });
+
+  it("never surfaces a collaborative-filtering / 'other people' headline -- content-only by design", () => {
+    // Regression guard: recommendations must only ever be explainable by
+    // this user's own curated ratings, never "people whose taste overlaps
+    // with yours" or similar crowd-sourced framing.
+    const strong = buildReasonDetail({ title: title(), hasStrongContentMatch: true, citedTitles: [] });
+    const mood = buildReasonDetail({ title: title(), hasStrongContentMatch: false, citedTitles: [] });
+    const generic = buildReasonDetail({ title: title({ mood_tags: [] }), hasStrongContentMatch: false, citedTitles: [] });
+    for (const detail of [strong, mood, generic]) {
+      expect(detail.headline.toLowerCase()).not.toContain("loved by people");
+      expect(detail.headline.toLowerCase()).not.toContain("other users");
+      expect(detail.headline.toLowerCase()).not.toContain("other viewers");
+      expect(detail.longReason.toLowerCase()).not.toContain("loved by people");
+      expect(detail.longReason.toLowerCase()).not.toContain("other users");
+      expect(detail.longReason.toLowerCase()).not.toContain("other viewers");
+    }
   });
 
   it("appends a context note in parens when a context is supplied", () => {
     const detail = buildReasonDetail({
       title: title({ runtime_minutes: 87 }),
       hasStrongContentMatch: false,
-      hasCollaborativeEdge: false,
       citedTitles: [],
       context: "something_short",
     });
@@ -98,7 +99,6 @@ describe("buildReasonDetail", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
-      hasCollaborativeEdge: false,
       citedTitles: ["Se7en"],
     });
     expect(detail.longReason).toContain("Se7en");
@@ -106,23 +106,10 @@ describe("buildReasonDetail", () => {
     expect(detail.longReason.split(". ").length).toBeGreaterThan(1);
   });
 
-  it("builds a distinct, honest longReason for the behavioral-collaborative branch (no fabricated citation)", () => {
-    const detail = buildReasonDetail({
-      title: title(),
-      hasStrongContentMatch: false,
-      hasCollaborativeEdge: false,
-      hasBehavioralEdge: true,
-      citedTitles: [],
-    });
-    expect(detail.longReason).toContain("ratings data");
-    expect(detail.longReason).not.toContain("undefined");
-  });
-
   it("always surfaces the full theme/tone/mood/pacing/ending detail regardless of headline branch", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
-      hasCollaborativeEdge: false,
       citedTitles: ["Se7en"],
     });
     expect(detail.themes).toEqual(["betrayal", "redemption"]);

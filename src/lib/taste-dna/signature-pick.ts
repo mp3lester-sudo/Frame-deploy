@@ -160,7 +160,6 @@ async function buildSignaturePick(
   const detail = buildReasonDetail({
     title: title as ExplainableTitle,
     hasStrongContentMatch: true,
-    hasCollaborativeEdge: false,
     citedTitles,
   });
 
