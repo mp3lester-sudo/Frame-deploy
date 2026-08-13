@@ -29,6 +29,12 @@ import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
 import { SignaturePickCard } from "@/components/taste-dna/signature-pick-card";
 import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
 
+/** Auteur subscribers get the fuller evolution read (more rising/fading
+ *  archetype insights per direction) on this page too, matching the
+ *  standalone /taste-dna page's own Auteur-vs-standard split (task
+ *  #343). Free/Premium keep evolution.ts's own default cap. */
+const AUTEUR_MAX_ARCHETYPE_INSIGHTS = 6;
+
 /**
  * Tailwind col-start-N classes must appear literally in source for the JIT
  * scanner to pick them up, so this returns full class strings rather than
@@ -132,7 +138,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // computeSignaturePick is timeout-guarded (see its own comment in
   // taste-dna/page.tsx) since this panel is now on a far more frequently
   // visited page than the standalone Taste DNA page ever was.
-  const dnaPromise = computeTasteDna(profile.id);
+  // Computed here (not just down by the Auteur badge) so it can also
+  // scale the Taste DNA evolution insight count for Auteur subscribers --
+  // see AUTEUR_MAX_ARCHETYPE_INSIGHTS above.
+  const isAuteur = isAuteurActive(profile);
+  const dnaPromise = computeTasteDna(
+    profile.id,
+    isAuteur ? AUTEUR_MAX_ARCHETYPE_INSIGHTS : undefined
+  );
   const signaturePickPromise = withTimeout(computeSignaturePick(profile.id), 10000, null);
   // Wrapped preview card (own profile only -- see the rail below): kicked
   // off here for the same reason as the other two -- runs concurrently
@@ -304,8 +317,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // one self-reported taste level everyone has, one paid perk few do.
   // isAuteurActive checks premium_tier specifically, not is_premium, so a
   // Premium (non-Auteur) subscriber or a referral-bonus window correctly
-  // shows no badge here.
-  const isAuteur = isAuteurActive(profile);
+  // shows no badge here. (isAuteur itself is computed up near dnaPromise.)
 
   const identityBlock = (
     <div className="flex flex-col items-center gap-3 text-center">
@@ -411,6 +423,30 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Following</p>
         </div>
       </div>
+
+      {/* Taste evolution: real, already-computed content (dna.evolution --
+          same computeTasteDna() call that feeds the DNA panel, no extra
+          query) instead of stretching this column's cards to fake-fill
+          the gap left by the DNA panel routinely running much taller than
+          this rail. Omitted entirely below the evolution.ts sample-size
+          floor rather than showing an empty-state placeholder, same rule
+          the standalone /taste-dna page uses. */}
+      {dna.evolution && dna.evolution.insights.length > 0 && (
+        <div
+          className="stagger-card mt-6 rounded-[var(--radius-md)] border border-glass-border bg-glass p-5 backdrop-blur-sm"
+          style={{ animationDelay: "460ms" }}
+        >
+          <p className="text-xs font-medium uppercase tracking-wider text-foreground-muted">
+            How taste is evolving
+          </p>
+          <ul className="mt-2 flex flex-col gap-1.5 text-sm leading-relaxed text-foreground-muted">
+            {dna.evolution.insights.map((insight) => (
+              <li key={insight}>{insight}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {isOwnProfile && wrapped && (
         // Wrapped preview: a real poster-backed card (not another pill in
         // the button list below) -- the favorite title's poster sits
