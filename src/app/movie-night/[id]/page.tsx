@@ -139,7 +139,10 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
       {night.status === "decided" && decidedTitle && (
         <div className="mt-8">
           <p className="mb-3 text-[11px] uppercase tracking-wider text-foreground-muted">The pick</p>
-          <div className="flex gap-4 rounded-[var(--radius-lg)] border border-border bg-surface p-4">
+          {/* Bento-card wrap -- the last remaining old-style bordered box
+              on this page, everything else here (chips, form fields) is
+              already using the app's established surface language. */}
+          <div className="bento-card flex gap-4 p-4">
             <div className="relative h-36 w-24 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised">
               {decidedTitle.poster_url && (
                 <Image src={decidedTitle.poster_url} alt={decidedTitle.name} fill className="object-cover" />

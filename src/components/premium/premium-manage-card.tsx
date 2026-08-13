@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { isNativeApp } from "@/lib/native/is-native";
 import { tierLabel } from "@/lib/premium/tier";
 
@@ -11,6 +10,10 @@ import { tierLabel } from "@/lib/premium/tier";
  * previously an active subscriber landing on /premium just saw the same
  * "Upgrade to Premium" pitch with no way to cancel, change plans, or see
  * an invoice from inside the app at all.
+ *
+ * Same ticket motif as PremiumUpgradeCard (perforated tear-line, "Backlot
+ * presents" eyebrow) so an active subscriber's "you're in" moment reads
+ * as the stub half of the same ticket they bought, not a different UI.
  */
 export function PremiumManageCard({
   currentPeriodEnd,
@@ -49,21 +52,44 @@ export function PremiumManageCard({
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
-      <Card className="p-6">
-        <h1 className="font-display text-xl">{tierLabel(tier)}</h1>
-        <p className="mt-1 text-sm text-foreground-muted">
-          You&apos;re subscribed.
-          {currentPeriodEnd && ` Renews ${new Date(currentPeriodEnd).toLocaleDateString()}.`}
-        </p>
+      <div
+        className="relative overflow-hidden rounded-[var(--radius-xl)] border bg-[var(--glass-bg)] backdrop-blur-xl"
+        style={{
+          borderColor: "rgba(217,184,118,0.5)",
+          boxShadow: "0 0 0 1px rgba(217,184,118,0.15), var(--glass-shadow)",
+        }}
+      >
+        <div className="p-6 pb-5 text-center">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-foreground-muted">Backlot presents</p>
+          <h1 className="font-display mt-1 text-2xl italic text-accent-soft">{tierLabel(tier)}</h1>
+          <p className="mt-1 text-sm text-foreground-muted">
+            You&apos;re subscribed.
+            {currentPeriodEnd && ` Renews ${new Date(currentPeriodEnd).toLocaleDateString()}.`}
+          </p>
+        </div>
 
-        <Button className="mt-6 w-full" isLoading={loading} onClick={handleManage} variant="secondary">
-          Manage subscription
-        </Button>
-        {error && <p className="mt-2 text-center text-xs text-danger">{error}</p>}
-        <p className="mt-2 text-center text-xs text-foreground-muted">
-          Cancel, change plans, or view invoices in Stripe&apos;s billing portal.
-        </p>
-      </Card>
+        <div className="relative">
+          <div
+            className="absolute left-0 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background"
+            aria-hidden
+          />
+          <div
+            className="absolute right-0 top-1/2 h-6 w-6 -translate-y-1/2 translate-x-1/2 rounded-full bg-background"
+            aria-hidden
+          />
+          <div className="border-t border-dashed" style={{ borderColor: "rgba(217,184,118,0.3)" }} />
+        </div>
+
+        <div className="p-6 pt-5">
+          <Button className="w-full" isLoading={loading} onClick={handleManage} variant="secondary">
+            Manage subscription
+          </Button>
+          {error && <p className="mt-2 text-center text-xs text-danger">{error}</p>}
+          <p className="mt-2 text-center text-xs text-foreground-muted">
+            Cancel, change plans, or view invoices in Stripe&apos;s billing portal.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

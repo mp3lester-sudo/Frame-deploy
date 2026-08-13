@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { posthog } from "@/lib/analytics/posthog-client";
 import { isNativeApp } from "@/lib/native/is-native";
 import { siteOrigin } from "@/lib/seo/site";
@@ -33,6 +32,76 @@ const AUTEUR_FEATURES = [
   "Early access to new features",
 ];
 
+/**
+ * Pricing framed as a literal admission ticket rather than a generic SaaS
+ * pricing card -- "Backlot presents" / plan name in the marquee italic
+ * serif / a perforated tear-line between the header and the feature list
+ * (two notches cut into the card's sides, same trick real ticket stubs
+ * use) / "Admit one" language on the features. Leans into the cinema
+ * theme the rest of the app already commits to (onboarding intro, Wrapped
+ * slides, the greeting marquee) instead of looking like it was pulled
+ * from an unrelated SaaS template.
+ */
+function TicketCard({
+  eyebrow = "Backlot presents",
+  title,
+  price,
+  features,
+  accented = false,
+  children,
+}: {
+  eyebrow?: string;
+  title: string;
+  price: string;
+  features: string[];
+  accented?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-[var(--radius-xl)] border bg-[var(--glass-bg)] backdrop-blur-xl"
+      style={{
+        borderColor: accented ? "rgba(217,184,118,0.5)" : "var(--glass-border)",
+        boxShadow: accented ? "0 0 0 1px rgba(217,184,118,0.15), var(--glass-shadow)" : "var(--glass-shadow)",
+      }}
+    >
+      <div className="p-6 pb-5 text-center">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-foreground-muted">{eyebrow}</p>
+        <h1 className="font-display mt-1 text-2xl italic text-accent-soft">{title}</h1>
+        <p className="mt-1 text-sm text-foreground-muted">{price}</p>
+      </div>
+
+      {/* Perforated tear-line: a dashed rule with two circular notches
+          punched into the card's edges, background-matched to the page
+          so they read as cutouts rather than dots sitting on top. */}
+      <div className="relative">
+        <div
+          className="absolute left-0 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background"
+          aria-hidden
+        />
+        <div
+          className="absolute right-0 top-1/2 h-6 w-6 -translate-y-1/2 translate-x-1/2 rounded-full bg-background"
+          aria-hidden
+        />
+        <div className="border-t border-dashed" style={{ borderColor: "rgba(217,184,118,0.3)" }} />
+      </div>
+
+      <div className="p-6 pt-5">
+        <p className="mb-3 text-[10px] uppercase tracking-wider text-foreground-muted">Admit one &middot; included</p>
+        <ul className="flex flex-col gap-2 text-sm">
+          {features.map((f) => (
+            <li key={f} className="flex items-start gap-2">
+              <span className="text-accent">&#9733;</span>
+              {f}
+            </li>
+          ))}
+        </ul>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function PremiumUpgradeCard({ auteurAvailable = false }: { auteurAvailable?: boolean }) {
   const [loadingTier, setLoadingTier] = useState<"premium" | "auteur" | null>(null);
 
@@ -60,20 +129,8 @@ export function PremiumUpgradeCard({ auteurAvailable = false }: { auteurAvailabl
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
-      <div className="grid gap-6 sm:grid-cols-2">
-        <Card className="p-6">
-          <h1 className="font-display text-xl">Backlot Premium</h1>
-          <p className="mt-1 text-sm text-foreground-muted">$7.99/month</p>
-
-          <ul className="mt-4 flex flex-col gap-2 text-sm">
-            {PREMIUM_FEATURES.map((f) => (
-              <li key={f} className="flex items-start gap-2">
-                <span className="text-accent">✓</span>
-                {f}
-              </li>
-            ))}
-          </ul>
-
+      <div className="grid gap-8 sm:grid-cols-2">
+        <TicketCard title="Premium" price="$7.99 / month" features={PREMIUM_FEATURES}>
           {native ? (
             // Deliberately no purchase button (and no clickable checkout
             // link) inside the native wrapper at all -- a browser-redirect
@@ -97,21 +154,9 @@ export function PremiumUpgradeCard({ auteurAvailable = false }: { auteurAvailabl
               Upgrade to Premium
             </Button>
           )}
-        </Card>
+        </TicketCard>
 
-        <Card className="border-accent/50 p-6">
-          <h1 className="font-display text-xl">Backlot Auteur</h1>
-          <p className="mt-1 text-sm text-foreground-muted">$14.99/month</p>
-
-          <ul className="mt-4 flex flex-col gap-2 text-sm">
-            {AUTEUR_FEATURES.map((f) => (
-              <li key={f} className="flex items-start gap-2">
-                <span className="text-accent">✓</span>
-                {f}
-              </li>
-            ))}
-          </ul>
-
+        <TicketCard title="Auteur" price="$14.99 / month" features={AUTEUR_FEATURES} accented>
           {native ? (
             <p className="mt-6 text-center text-sm text-foreground-muted">
               To subscribe, visit{" "}
@@ -131,7 +176,7 @@ export function PremiumUpgradeCard({ auteurAvailable = false }: { auteurAvailabl
               Coming soon
             </Button>
           )}
-        </Card>
+        </TicketCard>
       </div>
     </div>
   );

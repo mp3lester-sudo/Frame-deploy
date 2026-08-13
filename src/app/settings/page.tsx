@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
@@ -15,6 +16,16 @@ import { LetterboxdPasteImport } from "@/components/settings/letterboxd-paste-im
 import { ReferralCard } from "@/components/settings/referral-card";
 import { siteOrigin } from "@/lib/seo/site";
 import { LogoutButtons } from "@/components/settings/logout-buttons";
+
+/**
+ * Small uppercase label above each bento-card group -- the page is a long
+ * stack of otherwise-identical panels (profile, password, notifications,
+ * favorites, import, referrals), so a label is what turns "scroll through
+ * a wall of forms" into "find the Notifications section and skip there."
+ */
+function SectionLabel({ children }: { children: ReactNode }) {
+  return <p className="mb-3 text-[10px] uppercase tracking-wider text-accent">{children}</p>;
+}
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -46,37 +57,49 @@ export default async function SettingsPage() {
 
       {!user.email_confirmed_at && <VerifyEmailBanner />}
 
-      <section className="mb-8">
+      {/* Avatar and the display-name/bio form are logically one "who you
+          are" group -- previously the avatar sat in its own unstyled
+          section above a separately-bordered profile form, which visually
+          split one idea into two. */}
+      <section className="mb-6 bento-card p-4">
+        <SectionLabel>Profile</SectionLabel>
         <AvatarUpload name={profile?.display_name ?? profile?.username ?? "you"} initialAvatarUrl={profile?.avatar_url ?? null} />
+        <div className="mt-4">
+          <ProfileForm initialDisplayName={profile?.display_name ?? ""} initialBio={profile?.bio ?? ""} />
+        </div>
       </section>
 
-      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
-        <ProfileForm initialDisplayName={profile?.display_name ?? ""} initialBio={profile?.bio ?? ""} />
-      </section>
-
-      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+      <section className="mb-6 bento-card p-4">
+        <SectionLabel>Password</SectionLabel>
         <PasswordChangeForm />
       </section>
 
-      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+      <section className="mb-6 bento-card p-4">
+        <SectionLabel>Notifications</SectionLabel>
         <PushToggle />
         <NotificationPreferences />
       </section>
 
-      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+      <section className="mb-6 bento-card p-4">
+        <SectionLabel>Favorite films</SectionLabel>
         <FavoriteTitlesEditor initialFavorites={favorites} />
       </section>
 
-      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+      {/* Both import paths (paste-HTML for free Letterboxd accounts, and
+          the full export upload) are the same underlying action -- "bring
+          your Letterboxd history over" -- so they read as one section with
+          two methods rather than two separate, identically-titled panels. */}
+      <section className="mb-6 bento-card p-4">
+        <SectionLabel>Import from Letterboxd</SectionLabel>
         <LetterboxdPasteImport />
-      </section>
-
-      <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
-        <LetterboxdImport />
+        <div className="mt-4 border-t border-[var(--glass-border)] pt-4">
+          <LetterboxdImport />
+        </div>
       </section>
 
       {profile?.referral_code && (
-        <section className="mb-8 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+        <section className="mb-6 bento-card p-4">
+          <SectionLabel>Invite friends</SectionLabel>
           <ReferralCard
             referralLink={`${siteOrigin()}/signup?ref=${profile.referral_code}`}
             referralCount={referralCount ?? 0}

@@ -74,9 +74,12 @@ export function ClubFeed({
       {posts.length === 0 ? (
         <p className="text-sm text-foreground-muted">No posts yet — be the first to say something.</p>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {posts.map((p) => (
-            <div key={p.id} className="flex items-start gap-3">
+            // Bento-card wrap for consistency with the rest of the app --
+            // this used to be a bare flex row with no surface at all, the
+            // one remaining "plain" pattern on the club page.
+            <div key={p.id} className="bento-card flex items-start gap-3 p-3">
               <Link href={`/profile/${p.username}`} className="shrink-0 hover:opacity-80">
                 <Avatar name={p.username} src={p.avatarUrl} size={32} />
               </Link>

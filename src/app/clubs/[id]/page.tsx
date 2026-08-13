@@ -65,8 +65,12 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
         {viewer && <JoinLeaveClubButton clubId={club.id} initiallyMember={isMember} isOwner={isOwner} />}
       </div>
 
-      <div className="mb-6">
-        <p className="mb-2 text-xs uppercase tracking-wide text-foreground-muted">
+      {/* Bento-card wrap brings the member roster in line with the rest
+          of the app's glass-surface language -- previously this section
+          had no surface at all, just pills floating directly on the page
+          background. */}
+      <div className="mb-6 bento-card p-4">
+        <p className="mb-2 text-[10px] uppercase tracking-wider text-foreground-muted">
           {members.length} member{members.length === 1 ? "" : "s"}
         </p>
         <div className="flex flex-wrap gap-2">
