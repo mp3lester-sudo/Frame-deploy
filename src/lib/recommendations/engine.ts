@@ -27,6 +27,13 @@ export interface Recommendation {
    *  of truth so HeroRecommendation and MoodRow never need their own
    *  Math.round(score * 100) math. */
   matchPercent: number | null;
+  /** Director display name, piggybacked onto the same title_credits query
+   *  this function already runs for diversify.ts's per-director dedup
+   *  (warm start) or a small dedicated lookup (cold start) — callers used
+   *  to run their own separate title_credits round trip for this (see
+   *  page.tsx before this field existed); now it's just here. Null when
+   *  no director credit is on file. */
+  director: string | null;
 }
 
 // Bar a real cited title has to clear (see most_similar_liked_title,
@@ -144,26 +151,7 @@ export async function getRecommendationsForUser(
     supabase.from("ratings").select("score, title_id").eq("user_id", userId),
   ]);
 
-  // Genre affinity needs each rated title's genres, which the ratings query
-  // above doesn't have — a second lookup, but bounded by this user's rating
-  // count (typically dozens-hundreds), not the catalogue.
   const ratedTitleIds = [...new Set((userRatings ?? []).map((r) => r.title_id))];
-  const { data: ratedTitleGenres } = ratedTitleIds.length
-    ? await supabase.from("titles").select("id, genres").in("id", ratedTitleIds)
-    : { data: [] };
-  const genresByRatedTitleId = new Map((ratedTitleGenres ?? []).map((t) => [t.id, t.genres]));
-  const genreAffinity = computeGenreAffinity(
-    (userRatings ?? []).map((r) => ({ score: r.score, genres: genresByRatedTitleId.get(r.title_id) ?? null }))
-  );
-
-  // "User curation is the key": how much room generic signals (context/
-  // weather/quality/genre-affinity/dislike/implicit, all below) get to
-  // move a score away from the pure content match scales with how much
-  // this user has actually curated — see curation-confidence.ts. There's
-  // no crowd-vs-vector split to compute anymore since content similarity
-  // is the only scoring input now.
-  const highRatedCount = (userRatings ?? []).filter((r) => r.score >= 4).length;
-  const confidence = computeCurationConfidence(highRatedCount);
 
   const blended = new Map<string, number>();
   for (const m of contentMatches ?? []) {
@@ -178,30 +166,72 @@ export async function getRecommendationsForUser(
   // violence_level, pacing, ...), so fetch full rows for the whole
   // candidate pool up front rather than only for the eventual top N.
   const candidateIds = [...blended.keys()];
-  const [{ data: candidateTitles }, { data: dislikeSimilarities }, { data: implicitSimilarities }, { data: directorCredits }] =
-    await Promise.all([
-      supabase.from("titles").select("*").in("id", candidateIds),
-      // Title-level negative feedback: how close each candidate is to the
-      // user's single most similar disliked (rated <= 2.5) title -- the
-      // negative counterpart to the "because you loved X" citation logic
-      // below (CONTENT_MATCH_THRESHOLD). See dislike-penalty.ts and
-      // migration 0052.
-      supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds }),
-      // Implicit signals: how close each candidate is to something on the
-      // user's watchlist (deliberate intent) vs. something they watched but
-      // never rated (ambiguous) -- kept as two separate columns since
-      // migration 0060 so they can be weighted differently. See
-      // implicit-affinity.ts.
-      supabase.rpc("similarity_to_implicit_positive_titles", { p_user_id: userId, p_title_ids: candidateIds }),
-      // Director, for diversify.ts's same-director check below -- not on
-      // `titles` itself, lives in title_credits. Public-read table, plain
-      // query rather than an RPC.
-      supabase.from("title_credits").select("title_id, person_id").eq("credit_type", "director").in("title_id", candidateIds),
-    ]);
+  // Genre affinity's rated-title-genres lookup (bounded by this user's
+  // rating count) and the four candidate-pool queries below don't depend
+  // on each other at all -- both only need ids already sitting in memory
+  // from the batch above -- so they used to be two sequential round trips
+  // purely because they were written as separate top-level `await`s.
+  // Merged into one batch now, same fix as the citation lookup above.
+  const [
+    { data: ratedTitleGenres },
+    { data: candidateTitles },
+    { data: dislikeSimilarities },
+    { data: implicitSimilarities },
+    { data: directorCredits },
+  ] = await Promise.all([
+    ratedTitleIds.length
+      ? supabase.from("titles").select("id, genres").in("id", ratedTitleIds)
+      : Promise.resolve({ data: [] as { id: string; genres: string[] | null }[] }),
+    supabase.from("titles").select("*").in("id", candidateIds),
+    // Title-level negative feedback: how close each candidate is to the
+    // user's single most similar disliked (rated <= 2.5) title -- the
+    // negative counterpart to the "because you loved X" citation logic
+    // below (CONTENT_MATCH_THRESHOLD). See dislike-penalty.ts and
+    // migration 0052.
+    supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds }),
+    // Implicit signals: how close each candidate is to something on the
+    // user's watchlist (deliberate intent) vs. something they watched but
+    // never rated (ambiguous) -- kept as two separate columns since
+    // migration 0060 so they can be weighted differently. See
+    // implicit-affinity.ts.
+    supabase.rpc("similarity_to_implicit_positive_titles", { p_user_id: userId, p_title_ids: candidateIds }),
+    // Director, for diversify.ts's same-director check below (person_id)
+    // and for the Recommendation.director display field (person's name,
+    // joined in the same query rather than a separate round trip -- see
+    // the Recommendation.director doc comment). Not on `titles` itself,
+    // lives in title_credits. Public-read tables, plain query rather than
+    // an RPC.
+    supabase
+      .from("title_credits")
+      .select("title_id, person_id, people(name)")
+      .eq("credit_type", "director")
+      .in("title_id", candidateIds),
+  ]);
+
+  const genresByRatedTitleId = new Map((ratedTitleGenres ?? []).map((t) => [t.id, t.genres]));
+  const genreAffinity = computeGenreAffinity(
+    (userRatings ?? []).map((r) => ({ score: r.score, genres: genresByRatedTitleId.get(r.title_id) ?? null }))
+  );
+
+  // "User curation is the key": how much room generic signals (context/
+  // weather/quality/genre-affinity/dislike/implicit, all below) get to
+  // move a score away from the pure content match scales with how much
+  // this user has actually curated — see curation-confidence.ts. There's
+  // no crowd-vs-vector split to compute anymore since content similarity
+  // is the only scoring input now.
+  const highRatedCount = (userRatings ?? []).filter((r) => r.score >= 4).length;
+  const confidence = computeCurationConfidence(highRatedCount);
+
   const byId = new Map((candidateTitles ?? []).map((t) => [t.id, t]));
   const directorIdByTitle = new Map<string, string>();
-  for (const c of directorCredits ?? []) {
+  const directorNameByTitle = new Map<string, string>();
+  for (const c of (directorCredits ?? []) as unknown as {
+    title_id: string;
+    person_id: string;
+    people: { name: string } | null;
+  }[]) {
     if (!directorIdByTitle.has(c.title_id)) directorIdByTitle.set(c.title_id, c.person_id);
+    if (!directorNameByTitle.has(c.title_id) && c.people?.name) directorNameByTitle.set(c.title_id, c.people.name);
   }
   const dislikeSimilarityById = new Map((dislikeSimilarities ?? []).map((d) => [d.title_id, d.max_similarity]));
   const implicitWatchlistSimilarityById = new Map(
@@ -353,6 +383,7 @@ export async function getRecommendationsForUser(
       reason: detail.headline,
       detail,
       matchPercent: matchPercents[i],
+      director: directorNameByTitle.get(id) ?? null,
     };
   });
 
@@ -388,9 +419,36 @@ async function getColdStartRecommendations(
   const filtered = (titles ?? []).filter(
     (t) => !watchedIds.has(t.id) && (context ? contextMultiplier(t, context) !== null : true)
   );
+  const picks = filtered.slice(0, limit);
 
-  return filtered.slice(0, limit).map((title) => {
+  // Same director-name lookup the warm-start path piggybacks onto its own
+  // candidate-pool query -- cold start has no such query to piggyback on,
+  // so this is its own small round trip, bounded by `limit` (typically 9),
+  // not the catalogue.
+  const { data: directorCredits } = picks.length
+    ? await supabase
+        .from("title_credits")
+        .select("title_id, people(name)")
+        .eq("credit_type", "director")
+        .in(
+          "title_id",
+          picks.map((t) => t.id)
+        )
+    : { data: [] };
+  const directorNameByTitle = new Map<string, string>();
+  for (const c of (directorCredits ?? []) as unknown as { title_id: string; people: { name: string } | null }[]) {
+    if (!directorNameByTitle.has(c.title_id) && c.people?.name) directorNameByTitle.set(c.title_id, c.people.name);
+  }
+
+  return picks.map((title) => {
     const detail = buildColdStartDetail(title);
-    return { title, score: 0, reason: detail.headline, detail, matchPercent: null };
+    return {
+      title,
+      score: 0,
+      reason: detail.headline,
+      detail,
+      matchPercent: null,
+      director: directorNameByTitle.get(title.id) ?? null,
+    };
   });
 }

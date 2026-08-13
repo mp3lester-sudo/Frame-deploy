@@ -107,36 +107,17 @@ export default async function HomePage({
   const heroReserve = recommendations.slice(7, 9);
   const heroPool = hero ? [hero, ...heroReserve] : [];
 
-  // Batched across the whole hero pool (hero + reserve), not just hero
-  // alone -- RecommendationReveal's "Generate another pick" can land on
-  // any of them, so each one needs its own director for the meta line
-  // rather than only the one shown first.
-  const heroPoolDirectorsResult = heroPool.length
-    ? await supabase
-        .from("title_credits")
-        .select("title_id, people(name)")
-        .in(
-          "title_id",
-          heroPool.map((r) => r.title.id)
-        )
-        .eq("credit_type", "director")
-    : { data: [] };
-
-  const directorByTitleId = new Map<string, string>();
-  for (const row of (heroPoolDirectorsResult?.data ?? []) as unknown as {
-    title_id: string;
-    people: { name: string } | null;
-  }[]) {
-    if (!directorByTitleId.has(row.title_id) && row.people?.name) {
-      directorByTitleId.set(row.title_id, row.people.name);
-    }
-  }
+  // Director now comes straight off each Recommendation -- engine.ts
+  // already fetches title_credits for its whole candidate pool (for
+  // diversify.ts's same-director check) and now joins the person's name
+  // into that same query, so this used to be its own separate round trip
+  // here and no longer is.
   const heroRevealPicks: RevealPick[] = heroPool.map((r) => ({
     title: r.title,
     reason: r.reason,
     detail: r.detail,
     matchPercent: r.matchPercent,
-    director: directorByTitleId.get(r.title.id) ?? null,
+    director: r.director,
   }));
 
   const greeting = zonedNow.getHours() < 12 ? "Good morning" : zonedNow.getHours() < 18 ? "Good afternoon" : "Good evening";

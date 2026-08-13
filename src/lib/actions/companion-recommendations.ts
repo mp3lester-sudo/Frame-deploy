@@ -87,6 +87,10 @@ export async function getCompanionBlendRecommendations(usernamesInput: string[])
     detail: c.detail,
     score: c.score,
     matchPercent: c.score > 0 ? matchPercents[i] : null,
+    // Companion/group picks don't surface a director credit anywhere in
+    // the UI (CompanionPicker has no meta line for it) -- no need to pay
+    // for the lookup just to satisfy the shared Recommendation shape.
+    director: null,
   }));
 
   return {
