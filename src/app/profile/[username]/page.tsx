@@ -570,7 +570,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           narrow sidebar, while the pyramid still reads as the largest
           of the three. Stacks to a single column, same top-to-bottom
           order, below xl. */}
-      <div className="grid gap-6 xl:grid-cols-[1fr_1.3fr_1fr] xl:items-start">
+      {/* items-start removed on purpose -- see the comment above the DNA
+          panel and the Pyramid panel below for why. Default grid
+          align-items (stretch) is what makes the h-full added to both of
+          those panels actually do anything. */}
+      <div className="grid gap-6 xl:grid-cols-[1fr_1.3fr_1fr]">
       {/* Backlot DNA, inline: used to be a link out to a separate page
           (/taste-dna), now sits directly beside the Personal Pyramid as
           this profile's own analytics -- same public visibility as the
@@ -579,8 +583,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           same reason the standalone page hides it: a mostly-empty
           breakdown reads as broken, not "not enough data yet." */}
       {dna.sampleSize >= MIN_SAMPLE_SIZE && (
-        <Reveal>
-          <div className="bento-card relative overflow-hidden">
+        <Reveal className="h-full">
+          <div className="bento-card relative flex h-full flex-col overflow-hidden">
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               <div className="mb-6 text-center">
                 <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
@@ -730,8 +734,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       )}
 
 
+      {/* h-full (here and on the bordered box just below) so this panel's
+          own border/background stretches to match the DNA panel's row
+          height instead of ending early and leaving bare page background
+          in the gap -- see the grid container comment above. */}
       {favorites.length > 0 && (
-        <div className="mt-0">
+        <div className="mt-0 h-full">
           {/* The podium used to sit directly on the page background at a
               narrow 480px width, which read as an accidentally small
               widget stranded in a lot of empty page rather than a
@@ -740,7 +748,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               reason to exist — it's the panel's padding, not dead air —
               and widening the panel lets every tile scale up with it. */}
           <div
-            className={`relative overflow-hidden rounded-[var(--radius-lg)] border border-glass-border ${theme.showMotif ? "candle-flicker-panel" : ""}`}
+            className={`relative flex h-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-glass-border ${theme.showMotif ? "candle-flicker-panel" : ""}`}
           >
             <div
               className="breathe-glow pointer-events-none absolute inset-0"
