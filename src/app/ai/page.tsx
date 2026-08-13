@@ -9,6 +9,7 @@ import type { Database } from "@/lib/supabase/types";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 type Pick = { title: Title; reason: string };
+type YearWindow = { minYear: number; maxYear: number };
 
 // A handful of moody, specific prompts rather than genre names -- these
 // exist to demonstrate the "describe the feeling, not the genre" pitch
@@ -26,7 +27,14 @@ const EXAMPLE_PROMPTS = [
 export default function AskBacklotPage() {
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const [picks, setPicks] = useState<Pick[]>([]);
+  const [topPicks, setTopPicks] = useState<Pick[]>([]);
+  const [morePicks, setMorePicks] = useState<Pick[]>([]);
+  const [yearWindow, setYearWindow] = useState<YearWindow | null>(null);
+  // Era-matching toggle for "movies like X" requests -- restricts results
+  // to within a few years of a named movie's release by default, since
+  // that's what "like X" usually means for someone anchoring on an era.
+  // Off means year genuinely doesn't matter.
+  const [matchEra, setMatchEra] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upgradeUrl, setUpgradeUrl] = useState<string | null>(null);
@@ -41,7 +49,7 @@ export default function AskBacklotPage() {
       const res = await fetch("/api/ai/concierge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, matchEra }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -49,7 +57,12 @@ export default function AskBacklotPage() {
         throw new Error(data.error ?? "Something went wrong");
       }
       setMessage(data.message);
-      setPicks(data.recommendations ?? []);
+      const allTopPicks: Pick[] = data.topPicks ?? [];
+      const allRecommendations: Pick[] = data.recommendations ?? [];
+      const topIds = new Set(allTopPicks.map((p) => p.title.id));
+      setTopPicks(allTopPicks);
+      setMorePicks(allRecommendations.filter((p) => !topIds.has(p.title.id)));
+      setYearWindow(data.yearWindow ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -116,6 +129,34 @@ export default function AskBacklotPage() {
         ))}
       </div>
 
+      {/* Only relevant when a specific movie is named ("movies like X"), but
+          left visible always rather than conditionally rendered -- someone
+          typing "movies like Jaws" hasn't submitted yet when they'd want to
+          already have this set correctly. */}
+      <div className="mt-3 flex items-center justify-center gap-2">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={matchEra}
+          onClick={() => setMatchEra((v) => !v)}
+          className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+            matchEra ? "bg-accent" : "bg-border"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+              matchEra ? "translate-x-4" : "translate-x-0.5"
+            }`}
+          />
+        </button>
+        <span className="text-xs text-foreground-muted">
+          Match the era of movies I mention{" "}
+          <span className="text-foreground-muted/60">
+            ({matchEra ? "on — stays close to that decade" : "off — any year"})
+          </span>
+        </span>
+      </div>
+
       {error && (
         <div className="mt-8 rounded-[var(--radius-md)] border border-danger/40 bg-danger/10 px-4 py-3">
           <p className="text-sm text-danger">
@@ -152,16 +193,34 @@ export default function AskBacklotPage() {
           <p className="font-display border-l-2 border-accent pl-4 text-base italic leading-relaxed text-foreground sm:text-lg">
             {message}
           </p>
+          {yearWindow && (
+            <p className="mt-3 pl-4 text-xs text-foreground-muted">
+              Showing movies from {yearWindow.minYear}–{yearWindow.maxYear}.
+            </p>
+          )}
         </div>
       )}
 
-      {!loading && picks.length > 0 && (
+      {!loading && topPicks.length > 0 && (
         <div className="stagger-card mt-8">
           <p className="mb-4 text-center text-[11px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
-            Tonight&apos;s suggestions
+            Top picks
           </p>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6">
-            {picks.map((p, i) => (
+            {topPicks.map((p, i) => (
+              <TitleCard key={p.title.id} title={p.title} reason={p.reason} index={i} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!loading && morePicks.length > 0 && (
+        <div className="stagger-card mt-8">
+          <p className="mb-4 text-center text-[11px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
+            More suggestions
+          </p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6">
+            {morePicks.map((p, i) => (
               <TitleCard key={p.title.id} title={p.title} reason={p.reason} index={i} />
             ))}
           </div>

@@ -713,8 +713,18 @@ export interface Database {
         Returns: { title_id: string; similarity: number }[];
       };
       match_titles_by_query: {
-        Args: { p_embedding: number[]; p_match_count?: number };
+        Args: {
+          p_embedding: number[];
+          p_match_count?: number;
+          p_min_weighted_rating?: number;
+          p_min_release_year?: number | null;
+          p_max_release_year?: number | null;
+        };
         Returns: { title_id: string; similarity: number }[];
+      };
+      find_titles_mentioned_in_query: {
+        Args: { p_query: string };
+        Returns: { id: string; name: string; release_date: string | null }[];
       };
       check_rate_limit: {
         Args: { p_key: string; p_max_requests: number; p_window_seconds: number };

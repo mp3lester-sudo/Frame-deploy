@@ -7,7 +7,10 @@ import { isRateLimited } from "@/lib/rate-limit";
 import { isAuteurActive } from "@/lib/premium/tier";
 import { z } from "zod";
 
-const bodySchema = z.object({ message: z.string().min(1).max(500) });
+const bodySchema = z.object({
+  message: z.string().min(1).max(500),
+  matchEra: z.boolean().optional(),
+});
 
 // Free-tier daily cap on Ask Backlot — Premium ($7.99/mo, see /premium)
 // removes this and keeps only the abuse-prevention throttle below, which
@@ -74,7 +77,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await askConcierge(parsed.data.message);
+    const result = await askConcierge(parsed.data.message, { matchEra: parsed.data.matchEra });
     return NextResponse.json(result);
   } catch (err) {
     console.error("[concierge]", err);
