@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { createMovieNight } from "@/lib/actions/movie-night";
 import { Button } from "@/components/ui/button";
+import { PastMovieNights, type PastNightRow } from "@/components/movie-night/past-movie-nights";
 
 const STATUS_LABEL: Record<string, string> = {
   collecting: "Collecting picks",
@@ -55,6 +56,9 @@ export default async function MovieNightListPage() {
     countByNight.set(row.movie_night_id, (countByNight.get(row.movie_night_id) ?? 0) + 1);
   }
 
+  const activeNights = (nights ?? []).filter((n) => n.status === "collecting");
+  const pastNights = (nights ?? []).filter((n) => n.status !== "collecting");
+
   return (
     <section className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
@@ -72,32 +76,65 @@ export default async function MovieNightListPage() {
           something everyone&apos;s taste agrees on.
         </p>
       ) : (
-        <div className="flex flex-col gap-3">
-          {nights.map((night) => {
-            const host = hostById.get(night.host_id);
-            const decidedTitle = night.decided_title_id ? titleById.get(night.decided_title_id) : null;
-            return (
-              <Link
-                key={night.id}
-                href={`/movie-night/${night.id}`}
-                className="flex items-center justify-between rounded-[var(--radius-md)] border border-border bg-surface p-4 hover:border-border-strong"
-              >
-                <div>
-                  <p className="text-sm font-medium">
-                    {host?.id === user.id ? "You're hosting" : `Hosted by ${host?.display_name ?? host?.username ?? "someone"}`}
-                  </p>
-                  <p className="mt-1 text-[11px] uppercase tracking-wider text-foreground-muted">
-                    {countByNight.get(night.id) ?? 1} people &middot;{" "}
-                    {decidedTitle ? decidedTitle.name : STATUS_LABEL[night.status]}
-                  </p>
-                </div>
-                <span className="text-xs uppercase tracking-wider text-accent">
-                  {STATUS_LABEL[night.status]}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
+        <>
+          {/* Active (still collecting) nights stay in the main list --
+              there's usually only one or two of these at a time. Decided
+              and cancelled nights move into PastMovieNights below instead
+              of staying in this same flat list forever, which is what
+              made the page feel crowded once someone had run a handful
+              of movie nights. */}
+          {activeNights.length > 0 && (
+            <div className="flex flex-col gap-3">
+              {activeNights.map((night) => {
+                const host = hostById.get(night.host_id);
+                const decidedTitle = night.decided_title_id ? titleById.get(night.decided_title_id) : null;
+                return (
+                  <Link
+                    key={night.id}
+                    href={`/movie-night/${night.id}`}
+                    className="flex items-center justify-between rounded-[var(--radius-md)] border border-border bg-surface p-4 hover:border-border-strong"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">
+                        {host?.id === user.id ? "You're hosting" : `Hosted by ${host?.display_name ?? host?.username ?? "someone"}`}
+                      </p>
+                      <p className="mt-1 text-[11px] uppercase tracking-wider text-foreground-muted">
+                        {countByNight.get(night.id) ?? 1} people &middot;{" "}
+                        {decidedTitle ? decidedTitle.name : STATUS_LABEL[night.status]}
+                      </p>
+                    </div>
+                    <span className="text-xs uppercase tracking-wider text-accent">
+                      {STATUS_LABEL[night.status]}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {activeNights.length === 0 && pastNights.length === 0 && (
+            <p className="font-section-body text-sm text-foreground-muted">
+              No active movie nights right now.
+            </p>
+          )}
+
+          <PastMovieNights
+            nights={pastNights.map((night): PastNightRow => {
+              const host = hostById.get(night.host_id);
+              const decidedTitle = night.decided_title_id ? titleById.get(night.decided_title_id) : null;
+              return {
+                id: night.id,
+                status: night.status,
+                hostLabel:
+                  host?.id === user.id
+                    ? "You're hosting"
+                    : `Hosted by ${host?.display_name ?? host?.username ?? "someone"}`,
+                countLabel: `${countByNight.get(night.id) ?? 1} people`,
+                decidedTitleName: decidedTitle?.name ?? null,
+              };
+            })}
+          />
+        </>
       )}
     </section>
   );
