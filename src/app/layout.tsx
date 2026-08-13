@@ -135,10 +135,17 @@ export const metadata: Metadata = {
 
 // themeColor/colorScheme live in a separate `viewport` export (moved out
 // of `metadata` in Next 14+) -- this is what colors the mobile browser
-// chrome/status bar and the PWA splash screen background.
+// chrome/status bar and the PWA splash screen background. themeColor
+// kept in sync with --background in globals.css (rich black, #0a0908 --
+// this had drifted to the old wine-black #120708 from before that
+// palette change). viewportFit: "cover" is the prerequisite for
+// env(safe-area-inset-*) to resolve to real values instead of 0 in an
+// iOS PWA/standalone context -- see BottomNav and the <main> padding
+// below, both of which depend on it.
 export const viewport: Viewport = {
-  themeColor: "#120708",
+  themeColor: "#0a0908",
   colorScheme: "dark",
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({
@@ -232,7 +239,11 @@ export default async function RootLayout({
             <ServiceWorkerRegistration />
             <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
             {showPromoBanner && <PromoBanner />}
-            <main className="flex-1 pb-16 md:pb-0"><PageTransition>{children}</PageTransition></main>
+            {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
+                own bottom padding (see bottom-nav.tsx) -- otherwise page
+                content would be hidden behind the taller bar on notched
+                iPhones instead of just behind the original 64px tab row. */}
+            <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
             <BottomNav />
           </ToastProvider>
         </PostHogProvider>

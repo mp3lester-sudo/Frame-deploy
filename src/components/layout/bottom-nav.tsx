@@ -24,8 +24,14 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
+    // pb adds the iOS home-indicator gutter as pure extra space below the
+    // existing 64px tab row (h-16 on the inner div, unchanged) rather than
+    // squeezing icons into a shorter box -- resolves to 0px anywhere
+    // safe-area-inset-bottom is 0 (Android, desktop, non-notched iPhones),
+    // so this is a no-op outside the cases it's meant for. Depends on
+    // viewport-fit: cover being set in layout.tsx's viewport export.
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       aria-label="Primary"
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-around px-2">
