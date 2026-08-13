@@ -211,20 +211,26 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
         onClick={skipIntro}
         className="flicker-slow fixed inset-0 z-50 cursor-pointer overflow-hidden bg-black"
       >
-        {/* Public-domain 1920s/1940s footage (the Hollywoodland sign +
-            a 1941 Academy Awards newsreel), self-hosted -- see
-            public/videos/onboarding-intro.mp4. Muted autoplay + loop
-            needs no user gesture in any browser, same pattern as the
-            movie page's backdrop hero and the swipe deck's own trailer
-            embeds. The whole overlay is clickable (not just the Skip
-            label) so anyone who wants straight to the swipe deck can
-            tap anywhere to get there. */}
+        {/* Public-domain 1920s Hollywoodland-sign footage, self-hosted
+            -- see public/videos/onboarding-intro.mp4. Re-sourced from a
+            higher-resolution archive.org derivative (1280x808, cropped
+            to the real frame -- no pillarbox bars, no watermark strip)
+            and re-encoded, specifically so object-cover's zoom-in on
+            portrait screens draws from real detail instead of upscaling
+            a 640x360 source -- that low-res crop was blurry enough that
+            an earlier pass (see git history) fell back to object-contain
+            just to avoid it. Muted autoplay + loop needs no user gesture
+            in any browser, same pattern as the movie page's backdrop
+            hero and the swipe deck's own trailer embeds. The whole
+            overlay is clickable (not just the Skip label) so anyone who
+            wants straight to the swipe deck can tap anywhere to get
+            there. */}
         <video
           autoPlay
           muted
           loop
           playsInline
-          className="onboarding-intro-zoom absolute inset-0 h-full w-full object-contain"
+          className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover"
           style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)" }}
         >
           <source src="/videos/onboarding-intro.mp4" type="video/mp4" />
