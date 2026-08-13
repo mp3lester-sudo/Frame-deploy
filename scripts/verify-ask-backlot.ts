@@ -17,6 +17,7 @@
  */
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
+import { queryMentionsTitle } from "../src/lib/ai/title-mention";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -53,6 +54,7 @@ async function main() {
   const testQueries = [
     "I want something that feels lonely",
     "psychological thrillers",
+    "movies like Parasite",
   ];
 
   for (const userQuery of testQueries) {
@@ -73,8 +75,19 @@ async function main() {
     console.log(`     ok — ${candidateMatches.length} candidates`);
 
     const ids = candidateMatches.map((m: { title_id: string }) => m.title_id);
-    const { data: candidates } = await admin.from("titles").select("*").in("id", ids);
-    if (!candidates || candidates.length === 0) throw new Error("expected candidate title rows to hydrate");
+    const { data: rawCandidates } = await admin.from("titles").select("*").in("id", ids);
+    if (!rawCandidates || rawCandidates.length === 0) throw new Error("expected candidate title rows to hydrate");
+
+    // Strip any title the user named directly in their own request --
+    // "movies like Parasite" should never be able to recommend Parasite
+    // back. See title-mention.ts.
+    const candidates = rawCandidates.filter((t) => !queryMentionsTitle(userQuery, t.name));
+    if (candidates.length === 0) throw new Error("expected at least one candidate left after stripping named titles");
+    for (const c of candidates) {
+      if (queryMentionsTitle(userQuery, c.name)) {
+        throw new Error(`"${c.name}" was named in the query but still present in the filtered candidate list`);
+      }
+    }
 
     for (const c of candidates) {
       if ((c.weighted_rating ?? 0) < MIN_WEIGHTED_RATING) {

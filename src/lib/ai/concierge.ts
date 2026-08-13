@@ -1,5 +1,6 @@
 import { getOpenAI, EMBEDDING_MODEL, CHAT_MODEL } from "@/lib/ai/openai";
 import { createClient } from "@/lib/supabase/server";
+import { queryMentionsTitle } from "@/lib/ai/title-mention";
 import type { Database } from "@/lib/supabase/types";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
@@ -38,7 +39,9 @@ someone could ask "what should I watch" — never a search engine. Rules:
 - Every recommendation gets one specific, concrete sentence of why it fits THIS request
   (not a generic blurb). Reference tone, pacing, or theme, not just genre.
 - If the request is ambiguous, ask one short clarifying question instead of guessing.
-- Never recommend a title that isn't in the provided candidate list.`;
+- Never recommend a title that isn't in the provided candidate list. (Titles the user explicitly
+  named in their own request, e.g. "movies like X", have already been removed from the candidate
+  list, so this should never come up -- but never suggest one anyway if you somehow recognize it.)`;
 
 export interface ConciergeResult {
   message: string;
@@ -75,7 +78,7 @@ export async function askConcierge(userQuery: string): Promise<ConciergeResult> 
   // metadata filter so the concierge still works during early development.
   // Applies the same rating floor and pool size as the real path, ordered
   // by rating since there's no semantic match to sort by here.
-  const candidates: Title[] = candidateMatches?.length
+  const rawCandidates: Title[] = candidateMatches?.length
     ? await hydrateTitles(candidateMatches as { title_id: string }[])
     : (
         await supabase
@@ -85,6 +88,11 @@ export async function askConcierge(userQuery: string): Promise<ConciergeResult> 
           .order("weighted_rating", { ascending: false, nullsFirst: false })
           .limit(CANDIDATE_POOL_SIZE)
       ).data ?? [];
+
+  // Strip any title the user named directly in their own request (see
+  // queryMentionsTitle) before the LLM ever sees the list -- structurally
+  // impossible to recommend it back, not just discouraged in the prompt.
+  const candidates = rawCandidates.filter((t) => !queryMentionsTitle(userQuery, t.name));
 
   const completion = await openai.chat.completions.create({
     model: CHAT_MODEL,
