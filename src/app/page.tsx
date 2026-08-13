@@ -404,49 +404,58 @@ export default async function HomePage({
               </div>
             </div>
 
-            {activeNight ? (
-              <div className="mt-4">
-                <MovieNightCard
-                  nightId={activeNight.id}
-                  participants={activeNight.participants}
-                  isHost={activeNight.hostId === user.id}
-                />
+            {/* Modernization pass: the movie-night quick action and the
+                circle feed used to stack full-width, one under the other.
+                They're independent cards with no shared internal layout,
+                so a two-column bento grid on sm+ (still a simple stack on
+                mobile) reads as a deliberate asymmetric card cluster
+                instead of a plain list -- same content and conditionals,
+                just arranged side by side. */}
+            <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] sm:items-start">
+              <div>
+                {activeNight ? (
+                  <MovieNightCard
+                    nightId={activeNight.id}
+                    participants={activeNight.participants}
+                    isHost={activeNight.hostId === user.id}
+                  />
+                ) : (
+                  // Always-on entry point, not just a card that shows up
+                  // once you're already in a session -- Movie Night's
+                  // whole value is pulling other people in, so the prompt
+                  // to *start* one needs to be visible on every visit, not
+                  // conditional on already having one going.
+                  <form action={createMovieNight}>
+                    <button
+                      type="submit"
+                      className="bento-card flex w-full items-center gap-3 p-4 text-left"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+                        <Clapperboard size={18} />
+                      </span>
+                      <span>
+                        <span className="block text-sm font-medium">Start a movie night</span>
+                        <span className="block text-xs text-foreground-muted">
+                          Invite friends and vote on something everyone&apos;s taste agrees on
+                        </span>
+                      </span>
+                    </button>
+                  </form>
+                )}
               </div>
-            ) : (
-              // Always-on entry point, not just a card that shows up once
-              // you're already in a session -- Movie Night's whole value
-              // is pulling other people in, so the prompt to *start* one
-              // needs to be visible on every visit, not conditional on
-              // already having one going.
-              <form action={createMovieNight} className="mt-4">
-                <button
-                  type="submit"
-                  className="flex w-full items-center gap-3 rounded-[var(--radius-md)] border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
-                    <Clapperboard size={18} />
-                  </span>
-                  <span>
-                    <span className="block text-sm font-medium">Start a movie night</span>
-                    <span className="block text-xs text-foreground-muted">
-                      Invite friends and vote on something everyone&apos;s taste agrees on
-                    </span>
-                  </span>
-                </button>
-              </form>
-            )}
 
-            {circleEvents.length > 0 ? (
-              <div className="mt-4">
-                <CircleFeed items={circleEvents} />
+              <div>
+                {circleEvents.length > 0 ? (
+                  <CircleFeed items={circleEvents} />
+                ) : (
+                  !activeNight && (
+                    <p className="text-sm text-foreground-muted">
+                      Follow a few people to see what they&apos;re watching here.
+                    </p>
+                  )
+                )}
               </div>
-            ) : (
-              !activeNight && (
-                <p className="mt-4 text-sm text-foreground-muted">
-                  Follow a few people to see what they&apos;re watching here.
-                </p>
-              )
-            )}
+            </div>
           </div>
         );
 

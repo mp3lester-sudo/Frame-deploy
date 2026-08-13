@@ -21,7 +21,7 @@ export function HiddenGemCard({ title, matchPercent }: { title: Title; matchPerc
   return (
     <Link
       href={`/movie/${title.id}`}
-      className="flex items-center gap-3 rounded-[var(--radius-md)] border border-border bg-surface p-3 transition-colors hover:border-border-strong"
+      className="bento-card flex items-center gap-3 p-3"
     >
       <div className="relative aspect-[2/3] w-12 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-surface-raised">
         {title.poster_url && (

@@ -15,7 +15,7 @@ export function MovieNightCard({
       <h3 className="font-display mb-3 text-lg">Movie night</h3>
       <Link
         href={`/movie-night/${nightId}`}
-        className="flex items-center gap-4 rounded-[var(--radius-md)] border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+        className="bento-card flex items-center gap-4 p-4"
       >
         <div className="flex -space-x-2">
           {participants.slice(0, 4).map((p) => (

@@ -81,11 +81,16 @@ export function NavBar({
   return (
     <header
       className={cn(
-        "nav-bar-header sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur transition-transform duration-300 ease-in-out",
+        // Modernization pass: the header itself is now a transparent
+        // strip (no more solid bg-background/90 + border-b) -- the glass
+        // look lives on the floating pill inside it instead, so page
+        // content scrolling underneath is visible through the gap around
+        // the pill, not just blurred behind a full-width bar.
+        "nav-bar-header sticky top-0 z-40 px-3 pt-3 transition-transform duration-300 ease-in-out",
         hidden ? "-translate-y-full" : "translate-y-0"
       )}
     >
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-glass-border bg-glass px-5 shadow-[var(--glass-shadow)] backdrop-blur-xl">
         <Link
           href="/"
           className="text-gold-foil font-hollywood text-2xl uppercase tracking-[0.08em]"
