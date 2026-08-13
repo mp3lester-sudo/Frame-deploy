@@ -329,16 +329,17 @@ export default async function HomePage({
           sentence the persistent in-page heading below still uses.
           Thin rule lines above and below the name (same accent-deep
           hairline both times) frame it like a vintage title card. The
-          greeting word stays Allura; the name now matches the Backlot
-          wordmark's own typeface (font-hollywood -> Bebas Neue, see
-          nav-bar.tsx) instead of Allura, per product direction. */}
+          greeting word now matches the Backlot wordmark's own typeface
+          (font-hollywood -> Bebas Neue, see nav-bar.tsx); the name stays
+          Allura cursive, per product direction (reversed from an earlier
+          pass). */}
       <div
         className="greeting-splash pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background"
         aria-hidden="true"
       >
-        <span className={`${allura.className} text-3xl text-accent-soft sm:text-4xl`}>{greeting}</span>
+        <span className="font-hollywood text-3xl text-accent-soft sm:text-4xl">{greeting}</span>
         <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
-        <span className="font-hollywood text-5xl text-accent-soft sm:text-7xl">
+        <span className={`${allura.className} text-5xl text-accent-soft sm:text-7xl`}>
           {firstName}
         </span>
         <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
@@ -352,15 +353,13 @@ export default async function HomePage({
       </div>
 
       <h1 className="mt-5 text-center text-4xl leading-tight tracking-tight sm:text-5xl">
-        {/* "Good evening"/"Good morning" stays Allura -- unchanged. */}
-        <span className={`${allura.className} text-4xl text-accent sm:text-5xl`}>{greeting}</span>{" "}
-        {/* Name now matches the Backlot wordmark's own typeface
-            (font-hollywood -> Bebas Neue, see nav-bar.tsx) instead of
-            Allura -- previously a poster-matched font (see lib/poster-font)
-            could override this too, and before that it was Allura to match
-            the greeting word; now it deliberately diverges from the
-            greeting to echo the header instead. */}
-        <span className="font-hollywood text-5xl text-accent sm:text-6xl">{firstName}</span>
+        {/* "Good evening"/"Good morning" now matches the Backlot wordmark's
+            own typeface (font-hollywood -> Bebas Neue, see nav-bar.tsx),
+            reversed from an earlier pass where the name had this treatment. */}
+        <span className="font-hollywood text-4xl text-accent sm:text-5xl">{greeting}</span>{" "}
+        {/* Name stays Allura cursive -- reversed back from font-hollywood
+            per product direction. */}
+        <span className={`${allura.className} text-5xl text-accent sm:text-6xl`}>{firstName}</span>
       </h1>
       {ratedCount ? (
         <p className="mt-1.5 text-center text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
