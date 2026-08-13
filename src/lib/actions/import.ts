@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { parseLetterboxdCsv, buildTitleIndex, matchTitle, type LetterboxdRow } from "@/lib/import/letterboxd";
 import { parseLetterboxdDiaryPaste } from "@/lib/import/letterboxd-paste";
+import { parseLetterboxdRss, type LetterboxdRssRow } from "@/lib/import/letterboxd-rss";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -50,10 +51,19 @@ function readCsvFile(file: FormDataEntryValue | null): Promise<string> {
   return file.text();
 }
 
+interface ResolvedEntry {
+  titleId: string;
+  rating: number | null;
+  watchedAt: string | null;
+}
+
 /**
- * Imports a Letterboxd export (ratings.csv and/or watched.csv — see
- * src/lib/import/letterboxd.ts for the exact format and why matching is
- * title+year rather than an ID lookup) into ratings/watch_history.
+ * Shared write path for every Letterboxd import method (CSV, paste-HTML,
+ * RSS) once each has resolved its own rows down to (title_id, rating,
+ * watchedAt) triples — matching differs per source (title+year fuzzy
+ * matching for CSV/paste, tmdb_id-first for RSS — see
+ * matchAndUpsertRssRows below) but the upsert semantics are identical, so
+ * this is the one place that logic lives.
  *
  * Deliberately does NOT write any activity_events — for an account with
  * thousands of logged films, one event per title would flood the social
@@ -62,58 +72,33 @@ function readCsvFile(file: FormDataEntryValue | null): Promise<string> {
  * "imported N films" summary cleanly enough to fake one.
  *
  * Safe to re-run: ratings/watch_history are upserted on their existing
- * unique constraints, so importing the same file twice just re-applies the
- * same values rather than creating duplicates.
+ * unique constraints, so importing the same source twice just re-applies
+ * the same values rather than creating duplicates.
  */
-async function matchAndUpsertRows(
+async function upsertResolvedEntries(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-  rows: LetterboxdRow[]
+  resolved: ResolvedEntry[],
+  totalRows: number,
+  unmatchedSample: { name: string; year: number | null }[]
 ): Promise<ImportSummary> {
-  if (rows.length > MAX_ROWS) throw new Error(`That's ${rows.length} rows — please split into smaller batches under ${MAX_ROWS}`);
-
-  // Only fetch titles whose name could plausibly match one of the rows
-  // being imported, via a single RPC (migration 0019), rather than pulling
-  // the entire catalogue (36.5k+ rows, ~37 paginated requests) into JS on
-  // every import call regardless of how many rows are actually being
-  // matched. That full-catalogue fetch alone took ~5.3s against the live
-  // catalogue — enough on its own to blow past Vercel's serverless
-  // function timeout (5-10s on the Hobby plan, no maxDuration override
-  // configured), which fails with an opaque, digest-only "Server
-  // Components render" error rather than anything that hints at a timeout.
-  const distinctNames = [...new Set(rows.map((r) => r.name))];
-  const { data: candidateTitles, error: titlesError } = await supabase.rpc("titles_matching_names", {
-    p_names: distinctNames,
-  });
-  if (titlesError) throw new Error(titlesError.message);
-
-  const index = buildTitleIndex(
-    (candidateTitles ?? []) as { id: string; name: string; release_date: string | null }[]
-  );
-
   const ratingUpserts: { user_id: string; title_id: string; score: number; rated_at?: string }[] = [];
   const watchUpserts: { user_id: string; title_id: string }[] = [];
-  const unmatched: { name: string; year: number | null }[] = [];
   let ratedCount = 0;
   let watchedOnlyCount = 0;
 
-  for (const row of rows) {
-    const titleId = matchTitle(row, index);
-    if (!titleId) {
-      unmatched.push({ name: row.name, year: row.year });
-      continue;
-    }
-    watchUpserts.push({ user_id: userId, title_id: titleId });
-    if (row.rating !== null) {
+  for (const entry of resolved) {
+    watchUpserts.push({ user_id: userId, title_id: entry.titleId });
+    if (entry.rating !== null) {
       // rated_at omitted (not undefined-spread -- Postgres/PostgREST
-      // just uses the column default, now()) when Letterboxd's export
-      // didn't have a usable Date for this row, same behavior as before
-      // this field existed.
+      // just uses the column default, now()) when the source didn't have
+      // a usable date for this row, same behavior as before this field
+      // existed.
       ratingUpserts.push({
         user_id: userId,
-        title_id: titleId,
-        score: row.rating,
-        ...(row.watchedAt ? { rated_at: row.watchedAt } : {}),
+        title_id: entry.titleId,
+        score: entry.rating,
+        ...(entry.watchedAt ? { rated_at: entry.watchedAt } : {}),
       });
       ratedCount++;
     } else {
@@ -121,17 +106,17 @@ async function matchAndUpsertRows(
     }
   }
 
-  // A rewatch shows up in a diary as two separate entries for the same
-  // film (e.g. logged again a year later) — both parse to the same
-  // title_id here. Left as-is, that puts two rows for the same
-  // (user_id, title_id) in a single insert/upsert call, which Postgres
-  // rejects outright: a plain multi-row INSERT hits the unique constraint
-  // because `now()` is evaluated once per statement (both rows get the
-  // *same* watched_at), and an upsert with two conflicting rows in one
-  // call fails with "ON CONFLICT DO UPDATE command cannot affect row a
-  // second time" regardless. Collapse each array to one row per title_id
-  // before writing — first occurrence wins, which (diary pages sort
-  // newest-first by default) is normally the most recent watch/rating.
+  // A rewatch shows up as two separate entries for the same film (e.g.
+  // logged again a year later) — both resolve to the same title_id here.
+  // Left as-is, that puts two rows for the same (user_id, title_id) in a
+  // single insert/upsert call, which Postgres rejects outright: a plain
+  // multi-row INSERT hits the unique constraint because `now()` is
+  // evaluated once per statement (both rows get the *same* watched_at),
+  // and an upsert with two conflicting rows in one call fails with "ON
+  // CONFLICT DO UPDATE command cannot affect row a second time" regardless.
+  // Collapse each array to one row per title_id before writing — first
+  // occurrence wins, which (sources sort newest-first) is normally the
+  // most recent watch/rating.
   const dedupeByTitleId = <T extends { title_id: string }>(items: T[]): T[] => {
     const seen = new Set<string>();
     return items.filter((item) => {
@@ -207,12 +192,118 @@ async function matchAndUpsertRows(
   }
 
   return {
-    totalRows: rows.length,
+    totalRows,
     matched: ratedCount + watchedOnlyCount,
     rated: ratedCount,
     watchedOnly: watchedOnlyCount,
-    unmatchedSample: unmatched.slice(0, 50),
+    unmatchedSample: unmatchedSample.slice(0, 50),
   };
+}
+
+/**
+ * Matches rows from a Letterboxd export (ratings.csv/watched.csv) or a
+ * pasted Diary/Films page against the catalogue by title+year — see
+ * src/lib/import/letterboxd.ts for why neither source carries a TMDB/IMDb
+ * ID — then writes them via upsertResolvedEntries above.
+ */
+async function matchAndUpsertRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  rows: LetterboxdRow[]
+): Promise<ImportSummary> {
+  if (rows.length > MAX_ROWS) throw new Error(`That's ${rows.length} rows — please split into smaller batches under ${MAX_ROWS}`);
+
+  // Only fetch titles whose name could plausibly match one of the rows
+  // being imported, via a single RPC (migration 0019), rather than pulling
+  // the entire catalogue (36.5k+ rows, ~37 paginated requests) into JS on
+  // every import call regardless of how many rows are actually being
+  // matched. That full-catalogue fetch alone took ~5.3s against the live
+  // catalogue — enough on its own to blow past Vercel's serverless
+  // function timeout (5-10s on the Hobby plan, no maxDuration override
+  // configured), which fails with an opaque, digest-only "Server
+  // Components render" error rather than anything that hints at a timeout.
+  const distinctNames = [...new Set(rows.map((r) => r.name))];
+  const { data: candidateTitles, error: titlesError } = await supabase.rpc("titles_matching_names", {
+    p_names: distinctNames,
+  });
+  if (titlesError) throw new Error(titlesError.message);
+
+  const index = buildTitleIndex(
+    (candidateTitles ?? []) as { id: string; name: string; release_date: string | null }[]
+  );
+
+  const resolved: ResolvedEntry[] = [];
+  const unmatched: { name: string; year: number | null }[] = [];
+
+  for (const row of rows) {
+    const titleId = matchTitle(row, index);
+    if (!titleId) {
+      unmatched.push({ name: row.name, year: row.year });
+      continue;
+    }
+    resolved.push({ titleId, rating: row.rating, watchedAt: row.watchedAt });
+  }
+
+  return upsertResolvedEntries(supabase, userId, resolved, rows.length, unmatched);
+}
+
+/**
+ * Matches RSS rows against the catalogue tmdb_id-first: RSS is the only
+ * import source that carries a real TMDB id per entry (letterboxd.com's
+ * CSV export and scraped HTML pages don't expose one at all — see
+ * lib/import/letterboxd-rss.ts), so any row with a tmdbId that exists in
+ * our catalogue skips fuzzy matching entirely. Only rows without a usable
+ * tmdb_id match fall back to the same title+year matching the other import
+ * paths use.
+ */
+async function matchAndUpsertRssRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  rows: LetterboxdRssRow[]
+): Promise<ImportSummary> {
+  const resolved: ResolvedEntry[] = [];
+  const unmatched: { name: string; year: number | null }[] = [];
+  const fallbackRows: LetterboxdRssRow[] = [];
+
+  const tmdbIds = [...new Set(rows.filter((r) => r.tmdbId !== null).map((r) => r.tmdbId as number))];
+  const tmdbIdToTitleId = new Map<number, string>();
+  if (tmdbIds.length > 0) {
+    const { data, error } = await supabase.from("titles").select("id, tmdb_id").in("tmdb_id", tmdbIds);
+    if (error) throw new Error(error.message);
+    for (const t of data ?? []) {
+      if (t.tmdb_id !== null) tmdbIdToTitleId.set(t.tmdb_id, t.id);
+    }
+  }
+
+  for (const row of rows) {
+    const titleId = row.tmdbId !== null ? tmdbIdToTitleId.get(row.tmdbId) : undefined;
+    if (titleId) {
+      resolved.push({ titleId, rating: row.rating, watchedAt: row.watchedAt });
+    } else {
+      fallbackRows.push(row);
+    }
+  }
+
+  if (fallbackRows.length > 0) {
+    const distinctNames = [...new Set(fallbackRows.map((r) => r.name))];
+    const { data: candidateTitles, error: titlesError } = await supabase.rpc("titles_matching_names", {
+      p_names: distinctNames,
+    });
+    if (titlesError) throw new Error(titlesError.message);
+    const index = buildTitleIndex(
+      (candidateTitles ?? []) as { id: string; name: string; release_date: string | null }[]
+    );
+    for (const row of fallbackRows) {
+      const titleId = matchTitle(row, index);
+      if (!titleId) {
+        unmatched.push({ name: row.name, year: row.year });
+        continue;
+      }
+      resolved.push({ titleId, rating: row.rating, watchedAt: row.watchedAt });
+    }
+  }
+
+  return upsertResolvedEntries(supabase, userId, resolved, rows.length, unmatched);
 }
 
 export async function importLetterboxdData(formData: FormData): Promise<ImportResult> {
@@ -277,6 +368,62 @@ export async function importLetterboxdPaste(html: string): Promise<ImportResult>
     }
 
     const summary = await matchAndUpsertRows(supabase, user.id, rows);
+    return { ok: true, summary };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Import failed" };
+  }
+}
+
+const USERNAME_PATTERN = /^[A-Za-z0-9_]{1,32}$/;
+
+/**
+ * Fastest import path: nothing but a username, no file wrangling at all.
+ * Fetches the member's public RSS feed server-side (confirmed by hand to
+ * answer cleanly with no Cloudflare challenge, unlike the Diary/Films HTML
+ * pages — see lib/import/letterboxd-rss.ts) and matches tmdb_id-first.
+ *
+ * Trade-off versus the CSV/paste paths: the feed only carries someone's
+ * ~50-76 most recent diary/review entries, so this is a quick way to grab
+ * recent activity, not a full-history import — the UI positions it as the
+ * "quick" option and keeps CSV/paste available for a full backfill.
+ */
+export async function importLetterboxdRss(usernameRaw: string): Promise<ImportResult> {
+  try {
+    const { supabase, user } = await requireUser();
+
+    const username = usernameRaw.trim().replace(/^@/, "");
+    if (!username) return { ok: false, error: "Enter your Letterboxd username" };
+    if (!USERNAME_PATTERN.test(username)) {
+      return { ok: false, error: "That doesn't look like a Letterboxd username — letters, numbers, and underscores only" };
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(`https://letterboxd.com/${encodeURIComponent(username)}/rss/`, {
+        headers: { "User-Agent": "Backlot/1.0 (+https://backlot.app; RSS import for a signed-in member)" },
+        cache: "no-store",
+      });
+    } catch {
+      return { ok: false, error: "Couldn't reach Letterboxd — try again in a moment, or use CSV/paste import below." };
+    }
+
+    if (res.status === 404) {
+      return {
+        ok: false,
+        error: `No public Letterboxd profile found for "${username}" — check the spelling, and make sure the profile isn't set to private.`,
+      };
+    }
+    if (!res.ok) {
+      return { ok: false, error: `Letterboxd returned an error (${res.status}) — try again in a moment, or use CSV/paste import below.` };
+    }
+
+    const xml = await res.text();
+    const rows = parseLetterboxdRss(xml);
+    if (rows.length === 0) {
+      return { ok: false, error: `No diary or review entries found on ${username}'s profile yet.` };
+    }
+
+    const summary = await matchAndUpsertRssRows(supabase, user.id, rows);
     return { ok: true, summary };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Import failed" };

@@ -13,6 +13,7 @@ import { NotificationPreferences } from "@/components/settings/notification-pref
 import { FavoriteTitlesEditor } from "@/components/settings/favorite-titles-editor";
 import { LetterboxdImport } from "@/components/settings/letterboxd-import";
 import { LetterboxdPasteImport } from "@/components/settings/letterboxd-paste-import";
+import { LetterboxdRssImport } from "@/components/settings/letterboxd-rss-import";
 import { ReferralCard } from "@/components/settings/referral-card";
 import { siteOrigin } from "@/lib/seo/site";
 import { LogoutButtons } from "@/components/settings/logout-buttons";
@@ -85,13 +86,19 @@ export default async function SettingsPage() {
         <FavoriteTitlesEditor initialFavorites={favorites} />
       </section>
 
-      {/* Both import paths (paste-HTML for free Letterboxd accounts, and
-          the full export upload) are the same underlying action -- "bring
-          your Letterboxd history over" -- so they read as one section with
-          two methods rather than two separate, identically-titled panels. */}
+      {/* All three import paths (RSS by username, paste-HTML for free
+          Letterboxd accounts, and the full export upload) are the same
+          underlying action -- "bring your Letterboxd history over" -- so
+          they read as one section with three methods rather than three
+          separate, identically-titled panels. RSS leads since it's the
+          fastest (just a username), with the other two below it as the
+          full-history options. */}
       <section className="mb-6 bento-card p-4">
         <SectionLabel>Import from Letterboxd</SectionLabel>
-        <LetterboxdPasteImport />
+        <LetterboxdRssImport />
+        <div className="mt-4 border-t border-[var(--glass-border)] pt-4">
+          <LetterboxdPasteImport />
+        </div>
         <div className="mt-4 border-t border-[var(--glass-border)] pt-4">
           <LetterboxdImport />
         </div>

@@ -75,7 +75,7 @@ const FILMS_GRID_RATING_PATTERN = /rated-(\d+)/;
 // saved Films page, so this needs a bigger window than the diary's.
 const FILMS_GRID_SEARCH_WINDOW = 2500;
 
-function decodeHtmlEntities(text: string): string {
+export function decodeHtmlEntities(text: string): string {
   return text
     .replace(/&amp;/g, "&")
     .replace(/&#0?39;|&apos;/g, "'")
