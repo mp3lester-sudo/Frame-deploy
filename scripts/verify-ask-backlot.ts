@@ -10,9 +10,10 @@
  * askConcierge() can't be called directly from a standalone script (goes
  * through @/lib/supabase/server, which needs Next.js request/cookies
  * context), so this mirrors its exact logic — real OpenAI embedding call,
- * real match_titles_by_query RPC, real chat completion constrained to the
- * candidate list — with a plain supabase-js client, same pattern as the
- * other verify-*.ts scripts.
+ * real match_titles_by_query RPC (now with a weighted_rating floor and a
+ * much larger candidate pool -- see migration 0063), real chat completion
+ * constrained to the candidate list — with a plain supabase-js client,
+ * same pattern as the other verify-*.ts scripts.
  */
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
@@ -24,9 +25,22 @@ const openaiKey = process.env.OPENAI_API_KEY!;
 const CHAT_MODEL = "gpt-4.1-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 
+const CANDIDATE_POOL_SIZE = 60;
+const MIN_WEIGHTED_RATING = 7.3;
+const MIN_PICKS_FOR_BROAD_QUERY = 30;
+const MAX_PICKS = 40;
+
 const SYSTEM_PROMPT = `You are Backlot's movie concierge: the smartest, most well-watched friend
 someone could ask "what should I watch" — never a search engine. Rules:
-- Never return more than 3 titles.
+- The candidate list has already been filtered to highly-rated titles only (see the
+  weighted_rating floor in match_titles_by_query) — every candidate has cleared that bar, so
+  pick freely from the full list without second-guessing quality.
+- Match the number of picks to the request's breadth. A broad, genre-or-mood-level request
+  (e.g. "psychological thrillers", "something funny") should return as many strong matching
+  candidates as the list supports — aim for at least ${MIN_PICKS_FOR_BROAD_QUERY} when that many
+  genuinely fit, up to ${MAX_PICKS}. A narrow, specific request (e.g. "a heist movie set in
+  Tokyo with a female lead") should only return titles that genuinely fit — a handful of
+  precise matches beats padding the list with loose ones.
 - Every recommendation gets one specific, concrete sentence of why it fits THIS request
   (not a generic blurb). Reference tone, pacing, or theme, not just genre.
 - If the request is ambiguous, ask one short clarifying question instead of guessing.
@@ -38,7 +52,7 @@ async function main() {
 
   const testQueries = [
     "I want something that feels lonely",
-    "a movie where the villain wins",
+    "psychological thrillers",
   ];
 
   for (const userQuery of testQueries) {
@@ -48,10 +62,11 @@ async function main() {
     const embeddingResponse = await openai.embeddings.create({ model: EMBEDDING_MODEL, input: userQuery });
     const queryEmbedding = embeddingResponse.data[0].embedding;
 
-    console.log("  2. Vector-matching against the real catalogue (match_titles_by_query)...");
+    console.log("  2. Vector-matching against the real catalogue, quality-filtered (match_titles_by_query)...");
     const { data: candidateMatches, error: matchError } = await admin.rpc("match_titles_by_query", {
       p_embedding: queryEmbedding,
-      p_match_count: 12,
+      p_match_count: CANDIDATE_POOL_SIZE,
+      p_min_weighted_rating: MIN_WEIGHTED_RATING,
     });
     if (matchError) throw new Error(`match_titles_by_query failed: ${matchError.message}`);
     if (!candidateMatches || candidateMatches.length === 0) throw new Error("expected candidate matches from a real catalogue query");
@@ -61,6 +76,13 @@ async function main() {
     const { data: candidates } = await admin.from("titles").select("*").in("id", ids);
     if (!candidates || candidates.length === 0) throw new Error("expected candidate title rows to hydrate");
 
+    for (const c of candidates) {
+      if ((c.weighted_rating ?? 0) < MIN_WEIGHTED_RATING) {
+        throw new Error(`candidate ${c.name} has weighted_rating ${c.weighted_rating}, below the ${MIN_WEIGHTED_RATING} floor — RPC filter failed`);
+      }
+    }
+    console.log(`     ok — every candidate clears the ${MIN_WEIGHTED_RATING} weighted_rating floor`);
+
     console.log("  3. Asking the LLM to pick from the candidate list only...");
     const completion = await openai.chat.completions.create({
       model: CHAT_MODEL,
@@ -68,9 +90,9 @@ async function main() {
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: `User request: "${userQuery}"\n\nCandidate titles (JSON, choose only from these):\n${JSON.stringify(
+          content: `User request: "${userQuery}"\n\nCandidate titles (JSON, all already highly rated -- choose only from these):\n${JSON.stringify(
             candidates.map((t) => ({ id: t.id, name: t.name, overview: t.overview, mood_tags: t.mood_tags, tone: t.tone, pacing: t.pacing }))
-          )}\n\nRespond in strict JSON: { "message": string, "picks": [{ "id": string, "reason": string }] } with at most 3 picks.`,
+          )}\n\nRespond in strict JSON: { "message": string, "picks": [{ "id": string, "reason": string }] }. For a broad request, aim for at least ${MIN_PICKS_FOR_BROAD_QUERY} picks (up to ${MAX_PICKS}) when that many candidates genuinely fit; for a narrow request, return only the titles that genuinely fit, even if that's far fewer.`,
         },
       ],
       response_format: { type: "json_object" },
@@ -100,7 +122,7 @@ async function main() {
     }
   }
 
-  console.log("\nAsk Backlot works end-to-end against the live catalogue.");
+  console.log("\nAsk Backlot works end-to-end against the live catalogue, quality-gated and scaled for broad queries.");
 }
 
 main().catch((e) => {
