@@ -62,9 +62,9 @@ describe("extractDiaryFragments", () => {
 
     expect(parseLetterboxdDiaryPaste(shrunk)).toEqual(parseLetterboxdDiaryPaste(html));
     expect(parseLetterboxdDiaryPaste(shrunk)).toEqual([
-      { name: "The Odyssey", year: 2026, rating: 4 },
-      { name: "Wet Hot American Summer", year: 2001, rating: 3.5 },
-      { name: "GoldenEye", year: 1995, rating: null },
+      { name: "The Odyssey", year: 2026, rating: 4, watchedAt: null },
+      { name: "Wet Hot American Summer", year: 2001, rating: 3.5, watchedAt: null },
+      { name: "GoldenEye", year: 1995, rating: null, watchedAt: null },
     ]);
   });
 
@@ -87,9 +87,9 @@ describe("extractDiaryFragments", () => {
 
     expect(parseLetterboxdDiaryPaste(shrunk)).toEqual(parseLetterboxdDiaryPaste(html));
     expect(parseLetterboxdDiaryPaste(shrunk)).toEqual([
-      { name: "The Odyssey", year: 2026, rating: 4 },
-      { name: "Birdman or (The Unexpected Virtue of Ignorance)", year: 2014, rating: 4.5 },
-      { name: "GoldenEye", year: 1995, rating: null },
+      { name: "The Odyssey", year: 2026, rating: 4, watchedAt: null },
+      { name: "Birdman or (The Unexpected Virtue of Ignorance)", year: 2014, rating: 4.5, watchedAt: null },
+      { name: "GoldenEye", year: 1995, rating: null, watchedAt: null },
     ]);
   });
 
@@ -104,8 +104,8 @@ describe("extractDiaryFragments", () => {
 
     const shrunk = fragments.join("\n");
     expect(parseLetterboxdDiaryPaste(shrunk)).toEqual([
-      { name: "Wet Hot American Summer", year: 2001, rating: 3.5 },
-      { name: "The Odyssey", year: 2026, rating: 4 },
+      { name: "Wet Hot American Summer", year: 2001, rating: 3.5, watchedAt: null },
+      { name: "The Odyssey", year: 2026, rating: 4, watchedAt: null },
     ]);
   });
 

@@ -76,11 +76,16 @@ export interface Database {
           user_id: string;
           title_id: string;
           score: number;
+          /** When this was actually watched/rated -- distinct from
+           *  created_at (row-write time). Defaults to created_at for
+           *  organic ratings; Letterboxd imports pass the export's real
+           *  Date column here instead. See migration 0062. */
+          rated_at: string;
           created_at: string;
           updated_at: string;
         };
-        Insert: { user_id: string; title_id: string; score: number };
-        Update: Partial<{ score: number }>;
+        Insert: { user_id: string; title_id: string; score: number; rated_at?: string };
+        Update: Partial<{ score: number; rated_at: string }>;
         Relationships: [];
       };
       reviews: {

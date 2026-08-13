@@ -91,7 +91,7 @@ async function matchAndUpsertRows(
     (candidateTitles ?? []) as { id: string; name: string; release_date: string | null }[]
   );
 
-  const ratingUpserts: { user_id: string; title_id: string; score: number }[] = [];
+  const ratingUpserts: { user_id: string; title_id: string; score: number; rated_at?: string }[] = [];
   const watchUpserts: { user_id: string; title_id: string }[] = [];
   const unmatched: { name: string; year: number | null }[] = [];
   let ratedCount = 0;
@@ -105,7 +105,16 @@ async function matchAndUpsertRows(
     }
     watchUpserts.push({ user_id: userId, title_id: titleId });
     if (row.rating !== null) {
-      ratingUpserts.push({ user_id: userId, title_id: titleId, score: row.rating });
+      // rated_at omitted (not undefined-spread -- Postgres/PostgREST
+      // just uses the column default, now()) when Letterboxd's export
+      // didn't have a usable Date for this row, same behavior as before
+      // this field existed.
+      ratingUpserts.push({
+        user_id: userId,
+        title_id: titleId,
+        score: row.rating,
+        ...(row.watchedAt ? { rated_at: row.watchedAt } : {}),
+      });
       ratedCount++;
     } else {
       watchedOnlyCount++;

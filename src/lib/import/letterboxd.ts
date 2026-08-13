@@ -14,6 +14,28 @@ export interface LetterboxdRow {
   year: number | null;
   /** 0.5–5 in 0.5 increments, or null for watched.csv rows / unrated entries. */
   rating: number | null;
+  /** ISO date (YYYY-MM-DD) from the export's own Date column -- the day
+   *  this entry was logged on Letterboxd, i.e. the real watch date, not
+   *  whenever this import happens to run. null for rows where the column
+   *  is missing or unparseable (the paste-HTML import path below also
+   *  produces rows with this as null -- Letterboxd's diary page markup
+   *  doesn't expose a clean per-entry date without a live sample to
+   *  reverse-engineer against, so that path is left as import-time only
+   *  for now). Threaded into ratings.rated_at on import -- see
+   *  lib/actions/import.ts -- instead of leaving every bulk-imported
+   *  rating's timestamp collapsed to "whenever the import ran," which
+   *  silently broke anything that reads rating history chronologically
+   *  (taste evolution, recency-weighted taste vector).
+   */
+  watchedAt: string | null;
+}
+
+/** Letterboxd's Date column is `YYYY-MM-DD`; guards against a format
+ *  change or stray blank cell rather than trusting it blindly. */
+function parseWatchedAt(dateRaw: string | undefined): string | null {
+  const trimmed = dateRaw?.trim();
+  if (!trimmed || !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  return trimmed;
 }
 
 export function parseLetterboxdCsv(csvText: string): LetterboxdRow[] {
@@ -30,7 +52,8 @@ export function parseLetterboxdCsv(csvText: string): LetterboxdRow[] {
       const year = yearRaw && /^\d{4}$/.test(yearRaw) ? Number(yearRaw) : null;
       const ratingRaw = row.Rating?.trim();
       const rating = ratingRaw && !Number.isNaN(Number(ratingRaw)) ? Number(ratingRaw) : null;
-      return { name, year, rating };
+      const watchedAt = parseWatchedAt(row.Date);
+      return { name, year, rating, watchedAt };
     })
     .filter((r): r is LetterboxdRow => r !== null);
 }

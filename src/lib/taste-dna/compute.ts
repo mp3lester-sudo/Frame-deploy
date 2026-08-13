@@ -45,9 +45,14 @@ export async function computeTasteDna(
 ): Promise<TasteDnaWithEvolution> {
   const supabase = await createClient();
 
+  // rated_at (not created_at) -- see migration 0062: created_at only ever
+  // reflects when the row was written, which for a bulk Letterboxd import
+  // is import time for every row, not the real watch date. Evolution's
+  // earlier-vs-recent split is meaningless against a timestamp that's
+  // identical (or near-identical) across a user's whole imported history.
   const { data: ratings } = await supabase
     .from("ratings")
-    .select("title_id, score, created_at")
+    .select("title_id, score, rated_at")
     .eq("user_id", userId);
 
   if (!ratings?.length) {
@@ -98,7 +103,7 @@ export async function computeTasteDna(
         violenceLevel: title.violence_level,
         comedyLevel: title.comedy_level,
         emotionalIntensity: title.emotional_intensity,
-        ratedAt: r.created_at,
+        ratedAt: r.rated_at,
       };
       return feature;
     })

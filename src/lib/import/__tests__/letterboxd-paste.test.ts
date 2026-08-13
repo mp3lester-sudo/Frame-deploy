@@ -44,22 +44,22 @@ describe("parseLetterboxdDiaryPaste", () => {
 
     const rows = parseLetterboxdDiaryPaste(html);
     expect(rows).toEqual([
-      { name: "The Odyssey", year: 2026, rating: 4 },
-      { name: "Wet Hot American Summer", year: 2001, rating: 3.5 },
-      { name: "GoldenEye", year: 1995, rating: null },
+      { name: "The Odyssey", year: 2026, rating: 4, watchedAt: null },
+      { name: "Wet Hot American Summer", year: 2001, rating: 3.5, watchedAt: null },
+      { name: "GoldenEye", year: 1995, rating: null, watchedAt: null },
     ]);
   });
 
   it("decodes common HTML entities in titles", () => {
     const html = diaryRow({ slug: "whats-up-doc-1972", title: "What&#039;s Up, Doc?", year: 1972, ratingValue: 8 });
     const rows = parseLetterboxdDiaryPaste(html);
-    expect(rows).toEqual([{ name: "What's Up, Doc?", year: 1972, rating: 4 }]);
+    expect(rows).toEqual([{ name: "What's Up, Doc?", year: 1972, rating: 4, watchedAt: null }]);
   });
 
   it("handles a duplicate-title disambiguation suffix in the film URL (e.g. /tenet/1/)", () => {
     const html = diaryRow({ slug: "tenet/1", title: "Tenet", year: 2020, ratingValue: 9 });
     const rows = parseLetterboxdDiaryPaste(html);
-    expect(rows).toEqual([{ name: "Tenet", year: 2020, rating: 4.5 }]);
+    expect(rows).toEqual([{ name: "Tenet", year: 2020, rating: 4.5, watchedAt: null }]);
   });
 
   it("does not bleed one entry's rating into the next entry", () => {
@@ -69,8 +69,8 @@ describe("parseLetterboxdDiaryPaste", () => {
     ].join("\n");
     const rows = parseLetterboxdDiaryPaste(html);
     expect(rows).toEqual([
-      { name: "Film A", year: 2020, rating: null },
-      { name: "Film B", year: 2021, rating: 5 },
+      { name: "Film A", year: 2020, rating: null, watchedAt: null },
+      { name: "Film B", year: 2021, rating: 5, watchedAt: null },
     ]);
   });
 
@@ -82,7 +82,7 @@ describe("parseLetterboxdDiaryPaste", () => {
     const sidebar = `<a href="/someuser/diary/films/decade/1990s/">1990s</a>`;
     const html = sidebar + diaryRow({ slug: "jaws", title: "Jaws", year: 1975, ratingValue: 9 });
     const rows = parseLetterboxdDiaryPaste(html);
-    expect(rows).toEqual([{ name: "Jaws", year: 1975, rating: 4.5 }]);
+    expect(rows).toEqual([{ name: "Jaws", year: 1975, rating: 4.5, watchedAt: null }]);
   });
 });
 
@@ -122,9 +122,9 @@ describe("parseLetterboxdDiaryPaste (Films / Films>Ratings grid page)", () => {
 
     const rows = parseLetterboxdDiaryPaste(html);
     expect(rows).toEqual([
-      { name: "The Odyssey", year: 2026, rating: 5 },
-      { name: "HIM", year: 2025, rating: 2 },
-      { name: "Smile", year: 2022, rating: null },
+      { name: "The Odyssey", year: 2026, rating: 5, watchedAt: null },
+      { name: "HIM", year: 2025, rating: 2, watchedAt: null },
+      { name: "Smile", year: 2022, rating: null, watchedAt: null },
     ]);
   });
 
@@ -136,7 +136,7 @@ describe("parseLetterboxdDiaryPaste (Films / Films>Ratings grid page)", () => {
       ratingValue: 8,
     });
     const rows = parseLetterboxdDiaryPaste(html);
-    expect(rows).toEqual([{ name: "Birdman or (The Unexpected Virtue of Ignorance)", year: 2014, rating: 4 }]);
+    expect(rows).toEqual([{ name: "Birdman or (The Unexpected Virtue of Ignorance)", year: 2014, rating: 4, watchedAt: null }]);
   });
 
   it("does not bleed one item's rating into the next", () => {
@@ -146,8 +146,8 @@ describe("parseLetterboxdDiaryPaste (Films / Films>Ratings grid page)", () => {
     ].join("\n");
     const rows = parseLetterboxdDiaryPaste(html);
     expect(rows).toEqual([
-      { name: "Film A", year: 2020, rating: null },
-      { name: "Film B", year: 2021, rating: 5 },
+      { name: "Film A", year: 2020, rating: null, watchedAt: null },
+      { name: "Film B", year: 2021, rating: 5, watchedAt: null },
     ]);
   });
 
@@ -158,8 +158,8 @@ describe("parseLetterboxdDiaryPaste (Films / Films>Ratings grid page)", () => {
     ].join("\n");
     const rows = parseLetterboxdDiaryPaste(html);
     expect(rows).toEqual([
-      { name: "The Departed", year: 2006, rating: 5 },
-      { name: "Smile", year: 2022, rating: 3 },
+      { name: "The Departed", year: 2006, rating: 5, watchedAt: null },
+      { name: "Smile", year: 2022, rating: 3, watchedAt: null },
     ]);
   });
 });

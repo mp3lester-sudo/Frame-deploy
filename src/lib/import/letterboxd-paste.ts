@@ -114,7 +114,7 @@ function parseDiaryRows(html: string): LetterboxdRow[] {
     if (!yearMatch) continue; // no year found nearby — not confident this is a real diary entry
 
     const ratingMatch = window.match(DIARY_RATING_PATTERN);
-    rows.push({ name, year: Number(yearMatch[1]), rating: ratingFromScale10(ratingMatch?.[1]) });
+    rows.push({ name, year: Number(yearMatch[1]), rating: ratingFromScale10(ratingMatch?.[1]), watchedAt: null });
   }
 
   return rows;
@@ -137,7 +137,7 @@ function parseFilmsGridRows(html: string): LetterboxdRow[] {
     const window = html.slice(searchStart, Math.min(searchStart + FILMS_GRID_SEARCH_WINDOW, nextMatchStart));
 
     const ratingMatch = window.match(FILMS_GRID_RATING_PATTERN);
-    rows.push({ name, year: Number(parsed[2]), rating: ratingFromScale10(ratingMatch?.[1]) });
+    rows.push({ name, year: Number(parsed[2]), rating: ratingFromScale10(ratingMatch?.[1]), watchedAt: null });
   }
 
   return rows;
