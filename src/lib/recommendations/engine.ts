@@ -288,28 +288,31 @@ export async function getRecommendationsForUser(
   // arbitrarily picking just one.
   const citedTitleNamesByRecId = new Map<string, string[]>();
   if (citationTargets.length) {
-    const citationResults = await Promise.all(
-      citationTargets.map((id) =>
-        supabase
-          .rpc("most_similar_liked_title", {
-            p_user_id: userId,
-            p_title_id: id,
-            // most_similar_liked_title (migration 0016) defaults its own
-            // internal p_min_similarity to 0.78 -- a separate, stricter bar
-            // than CONTENT_MATCH_THRESHOLD above. Without overriding it here,
-            // lowering the outer gate did nothing: more titles would attempt
-            // a citation lookup, but the lookup itself kept rejecting all of
-            // them under the old default. Passing the same threshold through
-            // keeps both checks in sync.
-            p_min_similarity: CONTENT_MATCH_THRESHOLD,
-          })
-          .then((r) => ({ id, r }))
-      )
-    );
+    // Single batched round trip (most_similar_liked_titles_batch, migration
+    // 0065) instead of one RPC call per citation target -- this used to be
+    // Promise.all(citationTargets.map(id => supabase.rpc(...))), which is
+    // genuinely parallel but still pays full HTTP/connection overhead once
+    // per target (up to `limit` times) on top of whatever else the home
+    // page is already fetching. See that migration's comment for why the
+    // per-candidate query cost is unchanged -- only the round-trip count is.
+    const { data: citationRows } = await supabase.rpc("most_similar_liked_titles_batch", {
+      p_user_id: userId,
+      p_title_ids: citationTargets,
+      // most_similar_liked_title (migration 0016) defaults its own
+      // internal p_min_similarity to 0.78 -- a separate, stricter bar
+      // than CONTENT_MATCH_THRESHOLD above. Without overriding it here,
+      // lowering the outer gate did nothing: more titles would attempt
+      // a citation lookup, but the lookup itself kept rejecting all of
+      // them under the old default. Passing the same threshold through
+      // keeps both checks in sync.
+      p_min_similarity: CONTENT_MATCH_THRESHOLD,
+    });
     const citedIdsByRecId = new Map<string, string[]>();
-    for (const { id, r } of citationResults) {
-      const citedIds = (r.data ?? []).map((row) => row.title_id).filter((cid): cid is string => !!cid);
-      if (citedIds.length) citedIdsByRecId.set(id, citedIds);
+    for (const row of citationRows ?? []) {
+      if (!row.cited_title_id) continue;
+      const existing = citedIdsByRecId.get(row.title_id) ?? [];
+      existing.push(row.cited_title_id);
+      citedIdsByRecId.set(row.title_id, existing);
     }
     if (citedIdsByRecId.size) {
       const allCitedIds = new Set<string>();

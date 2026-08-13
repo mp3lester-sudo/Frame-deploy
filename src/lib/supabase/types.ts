@@ -712,6 +712,10 @@ export interface Database {
         Args: { p_user_id: string; p_title_id: string; p_min_similarity?: number };
         Returns: { title_id: string; similarity: number }[];
       };
+      most_similar_liked_titles_batch: {
+        Args: { p_user_id: string; p_title_ids: string[]; p_min_similarity?: number };
+        Returns: { title_id: string; cited_title_id: string; similarity: number }[];
+      };
       match_titles_by_query: {
         Args: {
           p_embedding: number[];
