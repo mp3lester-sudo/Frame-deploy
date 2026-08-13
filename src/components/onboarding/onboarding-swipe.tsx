@@ -231,7 +231,15 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
           loop
           playsInline
           className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover"
-          style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)" }}
+          /* objectPosition biases the crop toward the Hollywoodland sign
+             (upper region of the source frame) instead of the geometric
+             center -- the source video is cropped tight and tall around
+             the sign so it reads clearly on portrait phones (which show
+             the video edge-to-edge, no cropping needed there), but wider
+             / landscape viewports crop the video's height to cover the
+             container and would otherwise center on the hillside below
+             the sign instead of the sign itself. */
+          style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)", objectPosition: "center 25%" }}
         >
           <source src="/videos/onboarding-intro.mp4" type="video/mp4" />
         </video>

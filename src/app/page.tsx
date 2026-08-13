@@ -197,7 +197,7 @@ export default async function HomePage({
               (higher-res re-sourced footage) after an earlier pass had
               to use object-contain to avoid a blurry portrait-screen
               crop. */}
-          <video autoPlay muted loop playsInline className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)" }}>
+          <video autoPlay muted loop playsInline className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)", objectPosition: "center 25%" }}>
             <source src="/videos/onboarding-intro.mp4" type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
