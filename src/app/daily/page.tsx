@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { createClient } from "@/lib/supabase/server";
@@ -9,6 +10,9 @@ import { getOnThisDayTitles } from "@/lib/on-this-day/fetch";
 import { OnThisDayCard } from "@/components/daily/on-this-day-card";
 import { getDailyNewsStory } from "@/lib/news/daily-story";
 import { DailyNewsCard } from "@/components/daily/daily-news-card";
+import { HiddenGemCard } from "@/components/home/hidden-gem-card";
+import { getHiddenGemForUser } from "@/lib/recommendations/hidden-gem";
+import { IndieSpotlightSection, IndieSpotlightSkeleton } from "@/components/home/indie-spotlight";
 
 export default async function DailyPage() {
   const user = await getVerifiedUser();
@@ -16,11 +20,15 @@ export default async function DailyPage() {
 
   const supabase = await createClient();
 
-  const [directorOfTheDay, trivia, onThisDayTitles, newsStory] = await Promise.all([
+  const [directorOfTheDay, trivia, onThisDayTitles, newsStory, hiddenGem] = await Promise.all([
     getDirectorOfTheDay(user.id),
     getOrCreateDailyTrivia(),
     getOnThisDayTitles(),
     getDailyNewsStory(),
+    // Relocated here from Home (Option B declutter) -- a single high-match,
+    // low-popularity pick from this user's own taste vector. No other
+    // pick list on this page to exclude from, so no excludeIds needed.
+    getHiddenGemForUser(user.id),
   ]);
 
   // Only ever fetched once trivia is known to exist, and only to check
@@ -60,6 +68,11 @@ export default async function DailyPage() {
               Rate a few titles to unlock your Director of the Day.
             </p>
           )}
+
+          {/* Relocated from Home (Option B declutter). */}
+          {hiddenGem && (
+            <HiddenGemCard title={hiddenGem.title} matchPercent={hiddenGem.matchPercent} />
+          )}
         </div>
 
         <div className="flex flex-col gap-6">
@@ -79,6 +92,15 @@ export default async function DailyPage() {
 
           <DailyNewsCard story={newsStory} />
         </div>
+      </div>
+
+      {/* Relocated from Home (Option B declutter) -- four live trade-press
+          RSS fetches + best-effort image scraping, so it stays behind its
+          own Suspense boundary rather than blocking the rest of this page. */}
+      <div className="mt-6">
+        <Suspense fallback={<IndieSpotlightSkeleton />}>
+          <IndieSpotlightSection />
+        </Suspense>
       </div>
     </section>
   );

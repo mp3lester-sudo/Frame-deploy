@@ -30,9 +30,16 @@ export default async function FeedPage() {
     <div className="mx-auto max-w-2xl pb-12">
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/90 px-4 py-4 backdrop-blur sm:px-5">
         <h1 className="font-section-heading text-2xl">Social</h1>
-        <Link href="/hot-takes" className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent">
-          Hot Takes &rarr;
-        </Link>
+        {/* Clubs link relocated here from Home (Option B declutter) --
+            same treatment as the existing Hot Takes link next to it. */}
+        <div className="flex items-center gap-4">
+          <Link href="/clubs" className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent">
+            Clubs &rarr;
+          </Link>
+          <Link href="/hot-takes" className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent">
+            Hot Takes &rarr;
+          </Link>
+        </div>
       </div>
 
       <IndieBuzzStrip releases={indieReleases} news={indieNews} />

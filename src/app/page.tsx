@@ -9,28 +9,12 @@ import { getRequestGeo } from "@/lib/geo";
 import { getCurrentWeather } from "@/lib/weather";
 import { RecommendationReveal, type RevealPick } from "@/components/home/recommendation-reveal";
 import { MoodRow } from "@/components/home/mood-row";
-import { MovieNightCard } from "@/components/home/movie-night-card";
-import { createMovieNight } from "@/lib/actions/movie-night";
-import { Clapperboard } from "lucide-react";
-import { CircleFeed, type CircleEvent } from "@/components/home/circle-feed";
 import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
 import { CompanionPicker } from "@/components/home/companion-picker";
-import { HiddenGemCard } from "@/components/home/hidden-gem-card";
-import { getHiddenGemForUser } from "@/lib/recommendations/hidden-gem";
 import { isCircumstantialContext } from "@/lib/context/circumstantial";
 import { PreciseLocation } from "@/components/home/precise-location";
-import { IndieSpotlightSection, IndieSpotlightSkeleton } from "@/components/home/indie-spotlight";
 import type { Recommendation } from "@/lib/recommendations/engine";
-import { Suspense } from "react";
-
-type Participant = { username: string; display_name: string | null; avatar_url: string | null };
-
-// Home page is deliberately weighted ~60% personal (Taste Graph picks, tuned
-// to whichever circumstantial context applies right now) and ~40% social
-// (what people you follow are actually doing) — two distinct sections
-// rather than one blended feed, so each stays legible on its own.
-const SOCIAL_EVENTS_LIMIT = 5;
 
 const allura = Allura({ subsets: ["latin"], weight: "400" });
 
@@ -96,14 +80,6 @@ export default async function HomePage({
   // via ContextPicker for whoever actually wants them.
   const activeContext = contextParam && isCircumstantialContext(contextParam) ? contextParam : "solo";
 
-  // These three don't depend on each other's results (recommendations,
-  // this user's Movie Night membership, and who they follow are all
-  // independent lookups), so they used to run one after another purely
-  // because they were each written as their own top-level `await` — a
-  // waterfall that added up on the single heaviest page in the app. Now
-  // they run concurrently; only the follow-on queries below (which director
-  // for the hero pick, which specific night, whose activity) are genuinely
-  // sequential, since each needs an id from the batch above.
   // "Date night" and "With friends" hand off entirely to the ad-hoc
   // companion picker below (CompanionPicker) -- they need a second real
   // person's taste before any recommendation is meaningful, so the solo
@@ -112,88 +88,39 @@ export default async function HomePage({
   // nobody would see.
   const isCompanionContext = activeContext === "date_night" || activeContext === "with_friends";
 
-  const [{ recommendations, isColdStart }, { data: memberships }, { data: following }] = await Promise.all([
-    isCompanionContext
-      ? Promise.resolve({ recommendations: [] as Recommendation[], isColdStart: false })
-      : getRecommendationsForUser(user.id, {
-          // 1 hero + 6 for MoodRow ("More picks for you") + 2 held in
-          // reserve purely for RecommendationReveal's "Generate another
-          // pick" cycle -- the reserve pair is deliberately never passed
-          // to MoodRow, so tapping "generate another" on the hero can
-          // never show a poster that's already visible in the rail below it.
-          limit: 9,
-          context: activeContext,
-          weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
-        }),
-    // Active Movie Night (still collecting picks) that this user is part of
-    // — only ever shown when real, never a placeholder invite.
-    supabase.from("movie_night_participants").select("movie_night_id").eq("user_id", user.id),
-    // Recent activity from people the user follows — omitted entirely
-    // rather than shown with placeholder people when there's nothing real yet.
-    supabase.from("follows").select("followee_id").eq("follower_id", user.id),
-    // Indie Spotlight (four live trade-press RSS feeds + best-effort image
-    // scraping) used to ride along in this same batch -- it's the least
-    // time-sensitive thing on the page but was blocking the hero
-    // recommendation behind it on every single request. It's now its own
-    // <Suspense> boundary further down instead (see IndieSpotlightSection),
-    // so a slow/rate-limiting outlet only delays that one section, not the
-    // whole page.
-  ]);
+  const { recommendations, isColdStart } = isCompanionContext
+    ? { recommendations: [] as Recommendation[], isColdStart: false }
+    : await getRecommendationsForUser(user.id, {
+        // 1 hero + 6 for MoodRow ("More picks for you") + 2 held in
+        // reserve purely for RecommendationReveal's "Generate another
+        // pick" cycle -- the reserve pair is deliberately never passed
+        // to MoodRow, so tapping "generate another" on the hero can
+        // never show a poster that's already visible in the rail below it.
+        limit: 9,
+        context: activeContext,
+        weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
+      });
 
   const hero = recommendations[0];
   const morePicks = recommendations.slice(1, 7);
   // See the `limit: 9` comment above -- these two never render in MoodRow.
   const heroReserve = recommendations.slice(7, 9);
   const heroPool = hero ? [hero, ...heroReserve] : [];
-  const nightIds = (memberships ?? []).map((m) => m.movie_night_id);
-  const followeeIds = (following ?? []).map((f) => f.followee_id);
 
-  const [heroPoolDirectorsResult, night, events, hiddenGem] = await Promise.all([
-    // Batched across the whole hero pool (hero + reserve), not just hero
-    // alone -- RecommendationReveal's "Generate another pick" can land on
-    // any of them, so each one needs its own director for the meta line
-    // rather than only the one shown first.
-    heroPool.length
-      ? supabase
-          .from("title_credits")
-          .select("title_id, people(name)")
-          .in(
-            "title_id",
-            heroPool.map((r) => r.title.id)
-          )
-          .eq("credit_type", "director")
-      : Promise.resolve({ data: [] }),
-    nightIds.length
-      ? supabase
-          .from("movie_nights")
-          .select("id, host_id, created_at")
-          .in("id", nightIds)
-          .eq("status", "collecting")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .then((r) => r.data?.[0] ?? null)
-      : Promise.resolve(null),
-    followeeIds.length
-      ? supabase
-          .from("activity_events")
-          .select("id, event_type, created_at, profiles(username, avatar_url), titles(name)")
-          .in("user_id", followeeIds)
-          .order("created_at", { ascending: false })
-          .limit(SOCIAL_EVENTS_LIMIT)
-          .then((r) => r.data ?? [])
-      : Promise.resolve([]),
-    // Replaces Director of the Day in this slot (moved to /daily) -- a
-    // single high-match, low-popularity pick from this user's own taste
-    // vector. Excludes whatever's already shown in the hero/mood row so it
-    // never repeats a pick. Independent of companion context, same as
-    // Director of the Day was -- it's this user's own taste, not a blended
-    // one, so it stays visible in date-night/with-friends mode too
-    // (recommendations is just an empty array there, so excludeIds is too).
-    getHiddenGemForUser(
-      user.id,
-      recommendations.map((r) => r.title.id)
-    ),
-  ]);
+  // Batched across the whole hero pool (hero + reserve), not just hero
+  // alone -- RecommendationReveal's "Generate another pick" can land on
+  // any of them, so each one needs its own director for the meta line
+  // rather than only the one shown first.
+  const heroPoolDirectorsResult = heroPool.length
+    ? await supabase
+        .from("title_credits")
+        .select("title_id, people(name)")
+        .in(
+          "title_id",
+          heroPool.map((r) => r.title.id)
+        )
+        .eq("credit_type", "director")
+    : { data: [] };
 
   const directorByTitleId = new Map<string, string>();
   for (const row of (heroPoolDirectorsResult?.data ?? []) as unknown as {
@@ -211,19 +138,6 @@ export default async function HomePage({
     matchPercent: r.matchPercent,
     director: directorByTitleId.get(r.title.id) ?? null,
   }));
-  let activeNight: { id: string; hostId: string; participants: Participant[] } | null = null;
-  if (night) {
-    const { data: participantRows } = await supabase
-      .from("movie_night_participants")
-      .select("profiles(username, display_name, avatar_url)")
-      .eq("movie_night_id", night.id);
-    const participants = (participantRows ?? [])
-      .map((r) => (r as unknown as { profiles: Participant | null }).profiles)
-      .filter((p): p is Participant => !!p);
-    activeNight = { id: night.id, hostId: night.host_id, participants };
-  }
-
-  const circleEvents = events as unknown as CircleEvent[];
 
   const greeting = zonedNow.getHours() < 12 ? "Good morning" : zonedNow.getHours() < 18 ? "Good afternoon" : "Good evening";
   const day = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: geo?.timezone ?? undefined })
@@ -377,157 +291,34 @@ export default async function HomePage({
         <ContextPicker active={activeContext} />
       </div>
 
-      {/* Social rail content is identical either way -- only the top of
-          the page (recommendation vs. companion picker, and where
-          Director of the Day sits) differs between the two modes, so
-          it's built once here and dropped into whichever layout below
-          applies. */}
-      {(() => {
-        const socialRail = (
-          <div className="border-t border-border pt-6">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-wider text-foreground-muted">Your circle</span>
-              {/* Clubs used to live only in the desktop-only top nav-bar
-                  list -- zero mobile discoverability, and buried as the
-                  6th item in a row most people never scanned past Discover/
-                  Movie Night. This IS the social/group section of the home
-                  page every signed-in visit already passes through, so it's
-                  a small header link here instead, same treatment as the
-                  existing Hot Takes link right next to it. */}
-              <div className="flex items-center gap-4">
-                <Link href="/clubs" className="text-[11px] uppercase tracking-wider text-foreground-muted hover:text-accent">
-                  Clubs &rarr;
-                </Link>
-                <Link href="/hot-takes" className="text-[11px] uppercase tracking-wider text-foreground-muted hover:text-accent">
-                  Hot Takes &rarr;
-                </Link>
-              </div>
+      {isCompanionContext ? (
+        <div className="mt-7">
+          <CompanionPicker context={activeContext} />
+        </div>
+      ) : (
+        <div className="mt-7">
+          {/* The recommendation is the unambiguous focal point of the
+              page -- full column width, alone, dramatically taller than
+              everything below it (see recommendation-reveal.tsx). */}
+          {heroRevealPicks.length > 0 && (
+            <RecommendationReveal picks={heroRevealPicks} isColdStart={isColdStart} />
+          )}
+
+          {/* Quiet thumbnail row -- deliberately smaller and less
+              prominent than the hero above it. Movie Night, Hidden Gem,
+              the circle feed, and Indie Spotlight news all moved off
+              Home entirely (Movie Night already has its own start-a-night
+              form at /movie-night; Hidden Gem and Indie Spotlight moved
+              to /daily; the circle feed's "Clubs" link moved to /feed) so
+              this page stays to exactly two things: today's pick, and a
+              few more like it. */}
+          {morePicks.length > 0 && (
+            <div className="mt-8">
+              <MoodRow picks={morePicks} isColdStart={isColdStart} />
             </div>
-
-            {/* Modernization pass: the movie-night quick action and the
-                circle feed used to stack full-width, one under the other.
-                They're independent cards with no shared internal layout,
-                so a two-column bento grid on sm+ (still a simple stack on
-                mobile) reads as a deliberate asymmetric card cluster
-                instead of a plain list -- same content and conditionals,
-                just arranged side by side. */}
-            <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] sm:items-start">
-              <div>
-                {activeNight ? (
-                  <MovieNightCard
-                    nightId={activeNight.id}
-                    participants={activeNight.participants}
-                    isHost={activeNight.hostId === user.id}
-                  />
-                ) : (
-                  // Always-on entry point, not just a card that shows up
-                  // once you're already in a session -- Movie Night's
-                  // whole value is pulling other people in, so the prompt
-                  // to *start* one needs to be visible on every visit, not
-                  // conditional on already having one going.
-                  <form action={createMovieNight}>
-                    <button
-                      type="submit"
-                      className="bento-card flex w-full items-center gap-3 p-4 text-left"
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
-                        <Clapperboard size={18} />
-                      </span>
-                      <span>
-                        <span className="block text-sm font-medium">Start a movie night</span>
-                        <span className="block text-xs text-foreground-muted">
-                          Invite friends and vote on something everyone&apos;s taste agrees on
-                        </span>
-                      </span>
-                    </button>
-                  </form>
-                )}
-              </div>
-
-              <div>
-                {circleEvents.length > 0 ? (
-                  <CircleFeed items={circleEvents} />
-                ) : (
-                  !activeNight && (
-                    <p className="text-sm text-foreground-muted">
-                      Follow a few people to see what they&apos;re watching here.
-                    </p>
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        );
-
-        return isCompanionContext ? (
-          /* Date night / with friends: unchanged from before -- picks
-             hand off entirely to CompanionPicker (no solo "hero" to
-             pair Hidden Gem with), so Hidden Gem stays up top of the
-             right rail alongside the social feed, same slot Director
-             of the Day used to occupy here. */
-          <div className="mt-7 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
-            <div>
-              <CompanionPicker context={activeContext} />
-            </div>
-            <div className="mt-8 lg:mt-0">
-              {hiddenGem && (
-                <div className="mb-8">
-                  <HiddenGemCard title={hiddenGem.title} matchPercent={hiddenGem.matchPercent} />
-                </div>
-              )}
-              {socialRail}
-            </div>
-          </div>
-        ) : (
-          <div className="mt-7">
-            {/* Front and center: the recommendation and Hidden Gem paired
-                side by side at a matching height, rather than a compact
-                poster+text card next to a narrow rail item. Ratio
-                collapses to a single column when only one of the two
-                exists (e.g. cold start with no taste vector yet for
-                Hidden Gem, or nothing obscure-enough-and-good-enough to
-                surface today). Same slot Director of the Day occupied
-                before it moved to /daily. */}
-            {/* The recommendation is now the unambiguous focal point of
-                the page -- full column width, alone, dramatically taller
-                than everything below it (see recommendation-reveal.tsx).
-                It used to share a 1.6fr/1fr row with HiddenGemCard at
-                matching height, which made the two compete as equal
-                partners; HiddenGemCard is now a small demoted card
-                directly below instead, not a rival hero. */}
-            {heroRevealPicks.length > 0 && (
-              <RecommendationReveal picks={heroRevealPicks} isColdStart={isColdStart} />
-            )}
-
-            {/* Everything from here down is deliberately quieter than the
-                hero above: smaller text, muted borders, compact cards --
-                a demoted zone, not a second row of equally-weighted
-                content. */}
-            {hiddenGem && (
-              <div className="mt-5">
-                <HiddenGemCard title={hiddenGem.title} matchPercent={hiddenGem.matchPercent} />
-              </div>
-            )}
-            {morePicks.length > 0 && (
-              <div className="mt-8">
-                <MoodRow picks={morePicks} isColdStart={isColdStart} />
-              </div>
-            )}
-            <div className="mt-8">{socialRail}</div>
-          </div>
-        );
-      })()}
-
-      {/* Same section either way (solo or companion context) -- it's not
-          personalized at all, just a live release calendar + news pull,
-          so it sits outside the IIFE above rather than being duplicated
-          in both branches. Streamed in via its own Suspense boundary (see
-          the comment above the removed Promise.all entries) so the four
-          live trade-press RSS fetches + og:image scraping never delay the
-          personalized content above it. */}
-      <Suspense fallback={<IndieSpotlightSkeleton />}>
-        <IndieSpotlightSection />
-      </Suspense>
+          )}
+        </div>
+      )}
     </div>
   );
 }
