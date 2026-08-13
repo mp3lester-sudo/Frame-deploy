@@ -328,16 +328,17 @@ export default async function HomePage({
           flex centering -- rather than the inline "Good evening Name"
           sentence the persistent in-page heading below still uses.
           Thin rule lines above and below the name (same accent-deep
-          hairline both times) frame it like a vintage title card. Name
-          always renders in Allura, the same elegant thin gold cursive
-          script as the greeting word above it. */}
+          hairline both times) frame it like a vintage title card. The
+          greeting word stays Allura; the name now matches the Backlot
+          wordmark's own typeface (font-hollywood -> Bebas Neue, see
+          nav-bar.tsx) instead of Allura, per product direction. */}
       <div
         className="greeting-splash pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background"
         aria-hidden="true"
       >
         <span className={`${allura.className} text-3xl text-accent-soft sm:text-4xl`}>{greeting}</span>
         <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
-        <span className={`${allura.className} text-5xl text-accent-soft sm:text-7xl`}>
+        <span className="font-hollywood text-5xl text-accent-soft sm:text-7xl">
           {firstName}
         </span>
         <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
@@ -351,16 +352,15 @@ export default async function HomePage({
       </div>
 
       <h1 className="mt-5 text-center text-4xl leading-tight tracking-tight sm:text-5xl">
-        {/* "Good evening"/"Good morning" is set in font-sans (Geist) --
-            switched from Playfair Display (serif) for a cleaner, more
-            modern look. Still off-white; only the typeface changed, the
-            marquee name treatment right after it is untouched. */}
+        {/* "Good evening"/"Good morning" stays Allura -- unchanged. */}
         <span className={`${allura.className} text-4xl text-accent sm:text-5xl`}>{greeting}</span>{" "}
-        {/* Name always gets the same elegant gold cursive (Allura)
-            treatment as "Good morning" above -- previously a poster-
-            matched font (see lib/poster-font) could override this, but
-            that's dropped now in favor of one consistent gold script. */}
-        <span className={`${allura.className} text-5xl text-accent sm:text-6xl`}>{firstName}</span>
+        {/* Name now matches the Backlot wordmark's own typeface
+            (font-hollywood -> Bebas Neue, see nav-bar.tsx) instead of
+            Allura -- previously a poster-matched font (see lib/poster-font)
+            could override this too, and before that it was Allura to match
+            the greeting word; now it deliberately diverges from the
+            greeting to echo the header instead. */}
+        <span className="font-hollywood text-5xl text-accent sm:text-6xl">{firstName}</span>
       </h1>
       {ratedCount ? (
         <p className="mt-1.5 text-center text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
