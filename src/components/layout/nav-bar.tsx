@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Search, Sparkles, Users, Compass, User, Clapperboard, Settings, Mail, Bell, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getNavBadgeCounts } from "@/lib/actions/nav-badges";
+
+// How often to re-poll unread badge counts once mounted. Not tied to
+// navigation anymore (see below) -- this alone keeps them reasonably
+// fresh (a new DM or notification shows up within a minute) without
+// putting a DB round trip back on the critical path of every click.
+const BADGE_POLL_MS = 60_000;
 
 /** How long the nav bar stays visible with no scroll/mouse/touch/key
     activity before it slides away. Long enough that a person reading a
@@ -38,17 +45,35 @@ const links = [
   { href: "/daily", label: "Daily", icon: CalendarDays },
 ];
 
-export function NavBar({
-  isAuthed,
-  unreadMessageCount = 0,
-  unreadNotificationCount = 0,
-}: {
-  isAuthed: boolean;
-  unreadMessageCount?: number;
-  unreadNotificationCount?: number;
-}) {
+export function NavBar({ isAuthed }: { isAuthed: boolean }) {
   const [hidden, setHidden] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Badge counts are fetched client-side, after the page has already
+  // painted, instead of being awaited server-side in the root layout that
+  // wraps every route (see src/lib/actions/nav-badges.ts for why) --
+  // badges pop in a beat after first paint rather than gating every
+  // single navigation in the app behind a couple of extra DB round trips.
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+  useEffect(() => {
+    if (!isAuthed) return;
+    let cancelled = false;
+    async function refresh() {
+      const counts = await getNavBadgeCounts().catch(() => null);
+      if (!cancelled && counts) {
+        setUnreadMessageCount(counts.unreadMessageCount);
+        setUnreadNotificationCount(counts.unreadNotificationCount);
+      }
+    }
+    refresh();
+    const interval = setInterval(refresh, BADGE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isAuthed]);
 
   useEffect(() => {
     function wake() {

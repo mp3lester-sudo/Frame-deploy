@@ -7,7 +7,6 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/actions/ensure-profile";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
-import { getUnreadNotificationCount } from "@/lib/actions/notifications";
 import { isPremiumActive } from "@/lib/premium/is-premium";
 import { PageTransition } from "@/components/page-transition";
 import { PromoBanner } from "@/components/layout/promo-banner";
@@ -162,43 +161,24 @@ export default async function RootLayout({
   // server. See src/lib/auth/verified-user.ts.
   const user = await getVerifiedUser();
 
-  // ensureProfile and the conversations lookup below don't depend on each
-  // other — this layout wraps every single page, so this async work re-runs
-  // on every navigation across the whole app. It used to run as two
-  // sequential round trips (ensureProfile, *then* conversations) before
-  // even reaching the destination page's own data fetching; running them
-  // concurrently shaves one full round trip off every click.
-  let unreadMessageCount = 0;
-  let unreadNotificationCount = 0;
+  // Unread message/notification badge counts are deliberately NOT fetched
+  // here anymore -- this layout wraps every single page, so awaiting them
+  // used to mean every navigation across the whole app (even to pages with
+  // nothing to do with messages or notifications) paid 2-3 extra sequential
+  // DB round trips before any content could render. NavBar now fetches its
+  // own badge counts client-side after mount (see getNavBadgeCounts in
+  // src/lib/actions/nav-badges.ts) -- badges pop in a beat later instead of
+  // gating the entire page behind them.
   let isPremium = false;
   if (user) {
-    // getUnreadNotificationCount() used to be its own separate 
-    // below this block -- a full extra sequential network round trip to
-    // Supabase tacked onto every single authenticated page view across the
-    // whole app (this layout wraps every route), for zero benefit since it
-    // doesn't depend on anything else fetched here. Folded into the same
-    // batch as the fix.
-    const [, { data: conversations }, { data: profile }, notificationCount] = await Promise.all([
+    const [, { data: profile }] = await Promise.all([
       ensureProfile(supabase, user),
-      supabase.from("conversations").select("id").or(`user_a.eq.${user.id},user_b.eq.${user.id}`),
       // Drives the house promo banner below (task #141) -- "ad-free" only
       // means something if free accounts see something to go ad-free
       // from. Cheap enough (single boolean column) to fetch unconditionally
       // alongside the other per-request lookups this layout already does.
       supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", user.id).maybeSingle(),
-      getUnreadNotificationCount(),
     ]);
-    unreadNotificationCount = notificationCount;
-    const conversationIds = (conversations ?? []).map((c) => c.id);
-    if (conversationIds.length) {
-      const { count } = await supabase
-        .from("messages")
-        .select("*", { count: "exact", head: true })
-        .in("conversation_id", conversationIds)
-        .neq("sender_id", user.id)
-        .is("read_at", null);
-      unreadMessageCount = count ?? 0;
-    }
     isPremium = isPremiumActive(profile);
   }
   // Logged-out visitors get the landing page's own conversion funnel
@@ -237,7 +217,7 @@ export default async function RootLayout({
         <PostHogProvider userId={user?.id ?? null}>
           <ToastProvider>
             <ServiceWorkerRegistration />
-            <NavBar isAuthed={!!user} unreadMessageCount={unreadMessageCount} unreadNotificationCount={unreadNotificationCount} />
+            <NavBar isAuthed={!!user} />
             {showPromoBanner && <PromoBanner />}
             {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
                 own bottom padding (see bottom-nav.tsx) -- otherwise page
