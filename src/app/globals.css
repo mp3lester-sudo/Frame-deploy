@@ -12,10 +12,19 @@
      as a very dark room with a wine tint rather than an actively red
      one. A spotlight glow (--spotlight, used in the body rule below)
      sits behind the top of each page, fading into this solid base. */
-  --background: #120708;
-  --surface: #1f0f13;
-  --surface-raised: #2a1519;
-  --spotlight: #34121a;
+  /* Rich black -- desaturated from the previous wine-red near-black
+     (#120708 was already RGB(18,7,8), i.e. nearly black with a red
+     undertone). This keeps roughly the same darkness but neutralizes
+     that undertone into a warm-neutral black, so the page reads as
+     genuinely black rather than "very dark wine". The spotlight glow
+     shifts from a wine-red cast to a warm amber one instead of going
+     fully neutral, so it still visually pairs with the gold accent
+     rather than competing with it -- the single-accent rule below is
+     unchanged, gold still does all the "this is special" work. */
+  --background: #0a0908;
+  --surface: #171512;
+  --surface-raised: #221f19;
+  --spotlight: #2b2216;
   --border: rgba(217, 184, 118, 0.18);
   --border-strong: rgba(217, 184, 118, 0.34);
   --foreground: #f2e9df;
