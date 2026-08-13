@@ -44,6 +44,15 @@ export interface CurrentWeather {
   code: number;
 }
 
+// Weather sits directly in the home page's blocking data-fetch path (see
+// src/app/page.tsx) -- it's a nice-to-have card, not something worth
+// making every single home page load wait on indefinitely. fetch() has no
+// default timeout of its own; without one, a slow or unreachable
+// Open-Meteo would hang for however long the platform's own function
+// timeout allows, which is a much worse failure mode than just... not
+// showing the weather card for a few seconds.
+const WEATHER_FETCH_TIMEOUT_MS = 2000;
+
 export async function getCurrentWeather(latitude: number, longitude: number): Promise<CurrentWeather | null> {
   try {
     const url = new URL("https://api.open-meteo.com/v1/forecast");
@@ -52,7 +61,10 @@ export async function getCurrentWeather(latitude: number, longitude: number): Pr
     url.searchParams.set("current", "temperature_2m,weather_code");
     url.searchParams.set("temperature_unit", "fahrenheit");
 
-    const res = await fetch(url, { next: { revalidate: 600 } }); // conditions don't need to be fetched more than every ~10 min
+    const res = await fetch(url, {
+      next: { revalidate: 600 }, // conditions don't need to be fetched more than every ~10 min
+      signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
+    });
     if (!res.ok) return null;
 
     const data = await res.json();
