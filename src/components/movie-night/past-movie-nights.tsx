@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "@/components/ui/fade-image";
-import { createMovieNight } from "@/lib/actions/movie-night";
 
 const STATUS_LABEL: Record<string, string> = {
   collecting: "Collecting picks",
@@ -34,23 +33,22 @@ export type PastNightRow = {
  * background (a plain surface tile for cancelled nights, which have no
  * poster) -- browsing your movie night history now looks like flipping
  * through a stack of posters instead of reading a table. "Start a movie
- * night" folds into this same grid as a dashed ghost tile rather than
- * living in the page header, since it's really just another tile in the
- * same collection, not a separate global action.
+ * night" lives in the page header (above the fold) rather than in this
+ * grid -- it needs to be visible without scrolling, not discovered at
+ * the bottom of a list that can run to dozens of past nights.
  */
 export function PastMovieNights({ nights }: { nights: PastNightRow[] }) {
   const [expanded, setExpanded] = useState(false);
+  if (!nights.length) return null;
 
   const visible = expanded ? nights : nights.slice(0, INITIAL_VISIBLE);
   const remaining = nights.length - visible.length;
 
   return (
-    <div className={nights.length ? "mt-8" : ""}>
-      {nights.length > 0 && (
-        <p className="mb-3 text-[10px] uppercase tracking-wider text-foreground-muted">
-          Past nights &middot; {nights.length}
-        </p>
-      )}
+    <div className="mt-8">
+      <p className="mb-3 text-[10px] uppercase tracking-wider text-foreground-muted">
+        Past nights &middot; {nights.length}
+      </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {visible.map((night) => (
           <Link
@@ -84,17 +82,6 @@ export function PastMovieNights({ nights }: { nights: PastNightRow[] }) {
             </div>
           </Link>
         ))}
-
-        <form action={createMovieNight} className="contents">
-          <button
-            type="submit"
-            className="bento-card flex aspect-[4/5] flex-col items-center justify-center gap-1.5 border-dashed text-accent transition-colors hover:border-accent/50"
-            style={{ borderStyle: "dashed" }}
-          >
-            <span className="text-2xl leading-none">+</span>
-            <span className="px-2 text-center text-[11px] font-medium leading-tight">Start a movie night</span>
-          </button>
-        </form>
       </div>
 
       {remaining > 0 && (

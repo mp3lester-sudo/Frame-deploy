@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { formatDistanceToNow } from "@/lib/date";
+import { createMovieNight } from "@/lib/actions/movie-night";
+import { Button } from "@/components/ui/button";
 import { NightHeroTile } from "@/components/movie-night/night-hero-tile";
 import { PastMovieNights, type PastNightRow } from "@/components/movie-night/past-movie-nights";
 
@@ -84,12 +86,19 @@ export default async function MovieNightListPage() {
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="font-section-heading mb-6 text-2xl">Movie night</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="font-section-heading text-2xl">Movie night</h1>
+        <form action={createMovieNight}>
+          <Button type="submit" size="sm">
+            Start a movie night
+          </Button>
+        </form>
+      </div>
 
       {!nights?.length && (
         <p className="mb-6 font-section-body text-sm text-foreground-muted">
-          No movie nights yet. Start one and invite friends by username -- Backlot will suggest
-          something everyone&apos;s taste agrees on.
+          No movie nights yet. Start one above and invite friends by username -- Backlot will
+          suggest something everyone&apos;s taste agrees on.
         </p>
       )}
 
