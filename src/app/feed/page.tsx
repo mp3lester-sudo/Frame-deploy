@@ -44,7 +44,7 @@ export default async function FeedPage() {
 
       <IndieBuzzStrip releases={indieReleases} news={indieNews} />
 
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-4 px-4 py-4 sm:px-5">
         {FAKE_POSTS.map((post) => (
           <PostCard key={post.id} post={post} />
         ))}
