@@ -95,7 +95,7 @@ export default async function NotificationsPage() {
           Nothing yet. Follows, comments, reactions, and Movie Night invites will show up here.
         </p>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="flex flex-col gap-2">
           {notifications.map((n) => {
             const actor = n.actor_id ? actorById.get(n.actor_id) : undefined;
             const titleName = n.title_id ? titleNameById.get(n.title_id) ?? null : null;
@@ -108,7 +108,7 @@ export default async function NotificationsPage() {
               <li key={n.id}>
                 <Link
                   href={href}
-                  className={`flex items-center gap-3 py-3 hover:bg-surface-raised ${unread ? "bg-surface-raised/40" : ""}`}
+                  className={`bento-card flex items-center gap-3 p-3 ${unread ? "border-accent/30" : ""}`}
                 >
                   <Avatar src={actor?.avatar_url} name={actorName} size={36} />
                   <div className="min-w-0 flex-1">

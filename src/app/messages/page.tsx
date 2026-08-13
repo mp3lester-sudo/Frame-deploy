@@ -55,12 +55,12 @@ export default async function MessagesPage() {
           No conversations yet — visit someone&apos;s profile and hit &ldquo;Message&rdquo; to start one.
         </p>
       ) : (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
           {rows.map((r) => (
             <Link
               key={r.conversationId}
               href={`/messages/${r.conversationId}`}
-              className="flex items-center gap-3 rounded-[var(--radius-md)] border border-border bg-surface p-3 hover:border-accent/50"
+              className="bento-card flex items-center gap-3 p-3"
             >
               <Avatar name={r.profile?.display_name ?? r.profile?.username ?? "?"} src={r.profile?.avatar_url} size={40} />
               <div className="min-w-0 flex-1">

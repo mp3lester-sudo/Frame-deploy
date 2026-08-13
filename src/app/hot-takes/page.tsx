@@ -66,42 +66,90 @@ export default async function HotTakesPage() {
             const profile = (review as unknown as { profiles: { username: string; avatar_url: string | null } | null }).profiles;
             const rating = ratingByReviewerAndTitle.get(`${review.user_id}|${review.title_id}`);
 
+            // Verdict ratio -- agree vs. disagree reaction counts rendered
+            // as a visual bar instead of two raw numbers, so the
+            // "controversy" that got a review onto this feed in the first
+            // place is legible at a glance. hot_take/need_to_watch
+            // reactions don't factor into agreement, only agree/disagree
+            // do (rankByControversy also weighs hot_take, but that signals
+            // "this take is spicy", not "here's the split").
+            const summary = reactionsByReview.get(reviewId);
+            const agreeCount = summary?.counts.agree ?? 0;
+            const disagreeCount = summary?.counts.disagree ?? 0;
+            const verdictTotal = agreeCount + disagreeCount;
+            const agreePct = verdictTotal > 0 ? Math.round((agreeCount / verdictTotal) * 100) : null;
+
             return (
-              // The title link and the review used to be two separate
-              // blocks stacked with no shared container — a poster/title
-              // row, then a totally distinct avatar/name row right below
-              // it. Wrapping both in one bordered card ties them together
-              // as "this review, about this movie, by this person" the way
-              // every other card-based screen in the app already reads.
-              <div key={reviewId} className="rounded-[var(--radius-lg)] border border-border bg-surface p-4">
+              // Verdict backdrop: the movie leads the card as a full-width
+              // poster wash instead of a 24px thumbnail buried in a text
+              // row, with a short pull-quote from the review overlaid
+              // marquee-style (skipped for spoiler-flagged reviews -- the
+              // full text still lives below, gated behind the existing
+              // reveal). The full ReviewCard renders underneath exactly as
+              // before; this backdrop is a preview layer on top of it, the
+              // same pattern the Social tab's photo posts already use.
+              <div key={reviewId} className="bento-card overflow-hidden">
                 {title && (
-                  <Link
-                    href={`/movie/${title.id}`}
-                    className="mb-3 flex items-center gap-2 text-sm text-foreground-muted hover:text-accent"
-                  >
-                    {title.poster_url && (
-                      <span className="relative block h-9 w-6 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-surface-raised">
-                        <Image src={title.poster_url} alt={title.name} fill className="object-cover" />
-                      </span>
+                  <div className="relative h-36 w-full overflow-hidden bg-surface-raised">
+                    {title.poster_url ? (
+                      <Image
+                        src={title.poster_url}
+                        alt={title.name}
+                        fill
+                        sizes="(min-width: 640px) 560px, 100vw"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="absolute inset-0"
+                        style={{ backgroundImage: "linear-gradient(140deg, #4a1f1f, #1c0d0d 55%, #0a0908)" }}
+                      />
                     )}
-                    {title.name}
-                  </Link>
+                    <div
+                      className="pointer-events-none absolute inset-0"
+                      style={{
+                        backgroundImage:
+                          "linear-gradient(0deg, rgba(10,9,8,0.94) 12%, rgba(10,9,8,0.15) 48%, rgba(10,9,8,0.45) 100%)",
+                      }}
+                    />
+                    <Link
+                      href={`/movie/${title.id}`}
+                      className="absolute left-3 top-3 text-[10px] font-medium uppercase tracking-wider text-accent hover:underline"
+                    >
+                      {title.name}
+                    </Link>
+                    {!review.contains_spoilers && (
+                      <p className="font-display absolute bottom-9 left-3 right-3 line-clamp-2 text-sm italic leading-snug text-foreground drop-shadow">
+                        &ldquo;{review.body}&rdquo;
+                      </p>
+                    )}
+                    {agreePct !== null && (
+                      <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-accent/20">
+                          <div className="h-full rounded-full bg-accent" style={{ width: `${agreePct}%` }} />
+                        </div>
+                        <span className="text-[10px] font-medium text-accent-soft">{agreePct}% agree</span>
+                      </div>
+                    )}
+                  </div>
                 )}
-                <ReviewCard
-                  reviewId={review.id}
-                  authorId={review.user_id}
-                  authorName={profile?.username ?? "Someone"}
-                  authorUsername={profile?.username}
-                  authorAvatarUrl={profile?.avatar_url}
-                  body={review.body}
-                  containsSpoilers={review.contains_spoilers}
-                  createdAt={review.created_at}
-                  rating={rating}
-                  reactions={reactionsByReview.get(review.id)}
-                  canReact={!!viewer}
-                  viewerId={viewer?.id ?? null}
-                  showComments={false}
-                />
+                <div className="p-4">
+                  <ReviewCard
+                    reviewId={review.id}
+                    authorId={review.user_id}
+                    authorName={profile?.username ?? "Someone"}
+                    authorUsername={profile?.username}
+                    authorAvatarUrl={profile?.avatar_url}
+                    body={review.body}
+                    containsSpoilers={review.contains_spoilers}
+                    createdAt={review.created_at}
+                    rating={rating}
+                    reactions={reactionsByReview.get(review.id)}
+                    canReact={!!viewer}
+                    viewerId={viewer?.id ?? null}
+                    showComments={false}
+                  />
+                </div>
               </div>
             );
           })}
