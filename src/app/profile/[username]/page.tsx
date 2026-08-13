@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Settings, Bookmark, ListChecks, Gift } from "lucide-react";
+import { Settings, Bookmark, ListChecks } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -23,7 +23,7 @@ import { isAuteurActive } from "@/lib/premium/tier";
 import { AnimatedCounter } from "@/components/profile/animated-counter";
 import { Reveal } from "@/components/profile/reveal";
 import { TiltCard } from "@/components/profile/tilt-card";
-import { computeTasteDna } from "@/lib/taste-dna/compute";
+import { computeTasteDna, computeWrapped } from "@/lib/taste-dna/compute";
 import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
 import { withTimeout } from "@/lib/with-timeout";
 import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
@@ -148,6 +148,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     isAuteur ? AUTEUR_MAX_ARCHETYPE_INSIGHTS : undefined
   );
   const signaturePickPromise = withTimeout(computeSignaturePick(profile.id), 10000, null);
+  // Wrapped preview card (own profile only -- see the rail below): kicked
+  // off here for the same reason as the other two -- runs concurrently
+  // with the big Promise.all rather than adding its own sequential round
+  // trip. "This year so far" mirrors the default the standalone /wrapped
+  // page itself shows before you page back through past years.
+  const wrappedPromise = isOwnProfile
+    ? computeWrapped(profile.id, new Date().getUTCFullYear())
+    : Promise.resolve(null);
 
   const [
     { count: followerCount },
@@ -212,7 +220,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     supabase.rpc("compute_cinema_score", { p_user_id: profile.id }).maybeSingle(),
   ]);
 
-  const [dna, signaturePick] = await Promise.all([dnaPromise, signaturePickPromise]);
+  const [dna, signaturePick, wrapped] = await Promise.all([dnaPromise, signaturePickPromise, wrappedPromise]);
 
   const favorites = (favoriteRows ?? [])
     .map((r) => (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] | null }).titles)
@@ -441,14 +449,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       )}
 
       {/* Self-service row, condensed to icons (was three stacked
-          full-width buttons, plus a separate poster-backed Wrapped
-          preview card above this) -- these are personal utility actions,
-          not profile content a visitor came to see, so they don't need
-          to compete for vertical space the way the DNA panel and Pyramid
-          do. Wrapped moved here as a plain link -- /wrapped already
-          handles its own "not enough ratings yet" empty state, so there's
-          no need to precompute a preview (and its own DB round trip)
-          just to decide whether to show a card or a placeholder. */}
+          full-width buttons) -- these are personal utility actions, not
+          profile content a visitor came to see, so they don't need to
+          compete for vertical space the way the DNA panel and Pyramid
+          do. Wrapped keeps its own fuller preview card below instead of
+          an icon here -- a plain icon undersold it next to the other
+          three, which are truly just links, not a whole feature. */}
       {isOwnProfile && (
         <div className="stagger-card mt-6 flex items-center justify-center gap-5" style={{ animationDelay: "500ms" }}>
           <Link href="/settings" aria-label="Edit profile" className="text-foreground-muted transition-colors hover:text-accent">
@@ -460,9 +466,55 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           <Link href="/lists" aria-label="Your lists" className="text-foreground-muted transition-colors hover:text-accent">
             <ListChecks size={20} />
           </Link>
-          <Link href="/wrapped" aria-label="Backlot Wrapped" className="text-foreground-muted transition-colors hover:text-accent">
-            <Gift size={20} />
-          </Link>
+        </div>
+      )}
+
+      {isOwnProfile && wrapped && (
+        // Wrapped preview: a real poster-backed card (not another icon in
+        // the row above) -- the favorite title's poster sits behind the
+        // year/stat line the same way a movie poster backs a festival
+        // program note, so this reads as a piece of the page's own layout
+        // rather than a plain navigation link. The whole card is the tap
+        // target. Placed below the icon row (reinstalled here after an
+        // earlier pass replaced it with just an icon).
+        <Link
+          href="/wrapped"
+          className="stagger-card group relative mt-6 block h-64 overflow-hidden rounded-[var(--radius-lg)] border border-glass-border"
+          style={{ animationDelay: "560ms" }}
+        >
+          {wrapped.favoriteTitle?.posterUrl && (
+            <Image
+              src={wrapped.favoriteTitle.posterUrl}
+              alt=""
+              fill
+              sizes="400px"
+              className="object-cover opacity-40 transition-transform duration-300 group-hover:scale-105"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
+          <div className="relative flex h-full flex-col justify-end gap-1.5 px-6 py-6">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+            <h3 className="font-display text-3xl">{wrapped.year} Recap</h3>
+            <p className="text-sm text-foreground-muted">
+              {wrapped.totalRated} title{wrapped.totalRated === 1 ? "" : "s"} rated
+              {wrapped.topGenres[0] ? ` · Mostly ${wrapped.topGenres[0].genre}` : ""}
+            </p>
+            <span className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent">
+              See your full Wrapped &rarr;
+            </span>
+          </div>
+        </Link>
+      )}
+
+      {isOwnProfile && !wrapped && (
+        <div
+          className="stagger-card mt-6 rounded-[var(--radius-lg)] border border-dashed border-glass-border bg-glass px-5 py-5 text-center backdrop-blur-sm"
+          style={{ animationDelay: "560ms" }}
+        >
+          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+          <p className="mt-1 text-sm text-foreground-muted">
+            Rate a few more titles this year and your Wrapped recap fills in here.
+          </p>
         </div>
       )}
     </div>
