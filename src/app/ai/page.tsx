@@ -133,27 +133,25 @@ export default function AskBacklotPage() {
           left visible always rather than conditionally rendered -- someone
           typing "movies like Jaws" hasn't submitted yet when they'd want to
           already have this set correctly. */}
-      <div className="mt-3 flex items-center justify-center gap-2">
+      <div className="mt-4 flex items-center justify-center gap-3">
         <button
           type="button"
           role="switch"
           aria-checked={matchEra}
           onClick={() => setMatchEra((v) => !v)}
-          className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+          className={`inline-flex h-6 w-11 flex-none items-center rounded-full border border-transparent p-0.5 transition-colors ${
             matchEra ? "bg-accent" : "bg-border"
           }`}
         >
           <span
-            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
-              matchEra ? "translate-x-4" : "translate-x-0.5"
+            className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${
+              matchEra ? "translate-x-5" : "translate-x-0"
             }`}
           />
         </button>
-        <span className="text-xs text-foreground-muted">
-          Match the era of movies I mention{" "}
-          <span className="text-foreground-muted/60">
-            ({matchEra ? "on — stays close to that decade" : "off — any year"})
-          </span>
+        <span className="text-xs leading-tight text-foreground-muted">
+          Match the era of movies I mention
+          <span className="text-foreground-muted/60"> ({matchEra ? "on" : "off"})</span>
         </span>
       </div>
 
