@@ -12,10 +12,10 @@
      as a very dark room with a wine tint rather than an actively red
      one. A spotlight glow (--spotlight, used in the body rule below)
      sits behind the top of each page, fading into this solid base. */
-  --background: #100609;
-  --surface: #1e0f15;
-  --surface-raised: #2b1620;
-  --spotlight: #371326;
+  --background: #120708;
+  --surface: #1f0f13;
+  --surface-raised: #2a1519;
+  --spotlight: #34121a;
   --border: rgba(217, 184, 118, 0.18);
   --border-strong: rgba(217, 184, 118, 0.34);
   --foreground: #f2e9df;
@@ -25,16 +25,16 @@
      matched" — ratings, matches, the wordmark, active states. Warm foil
      gold. Paired with --accent-gradient for foil/sheen treatments on the
      wordmark and primary CTAs. */
-  --accent: #e0be82;
-  --accent-soft: #edd6a3;
-  --accent-deep: #ab8944;
+  --accent: #d9b876;
+  --accent-soft: #e8cf99;
+  --accent-deep: #a9863f;
   --accent-foreground: #2a0f14;
   --accent-gradient: linear-gradient(
     135deg,
-    #f6e7c0 0%,
-    #e0be82 32%,
-    #ab8944 68%,
-    #edd6a3 100%
+    #f3e3b8 0%,
+    #d9b876 32%,
+    #a9863f 68%,
+    #e8cf99 100%
   );
 
   --success: #4ade80;
@@ -679,29 +679,39 @@ html.consent-decided .cookie-consent-banner {
   background-image: var(--accent-gradient);
 }
 
-/* Modernization pass: frosted glass "bento" card surface, used for the
-   secondary/demoted-zone cards on the home page (Movie Night quick-
-   start, circle feed items, Hidden Gem) instead of the flat
-   --surface/--border fill those used before. Distinct from the shared
-   <Card> component in ui/card.tsx on purpose -- Card is used ~40 places
-   across the whole app and stays untouched, so this only changes the
-   handful of home-page spots that opt into it explicitly. */
-.bento-card {
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--glass-border);
-  background-color: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: var(--glass-shadow);
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-}
-.bento-card:hover {
-  background-color: var(--glass-bg-hover);
-  border-color: var(--border-strong);
-}
-a.bento-card:hover,
-button.bento-card:hover {
-  transform: translateY(-2px);
+/* Modernization pass: frosted glass "bento" card surface. Originally
+   scoped to the home page's secondary cards, now also the base style
+   for the shared <Card> component (ui/card.tsx), so most of the app
+   picks it up.
+
+   Wrapped in @layer components on purpose: Tailwind v4's own utility
+   classes are emitted inside @layer utilities, and per the CSS Cascade
+   Layers spec, unlayered rules always beat *any* layered rule regardless
+   of source order or specificity. Every other custom class in this file
+   sits outside any @layer, so it already always wins over a Tailwind
+   utility applied alongside it -- harmless for one-off decorative
+   classes, but this one needs to lose to per-instance utility overrides
+   (e.g. <Card className="border-accent/50">). @layer components sits
+   before @layer utilities in Tailwind's declared layer order, so a
+   plain utility class now correctly overrides this. */
+@layer components {
+  .bento-card {
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--glass-border);
+    background-color: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--glass-shadow);
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+  .bento-card:hover {
+    background-color: var(--glass-bg-hover);
+    border-color: var(--border-strong);
+  }
+  a.bento-card:hover,
+  button.bento-card:hover {
+    transform: translateY(-2px);
+  }
 }
 
 

@@ -35,8 +35,10 @@ export function CircleFeed({ items }: { items: CircleEvent[] }) {
           const name = item.profiles?.username ?? "Someone";
           const copy = EVENT_COPY[item.event_type]?.(name, item.titles?.name ?? "a title") ?? "New activity";
           const username = item.profiles?.username;
+          // Card itself is glass by default now (see ui/card.tsx) -- no
+          // extra override classes needed here anymore.
           return (
-            <Card key={item.id} className="bento-card flex items-center gap-3 rounded-[var(--radius-xl)] border-glass-border bg-glass p-4">
+            <Card key={item.id} className="flex items-center gap-3">
               {username ? (
                 <Link href={`/profile/${username}`} className="shrink-0 hover:opacity-80">
                   <Avatar name={name} src={item.profiles?.avatar_url} size={36} />

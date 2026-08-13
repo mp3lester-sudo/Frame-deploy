@@ -387,7 +387,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           boxed tiles, reading like the torn perforation on a real
           admission ticket rather than a generic stats card grid. */}
       <div
-        className="stagger-card flex divide-x divide-dashed divide-border rounded-[var(--radius-md)] border border-dashed border-border pt-5 pb-4"
+        className="stagger-card flex divide-x divide-dashed divide-glass-border rounded-[var(--radius-md)] border border-dashed border-glass-border bg-glass pt-5 pb-4 backdrop-blur-sm"
         style={{ animationDelay: "440ms" }}
       >
         <div className="flex-1 px-2 text-center">
@@ -420,7 +420,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         // is the tap target.
         <Link
           href="/wrapped"
-          className="stagger-card group relative mt-6 block h-64 overflow-hidden rounded-[var(--radius-lg)] border border-border"
+          className="stagger-card group relative mt-6 block h-64 overflow-hidden rounded-[var(--radius-lg)] border border-glass-border"
           style={{ animationDelay: "480ms" }}
         >
           {wrapped.favoriteTitle?.posterUrl && (
@@ -449,7 +449,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
 
       {isOwnProfile && !wrapped && (
         <div
-          className="stagger-card mt-6 rounded-[var(--radius-lg)] border border-dashed border-border px-5 py-5 text-center"
+          className="stagger-card mt-6 rounded-[var(--radius-lg)] border border-dashed border-glass-border bg-glass px-5 py-5 text-center backdrop-blur-sm"
           style={{ animationDelay: "480ms" }}
         >
           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
@@ -470,14 +470,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           </Link>
           <Link
             href="/watchlist"
-            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-glass-border bg-glass px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-foreground-muted backdrop-blur-sm transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:bg-glass-hover hover:text-foreground"
             style={{ animationDelay: "600ms" }}
           >
             Watchlist
           </Link>
           <Link
             href="/lists"
-            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-border px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-foreground-muted transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:text-foreground"
+            className="stagger-card shine-hover rounded-[var(--radius-full)] border border-glass-border bg-glass px-3.5 py-2 text-center text-sm font-medium uppercase tracking-wide text-foreground-muted backdrop-blur-sm transition-transform duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:bg-glass-hover hover:text-foreground"
             style={{ animationDelay: "650ms" }}
           >
             Your lists
@@ -580,7 +580,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           breakdown reads as broken, not "not enough data yet." */}
       {dna.sampleSize >= MIN_SAMPLE_SIZE && (
         <Reveal>
-          <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border">
+          <div className="bento-card relative overflow-hidden">
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               <div className="mb-6 text-center">
                 <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
@@ -740,7 +740,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               reason to exist — it's the panel's padding, not dead air —
               and widening the panel lets every tile scale up with it. */}
           <div
-            className={`relative overflow-hidden rounded-[var(--radius-lg)] border border-border ${theme.showMotif ? "candle-flicker-panel" : ""}`}
+            className={`relative overflow-hidden rounded-[var(--radius-lg)] border border-glass-border ${theme.showMotif ? "candle-flicker-panel" : ""}`}
           >
             <div
               className="breathe-glow pointer-events-none absolute inset-0"
