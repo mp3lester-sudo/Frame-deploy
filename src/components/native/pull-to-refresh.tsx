@@ -120,7 +120,23 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
         setActive(false);
         setRefreshing(true);
         setPull(REFRESH_HOLD);
-        window.setTimeout(() => window.location.reload(), REFRESH_DELAY_MS);
+        window.setTimeout(() => {
+          // Plain location.reload() asks WKWebView to reload the current
+          // navigation entry, and WKWebView's own on-disk cache can serve
+          // that back even when the server sent Cache-Control: no-store --
+          // a real, documented WKWebView quirk, not just an ordinary
+          // browser cache that a normal reload always busts. Rewriting
+          // the URL with a cache-busting query param forces this to be a
+          // genuinely new resource as far as any cache is concerned, so a
+          // deploy that's already live server-side is guaranteed to
+          // actually show up here instead of silently reloading the same
+          // stale response. replace() (not assigning href) so this
+          // doesn't grow the back-forward history with a stack of
+          // otherwise-identical refresh entries.
+          const url = new URL(window.location.href);
+          url.searchParams.set("_r", Date.now().toString());
+          window.location.replace(url.toString());
+        }, REFRESH_DELAY_MS);
       } else {
         setActive(false);
         setPull(0);
