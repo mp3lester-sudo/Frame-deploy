@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, Sparkles, Users, Compass, User, Clapperboard, Settings, Mail, Bell, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getNavBadgeCounts } from "@/lib/actions/nav-badges";
@@ -11,13 +11,6 @@ import { getNavBadgeCounts } from "@/lib/actions/nav-badges";
 // fresh (a new DM or notification shows up within a minute) without
 // putting a DB round trip back on the critical path of every click.
 const BADGE_POLL_MS = 60_000;
-
-/** How long the nav bar stays visible with no scroll/mouse/touch/key
-    activity before it slides away. Long enough that a person reading a
-    long description doesn't get it yanked away mid-thought, short enough
-    that it actually reclaims screen space rather than always sitting
-    there like an ordinary sticky header. */
-const IDLE_HIDE_MS = 4000;
 
 // Backlot DNA no longer gets its own persistent nav entry -- it now
 // lives inline on the profile page (see profile/[username]/page.tsx),
@@ -46,9 +39,6 @@ const links = [
 ];
 
 export function NavBar({ isAuthed }: { isAuthed: boolean }) {
-  const [hidden, setHidden] = useState(false);
-  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // Badge counts are fetched client-side, after the page has already
   // painted, instead of being awaited server-side in the root layout that
   // wraps every route (see src/lib/actions/nav-badges.ts for why) --
@@ -75,34 +65,6 @@ export function NavBar({ isAuthed }: { isAuthed: boolean }) {
     };
   }, [isAuthed]);
 
-  useEffect(() => {
-    function wake() {
-      setHidden(false);
-      if (idleTimer.current) clearTimeout(idleTimer.current);
-      idleTimer.current = setTimeout(() => setHidden(true), IDLE_HIDE_MS);
-    }
-
-    // Start hidden-after-idle from first paint, not just after the first
-    // interaction — a page nobody touches should still tuck the nav away.
-    wake();
-
-    // scroll/touchmove are passive since we never preventDefault; that
-    // keeps this listener from adding scroll-jank on any page.
-    const events: Array<[string, AddEventListenerOptions?]> = [
-      ["scroll", { passive: true }],
-      ["mousemove", { passive: true }],
-      ["touchstart", { passive: true }],
-      ["touchmove", { passive: true }],
-      ["keydown"],
-      ["click"],
-    ];
-    for (const [event, opts] of events) window.addEventListener(event, wake, opts);
-    return () => {
-      for (const [event] of events) window.removeEventListener(event, wake);
-      if (idleTimer.current) clearTimeout(idleTimer.current);
-    };
-  }, []);
-
   return (
     <header
       className={cn(
@@ -121,9 +83,13 @@ export function NavBar({ isAuthed }: { isAuthed: boolean }) {
         // safe-area inset (0 in every browser and on non-notched
         // devices, since env() with no matching hardware just resolves
         // to 0) on top of the normal pt-3 rather than replacing it.
-        "nav-bar-header sticky top-0 z-40 px-3 transition-transform duration-300 ease-in-out",
-        "pt-[calc(env(safe-area-inset-top)+0.75rem)]",
-        hidden ? "-translate-y-full" : "translate-y-0"
+        //
+        // Reverted the idle-hide behavior (used to slide up and vanish
+        // after 4s of no scroll/mouse/touch/key activity) -- always
+        // visible now, back to an ordinary sticky header. No transform
+        // or transition needed for that anymore.
+        "nav-bar-header sticky top-0 z-40 px-3",
+        "pt-[calc(env(safe-area-inset-top)+0.75rem)]"
       )}
     >
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-glass-border bg-glass px-5 shadow-[var(--glass-shadow)] backdrop-blur-xl">
