@@ -118,6 +118,36 @@
   --font-section-body: var(--font-ibm-plex-sans);
 }
 
+/* App-wide smoothness pass. None of this is a single dramatic fix -- it's
+   several small sources of perceived lag that stack up on every single
+   tap/scroll across the whole app, most of them invisible individually
+   but very noticeable in aggregate (this is exactly the kind of thing
+   that reads as "the app feels laggy" without pointing at any one
+   screen). */
+html {
+  /* Mobile WebKit (both mobile Safari and this app's own WKWebView
+     shell) waits ~300ms after every tap before firing click, purely to
+     see whether a second tap is coming (double-tap-to-zoom). This app
+     has no pinch-zoom UI worth preserving that delay for -- every button,
+     link, and card is meant to respond the instant it's tapped.
+     touch-action: manipulation is the standard way to opt out of that
+     wait without disabling scrolling or pinch-zoom entirely. This alone
+     is the single biggest "why does every tap feel a little slow"
+     across the whole app. */
+  touch-action: manipulation;
+  /* WebKit's default tap state is a flat gray flash over whatever was
+     tapped -- fights every custom hover/active state already built
+     throughout the app (button color shifts, card lifts, etc.) by
+     briefly painting over them. Every interactive element already has
+     its own tap feedback, so the default one is pure visual noise on
+     top of it. */
+  -webkit-tap-highlight-color: transparent;
+  /* Sharper text rendering, especially small uppercase tracking-wide
+     labels (section headers, badges) on retina displays. */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
 body {
   /* Spotlight glow at the top of the page, fading into the solid velvet
      background below it — same treatment behind every page's header,
@@ -128,6 +158,15 @@ body {
   background-repeat: no-repeat;
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+  /* Suppresses the native rubber-band bounce/glow at the very top and
+     bottom of the page. In the native iOS app specifically this used to
+     visibly fight PullToRefresh's own custom drag animation (see
+     pull-to-refresh.tsx) -- two different "the page is stretching"
+     motions layered on top of each other for the same gesture. The
+     custom pull gesture is the intended replacement for the native
+     bounce, not an addition to it. Harmless on desktop/other browsers
+     where a plain scroll just scrolls. */
+  overscroll-behavior-y: none;
 }
 
 /* The literal "spelled out in marquee light bulbs" look (see the home
