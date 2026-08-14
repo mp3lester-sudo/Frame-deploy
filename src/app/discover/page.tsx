@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isPremiumActive } from "@/lib/premium/is-premium";
@@ -93,6 +94,34 @@ function FilterRail({
   );
 }
 
+/** Full recommendation-engine call (content scoring, diversification, the
+ *  whole pipeline) -- deliberately its own async component so it can sit
+ *  behind a Suspense boundary instead of blocking the rest of the page.
+ *  See the comment in DiscoverPage for why. getSwipeDeck() already
+ *  no-ops (returns []) for a logged-out viewer, but the page only renders
+ *  this behind `{viewer && ...}` anyway so that path never actually runs
+ *  here. */
+async function SwipeDeckSection() {
+  const swipeDeck = await getSwipeDeck();
+  if (swipeDeck.length === 0) return null;
+  return (
+    <div className="mb-6">
+      <SwipeRecsCard initialDeck={swipeDeck} />
+    </div>
+  );
+}
+
+/** Matches SwipeRecsCard's own compact (non-fullscreen) card proportions
+ *  closely enough that there's no layout jump when the real deck streams
+ *  in and replaces this. */
+function SwipeDeckSkeleton() {
+  return (
+    <div className="mb-6">
+      <div className="skeleton h-64 w-full rounded-[var(--radius-lg)] sm:h-72" />
+    </div>
+  );
+}
+
 export default async function DiscoverPage({
   searchParams,
 }: {
@@ -102,25 +131,35 @@ export default async function DiscoverPage({
   const supabase = await createClient();
   const viewer = await getVerifiedUser();
 
-  // Advanced filters (era/pacing/tone/mood) are a Premium perk — checked
-  // server-side, not just hidden in the UI, so the URL params below can't be
-  // hand-edited to unlock them for a free account. See CLAUDE.md's product
-  // principles and /premium.
-  const { data: profile } = viewer
-    ? await supabase.from("profiles").select("is_premium, premium_tier, bonus_premium_until").eq("id", viewer.id).maybeSingle()
-    : { data: null };
+  // Profile (for the Premium filter gate) and saved presets don't depend on
+  // each other -- fetching them one after another used to add a second
+  // round trip to Supabase before this page could even start building the
+  // titles query below. The swipe deck used to be a third sequential await
+  // right here too (running the *entire* recommendation engine -- easily
+  // the single slowest thing on this page), which meant every tap into
+  // Discover sat on a blank/skeleton screen for however long content-based
+  // scoring + diversification took, even though the deck is a small,
+  // visually self-contained card near the top rather than "the page." It's
+  // rendered in its own Suspense boundary below now instead (see
+  // SwipeDeckSection) -- the filter rail and title grid can paint the
+  // moment their own data is ready instead of waiting on the slowest thing
+  // on the page.
+  let profile: { is_premium: boolean | null; premium_tier: string | null; bonus_premium_until: string | null } | null = null;
+  let presets: Awaited<ReturnType<typeof getMyDiscoverPresets>> = [];
+  if (viewer) {
+    // Advanced filters (era/pacing/tone/mood) are a Premium perk -- checked
+    // server-side, not just hidden in the UI, so the URL params below can't
+    // be hand-edited to unlock them for a free account. See CLAUDE.md's
+    // product principles and /premium.
+    const [profileResult, presetsResult] = await Promise.all([
+      supabase.from("profiles").select("is_premium, premium_tier, bonus_premium_until").eq("id", viewer.id).maybeSingle(),
+      getMyDiscoverPresets(),
+    ]);
+    profile = profileResult.data;
+    presets = presetsResult;
+  }
   const isPremium = isPremiumActive(profile);
   const isAuteur = isAuteurActive(profile);
-  // Only fetched for signed-in accounts -- getMyDiscoverPresets already
-  // no-ops without a session, but skipping the call entirely for the
-  // logged-out landing case avoids an extra round trip on the page most
-  // likely to be hit by anonymous traffic.
-  const presets = viewer ? await getMyDiscoverPresets() : [];
-  // Only signed-in viewers get a taste vector (or at least watch history)
-  // to build a deck from -- dismiss/watchlist also both require auth --
-  // so this is skipped entirely for the logged-out landing case, same
-  // reasoning as presets above.
-  const swipeDeck = viewer ? await getSwipeDeck() : [];
 
   const effectiveEra = isPremium ? era : undefined;
   const effectivePacing = isPremium ? pacing : undefined;
@@ -171,10 +210,10 @@ export default async function DiscoverPage({
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="font-section-heading mb-4 text-2xl">Discover</h1>
 
-      {swipeDeck.length > 0 && (
-        <div className="mb-6">
-          <SwipeRecsCard initialDeck={swipeDeck} />
-        </div>
+      {viewer && (
+        <Suspense fallback={<SwipeDeckSkeleton />}>
+          <SwipeDeckSection />
+        </Suspense>
       )}
 
       {isAuteur && (
