@@ -268,6 +268,7 @@ export default async function HomePage({
     document.documentElement.classList.add('intro-shown');
   } else {
     localStorage.setItem('backlot:cinematic-intro-shown-at', String(now));
+    window.__introWillPlay = true;
   }
 
   var splashAt = localStorage.getItem('backlot:greeting-splash-shown-at');
@@ -310,9 +311,19 @@ export default async function HomePage({
               (higher-res re-sourced footage) after an earlier pass had
               to use object-contain to avoid a blurry portrait-screen
               crop. */}
-          <video autoPlay muted loop playsInline className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)", objectPosition: "center 25%" }}>
-            <source src="/videos/onboarding-intro.mp4" type="video/mp4" />
-          </video>
+          {/* No autoPlay/<source> in the initial markup, and preload="none"
+              on top of that -- a <video autoPlay> element starts the
+              browser's resource-fetch algorithm the instant it's parsed,
+              completely independent of the html.intro-shown CSS class
+              that (later) sets display:none on its container. Before this
+              fix, that meant every single Home page load fetched this
+              2MB video in full, even on the ~29 of every 30 minutes the
+              intro isn't actually going to play. The tap-zone script
+              right below now sets .src and calls .play() itself, but
+              only when window.__introWillPlay was actually set above --
+              so the browser only ever fetches this at all on a genuine
+              fresh-session load. */}
+          <video id="cinematic-intro-video-el" muted loop playsInline preload="none" className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)", objectPosition: "center 25%" }} />
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
           <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.85) 100%)" }} />
           <div className="onboarding-intro-grain absolute inset-0" />
@@ -333,6 +344,17 @@ export default async function HomePage({
     tz.addEventListener('click', function () {
       document.documentElement.classList.add('cinematic-intro-dismissed');
     }, { once: true });
+  }
+  if (window.__introWillPlay) {
+    var v = document.getElementById('cinematic-intro-video-el');
+    if (v) {
+      var s = document.createElement('source');
+      s.src = '/videos/onboarding-intro.mp4';
+      s.type = 'video/mp4';
+      v.appendChild(s);
+      v.load();
+      v.play().catch(function () {});
+    }
   }
 } catch (e) {}`,
         }}

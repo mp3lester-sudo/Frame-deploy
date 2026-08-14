@@ -99,12 +99,6 @@
      "your year in film" moment reads like it's set in the same
      marquee-logotype voice as the brand itself. */
   --font-hollywood: var(--font-bebas);
-  /* Base letterforms for the greeting's first name specifically — the
-     actual "row of light bulbs" look comes from the .marquee-bulbs
-     dot-fill below, not from this font alone. Superseded as the default
-     treatment by --font-greeting (Syne) below; kept only for the themed
-     Godfather-style marquee look if that's ever revived deliberately. */
-  --font-marquee: var(--font-monoton);
   /* Default treatment for the home page greeting's first name -- bold,
      minimal geometric sans. Overridden per-user by a poster-matched font
      (see lib/poster-font) whenever their most recently reviewed/watched

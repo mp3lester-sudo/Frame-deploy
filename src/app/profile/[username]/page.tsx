@@ -555,6 +555,17 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                     fill
                     className="object-cover object-top"
                     sizes="400px"
+                    // This banner collage is the actual LCP element on
+                    // every profile page visit (top of page, immediately
+                    // below the nav) -- without priority, Next.js
+                    // defaults every one of these to loading="lazy",
+                    // which delays LCP discovery until well after initial
+                    // layout instead of preloading it. Capped at the
+                    // first 3 tiles (not the full up-to-6-image row) per
+                    // Next's own guidance against marking too many images
+                    // priority on one page, which would have them compete
+                    // for bandwidth instead of helping.
+                    priority={i < 3}
                   />
                 </div>
               )

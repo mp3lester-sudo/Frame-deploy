@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { siteOrigin, SITE_NAME, SITE_DESCRIPTION } from "@/lib/seo/site";
-import { Geist, Geist_Mono, Instrument_Serif, Bebas_Neue, Monoton, Cinzel, Big_Shoulders, IBM_Plex_Sans, Syne } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif, Bebas_Neue, Cinzel, Big_Shoulders, IBM_Plex_Sans, Syne } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -56,15 +56,6 @@ const bebasNeue = Bebas_Neue({
 const cinzel = Cinzel({
   variable: "--font-cinzel",
   subsets: ["latin"],
-});
-
-// Glowing, double-stroke neon-tube lettering, filled with a dotted
-// "row of light bulbs" texture (see .marquee-bulbs in globals.css) --
-// reserved for the greeting's first name specifically.
-const monoton = Monoton({
-  variable: "--font-monoton",
-  subsets: ["latin"],
-  weight: "400",
 });
 
 // Bold condensed poster-title sans + a clean editorial-grotesque body --
@@ -190,7 +181,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${monoton.variable} ${cinzel.variable} ${bigShouldersDisplay.variable} ${ibmPlexSans.variable} ${syne.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${cinzel.variable} ${bigShouldersDisplay.variable} ${ibmPlexSans.variable} ${syne.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {/* Synchronous, runs during HTML parsing before React hydrates --
