@@ -83,6 +83,19 @@ export function PullToRefresh() {
   if (!active && !refreshing) return null;
 
   const ready = pull >= PULL_THRESHOLD || refreshing;
+  // Starts off-screen (-32px, above the safe-area-inset anchor below) and
+  // slides down 1:1 with the drag rather than just fading in in place --
+  // reads as something being physically pulled out from behind the status
+  // bar, the standard pull-to-refresh feel, instead of a badge that pops
+  // into existence partway down the screen.
+  const progress = Math.min(pull / PULL_THRESHOLD, 1);
+  const travel = refreshing ? 0 : -32 + 32 * progress;
+  // Spins continuously through the whole gesture (not just once armed/
+  // released) -- the "spiral" motion itself is the feedback that the
+  // gesture has been picked up, same as pulling a real refresh cranks a
+  // wheel the entire time your finger moves rather than snapping into a
+  // spin only at the end.
+  const spinDurationMs = refreshing ? 700 : Math.max(2200 - progress * 1800, 400);
 
   return (
     <div
@@ -90,14 +103,34 @@ export function PullToRefresh() {
       style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}
     >
       <div
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-gold-foil shadow-lg backdrop-blur transition-transform"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-gold-foil shadow-lg backdrop-blur"
         style={{
-          transform: `translateY(${Math.min(pull, MAX_PULL) * 0.6}px) scale(${ready ? 1 : 0.85})`,
-          opacity: Math.min(pull / PULL_THRESHOLD, 1),
+          transform: `translateY(${travel}px) scale(${ready ? 1 : 0.85})`,
+          opacity: progress,
+          transition: isDraggingTransition(refreshing),
         }}
       >
-        <RotateCw size={16} className={refreshing ? "animate-spin" : ""} />
+        <RotateCw
+          size={16}
+          style={{
+            animation: `pull-refresh-spin ${spinDurationMs}ms linear infinite`,
+          }}
+        />
       </div>
+      <style>{`
+        @keyframes pull-refresh-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
+}
+
+function isDraggingTransition(refreshing: boolean) {
+  // No transition while actively being dragged (handled by the pointer/
+  // touch handler updating `pull` every frame already) -- only ease once
+  // it's released and either springing back or settling into the fixed
+  // "refreshing" position.
+  return refreshing ? "transform 200ms ease-out" : "none";
 }

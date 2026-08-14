@@ -135,7 +135,7 @@ export async function getRecommendationsForUser(
   // (something_short's runtime cap), so ranking needs a wide enough pool
   // that a hard exclusion doesn't leave the final list short.
   const CANDIDATE_POOL_MULTIPLIER = 6;
-  const [{ data: contentMatches }, { data: userRatings }] = await Promise.all([
+  const [{ data: contentMatches }, { data: userRatings }, { data: dismissals }] = await Promise.all([
     // The only candidate/scoring source: cosine similarity between this
     // user's own taste vector and every title's embedding. See the
     // function doc comment above for why the two collaborative-filtering
@@ -149,12 +149,21 @@ export async function getRecommendationsForUser(
     // ratings query, not the RPC above, since this needs the user's own
     // raw scores + genres, not a similarity metric.
     supabase.from("ratings").select("score, title_id").eq("user_id", userId),
+    // "Don't recommend again" (swipe deck on Discover, migration 0066) --
+    // a hard exclusion from the candidate pool entirely, not a scoring
+    // penalty like dislike-penalty.ts below. Rating something low still
+    // means "I saw this and it wasn't for me, but I don't mind being
+    // reminded it exists"; dismissing means "stop showing me this,"
+    // which only a full exclusion actually honors.
+    supabase.from("title_dismissals").select("title_id").eq("user_id", userId),
   ]);
 
   const ratedTitleIds = [...new Set((userRatings ?? []).map((r) => r.title_id))];
+  const dismissedTitleIds = new Set((dismissals ?? []).map((d) => d.title_id));
 
   const blended = new Map<string, number>();
   for (const m of contentMatches ?? []) {
+    if (dismissedTitleIds.has(m.title_id)) continue;
     blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity);
   }
 
@@ -400,8 +409,15 @@ async function getColdStartRecommendations(
   // No taste vector yet doesn't mean no watch history — a user who's rated
   // a couple of things but not enough to seed a vector, or who's mid-import,
   // still shouldn't see something they've already logged.
-  const { data: watched } = await supabase.from("watch_history").select("title_id").eq("user_id", userId);
+  const [{ data: watched }, { data: dismissals }] = await Promise.all([
+    supabase.from("watch_history").select("title_id").eq("user_id", userId),
+    // Same "don't recommend again" exclusion as the warm-start path above
+    // -- a cold-start user can still swipe through the deck before
+    // they've rated enough to get a taste vector.
+    supabase.from("title_dismissals").select("title_id").eq("user_id", userId),
+  ]);
   const watchedIds = new Set((watched ?? []).map((w) => w.title_id));
+  const dismissedIds = new Set((dismissals ?? []).map((d) => d.title_id));
 
   // Cold start still respects a hard context constraint (something_short's
   // runtime cap) — no taste signal yet, but "give me something short" is a
@@ -417,7 +433,7 @@ async function getColdStartRecommendations(
     .limit((limit + watchedIds.size) * 4);
 
   const filtered = (titles ?? []).filter(
-    (t) => !watchedIds.has(t.id) && (context ? contextMultiplier(t, context) !== null : true)
+    (t) => !watchedIds.has(t.id) && !dismissedIds.has(t.id) && (context ? contextMultiplier(t, context) !== null : true)
   );
   const picks = filtered.slice(0, limit);
 

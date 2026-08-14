@@ -11,6 +11,8 @@ import { SavedFilterPresets } from "@/components/discover/saved-filter-presets";
 import { DISCOVER_PAGE_SIZE } from "@/lib/constants/catalogue";
 import { ERA_DECADES, PACING_OPTIONS, TONE_OPTIONS, MOOD_OPTIONS } from "@/lib/constants/discover-filters";
 import { PremiumUpsell } from "@/components/premium-upsell";
+import { SwipeRecsCard } from "@/components/discover/swipe-recs-card";
+import { getSwipeDeck } from "@/lib/actions/swipe-recs";
 
 /**
  * `value` must match the genre string TMDB (and our `titles.genres` column)
@@ -114,6 +116,11 @@ export default async function DiscoverPage({
   // logged-out landing case avoids an extra round trip on the page most
   // likely to be hit by anonymous traffic.
   const presets = viewer ? await getMyDiscoverPresets() : [];
+  // Only signed-in viewers get a taste vector (or at least watch history)
+  // to build a deck from -- dismiss/watchlist also both require auth --
+  // so this is skipped entirely for the logged-out landing case, same
+  // reasoning as presets above.
+  const swipeDeck = viewer ? await getSwipeDeck() : [];
 
   const effectiveEra = isPremium ? era : undefined;
   const effectivePacing = isPremium ? pacing : undefined;
@@ -163,6 +170,12 @@ export default async function DiscoverPage({
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="font-section-heading mb-4 text-2xl">Discover</h1>
+
+      {swipeDeck.length > 0 && (
+        <div className="mb-6">
+          <SwipeRecsCard initialDeck={swipeDeck} />
+        </div>
+      )}
 
       {isAuteur && (
         <SavedFilterPresets presets={presets} current={{ genre, era, pacing, tone, mood }} />

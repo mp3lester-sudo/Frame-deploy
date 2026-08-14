@@ -153,6 +153,12 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      title_dismissals: {
+        Row: { id: string; user_id: string; title_id: string; dismissed_at: string };
+        Insert: { user_id: string; title_id: string; dismissed_at?: string };
+        Update: never;
+        Relationships: [];
+      };
       review_reactions: {
         Row: { review_id: string; user_id: string; reaction: string; created_at: string };
         Insert: { review_id: string; user_id: string; reaction: string };
