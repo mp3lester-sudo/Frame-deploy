@@ -62,14 +62,26 @@ export function BackdropHero({
               16:9 height (56.25vw) and centering it always yields a height
               taller than this box, so the parent's overflow-hidden crops
               the vertical excess instead of letterboxing or squashing the
-              video the way a plain inset-0 fill would. */}
+              video the way a plain inset-0 fill would.
+
+              controls=0 (missing before -- the bug) strips YouTube's own
+              play/pause bar, scrubber, volume, and fullscreen button
+              entirely, on both web and the iOS app's WKWebView; disablekb
+              and fs=0 close off the keyboard- and fullscreen-button paths
+              to the same chrome; iv_load_policy=3 suppresses annotation
+              cards. pointer-events-none on top of all that (same pattern
+              already used for the onboarding swipe deck's trailer embeds
+              in onboarding-swipe.tsx) means the video can never register
+              a tap/click at all, so there's no way to summon YouTube's
+              native UI even momentarily -- the two buttons layered on top
+              (mute, close) are the only things in this hero a person can
+              actually interact with. */}
           <iframe
             ref={iframeRef}
-            className="absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] -translate-x-1/2 -translate-y-1/2 border-0"
-            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1`}
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] -translate-x-1/2 -translate-y-1/2 border-0"
+            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1&controls=0&disablekb=1&fs=0&iv_load_policy=3`}
             title={`${title} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
           />
           {/* Bottom fade so the hard edge at the base of the hero (very
               visible on high-contrast trailer intros -- rating cards,

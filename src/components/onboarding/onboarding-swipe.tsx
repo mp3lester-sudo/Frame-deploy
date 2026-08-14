@@ -393,7 +393,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
         {current.trailerKey ? (
           <iframe
             className="pointer-events-none absolute left-1/2 top-1/2 h-full w-auto min-w-full aspect-video -translate-x-1/2 -translate-y-1/2 border-0"
-            src={`https://www.youtube.com/embed/${current.trailerKey}?autoplay=1&mute=1&loop=1&playlist=${current.trailerKey}&controls=0&rel=0&playsinline=1&modestbranding=1`}
+            src={`https://www.youtube.com/embed/${current.trailerKey}?autoplay=1&mute=1&loop=1&playlist=${current.trailerKey}&controls=0&rel=0&playsinline=1&modestbranding=1&disablekb=1&fs=0&iv_load_policy=3`}
             title={`${current.name} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
           />
