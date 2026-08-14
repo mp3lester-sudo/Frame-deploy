@@ -9,7 +9,7 @@ export default async function ClubsPage() {
   const viewer = await getVerifiedUser();
 
   const [{ data: clubs }, { data: memberships }] = await Promise.all([
-    supabase.from("clubs").select("id, name, description, created_at").order("created_at", { ascending: false }),
+    supabase.from("clubs").select("id, name, description, created_at").order("created_at", { ascending: false }).limit(100),
     viewer ? supabase.from("club_members").select("club_id").eq("user_id", viewer.id) : Promise.resolve({ data: [] }),
   ]);
 
@@ -21,11 +21,18 @@ export default async function ClubsPage() {
   // glass roster treatment needs a few member profiles per club to render
   // the stack, so the join replaces the count-only query rather than
   // adding a second one.
+  // Only the first 4 members per club are ever rendered (the avatar
+  // stack below), but Supabase's .in() join has no per-group limit, so a
+  // handful of very large clubs could otherwise pull in thousands of rows
+  // here on every page load. 500 total is generous headroom for 100 clubs
+  // averaging 5 members each while capping the worst case (one club with
+  // a huge roster) from growing unbounded.
   const { data: memberRows } = clubIds.length
     ? await supabase
         .from("club_members")
         .select("club_id, user_id, profiles(username, display_name, avatar_url)")
         .in("club_id", clubIds)
+        .limit(500)
     : { data: [] };
 
   type MemberInfo = { username: string; display_name: string | null; avatar_url: string | null };

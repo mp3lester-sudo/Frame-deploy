@@ -9,11 +9,18 @@ export default async function MessagesPage() {
   const viewer = await getVerifiedUser();
   if (!viewer) redirect("/login?next=/messages");
 
+  // Capped at 100 -- this page fans out 3 more queries per conversation
+  // below (profile, last message, unread count), so an unbounded list here
+  // means unbounded concurrent Supabase round trips on every load for a
+  // heavy messenger. 100 recent conversations is far more than a normal
+  // inbox view needs; a dedicated paginated/archived view would be the
+  // right place for anything beyond that, not this page.
   const { data: conversations } = await supabase
     .from("conversations")
     .select("id, user_a, user_b, created_at")
     .or(`user_a.eq.${viewer.id},user_b.eq.${viewer.id}`)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   const rows = await Promise.all(
     (conversations ?? []).map(async (c) => {

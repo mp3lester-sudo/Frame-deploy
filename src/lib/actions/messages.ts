@@ -5,6 +5,8 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { orderPair } from "@/lib/messages/pair";
 import { validateMessageBody } from "@/lib/messages/validate";
+import { isRateLimited } from "@/lib/rate-limit";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -90,16 +92,28 @@ export async function sendMessage(conversationId: string, rawBody: string): Prom
   if (!validation.ok) throw new Error(validation.error);
   const { supabase, user } = await requireUser();
 
-  const { data: message, error } = await supabase
-    .from("messages")
-    .insert({ conversation_id: conversationId, sender_id: user.id, body: validation.body })
-    .select("id, conversation_id, sender_id, body, created_at")
-    .single();
-  if (error || !message) throw new Error(error?.message ?? "Failed to send message — is this your conversation?");
+  // 60/5min is generous for real back-and-forth conversation but blunts a
+  // scripted flood into someone's DMs -- keyed by user, not IP, since this
+  // is already an authenticated action.
+  if (await isRateLimited(`send-message:${user.id}`, { maxRequests: 60, windowSeconds: 300 })) {
+    throw new Error("You're sending messages too fast — slow down a bit");
+  }
 
-  revalidatePath(`/messages/${conversationId}`);
-  revalidatePath("/messages");
-  return message;
+  try {
+    const { data: message, error } = await supabase
+      .from("messages")
+      .insert({ conversation_id: conversationId, sender_id: user.id, body: validation.body })
+      .select("id, conversation_id, sender_id, body, created_at")
+      .single();
+    if (error || !message) throw new Error(error?.message ?? "Failed to send message — is this your conversation?");
+
+    revalidatePath(`/messages/${conversationId}`);
+    revalidatePath("/messages");
+    return message;
+  } catch (err) {
+    await captureServerError(err, { action: "sendMessage", userId: user.id, conversationId });
+    throw err;
+  }
 }
 
 // Called directly from /messages/[id]'s page render (not a form action),

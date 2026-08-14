@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { validateReport, type ReportableContentType } from "@/lib/moderation/validate";
+import { isRateLimited } from "@/lib/rate-limit";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -29,6 +31,12 @@ export async function reportContent(
   if (!validation.ok) throw new Error(validation.error);
   const { supabase, user } = await requireUser();
 
+  // 15/hour is far more than anyone reporting in good faith needs, and
+  // stops the reports queue itself from being flooded/griefed.
+  if (await isRateLimited(`report-content:${user.id}`, { maxRequests: 15, windowSeconds: 3600 })) {
+    throw new Error("You're submitting reports too fast — slow down a bit");
+  }
+
   const { error } = await supabase.from("reports").insert({
     reporter_id: user.id,
     content_type: contentType,
@@ -36,7 +44,10 @@ export async function reportContent(
     reason: validation.reason,
     note: validation.note,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    await captureServerError(new Error(error.message), { action: "reportContent", userId: user.id, contentType, contentId });
+    throw new Error(error.message);
+  }
 }
 
 /**

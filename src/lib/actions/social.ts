@@ -5,6 +5,8 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { notify } from "@/lib/actions/notifications";
+import { isRateLimited } from "@/lib/rate-limit";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -98,20 +100,32 @@ export async function writeReview(input: z.infer<typeof reviewSchema>) {
   const { titleId, body, containsSpoilers } = reviewSchema.parse(input);
   const { supabase, user } = await requireUser();
 
-  const { data: review } = await supabase
-    .from("reviews")
-    .insert({ user_id: user.id, title_id: titleId, body, contains_spoilers: containsSpoilers })
-    .select("id")
-    .single();
+  // 20/hour comfortably covers a real binge-and-review session while
+  // blunting a scripted flood of junk reviews across the catalogue.
+  if (await isRateLimited(`write-review:${user.id}`, { maxRequests: 20, windowSeconds: 3600 })) {
+    throw new Error("You're posting reviews too fast — slow down a bit");
+  }
 
-  await supabase.from("activity_events").insert({
-    user_id: user.id,
-    event_type: "reviewed",
-    title_id: titleId,
-    ref_id: review?.id,
-  });
+  try {
+    const { data: review, error } = await supabase
+      .from("reviews")
+      .insert({ user_id: user.id, title_id: titleId, body, contains_spoilers: containsSpoilers })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
 
-  revalidatePath(`/movie/${titleId}`);
+    await supabase.from("activity_events").insert({
+      user_id: user.id,
+      event_type: "reviewed",
+      title_id: titleId,
+      ref_id: review?.id,
+    });
+
+    revalidatePath(`/movie/${titleId}`);
+  } catch (err) {
+    await captureServerError(err, { action: "writeReview", userId: user.id, titleId });
+    throw err;
+  }
 }
 
 // Undo for an accidental/regretted review — mirrors unrateTitle's pattern

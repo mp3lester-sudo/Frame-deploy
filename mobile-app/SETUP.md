@@ -167,6 +167,24 @@ rather use real Apple In-App Purchase instead, that's a bigger change
 (StoreKit integration + server-side receipt validation) that isn't done
 here.
 
+### Push notifications don't work in this build yet
+
+Backlot's push notification toggle (Settings -> Push notifications) is
+built on the standard Web Push APIs (`Notification`, `PushManager`, VAPID
+keys) -- these work in real browsers but don't exist inside a Capacitor
+WKWebView, so `getInitialStatus()` in `push-toggle.tsx` correctly detects
+that and hides the toggle entirely on iOS. Nothing crashes and nothing
+misleading is shown, but the feature itself is simply unavailable in the
+native app right now.
+
+To actually ship native push, you'd need: an APNs authentication key from
+your Apple Developer account, the `@capacitor/push-notifications` plugin,
+the `aps-environment` entitlement added to the Xcode project, and a
+parallel native subscribe/send path alongside (or replacing) the existing
+Web Push one in `src/lib/push/`. None of that is done here -- it needs an
+Apple Developer account and Xcode project surgery this repo can't do on
+its own, the same category of manual step as the widget extension below.
+
 ## When you change things later
 
 - **Website change only** (new feature, design tweak, bug fix): just

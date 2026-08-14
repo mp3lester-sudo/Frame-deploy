@@ -13,6 +13,7 @@ import { notify } from "@/lib/actions/notifications";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getClientIp } from "@/lib/auth/client-ip";
 import { isRateLimited } from "@/lib/rate-limit";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 const signUpSchema = z.object({
   email: z.string().email(),
@@ -174,8 +175,11 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
 
     // Fire-and-forget: a missing RESEND_API_KEY or a transient send failure
     // should never block account creation, so this is deliberately not
-    // awaited into the error path above.
-    sendWelcomeEmail(email, username).catch(() => {});
+    // awaited into the error path above. Still reported to Sentry so a
+    // broken welcome-email pipeline doesn't go unnoticed indefinitely.
+    sendWelcomeEmail(email, username).catch((err) => {
+      void captureServerError(err, { action: "sendWelcomeEmail", email });
+    });
 
     // Resolves ?mn=TOKEN (see the hidden field on the signup form, carried
     // from /movie-night/join/[token]) -- an unknown/stale/tampered token
@@ -501,7 +505,12 @@ export async function deleteAccount(
     ban_duration: "876000h", // ~100 years -- GoTrue has no permanent "forever" value
   });
   if (banError) {
+    // Data is already anonymized above regardless, but a failed ban means
+    // this "deleted" account can still authenticate -- a real gap for a
+    // moderation-motivated deletion, not just an accidental one. Reported
+    // to Sentry rather than left console-only so it doesn't go unnoticed.
     console.error("deleteAccount: failed to ban user", banError.message);
+    await captureServerError(new Error(banError.message), { action: "deleteAccount.ban", userId: user.id });
   }
 
   try {

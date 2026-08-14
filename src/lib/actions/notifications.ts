@@ -5,6 +5,7 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { sendPushToUser } from "@/lib/push/send-push";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 export type NotificationType =
   | "follow"
@@ -52,15 +53,20 @@ export async function notify(
 ) {
   if (params.recipientId === params.actorId) return;
   try {
-    await supabase.from("notifications").insert({
+    const { error } = await supabase.from("notifications").insert({
       recipient_id: params.recipientId,
       actor_id: params.actorId,
       type: params.type,
       title_id: params.titleId ?? null,
       ref_id: params.refId ?? null,
     });
-  } catch {
-    // Best-effort — see doc comment above.
+    if (error) throw error;
+  } catch (err) {
+    // Best-effort — see doc comment above. Still reported to Sentry so a
+    // systemic failure (e.g. a bad migration breaking every insert) is
+    // visible somewhere instead of just silently dropping notifications
+    // for every user, forever.
+    await captureServerError(err, { action: "notify.insert", type: params.type, recipientId: params.recipientId });
   }
 
   try {
@@ -139,9 +145,11 @@ export async function notify(
     if (pushEnabled) {
       await sendPushToUser(params.recipientId, { title: pushTitle, body, url });
     }
-  } catch {
+  } catch (err) {
     // Best-effort -- a push lookup/send failure should never surface to
-    // the caller of notify(), same as the in-app insert above.
+    // the caller of notify(), same as the in-app insert above. Still
+    // reported to Sentry for the same visibility reason.
+    await captureServerError(err, { action: "notify.push", type: params.type, recipientId: params.recipientId });
   }
 }
 

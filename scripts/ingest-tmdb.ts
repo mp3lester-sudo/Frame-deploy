@@ -299,8 +299,23 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
   }
 
   // Embedding — same story: skip gracefully if OpenAI isn't billed yet.
+  //
+  // Deliberately gated on tasteStatus === "ok", not just !noAi. Taste
+  // inference and the embedding call used to be independent try/catches:
+  // if AI was enabled but taste inference alone failed (a transient
+  // OpenAI error, a timeout, whatever), the embedding call would still
+  // run and succeed off of `emptyTaste`'s placeholder values
+  // (pacing: "moderate", every level: 0) baked into buildEmbeddingInput.
+  // Those placeholders are indistinguishable from genuine low-intensity
+  // taste data once written, and pending_enrichment_titles (migration
+  // 0018) only checks whether a title_embeddings row exists at all — so
+  // that title would never be re-selected for real enrichment and would
+  // sit permanently on fake data. Skipping the embedding too when taste
+  // failed keeps the title "pending" so enrich-titles.ts (which does
+  // taste + embedding as one atomic unit, see its inferTasteMetadata call
+  // throwing before the embedding upsert) can backfill both correctly.
   let embeddingStatus: IngestResult["embedding"] = "skipped";
-  if (!noAi) {
+  if (!noAi && tasteStatus === "ok") {
     try {
       const input = buildEmbeddingInput(titleRow);
       const embeddingResponse = await openai.embeddings.create({ model: EMBEDDING_MODEL, input });

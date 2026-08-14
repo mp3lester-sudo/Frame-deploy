@@ -45,6 +45,24 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- Required because the web content's avatar upload (settings ->
+	     profile photo) uses a plain <input type="file"> which WKWebView
+	     turns into the native "Take Photo / Choose from Library" sheet.
+	     Without these two keys, tapping "Take Photo" crashes the app
+	     outright, and "Choose from Library" silently fails on some iOS
+	     versions -- and App Review flags the missing purpose strings
+	     regardless of whether a tester happens to trigger the crash. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Backlot uses your camera so you can take a new profile photo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Backlot uses your photo library so you can choose a profile photo.</string>
+	<!-- Required because the home page's weather widget calls
+	     navigator.geolocation.getCurrentPosition() to show local weather.
+	     Without this key the permission prompt can't be shown at all, so
+	     the request just fails and App Review flags the missing purpose
+	     string. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Backlot uses your location to show local weather on your home page.</string>
 	<!-- Declares this app only uses standard HTTPS/TLS (via the WebView
 	     loading the production site) with no proprietary/non-exempt
 	     encryption. Without this key, App Store Connect asks the export

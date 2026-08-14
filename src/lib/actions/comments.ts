@@ -5,6 +5,8 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { validateCommentBody } from "@/lib/comments/validate";
 import { notify } from "@/lib/actions/notifications";
+import { isRateLimited } from "@/lib/rate-limit";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -34,28 +36,39 @@ export async function addComment(reviewId: string, rawBody: string): Promise<New
   if (!validation.ok) throw new Error(validation.error);
   const { supabase, user } = await requireUser();
 
-  const { data: comment, error } = await supabase
-    .from("review_comments")
-    .insert({ review_id: reviewId, user_id: user.id, body: validation.body })
-    .select("id, review_id, user_id, body, created_at")
-    .single();
-  if (error || !comment) throw new Error(error?.message ?? "Failed to add comment");
-
-  const { data: profile } = await supabase.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle();
-
-  const { data: review } = await supabase.from("reviews").select("title_id, user_id").eq("id", reviewId).maybeSingle();
-  if (review?.title_id) revalidatePath(`/movie/${review.title_id}`);
-  if (review?.user_id) {
-    await notify(supabase, {
-      recipientId: review.user_id,
-      actorId: user.id,
-      type: "comment",
-      titleId: review.title_id,
-      refId: reviewId,
-    });
+  // 60/10min covers even a very active back-and-forth thread while
+  // blunting a scripted comment flood.
+  if (await isRateLimited(`add-comment:${user.id}`, { maxRequests: 60, windowSeconds: 600 })) {
+    throw new Error("You're commenting too fast — slow down a bit");
   }
 
-  return { ...comment, username: profile?.username ?? "you", avatar_url: profile?.avatar_url ?? null };
+  try {
+    const { data: comment, error } = await supabase
+      .from("review_comments")
+      .insert({ review_id: reviewId, user_id: user.id, body: validation.body })
+      .select("id, review_id, user_id, body, created_at")
+      .single();
+    if (error || !comment) throw new Error(error?.message ?? "Failed to add comment");
+
+    const { data: profile } = await supabase.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle();
+
+    const { data: review } = await supabase.from("reviews").select("title_id, user_id").eq("id", reviewId).maybeSingle();
+    if (review?.title_id) revalidatePath(`/movie/${review.title_id}`);
+    if (review?.user_id) {
+      await notify(supabase, {
+        recipientId: review.user_id,
+        actorId: user.id,
+        type: "comment",
+        titleId: review.title_id,
+        refId: reviewId,
+      });
+    }
+
+    return { ...comment, username: profile?.username ?? "you", avatar_url: profile?.avatar_url ?? null };
+  } catch (err) {
+    await captureServerError(err, { action: "addComment", userId: user.id, reviewId });
+    throw err;
+  }
 }
 
 export async function deleteComment(commentId: string) {

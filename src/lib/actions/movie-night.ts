@@ -349,15 +349,20 @@ async function finalizeDecision(
     .from("movie_night_participants")
     .select("user_id")
     .eq("movie_night_id", movieNightId);
-  for (const p of participants ?? []) {
-    await notify(supabase, {
-      recipientId: p.user_id,
-      actorId,
-      type: "movie_night_decided",
-      titleId,
-      refId: movieNightId,
-    });
-  }
+  // Parallelized -- was a sequential for-await loop, each notify() doing an
+  // insert plus a couple more queries and a push send, so a large group all
+  // waited on each other's notification round trips one at a time.
+  await Promise.all(
+    (participants ?? []).map((p) =>
+      notify(supabase, {
+        recipientId: p.user_id,
+        actorId,
+        type: "movie_night_decided",
+        titleId,
+        refId: movieNightId,
+      })
+    )
+  );
   return true;
 }
 
