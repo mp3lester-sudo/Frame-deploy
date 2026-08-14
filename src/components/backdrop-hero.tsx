@@ -53,16 +53,28 @@ export function BackdropHero({
     <div className="group relative -mt-14 h-[436px] w-full overflow-hidden sm:h-[636px]">
       {playing && trailerKey ? (
         <>
-          {/* The hero box is deliberately much wider than it is tall (up to
-              ~5.7:1 on a wide monitor) -- nothing like a video's native
-              16:9, the same "wrong fit" problem the backdrop still image
-              had before object-cover. This is the iframe equivalent of
-              object-fit: cover: since this hero is full-bleed (100vw wide,
-              no side padding), sizing the iframe to 100vw wide by its true
-              16:9 height (56.25vw) and centering it always yields a height
-              taller than this box, so the parent's overflow-hidden crops
-              the vertical excess instead of letterboxing or squashing the
-              video the way a plain inset-0 fill would.
+          {/* Two rounds of covering YouTube's own branded header (channel
+              icon/title/subtitle, shown any time the embed isn't confirmed
+              "playing") with an opaque band + wordmark didn't hold up on
+              device -- the header can run to two lines for a long title +
+              channel name, so a fixed-height cover was always guessing at
+              a number that occasionally wasn't tall enough. Cropping it
+              out geometrically instead of trying to paint over it removes
+              that guesswork entirely.
+
+              The iframe is already sized well past this box on every
+              screen (100vw wide by its true 16:9 height, centered, with
+              the parent's overflow-hidden cropping the excess -- the
+              iframe equivalent of object-fit: cover, since this hero's own
+              aspect ratio, up to ~5.7:1 on a wide monitor, is nothing like
+              a video's native 16:9). scale-125 zooms that in further by a
+              flat 25% around the same center point, which pushes the
+              header -- pinned to the iframe's own top edge -- well above
+              this box's visible top edge no matter how tall it renders,
+              on every screen size, not just the ones we've screenshotted.
+              It crops an equal slice off the bottom too, which is empty
+              video frame (controls=0 already strips YouTube's play bar
+              there) so nothing meaningful is lost.
 
               controls=0 strips YouTube's persistent play/pause bar,
               scrubber, volume, and fullscreen button during active
@@ -71,39 +83,14 @@ export function BackdropHero({
               suppresses annotation cards. pointer-events-none means the
               video can never register a tap/click at all -- the mute and
               close buttons layered on top are the only interactive things
-              in this hero. None of that touches YouTube's own branded
-              title/channel header, though, which shows at the top of the
-              embed any time it isn't confirmed actively playing (queued,
-              buffering, paused) -- no URL parameter can turn that off. The
-              solid-to-transparent band + wordmark below permanently masks
-              that exact zone instead, regardless of playback state. */}
+              in this hero. */}
           <iframe
             ref={iframeRef}
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] -translate-x-1/2 -translate-y-1/2 border-0"
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] origin-center scale-125 -translate-x-1/2 -translate-y-1/2 border-0"
             src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1&controls=0&disablekb=1&fs=0&iv_load_policy=3`}
             title={`${title} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
-          {/* Permanent cover for YouTube's own title/channel header row.
-              First attempt here used a single gradient div (h-20/h-24,
-              fading to transparent by its own bottom edge) and it wasn't
-              enough -- confirmed by screenshot on both iOS Safari and
-              desktop Chrome that the header (which can run two lines for
-              a long title + channel name) still poked out past where the
-              gradient had already faded most of the way to transparent.
-              Fixed by splitting into a genuinely solid block (no gradient
-              math to get wrong, hard-edged, generously sized) plus a
-              short fade underneath it for a clean transition into the
-              video -- not relying on a single gradient to be both "fully
-              opaque where it needs to be" and "faded out where it
-              doesn't" at the same time. */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-28 bg-background sm:h-32" />
-          <div className="pointer-events-none absolute inset-x-0 top-28 z-[5] h-10 bg-gradient-to-b from-background to-transparent sm:top-32 sm:h-12" />
-          <div className="pointer-events-none absolute left-1/2 top-4 z-[6] -translate-x-1/2 sm:top-5">
-            <span className="text-gold-foil font-hollywood text-base uppercase tracking-[0.1em] sm:text-lg">
-              Backlot
-            </span>
-          </div>
           {/* Bottom fade so the hard edge at the base of the hero (very
               visible on high-contrast trailer intros -- rating cards,
               title-card frames, black-and-white cold opens) reads as an
