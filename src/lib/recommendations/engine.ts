@@ -200,10 +200,13 @@ export async function getRecommendationsForUser(
       : Promise.resolve({ data: [] as { id: string; genres: string[] | null }[] }),
     supabase.from("titles").select("*").in("id", candidateIds),
     // Title-level negative feedback: how close each candidate is to the
-    // user's single most similar disliked (rated <= 2.5) title -- the
-    // negative counterpart to the "because you loved X" citation logic
-    // below (CONTENT_MATCH_THRESHOLD). See dislike-penalty.ts and
-    // migration 0052.
+    // user's single most similar disliked title -- "disliked" meaning
+    // either a rating <= 2.5 or a Discover swipe-deck pass (migration
+    // 0068 folded title_dismissals into the same signal, so a swipe-left
+    // dampens close neighbors too, not just the exact title excluded
+    // above). The negative counterpart to the "because you loved X"
+    // citation logic below (CONTENT_MATCH_THRESHOLD). See
+    // dislike-penalty.ts and migrations 0052/0068.
     supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds }),
     // Implicit signals: how close each candidate is to something on the
     // user's watchlist (deliberate intent) vs. something they watched but
