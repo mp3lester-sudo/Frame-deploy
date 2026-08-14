@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { RotateCw } from "lucide-react";
 import { isNativeApp } from "@/lib/native/is-native";
 
 const PULL_THRESHOLD = 72; // px of downward drag before a release triggers a reload
@@ -83,54 +82,73 @@ export function PullToRefresh() {
   if (!active && !refreshing) return null;
 
   const ready = pull >= PULL_THRESHOLD || refreshing;
-  // Starts off-screen (-32px, above the safe-area-inset anchor below) and
+  // Starts off-screen (-36px, above the safe-area-inset anchor below) and
   // slides down 1:1 with the drag rather than just fading in in place --
   // reads as something being physically pulled out from behind the status
   // bar, the standard pull-to-refresh feel, instead of a badge that pops
   // into existence partway down the screen.
   const progress = Math.min(pull / PULL_THRESHOLD, 1);
-  const travel = refreshing ? 0 : -32 + 32 * progress;
-  // Spins continuously through the whole gesture (not just once armed/
-  // released) -- the "spiral" motion itself is the feedback that the
-  // gesture has been picked up, same as pulling a real refresh cranks a
-  // wheel the entire time your finger moves rather than snapping into a
-  // spin only at the end.
-  const spinDurationMs = refreshing ? 700 : Math.max(2200 - progress * 1800, 400);
+  const travel = refreshing ? 0 : -36 + 36 * progress;
+
+  // A proper ring, not just a rotating icon: while dragging, the arc
+  // fills in step with the pull (0 -> 100% of the ring's circumference)
+  // so the gesture itself visibly "loads" the indicator -- the same
+  // language as iOS's native UIRefreshControl and most native
+  // pull-to-refresh implementations. Once armed/refreshing, it switches
+  // to a fixed partial arc that spins continuously -- the standard
+  // indeterminate-spinner look -- rather than continuing to track a
+  // "progress" that no longer means anything once the reload has
+  // actually been triggered.
+  const RADIUS = 15;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  const dashOffset = refreshing ? CIRCUMFERENCE * 0.75 : CIRCUMFERENCE * (1 - progress);
 
   return (
     <div
       className="pointer-events-none fixed inset-x-0 z-50 flex justify-center"
-      style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}
+      style={{ top: "calc(env(safe-area-inset-top) + 10px)" }}
     >
       <div
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-gold-foil shadow-lg backdrop-blur"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-background/95 shadow-lg backdrop-blur"
         style={{
-          transform: `translateY(${travel}px) scale(${ready ? 1 : 0.85})`,
+          transform: `translateY(${travel}px) scale(${ready ? 1 : 0.9})`,
           opacity: progress,
-          transition: isDraggingTransition(refreshing),
+          transition: refreshing ? "transform 200ms ease-out" : "none",
         }}
       >
-        <RotateCw
-          size={16}
-          style={{
-            animation: `pull-refresh-spin ${spinDurationMs}ms linear infinite`,
-          }}
-        />
+        <svg
+          width="34"
+          height="34"
+          viewBox="0 0 34 34"
+          className={refreshing ? "pull-refresh-spin" : ""}
+          style={{ transform: refreshing ? undefined : `rotate(${-90 + progress * 270}deg)` }}
+        >
+          {/* Faint full-circle track so the ring reads clearly even at
+              low pull distances, before much of the gold arc has
+              filled in. */}
+          <circle cx="17" cy="17" r={RADIUS} fill="none" stroke="rgba(217,184,118,0.18)" strokeWidth="3" />
+          <circle
+            cx="17"
+            cy="17"
+            r={RADIUS}
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={CIRCUMFERENCE}
+            strokeDashoffset={dashOffset}
+          />
+        </svg>
       </div>
       <style>{`
-        @keyframes pull-refresh-spin {
+        .pull-refresh-spin {
+          animation: pull-refresh-rotate 800ms linear infinite;
+        }
+        @keyframes pull-refresh-rotate {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
   );
-}
-
-function isDraggingTransition(refreshing: boolean) {
-  // No transition while actively being dragged (handled by the pointer/
-  // touch handler updating `pull` every frame already) -- only ease once
-  // it's released and either springing back or settling into the fixed
-  // "refreshing" position.
-  return refreshing ? "transform 200ms ease-out" : "none";
 }
