@@ -376,9 +376,16 @@ export default async function HomePage({
             per product direction. */}
         <span className={`${allura.className} text-5xl text-accent sm:text-6xl`}>{firstName}</span>
       </h1>
-      {ratedCount ? (
-        <p className="mt-1.5 text-center text-sm text-foreground-muted">Tonight&apos;s picks are tuned to your ratings.</p>
-      ) : (
+      {/* Home header declutter pass: dropped the ratedCount-true branch
+          ("Tonight's picks are tuned to your ratings") entirely -- it told
+          the user nothing the page itself doesn't already show just by
+          having personalized picks below it, pure filler taking up a full
+          line under an already-busy header (ContextCards + greeting +
+          ContextPicker all stacked above it). The ratedCount-false branch
+          stays -- unlike the other one, it's a real, actionable nudge (a
+          link to Taste Training) for someone who hasn't rated enough yet,
+          not just restating what's already visible. */}
+      {!ratedCount && (
         <p className="mt-1.5 text-center text-sm text-foreground-muted">
           Rate a few titles in{" "}
           <Link href="/taste-dna" className="text-accent hover:underline">
