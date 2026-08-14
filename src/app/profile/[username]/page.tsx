@@ -616,7 +616,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           same reason the standalone page hides it: a mostly-empty
           breakdown reads as broken, not "not enough data yet." */}
       {dna.sampleSize >= MIN_SAMPLE_SIZE && (
-        <Reveal className="h-full">
+        // order-2 (after the Pyramid below in the mobile single-column
+        // stack) reverts to the natural DOM order (DNA first, i.e. left
+        // column) at xl via order-none, so the desktop 3-column layout
+        // this grid was designed around (DNA left / Pyramid centerpiece
+        // middle / rail right) is untouched -- only the stacked-mobile
+        // order changes, putting the Pyramid (what the user picked) above
+        // the DNA breakdown (what the app inferred) per product direction.
+        <Reveal className="order-2 h-full xl:order-none">
           <div className="bento-card relative flex h-full flex-col overflow-hidden">
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               <div className="mb-6 text-center">
@@ -755,7 +762,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           height instead of ending early and leaving bare page background
           in the gap -- see the grid container comment above. */}
       {favorites.length > 0 && (
-        <div className="mt-0 h-full">
+        // See the order-2/xl:order-none comment on the DNA panel above --
+        // this is its counterpart, order-1 so the Pyramid renders first
+        // in the mobile stack.
+        <div className="order-1 mt-0 h-full xl:order-none">
           {/* The podium used to sit directly on the page background at a
               narrow 480px width, which read as an accidentally small
               widget stranded in a lot of empty page rather than a

@@ -13,6 +13,7 @@ import { PromoBanner } from "@/components/layout/promo-banner";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { ToastProvider } from "@/components/ui/toast";
+import { PullToRefresh } from "@/components/native/pull-to-refresh";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -217,6 +218,7 @@ export default async function RootLayout({
         <PostHogProvider userId={user?.id ?? null}>
           <ToastProvider>
             <ServiceWorkerRegistration />
+            <PullToRefresh />
             <NavBar isAuthed={!!user} />
             {showPromoBanner && <PromoBanner />}
             {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
