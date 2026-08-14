@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-// Backlot iOS wrapper — remote mode.
+// Marquee iOS wrapper — remote mode.
 //
 // This app has NO local web assets and ships NO copy of the Next.js app.
 // The native WebView loads the live production site directly, so the
@@ -10,8 +10,8 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // itself controls: app icon, splash screen, permissions, and native
 // plugins (e.g. push notifications) — not for ordinary product changes.
 const config: CapacitorConfig = {
-  appId: "app.backlot.ios",
-  appName: "Backlot",
+  appId: "app.marquee.ios",
+  appName: "Marquee",
   webDir: "www", // required by Capacitor's schema but unused in remote mode — no local assets are copied in
   server: {
     url: "https://taste-green-tau.vercel.app",

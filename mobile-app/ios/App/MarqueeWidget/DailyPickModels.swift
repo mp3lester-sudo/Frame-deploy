@@ -22,7 +22,7 @@ enum WidgetConstants {
     // src/components/native/widget-token-bootstrap.tsx exactly -- this is
     // how the two processes (main app, widget extension) agree on which
     // shared UserDefaults suite the token lives in.
-    static let appGroup = "group.app.backlot.ios"
+    static let appGroup = "group.app.marquee.ios"
     static let tokenKey = "widget_token"
 
     // Same production origin capacitor.config.ts's remote-mode `server.url`

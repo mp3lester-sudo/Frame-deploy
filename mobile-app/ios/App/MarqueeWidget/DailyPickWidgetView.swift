@@ -6,10 +6,10 @@ import WidgetKit
 // properties, so these are just the same hex values copied over by hand.
 // Keep in sync if the palette changes there.
 private extension Color {
-    static let backlotBackground = Color(red: 10 / 255, green: 9 / 255, blue: 8 / 255)
-    static let backlotForeground = Color(red: 242 / 255, green: 233 / 255, blue: 223 / 255)
-    static let backlotAccent = Color(red: 217 / 255, green: 184 / 255, blue: 118 / 255)
-    static let backlotForegroundMuted = Color(red: 168 / 255, green: 158 / 255, blue: 148 / 255)
+    static let marqueeBackground = Color(red: 10 / 255, green: 9 / 255, blue: 8 / 255)
+    static let marqueeForeground = Color(red: 242 / 255, green: 233 / 255, blue: 223 / 255)
+    static let marqueeAccent = Color(red: 217 / 255, green: 184 / 255, blue: 118 / 255)
+    static let marqueeForegroundMuted = Color(red: 168 / 255, green: 158 / 255, blue: 148 / 255)
 }
 
 struct DailyPickWidgetView: View {
@@ -19,11 +19,11 @@ struct DailyPickWidgetView: View {
     var body: some View {
         switch entry.state {
         case .notSignedIn:
-            MessageView(title: "Open Backlot", subtitle: "Sign in to see your daily pick")
+            MessageView(title: "Open Marquee", subtitle: "Sign in to see your daily pick")
         case .noPickYet:
             MessageView(title: "Rate a few movies", subtitle: "Your daily pick unlocks after that")
         case .error:
-            MessageView(title: "Backlot", subtitle: "Couldn't load your pick")
+            MessageView(title: "Marquee", subtitle: "Couldn't load your pick")
         case .loaded(let pick, let posterImage):
             switch family {
             case .systemMedium:
@@ -41,14 +41,14 @@ private struct MessageView: View {
 
     var body: some View {
         ZStack {
-            Color.backlotBackground
+            Color.marqueeBackground
             VStack(spacing: 4) {
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.backlotForeground)
+                    .foregroundColor(.marqueeForeground)
                 Text(subtitle)
                     .font(.system(size: 11))
-                    .foregroundColor(.backlotForegroundMuted)
+                    .foregroundColor(.marqueeForegroundMuted)
                     .multilineTextAlignment(.center)
             }
             .padding(12)
@@ -69,7 +69,7 @@ private struct SmallPickView: View {
             posterBackground
 
             LinearGradient(
-                colors: [.clear, .backlotBackground.opacity(0.55), .backlotBackground.opacity(0.95)],
+                colors: [.clear, .marqueeBackground.opacity(0.55), .marqueeBackground.opacity(0.95)],
                 startPoint: .center,
                 endPoint: .bottom
             )
@@ -78,12 +78,12 @@ private struct SmallPickView: View {
                 if let match = pick.matchPercent {
                     Text("\(match)% MATCH")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.backlotAccent)
+                        .foregroundColor(.marqueeAccent)
                         .tracking(0.5)
                 }
                 Text(pick.name)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.backlotForeground)
+                    .foregroundColor(.marqueeForeground)
                     .lineLimit(2)
             }
             .padding(10)
@@ -98,7 +98,7 @@ private struct SmallPickView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fill)
         } else {
-            Color.backlotBackground
+            Color.marqueeBackground
         }
     }
 }
@@ -112,7 +112,7 @@ private struct MediumPickView: View {
 
     var body: some View {
         ZStack {
-            Color.backlotBackground
+            Color.marqueeBackground
             HStack(alignment: .top, spacing: 12) {
                 posterBackground
                     .aspectRatio(2 / 3, contentMode: .fill)
@@ -122,20 +122,20 @@ private struct MediumPickView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("TODAY'S PICK")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.backlotForegroundMuted)
+                        .foregroundColor(.marqueeForegroundMuted)
                         .tracking(0.8)
                     Text(pick.name)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.backlotForeground)
+                        .foregroundColor(.marqueeForeground)
                         .lineLimit(2)
                     if let match = pick.matchPercent {
                         Text("\(match)% match")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.backlotAccent)
+                            .foregroundColor(.marqueeAccent)
                     }
                     Text(pick.reason)
                         .font(.system(size: 11))
-                        .foregroundColor(.backlotForegroundMuted)
+                        .foregroundColor(.marqueeForegroundMuted)
                         .lineLimit(3)
                 }
                 Spacer(minLength: 0)
@@ -152,7 +152,7 @@ private struct MediumPickView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fill)
         } else {
-            Rectangle().fill(Color.backlotForegroundMuted.opacity(0.15))
+            Rectangle().fill(Color.marqueeForegroundMuted.opacity(0.15))
         }
     }
 }

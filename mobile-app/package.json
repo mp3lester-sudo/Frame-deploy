@@ -1,8 +1,8 @@
 {
-  "name": "backlot-ios",
+  "name": "marquee-ios",
   "private": true,
   "version": "1.0.0",
-  "description": "Native iOS wrapper for Backlot (Capacitor, remote mode — points at the live production web app; contains no app logic of its own).",
+  "description": "Native iOS wrapper for Marquee (Capacitor, remote mode — points at the live production web app; contains no app logic of its own).",
   "scripts": {
     "sync": "cap sync ios",
     "open": "cap open ios",

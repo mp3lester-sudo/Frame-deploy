@@ -2,7 +2,7 @@ import WidgetKit
 import SwiftUI
 
 @main
-struct BacklotWidgetBundle: WidgetBundle {
+struct MarqueeWidgetBundle: WidgetBundle {
     var body: some Widget {
         DailyPickWidget()
     }
