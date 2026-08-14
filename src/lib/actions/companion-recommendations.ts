@@ -6,6 +6,7 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getCandidatesForCompanionSet, firstName } from "@/lib/recommendations/movie-night";
 import { calibrateMatchPercents } from "@/lib/recommendations/match-percent";
 import type { Recommendation } from "@/lib/recommendations/engine";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 const usernameSchema = z
   .string()
@@ -72,9 +73,10 @@ export async function getCompanionBlendRecommendations(usernamesInput: string[])
   }
 
   const userIds = [user.id, ...companions.map((c) => c.id)];
+  const mediaType = await getActiveMediaType();
   // No explicit limit here -- getCandidatesForCompanionSet scales the pool
   // to the group size itself (see candidateLimitForGroupSize).
-  const candidates = await getCandidatesForCompanionSet(userIds, namesByUserId);
+  const candidates = await getCandidatesForCompanionSet(userIds, namesByUserId, mediaType);
 
   // A score of exactly 0 only ever means the popularity-fallback branch
   // (nobody in the group had enough signal yet, or nothing survived the

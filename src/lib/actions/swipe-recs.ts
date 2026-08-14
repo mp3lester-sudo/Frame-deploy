@@ -2,6 +2,7 @@
 
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 /** Client-safe shape -- title.poster_url/backdrop_url/name/genres/release_date
  *  are the only fields SwipeRecsCard actually renders, so this trims the
@@ -40,9 +41,11 @@ export async function getSwipeDeck(): Promise<SwipeRec[]> {
   const user = await getVerifiedUser();
   if (!user) return [];
 
+  const mediaType = await getActiveMediaType();
   const { recommendations } = await getRecommendationsForUser(user.id, {
     limit: SWIPE_DECK_SIZE,
     source: "swipe_deck",
+    mediaType,
   });
 
   return recommendations.map((r) => ({

@@ -1,4 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 
 /**
  * Shared genre-diverse swipe deck builder — used by both the pre-signup
@@ -54,7 +55,11 @@ const CANDIDATES_PER_GENRE = 8;
 
 export async function buildDiverseDeck(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  { limit = ANCHOR_GENRES.length, excludeIds = [] as string[] }: { limit?: number; excludeIds?: string[] } = {}
+  {
+    limit = ANCHOR_GENRES.length,
+    excludeIds = [] as string[],
+    mediaType,
+  }: { limit?: number; excludeIds?: string[]; mediaType: MediaType }
 ): Promise<DeckTitle[]> {
   const excluded = new Set(excludeIds);
 
@@ -65,6 +70,7 @@ export async function buildDiverseDeck(
       let query = supabase
         .from("titles")
         .select("id, name, overview, poster_url, release_date, runtime_minutes, genres, tmdb_id, type")
+        .eq("type", mediaType)
         .contains("genres", [genre])
         .not("poster_url", "is", null)
         .order("weighted_rating", { ascending: false, nullsFirst: false })

@@ -69,10 +69,16 @@ export async function getOrCreateDailyPick(
   // cache table hasn't been touched yet) -- run the real engine once and
   // persist the result so every refresh for the rest of the day is a
   // single indexed row lookup instead of a full scoring pass.
+  // Hardcoded, not read from the Movies/Shows cookie -- this path is hit by
+  // the iOS widget's WidgetKit process (see route.ts), which authenticates
+  // via a bearer token and has no browser cookie jar to read a toggle state
+  // from. Matches this surface's pre-toggle behavior; give the widget its
+  // own Movies/Shows setting later if that's ever worth building.
   const { recommendations } = await getRecommendationsForUser(userId, {
     limit: 1,
     context: "solo",
     source: "widget_daily_pick",
+    mediaType: "movie",
   });
   const pick = recommendations[0];
   if (!pick) return null;

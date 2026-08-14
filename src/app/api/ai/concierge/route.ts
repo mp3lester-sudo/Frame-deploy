@@ -6,6 +6,7 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isRateLimited } from "@/lib/rate-limit";
 import { isAuteurActive } from "@/lib/premium/tier";
 import { z } from "zod";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 const bodySchema = z.object({
   message: z.string().min(1).max(500),
@@ -77,7 +78,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await askConcierge(parsed.data.message, { matchEra: parsed.data.matchEra });
+    const mediaType = await getActiveMediaType();
+    const result = await askConcierge(parsed.data.message, { matchEra: parsed.data.matchEra, mediaType });
     return NextResponse.json(result);
   } catch (err) {
     console.error("[concierge]", err);

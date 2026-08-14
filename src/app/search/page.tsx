@@ -14,6 +14,7 @@ import { getTmdbIdsForCompany, orderByTmdbIdSequence } from "@/lib/search/compan
 import { tokenizeSearchQuery } from "@/lib/search/tokenize";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/supabase/types";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -32,6 +33,7 @@ export default async function SearchPage({
   const { q, type } = await searchParams;
   const mode: Mode = type === "people" ? "people" : type === "cast" ? "cast" : "titles";
   const supabase = await createClient();
+  const mediaType = await getActiveMediaType();
 
   // Recognizes a studio name (see lib/search/company-search.ts) before
   // falling back to a literal title-name match -- "A24" should surface
@@ -46,7 +48,7 @@ export default async function SearchPage({
     if (companyMatch) {
       const tmdbIds = await getTmdbIdsForCompany(companyMatch.id);
       if (tmdbIds.length > 0) {
-        const { data } = await supabase.from("titles").select("*").in("tmdb_id", tmdbIds);
+        const { data } = await supabase.from("titles").select("*").eq("type", mediaType).in("tmdb_id", tmdbIds);
         titles = orderByTmdbIdSequence(data ?? [], tmdbIds);
       }
       // No "load more" for studio results yet -- this is a recognition
@@ -57,7 +59,7 @@ export default async function SearchPage({
       // Match every word in the query somewhere in the title rather than
       // requiring the whole phrase verbatim in that exact order -- see
       // loadMoreSearchTitles (same approach, kept in sync deliberately).
-      let titleBuilder = supabase.from("titles").select("*");
+      let titleBuilder = supabase.from("titles").select("*").eq("type", mediaType);
       for (const word of tokenizeSearchQuery(q)) {
         titleBuilder = titleBuilder.ilike("name", `%${word}%`);
       }

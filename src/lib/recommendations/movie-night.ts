@@ -10,6 +10,7 @@ import { computeGenreAffinity } from "./genre-affinity";
 import { CONTENT_MATCH_THRESHOLD } from "./engine";
 import type { ReasonDetail } from "./explain";
 import { captureServerError } from "@/lib/monitoring/sentry-server";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 type ParticipantRow = { user_id: string; excluded_genres: string[] | null };
@@ -125,6 +126,10 @@ export interface UserGroupParams {
    *  instead of risking the same title reappearing. */
   excludeTitleIds?: Set<string>;
   limit?: number;
+  /** Movies/Shows toggle state -- same filter as every solo recommendation
+   *  surface (see engine.ts), so a shared group pool never mixes movies
+   *  and TV for either the seed RPC or the popularity fallbacks below. */
+  mediaType: MediaType;
 }
 
 /**
@@ -153,6 +158,7 @@ export async function getCandidatesForUserGroup({
   manualExcludedGenres,
   excludeTitleIds,
   limit = 6,
+  mediaType,
 }: UserGroupParams): Promise<MovieNightCandidate[]> {
   const supabase = await createClient();
   if (userIds.length === 0) return [];
@@ -210,6 +216,7 @@ export async function getCandidatesForUserGroup({
           p_user_id: userId,
           p_match_count: PER_PARTICIPANT_SEED_COUNT,
           p_exclude_watched: true,
+          p_media_type: mediaType,
         })
         .then((r) => ({ userId, ...r }))
     )
@@ -254,6 +261,7 @@ export async function getCandidatesForUserGroup({
     const { data: popular } = await supabase
       .from("titles")
       .select("*")
+      .eq("type", mediaType)
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
     const filtered = (popular ?? [])
@@ -295,6 +303,7 @@ export async function getCandidatesForUserGroup({
     const { data: popular } = await supabase
       .from("titles")
       .select("*")
+      .eq("type", mediaType)
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
     const filtered = (popular ?? [])
@@ -389,6 +398,8 @@ export async function getCandidatesForUserGroup({
  */
 export interface MovieNightCandidateOptions {
   limit?: number;
+  /** Movies/Shows toggle state -- see UserGroupParams.mediaType. */
+  mediaType: MediaType;
   /** The person this list is being generated for. When set, anything
    *  they've already voted on (like OR pass) is auto-excluded -- nobody
    *  should have to look at a card they've already decided on, whether
@@ -405,9 +416,9 @@ export interface MovieNightCandidateOptions {
 
 export async function getCandidatesForMovieNight(
   movieNightId: string,
-  options: MovieNightCandidateOptions = {}
+  options: MovieNightCandidateOptions
 ): Promise<MovieNightCandidate[]> {
-  const { limit, viewerId, excludeTitleIds } = options;
+  const { limit, viewerId, excludeTitleIds, mediaType } = options;
   const supabase = await createClient();
 
   const { data: participantRows } = await supabase
@@ -441,6 +452,7 @@ export async function getCandidatesForMovieNight(
     manualExcludedGenres,
     excludeTitleIds: excludeIds,
     limit: limit ?? candidateLimitForGroupSize(participants.length),
+    mediaType,
   });
 }
 
@@ -456,11 +468,13 @@ export async function getCandidatesForMovieNight(
 export async function getCandidatesForCompanionSet(
   userIds: string[],
   namesByUserId: Map<string, string>,
+  mediaType: MediaType,
   limit?: number
 ): Promise<MovieNightCandidate[]> {
   return getCandidatesForUserGroup({
     userIds,
     namesByUserId,
     limit: limit ?? candidateLimitForGroupSize(userIds.length),
+    mediaType,
   });
 }

@@ -14,6 +14,8 @@ import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
 import { CompanionPicker } from "@/components/home/companion-picker";
 import { isCircumstantialContext, type CircumstantialContext } from "@/lib/context/circumstantial";
+import { getActiveMediaType } from "@/lib/context/media-type";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 import { PreciseLocation } from "@/components/home/precise-location";
 
 const allura = Allura({ subsets: ["latin"], weight: "400" });
@@ -63,11 +65,13 @@ async function HomeRecommendationsSection({
   activeContext,
   geo,
   hour,
+  mediaType,
 }: {
   userId: string;
   activeContext: CircumstantialContext;
   geo: RequestGeo | null;
   hour: number;
+  mediaType: MediaType;
 }) {
   const weather =
     geo?.latitude != null && geo?.longitude != null ? await getCurrentWeather(geo.latitude, geo.longitude) : null;
@@ -81,6 +85,7 @@ async function HomeRecommendationsSection({
     limit: 9,
     context: activeContext,
     weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour },
+    mediaType,
   });
 
   const hero = recommendations[0];
@@ -173,6 +178,7 @@ export default async function HomePage({
   }
 
   const geo = await getRequestGeo();
+  const mediaType = await getActiveMediaType();
 
   // Weather used to sit right here, blocking this Promise.all (and
   // therefore the entire page) on an external API call capped at 2s (see
@@ -440,7 +446,13 @@ export default async function HomePage({
               getRecommendationsForUser call (see HomeRecommendationsSection
               above). */}
           <Suspense fallback={<HomeRecommendationsSkeleton />}>
-            <HomeRecommendationsSection userId={user.id} activeContext={activeContext} geo={geo} hour={zonedNow.getHours()} />
+            <HomeRecommendationsSection
+              userId={user.id}
+              activeContext={activeContext}
+              geo={geo}
+              hour={zonedNow.getHours()}
+              mediaType={mediaType}
+            />
           </Suspense>
         </div>
       )}

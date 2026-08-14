@@ -7,6 +7,7 @@ import {
   type MentionedTitle,
 } from "@/lib/ai/title-mention";
 import type { Database } from "@/lib/supabase/types";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -68,13 +69,17 @@ export interface AskConciergeOptions {
    *  are restricted to within title-mention.ts's YEAR_WINDOW years of that movie's
    *  release. Set false to ignore era entirely -- the user-facing toggle on /ai. */
   matchEra?: boolean;
+  /** Movies/Shows toggle state -- restricts the candidate pool to just this
+   *  type, same as every other recommendation surface (see engine.ts). */
+  mediaType: MediaType;
 }
 
 export async function askConcierge(
   userQuery: string,
-  options: AskConciergeOptions = {}
+  options: AskConciergeOptions
 ): Promise<ConciergeResult> {
   const matchEra = options.matchEra ?? true;
+  const { mediaType } = options;
   const openai = getOpenAI();
   const supabase = await createClient();
 
@@ -92,6 +97,7 @@ export async function askConcierge(
     p_min_weighted_rating: MIN_WEIGHTED_RATING,
     p_min_release_year: yearWindow?.minYear ?? null,
     p_max_release_year: yearWindow?.maxYear ?? null,
+    p_media_type: mediaType,
   });
 
   let rawCandidates: Title[] = candidateMatches?.length
@@ -102,6 +108,7 @@ export async function askConcierge(
     let fallbackQuery = supabase
       .from("titles")
       .select("*")
+      .eq("type", mediaType)
       .gte("weighted_rating", MIN_WEIGHTED_RATING);
     if (yearWindow) {
       fallbackQuery = fallbackQuery

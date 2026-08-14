@@ -15,6 +15,7 @@ import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-regis
 import { ToastProvider } from "@/components/ui/toast";
 import { PullToRefresh } from "@/components/native/pull-to-refresh";
 import { WidgetTokenBootstrap } from "@/components/native/widget-token-bootstrap";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -153,6 +154,7 @@ export default async function RootLayout({
   // a re-render), each one a real network round trip to Supabase's Auth
   // server. See src/lib/auth/verified-user.ts.
   const user = await getVerifiedUser();
+  const mediaType = await getActiveMediaType();
 
   // Unread message/notification badge counts are deliberately NOT fetched
   // here anymore -- this layout wraps every single page, so awaiting them
@@ -181,6 +183,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
+      data-media={mediaType}
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${cinzel.variable} ${bigShouldersDisplay.variable} ${ibmPlexSans.variable} ${syne.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
@@ -217,7 +220,7 @@ export default async function RootLayout({
                 pinned to the true viewport edge instead of sliding down
                 with the rest of the page mid-gesture. */}
             <PullToRefresh>
-              <NavBar isAuthed={!!user} />
+              <NavBar isAuthed={!!user} mediaType={mediaType} />
               {showPromoBanner && <PromoBanner />}
               {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
                   own bottom padding (see bottom-nav.tsx) -- otherwise page

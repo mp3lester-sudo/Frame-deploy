@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { OnboardingSwipe, type SwipeTitle } from "@/components/onboarding/onboarding-swipe";
 import { buildDiverseDeck } from "@/lib/catalogue/diverse-deck";
+import { getActiveMediaType } from "@/lib/context/media-type";
 import { getTmdbTrailer } from "@/lib/external/tmdb-videos";
 
 export default async function OnboardingPage() {
@@ -16,7 +17,8 @@ export default async function OnboardingPage() {
   const { data: alreadyWatched } = await supabase.from("watch_history").select("title_id").eq("user_id", user.id);
   const excludeIds = (alreadyWatched ?? []).map((w) => w.title_id);
 
-  const titles = await buildDiverseDeck(supabase, { excludeIds });
+  const mediaType = await getActiveMediaType();
+  const titles = await buildDiverseDeck(supabase, { excludeIds, mediaType });
 
   if (!titles.length) {
     // Catalogue not seeded yet, or the user's already rated everything in

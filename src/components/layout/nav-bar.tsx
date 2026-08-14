@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { Search, Sparkles, Users, Compass, User, Clapperboard, Settings, Mail, Bell, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getNavBadgeCounts } from "@/lib/actions/nav-badges";
+import { MediaTypeToggle } from "@/components/layout/media-type-toggle";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 
 // How often to re-poll unread badge counts once mounted. Not tied to
 // navigation anymore (see below) -- this alone keeps them reasonably
@@ -38,7 +40,7 @@ const links = [
   { href: "/daily", label: "Daily", icon: CalendarDays },
 ];
 
-export function NavBar({ isAuthed }: { isAuthed: boolean }) {
+export function NavBar({ isAuthed, mediaType }: { isAuthed: boolean; mediaType: MediaType }) {
   // Badge counts are fetched client-side, after the page has already
   // painted, instead of being awaited server-side in the root layout that
   // wraps every route (see src/lib/actions/nav-badges.ts for why) --
@@ -101,12 +103,15 @@ export function NavBar({ isAuthed }: { isAuthed: boolean }) {
       )}
     >
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-glass-border bg-glass px-5 shadow-[var(--glass-shadow)] backdrop-blur-xl">
-        <Link
-          href="/"
-          className="text-gold-foil font-hollywood text-2xl uppercase tracking-[0.08em]"
-        >
-          Marquee
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/"
+            className="text-gold-foil font-hollywood text-2xl uppercase tracking-[0.08em]"
+          >
+            Marquee
+          </Link>
+          <MediaTypeToggle active={mediaType} />
+        </div>
 
         <nav className="hidden items-center gap-6 md:flex">
           {links.map(({ href, label, icon: Icon }) => (

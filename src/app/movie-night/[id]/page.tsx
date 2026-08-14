@@ -15,6 +15,7 @@ import { LiveParticipants } from "@/components/movie-night/live-participants";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { captureServerError } from "@/lib/monitoring/sentry-server";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 type ParticipantRow = MovieNightParticipantRow;
 
@@ -22,6 +23,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
   const { id } = await params;
   const supabase = await createClient();
   const user = await getVerifiedUser();
+  const mediaType = await getActiveMediaType();
   if (!user) redirect(`/login?next=/movie-night/${id}`);
 
   // night and participantRows both only depend on the route's `id`, so
@@ -93,7 +95,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
     // it. LiveCandidateVoting already has a real empty-pool fallback UI, so
     // an empty array here is a legitimate degraded state, not a dead end.
     night.status === "collecting"
-      ? getCandidatesForMovieNight(id, { viewerId: user.id }).catch(async (err) => {
+      ? getCandidatesForMovieNight(id, { viewerId: user.id, mediaType }).catch(async (err) => {
           await captureServerError(err, { movieNightId: id, stage: "candidates" });
           return [] as Awaited<ReturnType<typeof getCandidatesForMovieNight>>;
         })

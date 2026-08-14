@@ -14,6 +14,7 @@ import { ERA_DECADES, PACING_OPTIONS, TONE_OPTIONS, MOOD_OPTIONS } from "@/lib/c
 import { PremiumUpsell } from "@/components/premium-upsell";
 import { SwipeRecsCard } from "@/components/discover/swipe-recs-card";
 import { getSwipeDeck } from "@/lib/actions/swipe-recs";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 /**
  * `value` must match the genre string TMDB (and our `titles.genres` column)
@@ -166,9 +167,11 @@ export default async function DiscoverPage({
   const effectiveTone = isPremium ? tone : undefined;
   const effectiveMood = isPremium ? mood : undefined;
 
+  const mediaType = await getActiveMediaType();
   let query = supabase
     .from("titles")
     .select("*")
+    .eq("type", mediaType)
     .order("weighted_rating", { ascending: false, nullsFirst: false })
     .range(0, DISCOVER_PAGE_SIZE - 1);
   if (genre) query = query.contains("genres", [genre]);

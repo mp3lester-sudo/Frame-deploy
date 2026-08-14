@@ -6,6 +6,7 @@ import { isPremiumActive } from "@/lib/premium/is-premium";
 import { DISCOVER_PAGE_SIZE, SEARCH_PAGE_SIZE } from "@/lib/constants/catalogue";
 import { ERA_DECADES, type AdvancedDiscoverFilters } from "@/lib/constants/discover-filters";
 import { tokenizeSearchQuery } from "@/lib/search/tokenize";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 /**
  * Discover/search only ever rendered their first .limit() page — with the
@@ -20,6 +21,7 @@ export async function loadMoreDiscoverTitles(
 ) {
   const { genre, era, pacing, tone, mood } = filters;
   const supabase = await createClient();
+  const mediaType = await getActiveMediaType();
 
   // Advanced filters are a Premium perk (see src/app/discover/page.tsx and
   // CLAUDE.md's product principles). The initial page load already withholds
@@ -38,6 +40,7 @@ export async function loadMoreDiscoverTitles(
   let query = supabase
     .from("titles")
     .select("*")
+    .eq("type", mediaType)
     .order("weighted_rating", { ascending: false, nullsFirst: false });
   if (genre) query = query.contains("genres", [genre]);
   if (isPremium && pacing) query = query.eq("pacing", pacing);
@@ -63,6 +66,7 @@ export async function loadMoreDiscoverTitles(
 
 export async function loadMoreSearchTitles(q: string, page: number) {
   const supabase = await createClient();
+  const mediaType = await getActiveMediaType();
 
   const from = (page - 1) * SEARCH_PAGE_SIZE;
   const to = from + SEARCH_PAGE_SIZE - 1;
@@ -70,7 +74,7 @@ export async function loadMoreSearchTitles(q: string, page: number) {
   // phrase verbatim -- "dark knight batman" should still find "The Dark
   // Knight" even though that's not a literal substring of the title.
   // Chained .ilike() calls AND together, same as multiple chained filters.
-  let builder = supabase.from("titles").select("*");
+  let builder = supabase.from("titles").select("*").eq("type", mediaType);
   for (const word of tokenizeSearchQuery(q)) {
     builder = builder.ilike("name", `%${word}%`);
   }

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { buildGenreAffinity, rankTeaserCandidates, buildTeaserWhy, type AnonSwipe } from "@/lib/recommendations/teaser";
 import { buildDiverseDeck, type DeckTitle } from "@/lib/catalogue/diverse-deck";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 /**
  * Anonymous pre-signup taste teaser (see teaser.ts for the scoring logic).
@@ -78,5 +79,6 @@ const LANDING_DECK_SIZE = 20;
 
 export async function getLandingSwipeDeck(): Promise<DeckTitle[]> {
   const supabase = await createClient();
-  return buildDiverseDeck(supabase, { limit: LANDING_DECK_SIZE });
+  const mediaType = await getActiveMediaType();
+  return buildDiverseDeck(supabase, { limit: LANDING_DECK_SIZE, mediaType });
 }

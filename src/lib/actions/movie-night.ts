@@ -11,6 +11,7 @@ import { getCandidatesForMovieNight, type MovieNightCandidate } from "@/lib/reco
 import { computeMatches, rankByLikeCount, type MovieNightVoteRecord } from "@/lib/recommendations/movie-night-matches";
 import type { Database } from "@/lib/supabase/types";
 import { movieNightMaxParticipants } from "@/lib/premium/tier";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -243,7 +244,8 @@ export async function setMyMovieNightPreferences(
 // candidate grid) for what was really just "my genre filter changed."
 export async function getMovieNightCandidates(movieNightId: string): Promise<MovieNightCandidate[]> {
   const { user } = await requireUser();
-  return getCandidatesForMovieNight(movieNightId, { viewerId: user.id });
+  const mediaType = await getActiveMediaType();
+  return getCandidatesForMovieNight(movieNightId, { viewerId: user.id, mediaType });
 }
 
 export interface TitleBasic {
@@ -283,10 +285,12 @@ export async function refillMovieNightCandidate(
   excludeTitleIds: string[]
 ): Promise<MovieNightCandidate | null> {
   const { user } = await requireUser();
+  const mediaType = await getActiveMediaType();
   const candidates = await getCandidatesForMovieNight(movieNightId, {
     viewerId: user.id,
     excludeTitleIds,
     limit: 1,
+    mediaType,
   });
   return candidates[0] ?? null;
 }

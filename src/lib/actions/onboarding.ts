@@ -2,6 +2,7 @@
 
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
+import { getActiveMediaType } from "@/lib/context/media-type";
 
 /**
  * Completion-reveal picks for the post-signup /onboarding quiz — real
@@ -23,6 +24,11 @@ export async function getOnboardingCompletionPicks(): Promise<OnboardingCompleti
   const user = await getVerifiedUser();
   if (!user) return [];
 
-  const { recommendations } = await getRecommendationsForUser(user.id, { limit: COMPLETION_PICK_COUNT, source: "onboarding" });
+  const mediaType = await getActiveMediaType();
+  const { recommendations } = await getRecommendationsForUser(user.id, {
+    limit: COMPLETION_PICK_COUNT,
+    source: "onboarding",
+    mediaType,
+  });
   return recommendations.map((r) => ({ id: r.title.id, name: r.title.name, posterUrl: r.title.poster_url }));
 }

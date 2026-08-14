@@ -12,6 +12,7 @@ import { logRecommendationImpressions } from "./log-impressions";
 import { dislikePenaltyMultiplier } from "./dislike-penalty";
 import { implicitAffinityMultiplier } from "./implicit-affinity";
 import type { CircumstantialContext } from "@/lib/context/circumstantial";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -109,12 +110,19 @@ export async function getRecommendationsForUser(
     // can separate "home page" served picks from "onboarding completion"
     // ones rather than lumping every caller together as one signal.
     source = "home",
+    // Required, not defaulted here on purpose -- every caller sits in a
+    // different context (an interactive request with the Movies/Shows
+    // toggle cookie available vs. the unauthenticated widget route with
+    // no cookie at all), so the decision belongs at the call site (see
+    // getActiveMediaType()), not silently baked into the engine.
+    mediaType,
   }: {
     limit?: number;
     context?: CircumstantialContext;
     weather?: WeatherTimeSignal;
     source?: string;
-  } = {}
+    mediaType: MediaType;
+  }
 ): Promise<RecommendationResult> {
   const supabase = await createClient();
 
@@ -134,7 +142,7 @@ export async function getRecommendationsForUser(
     .maybeSingle();
 
   if (!tasteVector) {
-    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true });
+    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType), isColdStart: true });
   }
 
   // Over-fetch candidates well beyond `limit` — context weighting (below)
@@ -151,6 +159,7 @@ export async function getRecommendationsForUser(
       p_user_id: userId,
       p_match_count: limit * CANDIDATE_POOL_MULTIPLIER,
       p_min_similarity: MIN_CONTENT_SIMILARITY,
+      p_media_type: mediaType,
     }),
     // Feeds genre-level negative signal (below) — deliberately a plain
     // ratings query, not the RPC above, since this needs the user's own
@@ -175,7 +184,7 @@ export async function getRecommendationsForUser(
   }
 
   if (blended.size === 0) {
-    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true });
+    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType), isColdStart: true });
   }
 
   // Context weighting needs each candidate's taste metadata (runtime,
@@ -324,7 +333,7 @@ export async function getRecommendationsForUser(
   const rankedIds = diversifyRecommendations(diversifyCandidates, limit).map((r) => r.id);
 
   if (rankedIds.length === 0) {
-    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context), isColdStart: true });
+    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType), isColdStart: true });
   }
 
   // Citations ("Because you loved X") only make sense for the final,
@@ -432,7 +441,8 @@ export async function getRecommendationsForUser(
 async function getColdStartRecommendations(
   userId: string,
   limit: number,
-  context?: CircumstantialContext
+  context: CircumstantialContext | undefined,
+  mediaType: MediaType
 ): Promise<Recommendation[]> {
   const supabase = await createClient();
 
@@ -459,6 +469,7 @@ async function getColdStartRecommendations(
   const { data: titles } = await supabase
     .from("titles")
     .select("*")
+    .eq("type", mediaType)
     .order("weighted_rating", { ascending: false, nullsFirst: false })
     .limit((limit + watchedIds.size) * 4);
 
