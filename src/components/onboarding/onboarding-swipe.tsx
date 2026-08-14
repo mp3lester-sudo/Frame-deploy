@@ -420,7 +420,15 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
           Love it
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent px-4 pb-6 pt-4">
+        <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black via-black/85 to-transparent px-4 pb-6 pt-4">
+          {/* Bumped from a lighter from-black/70 to a near-solid
+              from-black -- this band doubles as a permanent cover for
+              YouTube's own title/channel header (see the same masking
+              comment in backdrop-hero.tsx), which shows any time the
+              embed isn't confirmed playing and can't be suppressed via
+              any URL parameter. The lighter gradient looked fine on a
+              plain poster but let that white-text header show through
+              on a trailer card. */}
           <div className="mb-2 flex items-center justify-between">
             <span className="font-sans text-[10px] font-medium uppercase tracking-[0.2em] text-white/85">
               Taste training

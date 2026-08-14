@@ -64,18 +64,19 @@ export function BackdropHero({
               the vertical excess instead of letterboxing or squashing the
               video the way a plain inset-0 fill would.
 
-              controls=0 (missing before -- the bug) strips YouTube's own
-              play/pause bar, scrubber, volume, and fullscreen button
-              entirely, on both web and the iOS app's WKWebView; disablekb
-              and fs=0 close off the keyboard- and fullscreen-button paths
-              to the same chrome; iv_load_policy=3 suppresses annotation
-              cards. pointer-events-none on top of all that (same pattern
-              already used for the onboarding swipe deck's trailer embeds
-              in onboarding-swipe.tsx) means the video can never register
-              a tap/click at all, so there's no way to summon YouTube's
-              native UI even momentarily -- the two buttons layered on top
-              (mute, close) are the only things in this hero a person can
-              actually interact with. */}
+              controls=0 strips YouTube's persistent play/pause bar,
+              scrubber, volume, and fullscreen button during active
+              playback; disablekb and fs=0 close off the keyboard- and
+              fullscreen-button paths to the same chrome; iv_load_policy=3
+              suppresses annotation cards. pointer-events-none means the
+              video can never register a tap/click at all -- the mute and
+              close buttons layered on top are the only interactive things
+              in this hero. None of that touches YouTube's own branded
+              title/channel header, though, which shows at the top of the
+              embed any time it isn't confirmed actively playing (queued,
+              buffering, paused) -- no URL parameter can turn that off. The
+              solid-to-transparent band + wordmark below permanently masks
+              that exact zone instead, regardless of playback state. */}
           <iframe
             ref={iframeRef}
             className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] -translate-x-1/2 -translate-y-1/2 border-0"
@@ -83,6 +84,20 @@ export function BackdropHero({
             title={`${title} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
+          {/* Permanent cover for YouTube's own title/channel header row --
+              tall enough (h-20/h-24) that its solid portion (via-background
+              carries most of the way down before fading) sits well past
+              where that header renders regardless of viewport width, since
+              the header is part of YouTube's own responsive chrome and
+              scales with the embed. The wordmark reads as intentional
+              branding over the video, not a patch -- same treatment the
+              nav bar's logo uses elsewhere in the app. */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-20 bg-gradient-to-b from-background via-background/95 to-transparent sm:h-24" />
+          <div className="pointer-events-none absolute left-1/2 top-3 z-[6] -translate-x-1/2 sm:top-4">
+            <span className="text-gold-foil font-hollywood text-base uppercase tracking-[0.1em] sm:text-lg">
+              Backlot
+            </span>
+          </div>
           {/* Bottom fade so the hard edge at the base of the hero (very
               visible on high-contrast trailer intros -- rating cards,
               title-card frames, black-and-white cold opens) reads as an
