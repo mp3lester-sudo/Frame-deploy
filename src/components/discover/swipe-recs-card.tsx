@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "@/components/ui/fade-image";
-import { X, Heart } from "lucide-react";
+import { X, Heart, Maximize2 } from "lucide-react";
 import { dismissRecommendation } from "@/lib/actions/dismissals";
 import { addToWatchlist } from "@/lib/actions/lists";
 import type { SwipeRec } from "@/lib/actions/swipe-recs";
@@ -178,22 +178,36 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
             the poster paints directly on top and simply covers it. */}
         <div className="swipe-card-shimmer absolute inset-0" />
         {current.posterUrl ? (
-          <Image
-            src={current.posterUrl}
-            alt={current.name}
-            fill
-            priority={!isFullscreenVariant}
-            sizes="(max-width: 640px) 220px, 384px"
-            className="pointer-events-none object-cover"
-            onClick={() => {
-              // A tap (not a drag) on the poster itself opens the
-              // full-screen session -- pass/watchlist pills below stay
-              // reachable in the compact view without triggering this.
-              if (!isFullscreenVariant && Math.abs(dragOffset.x) < 4 && Math.abs(dragOffset.y) < 4) {
-                setFullscreen(true);
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              // A tap (not a drag) on the poster itself goes straight to
+              // the movie page -- it's by far the biggest hit target on
+              // the card, and the standalone title link a few lines down
+              // is small enough to be an unreliable primary way in.
+              // Opening the full-screen swipe session used to live here
+              // too, but that's still reachable via the small expand icon
+              // in the corner (see below) rather than fighting this poster
+              // for the same tap.
+              if (Math.abs(dragOffset.x) < 4 && Math.abs(dragOffset.y) < 4) {
+                goToMovie(e, current.id);
               }
             }}
-          />
+            style={{ touchAction: "manipulation" }}
+            className="pointer-events-auto absolute inset-0 block w-full cursor-grab bg-transparent p-0 active:cursor-grabbing"
+            aria-label={`View ${current.name}`}
+          >
+            <Image
+              src={current.posterUrl}
+              alt=""
+              fill
+              priority={!isFullscreenVariant}
+              sizes="(max-width: 640px) 220px, 384px"
+              className="pointer-events-none object-cover"
+            />
+          </button>
         ) : (
           <button
             type="button"
@@ -208,6 +222,27 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
         )}
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
+
+        {/* Full-screen swipe session used to open on any poster tap --
+            now that the poster goes straight to the movie page instead,
+            this small corner button is the dedicated way in for anyone
+            who wants to plow through the rest of the deck immediately. */}
+        {!isFullscreenVariant && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setFullscreen(true);
+            }}
+            aria-label="Swipe through more picks"
+            style={{ touchAction: "manipulation" }}
+            className="pointer-events-auto absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+          >
+            <Maximize2 size={14} />
+          </button>
+        )}
 
         <div
           className="font-hollywood pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 -rotate-12 rounded-[var(--radius-sm)] border-2 border-danger px-3 py-1 text-lg uppercase tracking-[0.1em] text-danger"
@@ -300,7 +335,7 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
     <div>
       <div className="mb-3 flex items-baseline justify-between">
         <p className="font-display text-lg">More like this</p>
-        <p className="text-[11px] text-foreground-muted">Tap the poster to swipe through more</p>
+        <p className="text-[11px] text-foreground-muted">Tap to view &middot; drag to pass or save</p>
       </div>
       <div className="mx-auto w-full max-w-[220px]">
         <div className="mb-2">{progressBar}</div>
