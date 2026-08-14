@@ -18,7 +18,21 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   ios: {
-    contentInset: "always",
+    // "never" lets the WebView draw its own content all the way to the
+    // true top/bottom of the screen, under the status bar/notch and home
+    // indicator -- "always" (the previous setting) forced a hard, uniform
+    // inset on the ENTIRE page below the notch no matter what, which is
+    // exactly why full-bleed elements (the movie-detail trailer hero, the
+    // home page's cinematic intro) were capped short of the real screen
+    // edge on-device even though the same CSS renders correctly full-
+    // bleed in mobile Safari. The web side already has everything it
+    // needs to handle this itself -- viewportFit: "cover" in
+    // src/app/layout.tsx is the prerequisite for env(safe-area-inset-*)
+    // to resolve to real pixel values instead of 0, and nav-bar.tsx /
+    // bottom-nav.tsx use those values to keep actual tappable content
+    // clear of the notch/home indicator while backgrounds and hero
+    // imagery are free to extend under them.
+    contentInset: "never",
   },
 };
 

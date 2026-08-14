@@ -111,7 +111,18 @@ export function NavBar({ isAuthed }: { isAuthed: boolean }) {
         // look lives on the floating pill inside it instead, so page
         // content scrolling underneath is visible through the gap around
         // the pill, not just blurred behind a full-width bar.
-        "nav-bar-header sticky top-0 z-40 px-3 pt-3 transition-transform duration-300 ease-in-out",
+        //
+        // pt-3 alone is fine in a normal browser (the OS chrome/status
+        // bar is outside the page entirely), but the iOS app now lets its
+        // WebView draw all the way under the notch/Dynamic Island (see
+        // capacitor.config.ts's contentInset: "never" and the comment
+        // there) so this header has to clear that space itself or the
+        // wordmark/icons render underneath it. calc() adds the real
+        // safe-area inset (0 in every browser and on non-notched
+        // devices, since env() with no matching hardware just resolves
+        // to 0) on top of the normal pt-3 rather than replacing it.
+        "nav-bar-header sticky top-0 z-40 px-3 transition-transform duration-300 ease-in-out",
+        "pt-[calc(env(safe-area-inset-top)+0.75rem)]",
         hidden ? "-translate-y-full" : "translate-y-0"
       )}
     >
