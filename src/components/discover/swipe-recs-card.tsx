@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "@/components/ui/fade-image";
+import Link from "next/link";
 import { X, Heart } from "lucide-react";
 import { dismissRecommendation } from "@/lib/actions/dismissals";
 import { addToWatchlist } from "@/lib/actions/lists";
@@ -178,9 +179,14 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
             }}
           />
         ) : (
-          <div className="flex h-full items-center justify-center px-2 text-center text-xs font-semibold uppercase tracking-widest text-foreground-muted">
+          <Link
+            href={`/movie/${current.id}`}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="flex h-full items-center justify-center px-2 text-center text-xs font-semibold uppercase tracking-widest text-foreground-muted hover:text-foreground"
+          >
             {current.name}
-          </div>
+          </Link>
         )}
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
@@ -204,7 +210,22 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
               {current.matchPercent}% Match
             </span>
           )}
-          <p className="font-display text-xl">{current.name}</p>
+          {/* Title is the one interactive element in an otherwise
+              pointer-events-none overlay (see the wrapping div) -- tapping
+              it jumps straight to the movie page instead of requiring
+              someone to first open fullscreen, find the poster, and know
+              a tap there does something different (opens the swipe
+              session, not the title). stopPropagation keeps the tap from
+              also being read as a drag-start by the card's own
+              onPointerDown a few levels up. */}
+          <Link
+            href={`/movie/${current.id}`}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="pointer-events-auto font-display text-xl underline-offset-4 hover:underline"
+          >
+            {current.name}
+          </Link>
           <p className="mt-0.5 text-[11px] text-foreground-muted">
             {[current.releaseYear, current.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}
           </p>

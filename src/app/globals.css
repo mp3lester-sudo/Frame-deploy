@@ -621,26 +621,13 @@ html.cinematic-intro-dismissed #cinematic-intro-tapzone,
 html.intro-shown #cinematic-intro-tapzone {
   display: none;
 }
-/* Hide the top nav for the ~4.8s the home intro is playing -- it's a
-   sticky z-40 header, and while the fixed z-60 intro tap-zone already
-   paints over it, the sticky positioning + a stray backdrop-blur was
-   still letting it read through/peek at the very top edge on some
-   viewports. Scoped with :has() to only the page that actually renders
-   #cinematic-intro-tapzone (the home page) so this never touches the
-   header on any other route -- the html-level intro-shown/dismissed
-   classes alone aren't page-scoped, only this element's presence is. */
-html:not(.intro-shown):not(.cinematic-intro-dismissed):has(#cinematic-intro-tapzone) .nav-bar-header {
-  opacity: 0;
-  pointer-events: none;
-}
-/* Same idea for the onboarding flow's own intro (see the useEffect in
-   onboarding-swipe.tsx that toggles this class -- that component is a
-   client component with the phase already in hand, so it drives this
-   directly rather than needing a :has() selector). */
-html.onboarding-intro-active .nav-bar-header {
-  opacity: 0;
-  pointer-events: none;
-}
+/* The header used to hide (opacity:0) for the ~4.8s the home/onboarding
+   intro plays, on the theory the fixed z-60 intro layer already covered
+   it visually anyway. In practice that read as the header randomly
+   vanishing on app open, which is worse than just letting it show through
+   -- the header is now given a higher stacking context instead (see
+   nav-bar.tsx's z-[70], above the intro's z-[60]) so it stays visible and
+   interactive the whole time, intro playing or not. */
 @media (prefers-reduced-motion: reduce) {
   .cinematic-intro-video,
   .cinematic-intro-title {

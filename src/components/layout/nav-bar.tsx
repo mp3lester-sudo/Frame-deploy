@@ -88,7 +88,15 @@ export function NavBar({ isAuthed }: { isAuthed: boolean }) {
         // after 4s of no scroll/mouse/touch/key activity) -- always
         // visible now, back to an ordinary sticky header. No transform
         // or transition needed for that anymore.
-        "nav-bar-header sticky top-0 z-40 px-3",
+        //
+        // z-[70], not z-40 -- the home page's cinematic intro (and
+        // onboarding's own intro) render a fixed full-bleed layer at
+        // z-[60] on open. This header used to go opacity:0 for the few
+        // seconds that plays (see the removed rule in globals.css), which
+        // read as the header randomly disappearing. Sitting above the
+        // intro's stacking context instead means it's simply always
+        // there, intro playing or not -- no hide logic needed at all.
+        "nav-bar-header sticky top-0 z-[70] px-3",
         "pt-[calc(env(safe-area-inset-top)+0.75rem)]"
       )}
     >
