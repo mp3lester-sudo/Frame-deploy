@@ -11,6 +11,13 @@ export type ContextualTitle = Pick<
 >;
 
 const SOMETHING_SHORT_MAX_RUNTIME = 100;
+/** Below this, a title isn't just "under the cap" -- it's genuinely short,
+ *  and gets its own soft boost (see below). Without this, something_short
+ *  behaved identically to solo (unweighted) for any user whose naturally
+ *  best-taste-matching titles already happened to clear the 100-minute
+ *  bar, which is common -- the runtime exclusion alone often never fired,
+ *  so the context added no real shape of its own. */
+const SHORTEST_RUNTIME_BOOST = 90;
 
 /**
  * Re-ranks (never re-fetches) candidates a context applies to. Returns null
@@ -52,6 +59,10 @@ export function contextMultiplier(title: ContextualTitle, context: Circumstantia
 
     case "something_short":
       if (title.runtime_minutes != null && title.runtime_minutes > SOMETHING_SHORT_MAX_RUNTIME) return null;
+      // Graduated preference within the cap -- a 90-minute film reads as
+      // more genuinely "something short" than a 99-minute one, even
+      // though both clear the hard limit above.
+      if (title.runtime_minutes != null && title.runtime_minutes <= SHORTEST_RUNTIME_BOOST) return 1.15;
       return 1;
 
     default:

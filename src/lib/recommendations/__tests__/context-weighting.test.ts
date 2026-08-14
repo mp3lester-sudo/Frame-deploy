@@ -35,9 +35,10 @@ describe("contextMultiplier", () => {
     expect(contextMultiplier(title({ emotional_intensity: 5 }), "background")).toBe(0.8);
   });
 
-  it("something_short excludes anything over the runtime cap, passes the rest", () => {
+  it("something_short excludes anything over the runtime cap, boosts genuinely short titles, passes the rest neutrally", () => {
     expect(contextMultiplier(title({ runtime_minutes: 150 }), "something_short")).toBeNull();
-    expect(contextMultiplier(title({ runtime_minutes: 90 }), "something_short")).toBe(1);
+    expect(contextMultiplier(title({ runtime_minutes: 90 }), "something_short")).toBe(1.15);
+    expect(contextMultiplier(title({ runtime_minutes: 95 }), "something_short")).toBe(1);
     expect(contextMultiplier(title({ runtime_minutes: null }), "something_short")).toBe(1);
   });
 });

@@ -257,15 +257,29 @@ export async function getRecommendationsForUser(
     (implicitSimilarities ?? []).map((d) => [d.title_id, d.max_similarity_watched_unrated])
   );
 
-  // Non-taste adjustments (context/weather/quality/genre-affinity) combine
-  // as a SUM of deltas-from-1, not a product. Multiplying four independent
-  // multipliers compounds fast — a date-night violence penalty (0.5x) times
-  // a quality floor (0.6x) times a cold-weather mismatch (0.9x) times a
-  // disliked-genre penalty (0.7x) is 0.19x, nearly zeroing out a title that
-  // might still be this user's best taste match. Summing deltas instead
-  // (each signal nudges up or down independently, then the total is
-  // clamped) keeps every signal meaningful without any handful of soft
-  // nudges accidentally acting like a hard exclusion.
+  // Non-taste adjustments (weather/quality/genre-affinity/dislike/implicit)
+  // combine as a SUM of deltas-from-1, not a product. Multiplying several
+  // independent multipliers compounds fast — a quality floor (0.6x) times
+  // a cold-weather mismatch (0.9x) times a disliked-genre penalty (0.7x)
+  // is 0.38x, nearly zeroing out a title that might still be this user's
+  // best taste match. Summing deltas instead (each signal nudges up or
+  // down independently, then the total is clamped) keeps every signal
+  // meaningful without any handful of soft nudges accidentally acting
+  // like a hard exclusion.
+  //
+  // Context is deliberately EXCLUDED from that shared sum-then-clamp band
+  // and applied as its own separate multiplier afterward. It used to sit
+  // in the same pooled delta as the other five signals, which meant its
+  // real-world effect on ranking got diluted by whatever budget quality/
+  // genre-affinity/dislike/implicit had already spent inside the same
+  // clamp -- the reported symptom (Solo/Background watch/Something short
+  // all surfacing the same titles) traced back to this: a user's context
+  // pick, the one thing they explicitly chose, could end up contributing
+  // only a sliver of the final score movement. Each context's own
+  // multiplier is already individually bounded (0.5-1.2x, see
+  // context-weighting.ts), so applying it on its own is safe and doesn't
+  // reintroduce the "several multipliers compounding to near-zero"
+  // problem the shared band exists to prevent.
   const { min: MIN_TOTAL_ADJUSTMENT, max: MAX_TOTAL_ADJUSTMENT } = computeAdjustmentBand(confidence);
   const adjusted: { id: string; score: number }[] = [];
   for (const [id, score] of blended.entries()) {
@@ -285,14 +299,10 @@ export async function getRecommendationsForUser(
       implicitWatchedUnratedSimilarityById.get(id) ?? 0,
       CONTENT_MATCH_THRESHOLD
     );
-    const totalDelta =
-      (contextMult - 1) +
-      (weatherMult - 1) +
-      (qualityMult - 1) +
-      (genreMult - 1) +
-      (dislikeMult - 1) +
-      (implicitMult - 1);
-    const totalAdjustment = Math.max(MIN_TOTAL_ADJUSTMENT, Math.min(MAX_TOTAL_ADJUSTMENT, 1 + totalDelta));
+    const nonContextDelta =
+      (weatherMult - 1) + (qualityMult - 1) + (genreMult - 1) + (dislikeMult - 1) + (implicitMult - 1);
+    const nonContextAdjustment = Math.max(MIN_TOTAL_ADJUSTMENT, Math.min(MAX_TOTAL_ADJUSTMENT, 1 + nonContextDelta));
+    const totalAdjustment = nonContextAdjustment * contextMult;
     adjusted.push({ id, score: score * totalAdjustment });
   }
 
