@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "@/components/ui/fade-image";
-import Link from "next/link";
 import { X, Heart } from "lucide-react";
 import { dismissRecommendation } from "@/lib/actions/dismissals";
 import { addToWatchlist } from "@/lib/actions/lists";
@@ -38,6 +38,7 @@ type ExitDirection = "left" | "right" | null;
  * needs its own local state to stay smooth, swipe after swipe.
  */
 export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
+  const router = useRouter();
   const [deck, setDeck] = useState(initialDeck);
   const [index, setIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -52,6 +53,21 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
 
   const current = deck[index];
   const next = deck[index + 1];
+
+  // A plain next/link inside this card turned out unreliable -- the
+  // card root has touch-action: none plus its own onPointerDown that
+  // calls setPointerCapture (needed for the drag gesture), and on at
+  // least some WebKit builds that combination can eat the tap before
+  // the anchor's own click ever synthesizes, especially over a single
+  // quick tap with no measurable movement. Driving navigation through
+  // router.push from an explicit onClick, with propagation stopped at
+  // every pointer stage (not just pointerdown), sidesteps the ambiguity
+  // entirely instead of hoping the browser resolves tap-vs-drag-target
+  // the way an ordinary link expects.
+  function goToMovie(e: React.SyntheticEvent, id: string) {
+    e.stopPropagation();
+    router.push(`/movie/${id}`);
+  }
 
   function decide(direction: "left" | "right") {
     if (!current || exitDirection) return;
@@ -179,14 +195,16 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
             }}
           />
         ) : (
-          <Link
-            href={`/movie/${current.id}`}
-            onClick={(e) => e.stopPropagation()}
+          <button
+            type="button"
             onPointerDown={(e) => e.stopPropagation()}
-            className="flex h-full items-center justify-center px-2 text-center text-xs font-semibold uppercase tracking-widest text-foreground-muted hover:text-foreground"
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={(e) => goToMovie(e, current.id)}
+            style={{ touchAction: "manipulation" }}
+            className="flex h-full w-full items-center justify-center bg-transparent px-2 text-center text-xs font-semibold uppercase tracking-widest text-foreground-muted hover:text-foreground"
           >
             {current.name}
-          </Link>
+          </button>
         )}
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
@@ -215,17 +233,20 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
               it jumps straight to the movie page instead of requiring
               someone to first open fullscreen, find the poster, and know
               a tap there does something different (opens the swipe
-              session, not the title). stopPropagation keeps the tap from
-              also being read as a drag-start by the card's own
-              onPointerDown a few levels up. */}
-          <Link
-            href={`/movie/${current.id}`}
-            onClick={(e) => e.stopPropagation()}
+              session, not the title). Propagation is stopped at every
+              pointer stage, not just click, so the card's own drag
+              handling (which starts from onPointerDown a few levels up)
+              never sees this tap at all -- see goToMovie's comment. */}
+          <button
+            type="button"
             onPointerDown={(e) => e.stopPropagation()}
-            className="pointer-events-auto font-display text-xl underline-offset-4 hover:underline"
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={(e) => goToMovie(e, current.id)}
+            style={{ touchAction: "manipulation" }}
+            className="pointer-events-auto block bg-transparent p-0 text-left font-display text-xl underline-offset-4 hover:underline"
           >
             {current.name}
-          </Link>
+          </button>
           <p className="mt-0.5 text-[11px] text-foreground-muted">
             {[current.releaseYear, current.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}
           </p>
