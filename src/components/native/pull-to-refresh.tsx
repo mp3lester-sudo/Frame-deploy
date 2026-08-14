@@ -25,42 +25,76 @@ const MAX_PULL = 110; // px -- caps how far the indicator can travel
  * (scrollY === 0), same rule real pull-to-refresh implementations use,
  * so this never hijacks an ordinary scroll-down-then-up gesture
  * mid-page.
+ *
+ * Also only arms for a gesture that's clearly vertical from the start.
+ * This listens globally (window-level touch listeners, not scoped to
+ * any particular element), so it sees every touch on the page --
+ * including ones another component is already handling itself, like
+ * SwipeRecsCard's left/right drag-to-decide gesture on Discover, which
+ * sits right at the top of the page where scrollY is still 0. A
+ * horizontal swipe there almost always carries some small incidental
+ * vertical drift too, and without an axis check that drift alone was
+ * enough to also arm this and, on release, fire its own reload --
+ * completely unrelated to (and after) the actual card swipe. Locking
+ * onto whichever axis dominates in the first ~8px of movement, and
+ * simply not tracking the rest of that touch at all once it locks
+ * horizontal, is the standard way native scroll views disambiguate
+ * "this is a scroll" from "this is a horizontal swipe."
  */
 export function PullToRefresh() {
   const [active, setActive] = useState(false);
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef<number | null>(null);
+  const startX = useRef<number>(0);
+  const axisLock = useRef<"vertical" | "horizontal" | null>(null);
 
   useEffect(() => {
     if (!isNativeApp()) return;
 
     function onTouchStart(e: TouchEvent) {
+      axisLock.current = null;
       if (window.scrollY > 0) {
         startY.current = null;
         return;
       }
       startY.current = e.touches[0]?.clientY ?? null;
+      startX.current = e.touches[0]?.clientX ?? 0;
     }
 
     function onTouchMove(e: TouchEvent) {
       if (startY.current === null || refreshing) return;
-      const rawDelta = (e.touches[0]?.clientY ?? 0) - startY.current;
-      if (rawDelta <= 0) {
+      const touch = e.touches[0];
+      const deltaY = (touch?.clientY ?? 0) - startY.current;
+      const deltaX = (touch?.clientX ?? 0) - startX.current;
+
+      if (axisLock.current === null && (Math.abs(deltaY) > 8 || Math.abs(deltaX) > 8)) {
+        axisLock.current = Math.abs(deltaY) > Math.abs(deltaX) ? "vertical" : "horizontal";
+      }
+      if (axisLock.current === "horizontal") {
+        // Locked out for the rest of this touch -- a swipe that started
+        // horizontal stays horizontal even if it later drifts vertical,
+        // same as a real scroll-vs-swipe recognizer would treat it.
         setActive(false);
         setPull(0);
         return;
       }
-      if (rawDelta > 8) {
+
+      if (deltaY <= 0) {
+        setActive(false);
+        setPull(0);
+        return;
+      }
+      if (deltaY > 8) {
         setActive(true);
-        setPull(applyResistance(rawDelta));
+        setPull(applyResistance(deltaY));
       }
     }
 
     function onTouchEnd() {
       if (startY.current === null) return;
       startY.current = null;
-      if (pull >= PULL_THRESHOLD && !refreshing) {
+      if (axisLock.current === "vertical" && pull >= PULL_THRESHOLD && !refreshing) {
         setRefreshing(true);
         window.location.reload();
       } else {
