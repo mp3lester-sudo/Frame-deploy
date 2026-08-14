@@ -29,14 +29,25 @@ function EngagementRow({ post }: { post: FakePost }) {
 
 /**
  * "Now showing" treatment -- replaces the old flat Twitter-style row.
- * Posts with a photo lead with a full-bleed hero image (the same still
- * or poster the app already pulls from TMDB), avatar/name/time overlaid
- * marquee-style at the top and the photo's caption overlaid at the
- * bottom, gradient-scrimmed for legibility. The full comment text lives
- * below the image at normal reading size rather than crammed into the
- * overlay -- captions are written short on purpose (see fake-posts.ts),
- * but a whole paragraph of commentary isn't, and overlaying that would
- * make it unreadable against a photo.
+ * Posts with a photo lead with a hero image (the same still or poster the
+ * app already pulls from TMDB), avatar/name/time overlaid marquee-style at
+ * the top and the photo's caption overlaid at the bottom, gradient-scrimmed
+ * for legibility. The full comment text lives below the image at normal
+ * reading size rather than crammed into the overlay -- captions are
+ * written short on purpose (see fake-posts.ts), but a whole paragraph of
+ * commentary isn't, and overlaying that would make it unreadable against a
+ * photo.
+ *
+ * The hero's aspect ratio follows the photo's real orientation instead of
+ * a single fixed landscape frame. Most of these TMDB images are theatrical
+ * posters (2:3 portrait) -- force-cropping those into a 16:11 landscape
+ * frame chopped out the vast majority of the image, leaving a meaningless
+ * sliver of typography or a random slice of a face. A 3:4 frame keeps
+ * almost the entire poster in view (posters run ~2:3, so the crop is a
+ * sliver off the left/right edges, not the top/bottom gutting a full
+ * landscape crop caused) and also happens to be how someone photographing
+ * a poster or a physical disc case on their shelf would actually frame it.
+ * "still" posts (genuinely landscape backdrops) keep the original 16:11.
  *
  * Text-only posts (still the majority of the demo set) get a quieter
  * card -- same bento-card glass surface as everything else in the app
@@ -45,9 +56,10 @@ function EngagementRow({ post }: { post: FakePost }) {
  */
 export function PostCard({ post }: { post: FakePost }) {
   if (post.photo) {
+    const heroAspect = post.photo.orientation === "poster" ? "aspect-[3/4]" : "aspect-[16/11]";
     return (
       <article className="bento-card overflow-hidden">
-        <div className="relative aspect-[16/11] w-full bg-surface-raised">
+        <div className={`relative w-full bg-surface-raised ${heroAspect}`}>
           <Image
             src={post.photo.url}
             alt={post.photo.caption}

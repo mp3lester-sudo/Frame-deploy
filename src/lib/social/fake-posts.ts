@@ -13,13 +13,24 @@
  * elsewhere in the app (same titles that show up in the catalogue), so
  * the images are real and the captions are written to match the exact
  * image being shown, not generic filler.
+ *
+ * Each photo is tagged with its real orientation -- most of these TMDB
+ * images are theatrical posters (2:3 portrait), not landscape stills.
+ * They used to get force-cropped into the card's 16:11 hero frame,
+ * which chopped out the vast majority of a portrait image and left a
+ * meaningless sliver -- often just a strip of typography or a random
+ * slice of a face, nothing a real person would post. PostCard now
+ * renders "poster" photos in a portrait-friendly frame instead, which
+ * also happens to be exactly how someone photographing a poster or a
+ * physical disc case on their shelf would actually shoot it. "still"
+ * is for the one genuinely landscape backdrop image in this set.
  */
 export interface FakePost {
   id: string;
   author: { name: string; handle: string };
   timeAgo: string;
   body: string;
-  photo?: { url: string; caption: string };
+  photo?: { url: string; caption: string; orientation: "poster" | "still" };
   stats: { likes: number; comments: number; reposts: number };
 }
 
@@ -32,6 +43,7 @@ export const FAKE_POSTS: FakePost[] = [
     photo: {
       url: "https://image.tmdb.org/t/p/w780/3bhkrj58Vtu7enYsRolD1fZdja1.jpg",
       caption: "Still the standard everyone else gets measured against.",
+      orientation: "poster",
     },
     stats: { likes: 214, comments: 31, reposts: 42 },
   },
@@ -49,7 +61,8 @@ export const FAKE_POSTS: FakePost[] = [
     body: "Just finished Ivan's Childhood for the first time and I don't think I've recovered. Tarkovsky shooting a kid's nightmares like documentary footage should not work this well.",
     photo: {
       url: "https://image.tmdb.org/t/p/w780/trY9ADhXgSExH3DLlFhV5C8aDtw.jpg",
-      caption: "That final shot. I'm not okay.",
+      caption: "This one's staying up on the wall for a while.",
+      orientation: "poster",
     },
     stats: { likes: 156, comments: 9, reposts: 27 },
   },
@@ -61,6 +74,7 @@ export const FAKE_POSTS: FakePost[] = [
     photo: {
       url: "https://image.tmdb.org/t/p/w780/AiAm0EtDvyGqNpVoieRw4u65vD1.jpg",
       caption: "The desert IS the main character.",
+      orientation: "poster",
     },
     stats: { likes: 302, comments: 14, reposts: 61 },
   },
@@ -72,6 +86,7 @@ export const FAKE_POSTS: FakePost[] = [
     photo: {
       url: "https://image.tmdb.org/t/p/w780/lm3pQ2QoQ16pextRsmnUbG2onES.jpg",
       caption: "Give it a real rewatch. It earns the ending.",
+      orientation: "poster",
     },
     stats: { likes: 71, comments: 203, reposts: 8 },
   },
@@ -90,6 +105,7 @@ export const FAKE_POSTS: FakePost[] = [
     photo: {
       url: "https://image.tmdb.org/t/p/w1280/zb6fM1CX41D9rF9hdgclu0peUmy.jpg",
       caption: "Six short films, zero weak ones. Rare.",
+      orientation: "still",
     },
     stats: { likes: 134, comments: 6, reposts: 22 },
   },
@@ -129,6 +145,7 @@ export const FAKE_POSTS: FakePost[] = [
     photo: {
       url: "https://image.tmdb.org/t/p/w780/gQB8Y5RCMkv2zwzFHbUJX3kAhvA.jpg",
       caption: "We watched Redux. We do not regret it. Mostly.",
+      orientation: "poster",
     },
     stats: { likes: 88, comments: 27, reposts: 6 },
   },
