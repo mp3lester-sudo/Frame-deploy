@@ -20,10 +20,16 @@ import { CIRCUMSTANTIAL_CONTEXTS, CONTEXT_LABELS, type CircumstantialContext } f
  * the click's own request was competing with its own page's leftover
  * prefetch traffic. Turning off prefetch here means a click always starts
  * a clean, uncontended request instead.
+ *
+ * Single horizontally-scrolling row (flex-nowrap + overflow-x-auto), not
+ * flex-wrap -- on a narrow phone screen five pills wrapped onto two rows,
+ * which read as a second stacked line of clutter right under the
+ * greeting instead of one clean row. Same no-scrollbar rail pattern
+ * MoodRow already uses for the poster row below.
  */
 export function ContextPicker({ active }: { active: CircumstantialContext }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="no-scrollbar -mx-4 flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1">
       {CIRCUMSTANTIAL_CONTEXTS.map((context) => {
         const isActive = context === active;
         return (
@@ -33,8 +39,8 @@ export function ContextPicker({ active }: { active: CircumstantialContext }) {
             prefetch={false}
             className={
               isActive
-                ? "rounded-[var(--radius-full)] bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
-                : "rounded-[var(--radius-full)] border border-border px-3 py-1.5 text-xs text-foreground-muted hover:border-border-strong hover:text-foreground"
+                ? "shrink-0 rounded-[var(--radius-full)] bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
+                : "shrink-0 rounded-[var(--radius-full)] border border-border px-3 py-1.5 text-xs text-foreground-muted hover:border-border-strong hover:text-foreground"
             }
           >
             {CONTEXT_LABELS[context]}
