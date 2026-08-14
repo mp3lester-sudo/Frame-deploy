@@ -175,3 +175,118 @@ here.
   relevant file, run `npx cap sync ios` again, run `npm run bump-build`,
   then re-archive and re-submit through Xcode (to either TestFlight or
   the App Store -- both need a bumped build number for every new upload).
+
+## Home-screen widget (Backlot Daily Pick)
+
+An optional iOS WidgetKit widget -- today's personalized recommendation,
+right on the home screen, refreshed on the OS's own schedule whether or
+not the app gets opened that day. The web-side pieces (the API endpoint,
+the token that lets a widget authenticate without a browser session, and
+the Swift source itself) are already in the repo. What's left is entirely
+Xcode-project surgery that can't be done by editing files blind -- adding
+a new build target is exactly the kind of change that's much safer done
+through Xcode's own wizard than by hand-editing `project.pbxproj`.
+
+Budget ~20-30 minutes the first time. None of this is required for the
+app to keep working normally -- skip this section entirely if the widget
+isn't a priority right now.
+
+### 1. Pull the code, install the new plugin, sync
+
+```
+cd ~/Frame-deploy
+git pull
+cd mobile-app
+npm install
+npx cap sync ios
+```
+
+This links `capacitor-widget-bridge` (the plugin that lets the website's
+JS write into a shared App Group container the widget can read) into the
+Xcode project's Podfile.
+
+### 2. Create the Widget Extension target
+
+In Xcode: **File → New → Target...** → search "Widget Extension" → Next.
+
+- Product Name: `BacklotWidget`
+- Team: same team as the main `App` target
+- Uncheck "Include Configuration Intent" (this widget doesn't need a
+  user-configurable options screen)
+- Uncheck "Include Live Activity" (not needed)
+- Finish. Xcode will offer to "Activate" the new scheme -- yes.
+
+This generates a `BacklotWidget/` group with placeholder Swift files and
+its own `Info.plist` -- that's expected, they get replaced in step 4.
+
+### 3. Enable App Groups on both targets
+
+An App Group is what lets two separate processes (the main app, and the
+widget extension) share a slice of storage -- this is how the widget
+reads the login token the main app writes.
+
+For **both** the `App` target and the new `BacklotWidget` target:
+
+1. Select the target → **Signing & Capabilities** tab → **+ Capability**
+   → **App Groups**.
+2. Click **+** under App Groups → enter `group.app.backlot.ios` exactly
+   (this must match `WidgetConstants.appGroup` in
+   `BacklotWidget/DailyPickModels.swift` and `APP_GROUP` in
+   `src/components/native/widget-token-bootstrap.tsx` on the website
+   side -- all three have to agree character-for-character).
+3. Xcode will prompt to register the group with your Apple Developer
+   account -- allow it. This regenerates both targets' provisioning
+   profiles, which is normal.
+
+### 4. Replace the generated Swift files
+
+Delete the placeholder files Xcode generated inside the `BacklotWidget`
+group (typically `BacklotWidget.swift` and `BacklotWidgetBundle.swift`),
+then drag the real ones from this repo into that same group in Xcode's
+navigator, making sure **"Copy items if needed"** is off (they should
+stay at their repo path) and the **BacklotWidget target membership
+checkbox is checked**:
+
+```
+mobile-app/ios/App/BacklotWidget/DailyPickModels.swift
+mobile-app/ios/App/BacklotWidget/DailyPickProvider.swift
+mobile-app/ios/App/BacklotWidget/DailyPickWidgetView.swift
+mobile-app/ios/App/BacklotWidget/DailyPickWidget.swift
+mobile-app/ios/App/BacklotWidget/BacklotWidgetBundle.swift
+```
+
+If Xcode's wizard also generated an `Assets.xcassets` inside
+`BacklotWidget/`, leave that in place -- it's harmless and unused.
+
+### 5. Set the minimum deployment target
+
+Widget's target → **General** tab → **Minimum Deployments** → iOS 17.0
+(the widget code uses `.contentMarginsDisabled()`, an iOS 17 API). If the
+main `App` target's minimum is lower than that, that's fine -- they don't
+need to match; a person on an older iOS just won't be able to add the
+widget.
+
+### 6. Run it
+
+Select the `BacklotWidget` scheme (not `App`) in Xcode's scheme picker,
+choose your device, hit Run. Xcode installs the widget extension
+alongside the already-installed main app rather than launching a
+separate app.
+
+Then on the device: make sure you're logged into Backlot in the main app
+first (the widget has nothing to show until `WidgetTokenBootstrap` has
+run at least once), then long-press the home screen → **+** → search
+"Backlot" → add the widget in either the small or medium size.
+
+If it shows "Open Backlot / Sign in to see your daily pick" after that,
+force-quit and reopen the main app once (the token write happens on
+mount, not instantly in the background) and check again after a few
+seconds.
+
+### Known limitation
+
+Tapping the widget opens `taste-green-tau.vercel.app/movie/<id>` in
+Safari, not inside the app itself -- true deep-linking into the native
+app requires Associated Domains / Universal Links (a server-side
+`apple-app-site-association` file plus an entitlement), which isn't set
+up. Reasonable follow-up, not required for the widget to be useful.
