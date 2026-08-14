@@ -84,16 +84,22 @@ export function BackdropHero({
             title={`${title} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
-          {/* Permanent cover for YouTube's own title/channel header row --
-              tall enough (h-20/h-24) that its solid portion (via-background
-              carries most of the way down before fading) sits well past
-              where that header renders regardless of viewport width, since
-              the header is part of YouTube's own responsive chrome and
-              scales with the embed. The wordmark reads as intentional
-              branding over the video, not a patch -- same treatment the
-              nav bar's logo uses elsewhere in the app. */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-20 bg-gradient-to-b from-background via-background/95 to-transparent sm:h-24" />
-          <div className="pointer-events-none absolute left-1/2 top-3 z-[6] -translate-x-1/2 sm:top-4">
+          {/* Permanent cover for YouTube's own title/channel header row.
+              First attempt here used a single gradient div (h-20/h-24,
+              fading to transparent by its own bottom edge) and it wasn't
+              enough -- confirmed by screenshot on both iOS Safari and
+              desktop Chrome that the header (which can run two lines for
+              a long title + channel name) still poked out past where the
+              gradient had already faded most of the way to transparent.
+              Fixed by splitting into a genuinely solid block (no gradient
+              math to get wrong, hard-edged, generously sized) plus a
+              short fade underneath it for a clean transition into the
+              video -- not relying on a single gradient to be both "fully
+              opaque where it needs to be" and "faded out where it
+              doesn't" at the same time. */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-28 bg-background sm:h-32" />
+          <div className="pointer-events-none absolute inset-x-0 top-28 z-[5] h-10 bg-gradient-to-b from-background to-transparent sm:top-32 sm:h-12" />
+          <div className="pointer-events-none absolute left-1/2 top-4 z-[6] -translate-x-1/2 sm:top-5">
             <span className="text-gold-foil font-hollywood text-base uppercase tracking-[0.1em] sm:text-lg">
               Backlot
             </span>
