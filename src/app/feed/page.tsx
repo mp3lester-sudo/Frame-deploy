@@ -6,6 +6,39 @@ import { FAKE_POSTS } from "@/lib/social/fake-posts";
 import { getIndieReleases } from "@/lib/news/tmdb-releases";
 import { getIndieNews } from "@/lib/news/indie-news";
 
+/**
+ * Ticket-stub tab bar -- Social / Clubs / Hot takes read as three sections
+ * of the same social wing rather than one page with two escape-hatch
+ * links off in a corner (the prior header). The active tab (always
+ * "Social" here, since Clubs and Hot Takes are their own routes) gets the
+ * gold underline; the other two are plain links out.
+ */
+function SocialTabs() {
+  const tabs = [
+    { label: "Social", href: "/feed", active: true },
+    { label: "Clubs", href: "/clubs", active: false },
+    { label: "Hot takes", href: "/hot-takes", active: false },
+  ];
+  return (
+    <div className="flex border-b border-border">
+      {tabs.map((tab) => (
+        <Link
+          key={tab.label}
+          href={tab.href}
+          aria-current={tab.active ? "page" : undefined}
+          className={`flex-1 border-b-2 py-3 text-center text-sm transition-colors ${
+            tab.active
+              ? "border-accent text-accent"
+              : "border-transparent text-foreground-muted hover:text-accent"
+          }`}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export default async function FeedPage() {
   const user = await getVerifiedUser();
 
@@ -28,18 +61,8 @@ export default async function FeedPage() {
 
   return (
     <div className="mx-auto max-w-2xl pb-12">
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/90 px-4 py-4 backdrop-blur sm:px-5">
-        <h1 className="font-section-heading text-2xl">Social</h1>
-        {/* Clubs link relocated here from Home (Option B declutter) --
-            same treatment as the existing Hot Takes link next to it. */}
-        <div className="flex items-center gap-4">
-          <Link href="/clubs" className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent">
-            Clubs &rarr;
-          </Link>
-          <Link href="/hot-takes" className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent">
-            Hot Takes &rarr;
-          </Link>
-        </div>
+      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur">
+        <SocialTabs />
       </div>
 
       <IndieBuzzStrip releases={indieReleases} news={indieNews} />
