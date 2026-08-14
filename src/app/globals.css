@@ -194,24 +194,25 @@ body {
 /* Motion pass: page transitions + staggered grid reveal. Both respect
    prefers-reduced-motion (disabled entirely for anyone who's asked for
    less motion system-wide, rather than just making it subtler). */
-/* translate (not transform: translateY()) on purpose -- a non-"none"
-   transform on this wrapper makes it the containing block for any
-   position:fixed descendant (e.g. the Ask Backlot poster wall, the
-   cinematic intro overlay, greeting splash, decision reveal, full
-   Wrapped story), which then gets sized to this element's own content
-   height instead of the real viewport -- visibly clipped on any page
-   whose non-fixed content is shorter than the screen. The standalone
-   `translate` property produces the identical slide-up-and-fade but
-   does not establish a containing block, so fixed descendants still
-   size against the viewport as intended. */
+/* margin-top (not transform/translate) on purpose -- transform,
+   translate, rotate, and scale all establish a containing block for
+   any position:fixed descendant once set to anything other than the
+   literal keyword "none" (an identity value like translateY(0) or
+   translate: 0 0 still counts as "not none"). That silently traps
+   any fixed-position element rendered inside a page -- the Ask
+   Backlot poster wall, cinematic intro overlay, greeting splash,
+   decision reveal, full Wrapped story -- sizing it to this wrapper's
+   own content height instead of the real viewport. margin-top
+   produces the identical slide-up-and-fade without ever touching a
+   containing-block-triggering property. */
 @keyframes page-fade-in {
   from {
     opacity: 0;
-    translate: 0 6px;
+    margin-top: 6px;
   }
   to {
     opacity: 1;
-    translate: 0 0;
+    margin-top: 0;
   }
 }
 .page-transition {

@@ -250,11 +250,27 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
         // flex-1 (fill remaining vertical space below the header) would
         // have nothing to grow within and the page would collapse to its
         // content height instead of filling the viewport.
+        //
+        // transform is omitted entirely at rest (pull === 0), not just
+        // set to translateY(0) -- any non-"none" transform here
+        // (including the identity translateY(0)) makes this div the
+        // containing block for every position:fixed element rendered
+        // anywhere inside it, which is the entire app. That silently
+        // clipped full-viewport fixed backgrounds (Ask Backlot's poster
+        // wall, the cinematic intro, greeting splash, decision reveal,
+        // full Wrapped story) to whatever this div's own content height
+        // happened to be instead of the real screen. Only actively
+        // dragging (or easing back from a drag) needs the transform, so
+        // it's only present then.
         className="flex flex-1 flex-col"
-        style={{
-          transform: `translateY(${pull}px)`,
-          transition: active ? "none" : "transform 220ms ease-out",
-        }}
+        style={
+          pull !== 0
+            ? {
+                transform: `translateY(${pull}px)`,
+                transition: active ? "none" : "transform 220ms ease-out",
+              }
+            : undefined
+        }
       >
         {children}
       </div>
