@@ -9,14 +9,14 @@ import { Button } from "@/components/ui/button";
 export default function NotFound() {
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-4 text-center">
-      <span className="font-hollywood text-gold-foil text-2xl uppercase tracking-[0.08em]">Backlot</span>
+      <span className="font-hollywood text-gold-foil text-2xl uppercase tracking-[0.08em]">Marquee</span>
       <p className="font-display text-6xl italic text-foreground-muted">404</p>
       <h1 className="text-xl font-medium text-foreground">This page didn&apos;t make the final cut.</h1>
       <p className="max-w-sm text-sm text-foreground-muted">
         Whatever you were looking for isn&apos;t here -- it may have been moved, renamed, or never existed.
       </p>
       <Link href="/">
-        <Button variant="primary">Back to Backlot</Button>
+        <Button variant="primary">Back to Marquee</Button>
       </Link>
     </div>
   );

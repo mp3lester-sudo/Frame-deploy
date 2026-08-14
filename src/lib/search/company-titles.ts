@@ -4,7 +4,7 @@ import { tmdbUrl } from "@/lib/external/tmdb-client";
  * Live TMDB ids for a studio's catalogue, ordered by popularity --
  * paired with a local `titles.tmdb_id IN (...)` lookup in
  * src/app/search/page.tsx to render only films that already exist in
- * Backlot's own catalogue (so results use our real DB rows -- ratings,
+ * Marquee's own catalogue (so results use our real DB rows -- ratings,
  * poster_url, everything TitleCard expects -- not a second, inconsistent
  * data source). Titles TMDB knows about that we haven't ingested simply
  * don't show up; that's an acceptable gap rather than a reason to block

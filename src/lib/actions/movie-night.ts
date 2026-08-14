@@ -97,7 +97,7 @@ export async function inviteToMovieNight(input: z.infer<typeof inviteSchema>) {
   const maxParticipants = movieNightMaxParticipants(hostProfile);
   if ((participantCount ?? 0) >= maxParticipants) {
     throw new Error(
-      `This movie night is full (${maxParticipants} people max on your plan). Upgrade to Backlot Auteur for bigger groups.`
+      `This movie night is full (${maxParticipants} people max on your plan). Upgrade to Marquee Auteur for bigger groups.`
     );
   }
 
@@ -132,7 +132,7 @@ const joinByTokenSchema = z.object({ token: z.string().min(1) });
 /**
  * The other half of the invite story: joining via a shareable link
  * instead of inviteToMovieNight's by-username flow above, which only
- * works when the invitee is already a Backlot account. resolve_movie_night_token
+ * works when the invitee is already a Marquee account. resolve_movie_night_token
  * (migration 0037) is security definer specifically so an authenticated
  * user who isn't a participant yet can still resolve the token -- movie_nights'
  * own RLS would otherwise hide the row from them. The actual participant

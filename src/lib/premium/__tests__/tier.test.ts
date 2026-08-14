@@ -38,13 +38,13 @@ describe("isAuteurActive", () => {
 
 describe("tierLabel", () => {
   it("labels auteur", () => {
-    expect(tierLabel("auteur")).toBe("Backlot Auteur");
+    expect(tierLabel("auteur")).toBe("Marquee Auteur");
   });
 
   it("labels premium and any other/missing value as Premium", () => {
-    expect(tierLabel("premium")).toBe("Backlot Premium");
-    expect(tierLabel(null)).toBe("Backlot Premium");
-    expect(tierLabel(undefined)).toBe("Backlot Premium");
+    expect(tierLabel("premium")).toBe("Marquee Premium");
+    expect(tierLabel(null)).toBe("Marquee Premium");
+    expect(tierLabel(undefined)).toBe("Marquee Premium");
   });
 });
 

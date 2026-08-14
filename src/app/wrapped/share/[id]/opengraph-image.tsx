@@ -26,7 +26,7 @@ export default async function WrappedShareImage({ params }: { params: Promise<{ 
 
   const owner = (share as unknown as { profiles: { username: string; display_name: string | null } | null } | null)
     ?.profiles;
-  const ownerName = owner?.display_name ?? owner?.username ?? "A Backlot user";
+  const ownerName = owner?.display_name ?? owner?.username ?? "A Marquee user";
   const result = share?.stats as unknown as WrappedResult | undefined;
 
   return new ImageResponse(
@@ -46,7 +46,7 @@ export default async function WrappedShareImage({ params }: { params: Promise<{ 
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", fontSize: 28, color: GOLD, letterSpacing: 4, textTransform: "uppercase" }}>
-            Backlot Wrapped
+            Marquee Wrapped
           </div>
           <div style={{ display: "flex", fontSize: 56, marginTop: 16, maxWidth: 1000 }}>
             {ownerName}&apos;s {share?.year ?? ""} Wrapped
@@ -61,7 +61,7 @@ export default async function WrappedShareImage({ params }: { params: Promise<{ 
             {result.topArchetype && <Stat label="Archetype" value={result.topArchetype.name} />}
           </div>
         ) : (
-          <div style={{ display: "flex", fontSize: 32, color: "#9a8f86" }}>backlot</div>
+          <div style={{ display: "flex", fontSize: 32, color: "#9a8f86" }}>marquee</div>
         )}
       </div>
     ),

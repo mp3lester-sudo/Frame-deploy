@@ -94,7 +94,7 @@ async function fetchFeed(url: string, source: string): Promise<IndieNewsItem[]> 
     const res = await fetch(url, {
       // A real User-Agent -- some publishers block the default fetch
       // signature on server-to-server requests.
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; BacklotBot/1.0; +https://taste-green-tau.vercel.app)" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; MarqueeBot/1.0; +https://taste-green-tau.vercel.app)" },
       next: { revalidate: 3600 },
       // Without this, a slow/unresponsive outlet has no upper bound at all
       // -- getArticleImage already caps its own fetch at 6s (see

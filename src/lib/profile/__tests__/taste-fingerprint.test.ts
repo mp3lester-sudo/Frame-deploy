@@ -78,7 +78,7 @@ describe("buildTasteQuote", () => {
 
   it("falls back to a generic label when tier is unset", () => {
     expect(buildTasteQuote(null, [{ genre: "Drama", pct: 100 }], 10)).toBe(
-      "A Backlot member drawn to Drama."
+      "A Marquee member drawn to Drama."
     );
   });
 });

@@ -1,7 +1,7 @@
 import { tmdbUrl } from "@/lib/external/tmdb-client";
 
 /**
- * Critic/community reviews sourced from TMDB (distinct from Backlot's own
+ * Critic/community reviews sourced from TMDB (distinct from Marquee's own
  * user review system). Fetched live per-request with a 24h Next.js data
  * cache — no DB storage needed since this is read-only reference content
  * that doesn't need to survive a schema change or feed the rec engine.

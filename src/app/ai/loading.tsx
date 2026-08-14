@@ -1,4 +1,4 @@
-// Ask Backlot concierge skeleton -- header plus the chat/input shell.
+// Ask Marquee concierge skeleton -- header plus the chat/input shell.
 export default function Loading() {
   return (
     <section className="mx-auto max-w-3xl px-4 py-14 sm:py-20">

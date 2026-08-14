@@ -194,7 +194,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
               </div>
               <div>
                 <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
-                  Or invite someone already on Backlot
+                  Or invite someone already on Marquee
                 </p>
                 <InviteForm movieNightId={night.id} />
               </div>

@@ -56,7 +56,7 @@ type Phase = "sealed" | "revealing" | "sweeping" | "revealed";
  * poster already visible in "More picks for you").
  *
  * This was a deliberate product call, not just a visual one: the AI
- * recommendation is Backlot's whole differentiator, and a fully-formed
+ * recommendation is Marquee's whole differentiator, and a fully-formed
  * card that's already on screen the instant the page paints reads as
  * decoration, not something that happened for you. Gating it behind a
  * tap -- with the match score visibly being calculated in between --
@@ -153,7 +153,7 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
   return (
     // Dramatically taller than the old 368/440px card, and no longer
     // paired 1.6fr/1fr next to HiddenGemCard (see page.tsx) -- the AI
-    // recommendation is Backlot's whole differentiator, so this is now
+    // recommendation is Marquee's whole differentiator, so this is now
     // the unambiguous focal point of the page: full column width, the
     // tallest single element on the home page by a wide margin, with
     // everything else (mood row, social feed, hidden gem) demoted below

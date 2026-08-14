@@ -1,6 +1,6 @@
 {
-  "name": "Backlot — The Operating System for Entertainment",
-  "short_name": "Backlot",
+  "name": "Marquee — The Operating System for Entertainment",
+  "short_name": "Marquee",
   "description": "Personalized movie and TV recommendations that actually get your taste.",
   "start_url": "/",
   "scope": "/",

@@ -31,6 +31,6 @@ export function siteOrigin(): string {
   return "https://taste-green-tau.vercel.app";
 }
 
-export const SITE_NAME = "Backlot";
+export const SITE_NAME = "Marquee";
 export const SITE_DESCRIPTION =
   "Personalized movie and TV recommendations that actually get your taste.";

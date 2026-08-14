@@ -132,7 +132,7 @@ export default async function AdminReportsPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-2xl">Moderation reports</h1>
         <Link href="/" className="text-xs uppercase tracking-wider text-foreground-muted hover:text-accent">
-          Back to Backlot &rarr;
+          Back to Marquee &rarr;
         </Link>
       </div>
 

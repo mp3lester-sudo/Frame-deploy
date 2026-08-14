@@ -43,7 +43,7 @@ type ExitDirection = "left" | "right" | "fade";
 // replay it. STALE_MS must match the threshold in page.tsx's inline
 // script exactly, or the two surfaces would disagree about whether a
 // given visit still counts as "recent."
-const INTRO_SEEN_AT_KEY = "backlot:cinematic-intro-shown-at";
+const INTRO_SEEN_AT_KEY = "marquee:cinematic-intro-shown-at";
 const INTRO_STALE_MS = 30 * 60 * 1000;
 
 function markIntroSeen() {
@@ -297,7 +297,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
           style={{ background: "radial-gradient(ellipse at center, rgba(255,250,235,0.09) 0%, transparent 60%)" }}
         />
         <div className="onboarding-intro-grain absolute inset-0" />
-        <p className="text-gold-foil font-hollywood relative text-5xl tracking-[0.3em]">Backlot</p>
+        <p className="text-gold-foil font-hollywood relative text-5xl tracking-[0.3em]">Marquee</p>
         <div className="relative my-4 h-px w-16 bg-white/40" />
         <p className="font-display relative text-sm italic text-white/60">a picture house, for your taste</p>
         <button
@@ -330,7 +330,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
         <div>
           <p className="font-display text-lg italic text-foreground">Developing your reel…</p>
           <p className="mt-1 font-sans text-[10px] uppercase tracking-[0.2em] text-foreground-muted">
-            Backlot taste engine
+            Marquee taste engine
           </p>
         </div>
       </div>
@@ -370,7 +370,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
           onClick={() => router.push("/")}
           className="bg-gold-foil text-accent-foreground mt-8 inline-flex h-12 w-full items-center justify-center rounded-[var(--radius-md)] px-6 font-sans text-sm font-semibold uppercase tracking-wide shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] transition-[filter] hover:brightness-110"
         >
-          Enter Backlot
+          Enter Marquee
         </button>
       </div>
     );

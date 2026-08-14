@@ -1,6 +1,6 @@
 /**
  * Shared between /taste-dna (the standalone page) and the profile page's
- * embedded Backlot DNA panel, so the two surfaces can't drift out of sync
+ * embedded Marquee DNA panel, so the two surfaces can't drift out of sync
  * on what counts as "enough rating history" or how a pacing preference
  * reads back to the user.
  */

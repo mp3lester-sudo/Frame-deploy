@@ -11,11 +11,11 @@ import Link from "next/link";
 // render this component at all) -- it only remembers "dismissed this
 // session," so a user who upgrades mid-session just stops seeing it next
 // render regardless of this flag.
-const DISMISS_KEY = "backlot:promo-banner-dismissed";
+const DISMISS_KEY = "marquee:promo-banner-dismissed";
 
 /**
  * The "ad-free" Premium perk only means something if free accounts
- * actually see *something* to go ad-free from. This is Backlot's own
+ * actually see *something* to go ad-free from. This is Marquee's own
  * house promo (there's no third-party ad network here) -- a single slim
  * line under the nav, not a modal or a blocking takeover, consistent with
  * PremiumUpsell's restrained, single-line style elsewhere in the app.
@@ -42,9 +42,9 @@ export function PromoBanner() {
   return (
     <div className="flex items-center justify-center gap-3 border-b border-accent/20 bg-surface px-4 py-2 text-center text-xs text-foreground-muted">
       <span>
-        Go ad-free and unlock monthly Wrapped, unlimited Ask Backlot, and advanced filters with{" "}
+        Go ad-free and unlock monthly Wrapped, unlimited Ask Marquee, and advanced filters with{" "}
         <Link href="/premium" className="font-medium text-accent hover:underline">
-          Backlot Premium
+          Marquee Premium
         </Link>
         .
       </span>

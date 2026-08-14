@@ -38,7 +38,7 @@ export interface RecentWrappedState {
  * #140), Auteur gets it weekly instead (task #342), gated here rather than
  * in computeMonthlyWrapped/computeWeeklyWrapped themselves, same
  * "gating lives in the action, not the query" split already used for
- * Discover's advanced filters and the Ask Backlot concierge's daily cap.
+ * Discover's advanced filters and the Ask Marquee concierge's daily cap.
  */
 export async function getMyRecentWrapped(): Promise<RecentWrappedState> {
   const user = await getVerifiedUser();

@@ -296,7 +296,7 @@ function SlideContent({
 function IntroSlide({ headline }: { headline: string }) {
   return (
     <div className="stagger-card flex flex-col items-center gap-3 text-center">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Marquee Wrapped</p>
       <h2 className="font-hollywood text-4xl uppercase tracking-[0.03em] sm:text-5xl">{headline}</h2>
       <p className="mt-1 text-sm text-foreground-muted">Tap to begin</p>
     </div>
@@ -430,7 +430,7 @@ function FinaleSlide({
     <FrostedPanel>
       <div className="stagger-card flex w-full flex-col items-center gap-5 text-center">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Marquee Wrapped</p>
           <h2 className="font-hollywood mt-1 text-3xl uppercase tracking-[0.02em] sm:text-4xl">{headline}</h2>
           <p className="font-section-body mt-2 text-sm text-foreground-muted">{summary}</p>
         </div>

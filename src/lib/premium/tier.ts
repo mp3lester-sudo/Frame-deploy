@@ -3,7 +3,7 @@ export type PremiumTier = "premium" | "auteur";
 /**
  * True only for the top tier specifically -- distinct from
  * isPremiumActive (which is true for *either* paid tier, plus referral
- * bonus windows). Any feature that should be exclusive to Backlot Auteur
+ * bonus windows). Any feature that should be exclusive to Marquee Auteur
  * (custom poster/backdrop picker, weekly Wrapped, saved filter presets,
  * etc.) checks this instead of isPremiumActive.
  *
@@ -23,7 +23,7 @@ export function isAuteurActive(
 
 /** Human-readable label for a tier, for UI copy (manage card, badges). */
 export function tierLabel(tier: PremiumTier | string | null | undefined): string {
-  return tier === "auteur" ? "Backlot Auteur" : "Backlot Premium";
+  return tier === "auteur" ? "Marquee Auteur" : "Marquee Premium";
 }
 
 /**

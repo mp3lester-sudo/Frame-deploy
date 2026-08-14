@@ -5,7 +5,7 @@ import { isRateLimited } from "@/lib/rate-limit";
 
 /**
  * GDPR-style "export my data" -- previously the only way to see what
- * Backlot has on you was to piece it together across a dozen different
+ * Marquee has on you was to piece it together across a dozen different
  * pages by hand. Uses the request-scoped client (not service role), so
  * this is naturally bounded by RLS on top of the explicit user_id filters
  * below -- a bug in this route can leak at most what its own session is
@@ -107,7 +107,7 @@ export async function GET() {
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {
       "Content-Type": "application/json",
-      "Content-Disposition": `attachment; filename="backlot-data-export-${user.id.slice(0, 8)}.json"`,
+      "Content-Disposition": `attachment; filename="marquee-data-export-${user.id.slice(0, 8)}.json"`,
     },
   });
 }

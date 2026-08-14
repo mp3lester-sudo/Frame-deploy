@@ -129,7 +129,7 @@ export async function POST(request: Request) {
             try {
               await sendPushToUser(sub.user_id, {
                 title: "Payment failed",
-                body: "We couldn't process your Backlot Premium payment. Update your card to keep your subscription.",
+                body: "We couldn't process your Marquee Premium payment. Update your card to keep your subscription.",
                 url: "/premium",
               });
             } catch (pushErr) {

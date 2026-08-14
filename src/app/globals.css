@@ -94,7 +94,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-instrument-serif);
-  /* The Backlot wordmark's font (see layout.tsx) -- also used for
+  /* The Marquee wordmark's font (see layout.tsx) -- also used for
      Wrapped's headline/stat typography (see wrapped-story.tsx) so the
      "your year in film" moment reads like it's set in the same
      marquee-logotype voice as the brand itself. */
@@ -105,7 +105,7 @@
      title has one on file; this is just the fallback everyone starts on. */
   --font-greeting: var(--font-syne);
   /* Header + smaller-text pair reserved for the seven section pages
-     (Discover, Backlot DNA, Wrapped, Ask Backlot, Social, Movie Night,
+     (Discover, Marquee DNA, Wrapped, Ask Marquee, Social, Movie Night,
      Clubs) — see layout.tsx. Copy on those pages is unchanged; only the
      font applied to the existing heading/subtext elements. */
   --font-section-heading: var(--font-big-shoulders-display);
@@ -200,7 +200,7 @@ body {
    literal keyword "none" (an identity value like translateY(0) or
    translate: 0 0 still counts as "not none"). That silently traps
    any fixed-position element rendered inside a page -- the Ask
-   Backlot poster wall, cinematic intro overlay, greeting splash,
+   Marquee poster wall, cinematic intro overlay, greeting splash,
    decision reveal, full Wrapped story -- sizing it to this wrapper's
    own content height instead of the real viewport. margin-top
    produces the identical slide-up-and-fade without ever touching a

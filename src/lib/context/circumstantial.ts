@@ -1,5 +1,5 @@
 /**
- * "Circumstantial" recommendations — the other half of Backlot's differentiation
+ * "Circumstantial" recommendations — the other half of Marquee's differentiation
  * from Letterboxd (see the Taste Graph, which handles the personal half).
  * A context isn't a taste preference, it's what tonight actually looks like:
  * watching alone, with a date, with a group, half-paying-attention, or only

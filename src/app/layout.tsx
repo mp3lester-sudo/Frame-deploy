@@ -39,7 +39,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 // Tall, condensed, bold marquee lettering -- the "HOLLYWOOD sign" look.
-// Reserved for the Backlot wordmark only; everything else stays on
+// Reserved for the Marquee wordmark only; everything else stays on
 // --font-display (Playfair) for body/heading text.
 const bebasNeue = Bebas_Neue({
   variable: "--font-bebas",
@@ -60,7 +60,7 @@ const cinzel = Cinzel({
 
 // Bold condensed poster-title sans + a clean editorial-grotesque body --
 // reserved for the header/small-text pair on the seven section pages
-// (Discover, Backlot DNA, Wrapped, Ask Backlot, Social/Feed, Movie Night,
+// (Discover, Marquee DNA, Wrapped, Ask Marquee, Social/Feed, Movie Night,
 // Clubs), via --font-section-heading / --font-section-body in globals.css.
 // Deliberately distinct from --font-display (Instrument Serif) so those
 // pages read as a related but separate typographic register, not a copy
@@ -99,19 +99,19 @@ const syne = Syne({
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin()),
   title: {
-    default: "Backlot — The Operating System for Entertainment",
+    default: "Marquee — The Operating System for Entertainment",
     template: `%s — ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
   openGraph: {
     siteName: SITE_NAME,
     type: "website",
-    title: "Backlot — The Operating System for Entertainment",
+    title: "Marquee — The Operating System for Entertainment",
     description: SITE_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: "Backlot — The Operating System for Entertainment",
+    title: "Marquee — The Operating System for Entertainment",
     description: SITE_DESCRIPTION,
   },
   robots: { index: true, follow: true },
@@ -197,7 +197,7 @@ export default async function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `try {
-  var k = 'backlot_analytics_consent';
+  var k = 'marquee_analytics_consent';
   var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + k + '=([^;]*)'));
   var v = m ? decodeURIComponent(m[1]) : null;
   if (v !== 'granted' && v !== 'denied') v = window.localStorage.getItem(k);

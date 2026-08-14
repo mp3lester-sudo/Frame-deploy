@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 
-// How many poster tiles the Ask Backlot "poster wall" backdrop shows --
+// How many poster tiles the Ask Marquee "poster wall" backdrop shows --
 // enough to tile a dense multi-row grid across a full-height page (chat
 // history included) without visibly repeating on typical viewports. Same
 // "flush tile grid + one shared gradient" trick as the auth backdrop
@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 const POSTER_COUNT = 42;
 
 /**
- * Poster tiles for the Ask Backlot page's poster-wall backdrop -- the
+ * Poster tiles for the Ask Marquee page's poster-wall backdrop -- the
  * catalogue's most popular titles, heavily dimmed behind the concierge
  * chat. Deliberately not personalized to the signed-in user's own taste:
  * this is set dressing (a wall of recognizable posters, not a
@@ -19,7 +19,7 @@ const POSTER_COUNT = 42;
  * public-read titles query the auth backdrop and landing teaser already
  * use.
  */
-export async function getAskBacklotPosterWall(): Promise<string[]> {
+export async function getAskMarqueePosterWall(): Promise<string[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("titles")

@@ -6,7 +6,7 @@ import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 /**
  * Feeds the iOS home-screen widget's TimelineProvider (see
- * mobile-app/ios/App/BacklotWidget/) -- deliberately a plain token query
+ * mobile-app/ios/App/MarqueeWidget/) -- deliberately a plain token query
  * param rather than the usual cookie-session auth every other route in
  * this app uses, because WidgetKit's extension runs as its own separate
  * OS process with no access to the main app's cookies at all. The token

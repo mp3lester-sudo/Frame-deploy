@@ -10,7 +10,7 @@ import { getOrCreateWidgetToken } from "@/lib/actions/widget";
 // mobile-app/SETUP.md's widget section) -- "group." + the app's bundle
 // id (capacitor.config.ts's appId) is Apple's own convention, not a
 // requirement, but there's no reason to deviate from it.
-const APP_GROUP = "group.app.backlot.ios";
+const APP_GROUP = "group.app.marquee.ios";
 const TOKEN_KEY = "widget_token";
 
 /**

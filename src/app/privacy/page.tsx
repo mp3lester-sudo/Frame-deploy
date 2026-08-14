@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Backlot",
+  title: "Privacy Policy — Marquee",
 };
 
 const LAST_UPDATED = "August 2, 2026";
@@ -14,8 +14,8 @@ export default function PrivacyPage() {
 
       <div className="mt-8 flex flex-col gap-8 text-sm leading-relaxed text-foreground-muted">
         <p>
-          This policy explains what information Backlot collects, how it&apos;s used, and the choices
-          you have about it. It applies to the Backlot website and app (&ldquo;Backlot,&rdquo;
+          This policy explains what information Marquee collects, how it&apos;s used, and the choices
+          you have about it. It applies to the Marquee website and app (&ldquo;Marquee,&rdquo;
           &ldquo;we,&rdquo; &ldquo;us&rdquo;).
         </p>
 
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-foreground">Payment information:</strong> if you subscribe to
-              Backlot Premium, payment is processed by Stripe. Backlot does not store your card number —
+              Marquee Premium, payment is processed by Stripe. Marquee does not store your card number —
               only the subscription status Stripe reports back to us.
             </li>
           </ul>
@@ -60,7 +60,7 @@ export default function PrivacyPage() {
         <div>
           <h2 className="font-section-heading text-lg text-foreground">Third parties</h2>
           <p className="mt-3">
-            We rely on a small number of infrastructure providers to run Backlot: Supabase (database and
+            We rely on a small number of infrastructure providers to run Marquee: Supabase (database and
             authentication), Vercel (hosting), Stripe (payment processing), OpenAI (AI-generated
             recommendations and tagging), and The Movie Database / TMDB (movie and show catalogue data).
             Each only receives the data necessary to perform its function. We do not sell your personal
@@ -80,7 +80,7 @@ export default function PrivacyPage() {
         <div>
           <h2 className="font-section-heading text-lg text-foreground">Children&apos;s privacy</h2>
           <p className="mt-3">
-            Backlot is not directed at children under 13, and we do not knowingly collect information
+            Marquee is not directed at children under 13, and we do not knowingly collect information
             from them.
           </p>
         </div>

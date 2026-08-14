@@ -77,7 +77,7 @@ export default async function WrappedPage({
           <h1 className="font-section-heading text-3xl">Your {isCurrentYear ? `${year} So Far` : `${year} Wrapped`}</h1>
           <p className="font-section-body mt-3 text-sm text-foreground-muted">
             Rate at least {MIN_RATINGS_FOR_WRAPPED} titles from {year} and this fills in — your recap, built from
-            the same Taste Graph as the rest of Backlot, not just a tally.
+            the same Taste Graph as the rest of Marquee, not just a tally.
           </p>
           <Link href="/discover" className="mt-6 inline-block">
             <Button>Find something to rate</Button>

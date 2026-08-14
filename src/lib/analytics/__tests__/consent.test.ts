@@ -20,7 +20,7 @@ describe("analytics consent", () => {
 
   it("persists granted consent via a cookie, not just localStorage", () => {
     setConsent("granted");
-    expect(document.cookie).toContain("backlot_analytics_consent=granted");
+    expect(document.cookie).toContain("marquee_analytics_consent=granted");
     expect(getConsent()).toBe("granted");
   });
 
@@ -30,7 +30,7 @@ describe("analytics consent", () => {
   });
 
   it("still reads a pre-existing localStorage-only value (pre-cookie migration)", () => {
-    window.localStorage.setItem("backlot_analytics_consent", "granted");
+    window.localStorage.setItem("marquee_analytics_consent", "granted");
     expect(getConsent()).toBe("granted");
   });
 

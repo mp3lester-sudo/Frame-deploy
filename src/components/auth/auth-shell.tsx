@@ -34,7 +34,7 @@ export function AuthShell({ posters, children }: { posters: string[]; children: 
 
       <div className="relative mx-auto flex min-h-[100dvh] max-w-sm flex-col justify-center px-6 py-16">
         <p className="text-gold-foil font-hollywood mb-6 text-center text-3xl uppercase tracking-[0.08em]">
-          Backlot
+          Marquee
         </p>
         <div className="bento-card p-6">{children}</div>
       </div>

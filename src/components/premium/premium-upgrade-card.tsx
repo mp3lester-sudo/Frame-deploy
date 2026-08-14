@@ -34,7 +34,7 @@ const AUTEUR_FEATURES = [
 
 /**
  * Pricing framed as a literal admission ticket rather than a generic SaaS
- * pricing card -- "Backlot presents" / plan name in the marquee italic
+ * pricing card -- "Marquee presents" / plan name in the marquee italic
  * serif / a perforated tear-line between the header and the feature list
  * (two notches cut into the card's sides, same trick real ticket stubs
  * use) / "Admit one" language on the features. Leans into the cinema
@@ -43,7 +43,7 @@ const AUTEUR_FEATURES = [
  * from an unrelated SaaS template.
  */
 function TicketCard({
-  eyebrow = "Backlot presents",
+  eyebrow = "Marquee presents",
   title,
   price,
   features,

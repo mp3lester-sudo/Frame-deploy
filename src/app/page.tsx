@@ -153,7 +153,7 @@ export default async function HomePage({
             Never ask &ldquo;what should I watch&rdquo; again.
           </h1>
           <p className="max-w-xl text-lg text-foreground-muted">
-            Backlot learns your taste — pacing, tone, favorite directors, the things you can&apos;t stand —
+            Marquee learns your taste — pacing, tone, favorite directors, the things you can&apos;t stand —
             and turns it into three recommendations, not five hundred. Try it below before you sign up.
           </p>
         </div>
@@ -263,19 +263,19 @@ export default async function HomePage({
   var STALE_MS = 30 * 60 * 1000; // away 30+ min counts as a fresh app open
   var now = Date.now();
 
-  var introAt = localStorage.getItem('backlot:cinematic-intro-shown-at');
+  var introAt = localStorage.getItem('marquee:cinematic-intro-shown-at');
   if (introAt && (now - parseInt(introAt, 10)) < STALE_MS) {
     document.documentElement.classList.add('intro-shown');
   } else {
-    localStorage.setItem('backlot:cinematic-intro-shown-at', String(now));
+    localStorage.setItem('marquee:cinematic-intro-shown-at', String(now));
     window.__introWillPlay = true;
   }
 
-  var splashAt = localStorage.getItem('backlot:greeting-splash-shown-at');
+  var splashAt = localStorage.getItem('marquee:greeting-splash-shown-at');
   if (splashAt && (now - parseInt(splashAt, 10)) < STALE_MS) {
     document.documentElement.classList.add('splash-shown');
   } else {
-    localStorage.setItem('backlot:greeting-splash-shown-at', String(now));
+    localStorage.setItem('marquee:greeting-splash-shown-at', String(now));
   }
 } catch (e) {}`,
         }}
@@ -331,7 +331,7 @@ export default async function HomePage({
         <div className="cinematic-intro-title pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center overflow-hidden bg-[#0A0A09]" aria-hidden="true">
           <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, rgba(255,250,235,0.09) 0%, transparent 60%)" }} />
           <div className="onboarding-intro-grain absolute inset-0" />
-          <p className="text-gold-foil font-hollywood relative text-5xl tracking-[0.3em]">Backlot</p>
+          <p className="text-gold-foil font-hollywood relative text-5xl tracking-[0.3em]">Marquee</p>
           <div className="relative my-4 h-px w-16 bg-white/40" />
           <p className="font-display relative text-sm italic text-white/60">a picture house, for your taste</p>
         </div>
@@ -364,7 +364,7 @@ export default async function HomePage({
           sentence the persistent in-page heading below still uses.
           Thin rule lines above and below the name (same accent-deep
           hairline both times) frame it like a vintage title card. The
-          greeting word now matches the Backlot wordmark's own typeface
+          greeting word now matches the Marquee wordmark's own typeface
           (font-hollywood -> Bebas Neue, see nav-bar.tsx); the name stays
           Allura cursive, per product direction (reversed from an earlier
           pass). */}
@@ -379,7 +379,7 @@ export default async function HomePage({
         </span>
         <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
       </div>
-      {/* Backlot wordmark removed from this header per request -- it
+      {/* Marquee wordmark removed from this header per request -- it
           already lives in the nav bar above, so repeating it here was
           redundant. The day/time/location/weather line now centers on
           its own at the top of the page instead of trailing a title. */}
@@ -390,7 +390,7 @@ export default async function HomePage({
       </div>
 
       <h1 className="mt-5 text-center text-4xl leading-tight tracking-tight sm:text-5xl">
-        {/* "Good evening"/"Good morning" now matches the Backlot wordmark's
+        {/* "Good evening"/"Good morning" now matches the Marquee wordmark's
             own typeface (font-hollywood -> Bebas Neue, see nav-bar.tsx),
             reversed from an earlier pass where the name had this treatment. */}
         <span className="font-hollywood text-4xl text-accent sm:text-5xl">{greeting}</span>{" "}

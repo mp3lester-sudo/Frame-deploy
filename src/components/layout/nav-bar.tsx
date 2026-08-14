@@ -12,7 +12,7 @@ import { getNavBadgeCounts } from "@/lib/actions/nav-badges";
 // putting a DB round trip back on the critical path of every click.
 const BADGE_POLL_MS = 60_000;
 
-// Backlot DNA no longer gets its own persistent nav entry -- it now
+// Marquee DNA no longer gets its own persistent nav entry -- it now
 // lives inline on the profile page (see profile/[username]/page.tsx),
 // which people already visit far more often than a standalone page.
 // The route itself (/taste-dna) is untouched and still linked from the
@@ -33,7 +33,7 @@ const BADGE_POLL_MS = 60_000;
 const links = [
   { href: "/discover", label: "Discover", icon: Compass },
   { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
-  { href: "/ai", label: "Ask Backlot", icon: Sparkles },
+  { href: "/ai", label: "Ask Marquee", icon: Sparkles },
   { href: "/feed", label: "Social", icon: Users },
   { href: "/daily", label: "Daily", icon: CalendarDays },
 ];
@@ -105,7 +105,7 @@ export function NavBar({ isAuthed }: { isAuthed: boolean }) {
           href="/"
           className="text-gold-foil font-hollywood text-2xl uppercase tracking-[0.08em]"
         >
-          Backlot
+          Marquee
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">

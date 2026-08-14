@@ -12,7 +12,7 @@ const bodySchema = z.object({
   matchEra: z.boolean().optional(),
 });
 
-// Free-tier daily cap on Ask Backlot — Premium ($7.99/mo, see /premium)
+// Free-tier daily cap on Ask Marquee — Premium ($7.99/mo, see /premium)
 // removes this and keeps only the abuse-prevention throttle below, which
 // applies regardless of plan. Generous enough that casual users rarely hit
 // it, but a real, meaningful limit for frequent users, who are exactly who
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     if (overDailyLimit) {
       return NextResponse.json(
         {
-          error: "You've used today's free Ask Backlot conversations.",
+          error: "You've used today's free Ask Marquee conversations.",
           upgradeUrl: "/premium",
         },
         { status: 429 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Backlot",
+  title: "Terms of Service — Marquee",
 };
 
 const LAST_UPDATED = "August 2, 2026";
@@ -14,7 +14,7 @@ export default function TermsPage() {
 
       <div className="mt-8 flex flex-col gap-8 text-sm leading-relaxed text-foreground-muted">
         <p>
-          These terms govern your use of Backlot (&ldquo;we,&rdquo; &ldquo;us&rdquo;). By creating an
+          These terms govern your use of Marquee (&ldquo;we,&rdquo; &ldquo;us&rdquo;). By creating an
           account or using the app, you agree to them.
         </p>
 
@@ -22,7 +22,7 @@ export default function TermsPage() {
           <h2 className="font-section-heading text-lg text-foreground">Your account</h2>
           <p className="mt-3">
             You&apos;re responsible for the activity on your account and for keeping your password
-            secure. You must be at least 13 years old to use Backlot. You can delete your account at any
+            secure. You must be at least 13 years old to use Marquee. You can delete your account at any
             time from Settings, or by contacting us.
           </p>
         </div>
@@ -31,7 +31,7 @@ export default function TermsPage() {
           <h2 className="font-section-heading text-lg text-foreground">Your content</h2>
           <p className="mt-3">
             Reviews, comments, lists, and anything else you post remain yours. By posting it, you give
-            Backlot a license to display it back to you and other users as part of the ordinary
+            Marquee a license to display it back to you and other users as part of the ordinary
             operation of the app (e.g. showing your review on a movie page, or your list to people you
             share it with). You&apos;re responsible for what you post — don&apos;t post anything illegal,
             harassing, or that infringes someone else&apos;s rights.
@@ -41,7 +41,7 @@ export default function TermsPage() {
         <div>
           <h2 className="font-section-heading text-lg text-foreground">Acceptable use</h2>
           <p className="mt-3">
-            Don&apos;t use Backlot to harass other users, impersonate someone else, scrape or bulk-export
+            Don&apos;t use Marquee to harass other users, impersonate someone else, scrape or bulk-export
             the catalogue or other users&apos; data, attempt to break the recommendation or matching
             systems, or interfere with the service&apos;s normal operation. We may suspend or remove
             accounts that violate this.
@@ -49,7 +49,7 @@ export default function TermsPage() {
         </div>
 
         <div>
-          <h2 className="font-section-heading text-lg text-foreground">Backlot Premium</h2>
+          <h2 className="font-section-heading text-lg text-foreground">Marquee Premium</h2>
           <p className="mt-3">
             Premium is a paid monthly subscription billed through Stripe. It renews automatically until
             you cancel; canceling stops future renewals but doesn&apos;t refund the current billing
@@ -70,7 +70,7 @@ export default function TermsPage() {
         <div>
           <h2 className="font-section-heading text-lg text-foreground">Disclaimer and liability</h2>
           <p className="mt-3">
-            Backlot is provided &ldquo;as is,&rdquo; without warranties of any kind. To the extent
+            Marquee is provided &ldquo;as is,&rdquo; without warranties of any kind. To the extent
             permitted by law, we&apos;re not liable for indirect or consequential damages arising from
             your use of the app.
           </p>
@@ -79,7 +79,7 @@ export default function TermsPage() {
         <div>
           <h2 className="font-section-heading text-lg text-foreground">Changes</h2>
           <p className="mt-3">
-            We may update these terms as the app changes. Continuing to use Backlot after an update means
+            We may update these terms as the app changes. Continuing to use Marquee after an update means
             you accept the revised terms.
           </p>
         </div>

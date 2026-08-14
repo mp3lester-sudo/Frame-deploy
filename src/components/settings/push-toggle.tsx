@@ -114,7 +114,7 @@ export function PushToggle() {
       ) : (
         <>
           <p className="mb-2 text-xs text-foreground-muted">
-            Get notified on this device for follows, comments, and Movie Night, even when Backlot isn&apos;t open.
+            Get notified on this device for follows, comments, and Movie Night, even when Marquee isn&apos;t open.
           </p>
           <button
             type="button"

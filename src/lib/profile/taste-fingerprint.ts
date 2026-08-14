@@ -69,7 +69,7 @@ export function buildTasteQuote(
   const realSlices = slices.filter((s) => s.genre !== "Other");
   if (realSlices.length === 0 || watchedCount === 0) return null;
 
-  const label = tierLabel || "Backlot member";
+  const label = tierLabel || "Marquee member";
   const [primary, secondary] = realSlices;
 
   if (!secondary) return `A ${label} drawn to ${primary.genre}.`;

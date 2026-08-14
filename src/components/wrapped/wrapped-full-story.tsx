@@ -71,7 +71,7 @@ function CollapsedPreview({
       )}
       <div className="absolute inset-0 bg-gradient-to-b from-[rgba(18,7,8,0.45)] via-[rgba(18,7,8,0.55)] to-[rgba(18,7,8,0.92)]" />
       <div className="relative flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Backlot Wrapped</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Marquee Wrapped</p>
         <h2 className="font-hollywood text-4xl uppercase tracking-[0.03em] sm:text-5xl">{headline}</h2>
         <span className="mt-1 inline-flex items-center gap-2 rounded-[var(--radius-full)] border border-white/20 bg-white/10 px-4 py-2 text-xs font-medium uppercase tracking-wider backdrop-blur-md transition group-hover:bg-white/20">
           Watch your Wrapped

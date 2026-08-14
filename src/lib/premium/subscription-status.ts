@@ -12,7 +12,7 @@
  * Stripe subscription statuses: "trialing" and "active" both mean the
  * subscriber should have Premium; everything else (past_due, canceled,
  * unpaid, incomplete, incomplete_expired, paused) should not. Trialing is
- * included deliberately -- if Backlot ever adds a trial period, someone
+ * included deliberately -- if Marquee ever adds a trial period, someone
  * mid-trial should already have Premium, not be waiting for their first
  * successful charge.
  */
