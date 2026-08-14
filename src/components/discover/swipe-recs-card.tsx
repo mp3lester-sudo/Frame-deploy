@@ -17,6 +17,7 @@ import type { SwipeRec } from "@/lib/actions/swipe-recs";
 // not share a component cleanly.
 const SWIPE_THRESHOLD = 110;
 const EXIT_DURATION_MS = 260;
+const ENTER_DURATION_MS = 340;
 
 type ExitDirection = "left" | "right" | null;
 
@@ -31,7 +32,9 @@ type ExitDirection = "left" | "right" | null;
  * Left swipe/pass -> dismissRecommendation (title_dismissals, migration
  * 0066) -- a hard "don't recommend again," never shown to this user
  * again. Right swipe/heart -> addToWatchlist, the same action the movie
- * page's own watchlist button already calls.
+ * page's own watchlist button already calls. Neither action revalidates
+ * this page (see the comment in dismissals.ts) -- the deck only ever
+ * needs its own local state to stay smooth, swipe after swipe.
  */
 export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
   const [deck, setDeck] = useState(initialDeck);
@@ -110,88 +113,123 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
   }
 
   const rotation = exitDirection === "left" ? -16 : exitDirection === "right" ? 16 : dragOffset.x / 16;
-  const translateX =
-    exitDirection === "left" ? -560 : exitDirection === "right" ? 560 : dragOffset.x;
+  const translateX = exitDirection === "left" ? -560 : exitDirection === "right" ? 560 : dragOffset.x;
   const translateY = isDragging ? dragOffset.y * 0.35 : 0;
+  // A slight lift while dragging -- the card grows by up to 3% as it's
+  // pulled toward either edge, a small physical cue (like picking a real
+  // card up off a stack) that reinforces the drag is being tracked, on
+  // top of the Pass/Watchlist stamps fading in.
+  const dragScale = isDragging ? 1 + Math.min(Math.abs(dragOffset.x) / 4000, 0.03) : 1;
   const cardOpacity = exitDirection ? 0 : 1;
   const saveOpacity = exitDirection === "right" ? 1 : exitDirection ? 0 : Math.min(Math.max(dragOffset.x / 90, 0), 1);
   const passOpacity = exitDirection === "left" ? 1 : exitDirection ? 0 : Math.min(Math.max(-dragOffset.x / 90, 0), 1);
 
-  const cardTransform = `translate(${translateX}px, ${translateY}px) rotate(${rotation}deg)`;
+  const cardTransform = `translate(${translateX}px, ${translateY}px) rotate(${rotation}deg) scale(${dragScale})`;
   const cardTransition = isDragging
     ? "none"
     : `transform ${EXIT_DURATION_MS}ms cubic-bezier(0.2,0.8,0.2,1), opacity ${EXIT_DURATION_MS}ms ease-out`;
 
   const cardBody = (isFullscreenVariant: boolean) => (
-    <div
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      className={`relative w-full cursor-grab touch-none select-none overflow-hidden rounded-[var(--radius-lg)] bg-black active:cursor-grabbing ${
-        isFullscreenVariant ? "h-[62vh]" : "aspect-[3/4]"
-      }`}
-      style={{ transform: cardTransform, opacity: cardOpacity, transition: cardTransition }}
-    >
-      {/* Next card underneath, peeking out -- signals there's more in the
-          deck without needing separate progress UI. */}
-      {next && (
-        <div className="absolute inset-2 -z-10 scale-[0.96] rounded-[var(--radius-lg)] bg-black opacity-60">
-          {next.posterUrl && (
-            <Image src={next.posterUrl} alt="" fill className="rounded-[var(--radius-lg)] object-cover" />
-          )}
-        </div>
-      )}
-      {current.posterUrl ? (
-        <Image
-          src={current.posterUrl}
-          alt={current.name}
-          fill
-          className="pointer-events-none object-cover"
-          onClick={() => {
-            // A tap (not a drag) on the poster itself opens the
-            // full-screen session -- pass/watchlist pills below stay
-            // reachable in the compact view without triggering this.
-            if (!isFullscreenVariant && Math.abs(dragOffset.x) < 4 && Math.abs(dragOffset.y) < 4) {
-              setFullscreen(true);
-            }
-          }}
-        />
-      ) : (
-        <div className="flex h-full items-center justify-center px-2 text-center text-xs font-semibold uppercase tracking-widest text-foreground-muted">
-          {current.name}
-        </div>
-      )}
-
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
-
+    // Keyed on the title id so every new card is a genuinely fresh DOM
+    // node -- lets swipe-card-enter (below) run a clean, guaranteed
+    // "this is a new pick" animation instead of inheriting whatever
+    // transform the previous, now-exited card happened to be sitting at.
+    <div key={current.id} className="swipe-card-enter">
       <div
-        className="font-hollywood pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 -rotate-12 rounded-[var(--radius-sm)] border-2 border-danger px-3 py-1 text-lg uppercase tracking-[0.1em] text-danger"
-        style={{ opacity: passOpacity }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        className={`relative w-full cursor-grab touch-none select-none overflow-hidden rounded-[var(--radius-lg)] bg-black active:cursor-grabbing ${
+          isFullscreenVariant ? "h-[62vh]" : "aspect-[3/4]"
+        }`}
+        style={{ transform: cardTransform, opacity: cardOpacity, transition: cardTransition }}
       >
-        Pass
-      </div>
-      <div
-        className="text-gold-foil font-hollywood pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 rotate-12 rounded-[var(--radius-sm)] border-2 border-accent px-3 py-1 text-lg uppercase tracking-[0.1em]"
-        style={{ opacity: saveOpacity }}
-      >
-        Watchlist
-      </div>
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4">
-        {current.matchPercent !== null && (
-          <span className="mb-1.5 inline-block rounded-[var(--radius-full)] border border-accent/40 bg-accent/15 px-2.5 py-0.5 text-[11px] font-semibold text-gold-foil">
-            {current.matchPercent}% Match
-          </span>
+        {/* Next card underneath, peeking out -- signals there's more in the
+            deck without needing separate progress UI. */}
+        {next && (
+          <div className="absolute inset-2 -z-10 scale-[0.96] rounded-[var(--radius-lg)] bg-black opacity-60">
+            {next.posterUrl && (
+              <Image src={next.posterUrl} alt="" fill className="rounded-[var(--radius-lg)] object-cover" />
+            )}
+          </div>
         )}
-        <p className="font-display text-xl">{current.name}</p>
-        <p className="mt-0.5 text-[11px] text-foreground-muted">
-          {[current.releaseYear, current.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}
-        </p>
-        <p className="mt-2 border-l-2 border-accent/50 pl-2 text-[11px] leading-relaxed text-foreground-muted">
-          {current.reason}
-        </p>
+        {/* Shimmering placeholder, always rendered behind the poster --
+            fade-image's own fade-in already smooths the pop-in once the
+            image decodes, but until then this reads as "loading" rather
+            than a flat black rectangle. No loaded-state tracking needed:
+            the poster paints directly on top and simply covers it. */}
+        <div className="swipe-card-shimmer absolute inset-0" />
+        {current.posterUrl ? (
+          <Image
+            src={current.posterUrl}
+            alt={current.name}
+            fill
+            priority={!isFullscreenVariant}
+            sizes="(max-width: 640px) 220px, 384px"
+            className="pointer-events-none object-cover"
+            onClick={() => {
+              // A tap (not a drag) on the poster itself opens the
+              // full-screen session -- pass/watchlist pills below stay
+              // reachable in the compact view without triggering this.
+              if (!isFullscreenVariant && Math.abs(dragOffset.x) < 4 && Math.abs(dragOffset.y) < 4) {
+                setFullscreen(true);
+              }
+            }}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center px-2 text-center text-xs font-semibold uppercase tracking-widest text-foreground-muted">
+            {current.name}
+          </div>
+        )}
+
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
+
+        <div
+          className="font-hollywood pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 -rotate-12 rounded-[var(--radius-sm)] border-2 border-danger px-3 py-1 text-lg uppercase tracking-[0.1em] text-danger"
+          style={{ opacity: passOpacity }}
+        >
+          Pass
+        </div>
+        <div
+          className="text-gold-foil font-hollywood pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 rotate-12 rounded-[var(--radius-sm)] border-2 border-accent px-3 py-1 text-lg uppercase tracking-[0.1em]"
+          style={{ opacity: saveOpacity }}
+        >
+          Watchlist
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4">
+          {current.matchPercent !== null && (
+            <span className="mb-1.5 inline-block rounded-[var(--radius-full)] border border-accent/40 bg-accent/15 px-2.5 py-0.5 text-[11px] font-semibold text-gold-foil">
+              {current.matchPercent}% Match
+            </span>
+          )}
+          <p className="font-display text-xl">{current.name}</p>
+          <p className="mt-0.5 text-[11px] text-foreground-muted">
+            {[current.releaseYear, current.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}
+          </p>
+          <p className="mt-2 border-l-2 border-accent/50 pl-2 text-[11px] leading-relaxed text-foreground-muted">
+            {current.reason}
+          </p>
+        </div>
       </div>
+    </div>
+  );
+
+  // Instagram-story-style segmented bar -- reads at a glance how far
+  // through the batch this session is, and (unlike a "3 more" caption
+  // alone) makes forward progress visible passively while swiping, not
+  // just after stopping to read text.
+  const progressBar = (
+    <div className="flex gap-1">
+      {deck.map((rec, i) => (
+        <div key={rec.id} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-gold-foil transition-[width] duration-300 ease-out"
+            style={{ width: i < index ? "100%" : i === index ? "100%" : "0%" }}
+          />
+        </div>
+      ))}
     </div>
   );
 
@@ -223,14 +261,15 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
         <p className="text-[11px] text-foreground-muted">Tap the poster to swipe through more</p>
       </div>
       <div className="mx-auto w-full max-w-[220px]">
+        <div className="mb-2">{progressBar}</div>
         {cardBody(false)}
-        <p className="mt-2 text-center text-[11px] text-foreground-muted">
-          {deck.length - index} more in this batch
-        </p>
       </div>
 
       {fullscreen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background px-4 pb-6" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-background px-4 pb-6"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+        >
           <div className="flex items-center justify-between py-3">
             <p className="font-display text-lg">More like this</p>
             <button
@@ -242,6 +281,7 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
               <X size={18} />
             </button>
           </div>
+          <div className="mb-4">{progressBar}</div>
           <div className="flex flex-1 items-center justify-center">
             <div className="w-full max-w-sm">
               {cardBody(true)}
@@ -250,6 +290,30 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes swipe-card-enter {
+          from { opacity: 0; transform: scale(0.94) translateY(10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .swipe-card-enter {
+          animation: swipe-card-enter ${ENTER_DURATION_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        @keyframes swipe-card-shimmer-move {
+          0% { background-position: -150% 0; }
+          100% { background-position: 150% 0; }
+        }
+        .swipe-card-shimmer {
+          background: linear-gradient(
+            100deg,
+            rgba(255, 255, 255, 0.02) 30%,
+            rgba(217, 184, 118, 0.08) 50%,
+            rgba(255, 255, 255, 0.02) 70%
+          );
+          background-size: 200% 100%;
+          animation: swipe-card-shimmer-move 1.6s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }

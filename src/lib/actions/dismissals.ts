@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 async function requireUser() {
@@ -25,9 +24,18 @@ export async function dismissRecommendation(titleId: string) {
 
   await supabase.from("title_dismissals").upsert({ user_id: user.id, title_id: id });
 
-  // Discover's swipe deck reads this on next load; no other page currently
-  // depends on dismissal state, so this is the only path worth revalidating.
-  revalidatePath("/discover");
+  // Deliberately NOT revalidatePath("/discover") -- this fires on every
+  // single left-swipe, and a Server Action's revalidatePath triggers a
+  // soft refresh of the current route the moment it resolves. On a page
+  // with a loading.tsx skeleton (Discover has one), that meant the whole
+  // page visibly flashed back to its loading state after every swipe --
+  // the reload the deck was supposed to avoid in the first place.
+  // SwipeRecsCard already removes the dismissed title from its own local
+  // deck state the instant you swipe, so there's nothing server-rendered
+  // that needs to catch up mid-session; the exclusion just needs to be in
+  // place the next time Discover is freshly loaded, which a plain
+  // server-rendered navigation already guarantees without any explicit
+  // revalidation.
 }
 
 // Not surfaced in the UI yet (no "undo" affordance on the swipe deck), but
@@ -41,5 +49,6 @@ export async function undoDismissRecommendation(titleId: string) {
 
   await supabase.from("title_dismissals").delete().eq("user_id", user.id).eq("title_id", id);
 
-  revalidatePath("/discover");
+  // Same reasoning as dismissRecommendation above -- no mid-session
+  // revalidation needed.
 }

@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { isNativeApp } from "@/lib/native/is-native";
 
-const PULL_THRESHOLD = 72; // px of downward drag before a release triggers a reload
-const MAX_PULL = 110; // px -- caps how far the indicator can be dragged down
+const PULL_THRESHOLD = 72; // px of (resisted) pull before a release triggers a reload
+const MAX_PULL = 110; // px -- caps how far the indicator can travel
 
 /**
  * The native iOS app has no browser chrome at all -- no address bar, no
@@ -45,15 +45,15 @@ export function PullToRefresh() {
 
     function onTouchMove(e: TouchEvent) {
       if (startY.current === null || refreshing) return;
-      const delta = (e.touches[0]?.clientY ?? 0) - startY.current;
-      if (delta <= 0) {
+      const rawDelta = (e.touches[0]?.clientY ?? 0) - startY.current;
+      if (rawDelta <= 0) {
         setActive(false);
         setPull(0);
         return;
       }
-      if (delta > 8) {
+      if (rawDelta > 8) {
         setActive(true);
-        setPull(Math.min(delta, MAX_PULL));
+        setPull(applyResistance(rawDelta));
       }
     }
 
@@ -82,13 +82,13 @@ export function PullToRefresh() {
   if (!active && !refreshing) return null;
 
   const ready = pull >= PULL_THRESHOLD || refreshing;
-  // Starts off-screen (-36px, above the safe-area-inset anchor below) and
-  // slides down 1:1 with the drag rather than just fading in in place --
-  // reads as something being physically pulled out from behind the status
-  // bar, the standard pull-to-refresh feel, instead of a badge that pops
-  // into existence partway down the screen.
+  // Starts off-screen (-40px, above the safe-area-inset anchor below) and
+  // slides down 1:1 with the (resisted) pull rather than just fading in
+  // in place -- reads as something being physically pulled out from
+  // behind the status bar, the standard pull-to-refresh feel, instead of
+  // a badge that pops into existence partway down the screen.
   const progress = Math.min(pull / PULL_THRESHOLD, 1);
-  const travel = refreshing ? 0 : -36 + 36 * progress;
+  const travel = refreshing ? 0 : -40 + 40 * progress;
 
   // A proper ring, not just a rotating icon: while dragging, the arc
   // fills in step with the pull (0 -> 100% of the ring's circumference)
@@ -103,17 +103,28 @@ export function PullToRefresh() {
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
   const dashOffset = refreshing ? CIRCUMFERENCE * 0.75 : CIRCUMFERENCE * (1 - progress);
 
+  const label = refreshing ? "Refreshing…" : ready ? "Release to refresh" : "Pull to refresh";
+
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 z-50 flex justify-center"
+      className="pointer-events-none fixed inset-x-0 z-50 flex flex-col items-center gap-1.5"
       style={{ top: "calc(env(safe-area-inset-top) + 10px)" }}
     >
       <div
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-background/95 shadow-lg backdrop-blur"
+        className="flex h-12 w-12 items-center justify-center rounded-full shadow-lg backdrop-blur"
         style={{
-          transform: `translateY(${travel}px) scale(${ready ? 1 : 0.9})`,
+          transform: `translateY(${travel}px) scale(${ready ? 1.05 : 0.88})`,
           opacity: progress,
-          transition: refreshing ? "transform 200ms ease-out" : "none",
+          // The badge itself shifts from a neutral dark surface to a
+          // warm gold-tinted one right at the arm threshold -- the same
+          // "you can let go now" cue as a real UIRefreshControl's own
+          // haptic tick, just rendered visually since there's no haptics
+          // API available here.
+          background: ready ? "rgba(217,184,118,0.16)" : "rgba(10,9,8,0.95)",
+          border: ready ? "1px solid rgba(217,184,118,0.45)" : "1px solid transparent",
+          transition: refreshing
+            ? "transform 200ms ease-out, background 200ms ease-out, border-color 200ms ease-out"
+            : "background 150ms ease-out, border-color 150ms ease-out",
         }}
       >
         <svg
@@ -140,6 +151,16 @@ export function PullToRefresh() {
           />
         </svg>
       </div>
+      <span
+        className="rounded-[var(--radius-full)] bg-background/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-foreground-muted shadow backdrop-blur"
+        style={{
+          opacity: progress,
+          transform: `translateY(${travel * 0.6}px)`,
+          color: ready ? "var(--accent)" : undefined,
+        }}
+      >
+        {label}
+      </span>
       <style>{`
         .pull-refresh-spin {
           animation: pull-refresh-rotate 800ms linear infinite;
@@ -152,3 +173,20 @@ export function PullToRefresh() {
     </div>
   );
 }
+
+// Rubber-band resistance: the first stretch of the drag (below the
+// eventual PULL_THRESHOLD) tracks the finger almost 1:1, then
+// progressively resists the further past that point someone pulls --
+// the standard "you can keep pulling but it gets harder" feel every
+// native pull-to-refresh uses, rather than a flat linear mapping that
+// either arms too easily or requires an oddly long drag with no
+// in-between feedback. Caps at MAX_PULL regardless of how far the raw
+// finger travel goes, so the indicator never flies off past its own
+// travel budget.
+function applyResistance(rawDelta: number): number {
+  if (rawDelta <= PULL_THRESHOLD) return rawDelta;
+  const overshoot = rawDelta - PULL_THRESHOLD;
+  const resisted = PULL_THRESHOLD + overshoot * 0.35;
+  return Math.min(resisted, MAX_PULL);
+}
+
