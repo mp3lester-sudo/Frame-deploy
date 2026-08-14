@@ -17,13 +17,7 @@ type YearWindow = { minYear: number; maxYear: number };
 // above the input, and to give someone a running start if they're
 // staring at a blank box. Clicking one fills the input; it doesn't
 // auto-submit, so there's still a chance to tweak it first.
-const EXAMPLE_PROMPTS = [
-  "Something that feels lonely",
-  "A movie where the villain wins",
-  "Turn my brain off tonight",
-  "Comfort food for a bad day",
-  "A twist I won't see coming",
-];
+const EXAMPLE_PROMPTS = ["Something that feels lonely", "Turn my brain off tonight", "A twist I won't see coming"];
 
 // One round of the exchange -- the request that was actually sent to the
 // concierge (which, for a reply, is the original ask plus every prior
@@ -194,9 +188,8 @@ export function AskBacklotClient({ posters }: { posters: string[] }) {
           <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-accent">AI Concierge</span>
           <h1 className="font-display mt-2 text-4xl italic text-accent sm:text-5xl">Ask Backlot</h1>
           <div className="mt-4 h-px w-24 bg-gradient-to-r from-transparent via-accent-deep to-transparent" />
-          <p className="font-section-body mt-5 max-w-md text-sm leading-relaxed text-foreground-muted sm:text-base">
-            &ldquo;I want something that feels lonely.&rdquo; &ldquo;A movie where the villain wins.&rdquo;{" "}
-            Describe the feeling, not the genre — your well-watched friend is listening.
+          <p className="font-section-body mt-4 text-sm text-foreground-muted">
+            Describe the feeling, not the genre.
           </p>
         </div>
 
@@ -259,10 +252,7 @@ export function AskBacklotClient({ posters }: { posters: string[] }) {
               }`}
             />
           </button>
-          <span className="text-xs leading-tight text-foreground-muted">
-            Match the era of movies I mention
-            <span className="text-foreground-muted/60"> ({matchEra ? "on" : "off"})</span>
-          </span>
+          <span className="text-xs text-foreground-muted">Match era</span>
         </div>
 
         {error && (
