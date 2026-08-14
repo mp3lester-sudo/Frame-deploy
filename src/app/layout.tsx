@@ -14,6 +14,7 @@ import { PostHogProvider } from "@/components/analytics/posthog-provider";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { ToastProvider } from "@/components/ui/toast";
 import { PullToRefresh } from "@/components/native/pull-to-refresh";
+import { WidgetTokenBootstrap } from "@/components/native/widget-token-bootstrap";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -218,6 +219,7 @@ export default async function RootLayout({
         <PostHogProvider userId={user?.id ?? null}>
           <ToastProvider>
             <ServiceWorkerRegistration />
+            <WidgetTokenBootstrap isAuthed={!!user} />
             {/* PullToRefresh now wraps the header + page content as one
                 dragged sheet (see its own comment for why) -- BottomNav is
                 deliberately left outside it so the bottom tab bar stays

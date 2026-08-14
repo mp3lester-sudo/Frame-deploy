@@ -22,6 +22,7 @@ export interface Database {
           referred_by: string | null;
           bonus_premium_until: string | null;
           deleted_at: string | null;
+          widget_token: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -156,6 +157,26 @@ export interface Database {
       title_dismissals: {
         Row: { id: string; user_id: string; title_id: string; dismissed_at: string };
         Insert: { user_id: string; title_id: string; dismissed_at?: string };
+        Update: never;
+        Relationships: [];
+      };
+      daily_picks: {
+        Row: {
+          id: string;
+          user_id: string;
+          pick_date: string;
+          title_id: string;
+          match_percent: number | null;
+          reason: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          pick_date: string;
+          title_id: string;
+          match_percent?: number | null;
+          reason: string;
+        };
         Update: never;
         Relationships: [];
       };
