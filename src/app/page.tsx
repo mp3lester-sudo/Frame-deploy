@@ -1,22 +1,139 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Allura } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
 import { getLandingSwipeDeck } from "@/lib/actions/landing-teaser";
 import { TasteTeaser } from "@/components/landing/taste-teaser";
-import { getRequestGeo } from "@/lib/geo";
+import { getRequestGeo, type RequestGeo } from "@/lib/geo";
 import { getCurrentWeather } from "@/lib/weather";
 import { RecommendationReveal, type RevealPick } from "@/components/home/recommendation-reveal";
 import { MoodRow } from "@/components/home/mood-row";
 import { ContextCards } from "@/components/home/context-cards";
 import { ContextPicker } from "@/components/home/context-picker";
 import { CompanionPicker } from "@/components/home/companion-picker";
-import { isCircumstantialContext } from "@/lib/context/circumstantial";
+import { isCircumstantialContext, type CircumstantialContext } from "@/lib/context/circumstantial";
 import { PreciseLocation } from "@/components/home/precise-location";
-import type { Recommendation } from "@/lib/recommendations/engine";
 
 const allura = Allura({ subsets: ["latin"], weight: "400" });
+
+// --- Streamed subtrees -----------------------------------------------------
+// The home page used to await getRecommendationsForUser (a several-round-trip
+// pgvector + diversify pipeline -- the single most expensive call anywhere in
+// the app, see engine.ts) directly in the page component, which meant NOTHING
+// -- not the greeting, not the day/time/location line, not the nav -- painted
+// until that finished. Same root problem Discover had (see discover/page.tsx's
+// SwipeDeckSection), just worse here since Home is the page everyone lands on
+// first. Splitting the weather badge and the recommendation section into their
+// own async components behind Suspense lets the page shell stream immediately
+// and the genuinely slow parts fill in a beat later instead of blocking
+// everything.
+
+/** Weather badge only -- day/time/location render instantly in the parent
+ *  since they need nothing but the geo headers, already resolved by the time
+ *  this file runs. Suspense fallback is the same ContextCards call with
+ *  weather=null, i.e. exactly what today's line looks like before the async
+ *  weather fetch resolves -- no skeleton needed, the line just gains a
+ *  weather segment a moment later. */
+async function ContextCardsWithWeather({
+  day,
+  time,
+  location,
+  geo,
+}: {
+  day: string;
+  time: string;
+  location: string | null;
+  geo: RequestGeo | null;
+}) {
+  const weather =
+    geo?.latitude != null && geo?.longitude != null ? await getCurrentWeather(geo.latitude, geo.longitude) : null;
+  return <ContextCards day={day} time={time} location={location} weather={weather} />;
+}
+
+/** The actual expensive path: weather (deduped via getCurrentWeather's
+ *  cache() wrapper -- see weather.ts -- so this doesn't re-fetch what
+ *  ContextCardsWithWeather above already triggered) plus the full
+ *  recommendation engine. Everything downstream of that single await lives
+ *  in here so it can be the one thing behind a skeleton instead of the whole
+ *  page. */
+async function HomeRecommendationsSection({
+  userId,
+  activeContext,
+  geo,
+  hour,
+}: {
+  userId: string;
+  activeContext: CircumstantialContext;
+  geo: RequestGeo | null;
+  hour: number;
+}) {
+  const weather =
+    geo?.latitude != null && geo?.longitude != null ? await getCurrentWeather(geo.latitude, geo.longitude) : null;
+
+  const { recommendations, isColdStart } = await getRecommendationsForUser(userId, {
+    // 1 hero + 6 for MoodRow ("More picks for you") + 2 held in reserve
+    // purely for RecommendationReveal's "Generate another pick" cycle --
+    // the reserve pair is deliberately never passed to MoodRow, so tapping
+    // "generate another" on the hero can never show a poster that's
+    // already visible in the rail below it.
+    limit: 9,
+    context: activeContext,
+    weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour },
+  });
+
+  const hero = recommendations[0];
+  const morePicks = recommendations.slice(1, 7);
+  const heroReserve = recommendations.slice(7, 9);
+  const heroPool = hero ? [hero, ...heroReserve] : [];
+
+  // Director now comes straight off each Recommendation -- engine.ts
+  // already fetches title_credits for its whole candidate pool (for
+  // diversify.ts's same-director check) and now joins the person's name
+  // into that same query, so this used to be its own separate round trip
+  // here and no longer is.
+  const heroRevealPicks: RevealPick[] = heroPool.map((r) => ({
+    title: r.title,
+    reason: r.reason,
+    detail: r.detail,
+    matchPercent: r.matchPercent,
+    director: r.director,
+  }));
+
+  return (
+    <>
+      {/* The recommendation is the unambiguous focal point of the page --
+          full column width, alone, dramatically taller than everything
+          below it (see recommendation-reveal.tsx). */}
+      {heroRevealPicks.length > 0 && <RecommendationReveal picks={heroRevealPicks} isColdStart={isColdStart} />}
+
+      {/* Quiet thumbnail row -- deliberately smaller and less prominent
+          than the hero above it. */}
+      {morePicks.length > 0 && (
+        <div className="mt-8">
+          <MoodRow picks={morePicks} isColdStart={isColdStart} />
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Same footprint as the real content (one tall hero card + a row of
+ *  thumbnails below it) so streaming the real content in doesn't cause a
+ *  layout jump. */
+function HomeRecommendationsSkeleton() {
+  return (
+    <>
+      <div className="skeleton h-[420px] w-full rounded-[var(--radius-lg)] sm:h-[480px]" />
+      <div className="mt-8 flex gap-3 overflow-hidden">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="skeleton h-40 w-28 shrink-0 rounded-[var(--radius-md)] sm:h-48 sm:w-32" />
+        ))}
+      </div>
+    </>
+  );
+}
 
 export default async function HomePage({
   searchParams,
@@ -57,16 +174,23 @@ export default async function HomePage({
 
   const geo = await getRequestGeo();
 
-  const [{ data: profile }, { count: ratedCount }, weather] = await Promise.all([
+  // Weather used to sit right here, blocking this Promise.all (and
+  // therefore the entire page) on an external API call capped at 2s (see
+  // weather.ts) -- now fetched independently inside ContextCardsWithWeather
+  // and HomeRecommendationsSection below, each streamed behind its own
+  // Suspense boundary, deduped via getCurrentWeather's cache() wrapper so
+  // it's still only ever one real Open-Meteo request per page load.
+  const [{ data: profile }, { count: ratedCount }] = await Promise.all([
     supabase.from("profiles").select("username, display_name").eq("id", user.id).maybeSingle(),
     supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-    geo?.latitude != null && geo?.longitude != null ? getCurrentWeather(geo.latitude, geo.longitude) : Promise.resolve(null),
   ]);
 
-  // Real time in the visitor's own timezone (from Vercel's edge geolocation),
-  // computed here (rather than lower down, where it used to live) because
-  // getRecommendationsForUser's weather/time weighting needs the hour before
-  // recommendations are fetched.
+  // Real time in the visitor's own timezone (from Vercel's edge geolocation).
+  // Used to be computed here specifically because getRecommendationsForUser
+  // needed the hour before it could be called synchronously in this same
+  // function -- now that call lives inside HomeRecommendationsSection below
+  // (streamed via Suspense), but zonedNow is still needed up here for the
+  // greeting/day/time line, which renders as part of the immediate shell.
   const now = new Date();
   const zonedNow = geo?.timezone ? new Date(now.toLocaleString("en-US", { timeZone: geo.timezone })) : now;
 
@@ -87,38 +211,6 @@ export default async function HomePage({
   // two contexts at all, saving the pgvector/weather work for a result
   // nobody would see.
   const isCompanionContext = activeContext === "date_night" || activeContext === "with_friends";
-
-  const { recommendations, isColdStart } = isCompanionContext
-    ? { recommendations: [] as Recommendation[], isColdStart: false }
-    : await getRecommendationsForUser(user.id, {
-        // 1 hero + 6 for MoodRow ("More picks for you") + 2 held in
-        // reserve purely for RecommendationReveal's "Generate another
-        // pick" cycle -- the reserve pair is deliberately never passed
-        // to MoodRow, so tapping "generate another" on the hero can
-        // never show a poster that's already visible in the rail below it.
-        limit: 9,
-        context: activeContext,
-        weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour: zonedNow.getHours() },
-      });
-
-  const hero = recommendations[0];
-  const morePicks = recommendations.slice(1, 7);
-  // See the `limit: 9` comment above -- these two never render in MoodRow.
-  const heroReserve = recommendations.slice(7, 9);
-  const heroPool = hero ? [hero, ...heroReserve] : [];
-
-  // Director now comes straight off each Recommendation -- engine.ts
-  // already fetches title_credits for its whole candidate pool (for
-  // diversify.ts's same-director check) and now joins the person's name
-  // into that same query, so this used to be its own separate round trip
-  // here and no longer is.
-  const heroRevealPicks: RevealPick[] = heroPool.map((r) => ({
-    title: r.title,
-    reason: r.reason,
-    detail: r.detail,
-    matchPercent: r.matchPercent,
-    director: r.director,
-  }));
 
   const greeting = zonedNow.getHours() < 12 ? "Good morning" : zonedNow.getHours() < 18 ? "Good afternoon" : "Good evening";
   const day = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: geo?.timezone ?? undefined })
@@ -249,7 +341,9 @@ export default async function HomePage({
           redundant. The day/time/location/weather line now centers on
           its own at the top of the page instead of trailing a title. */}
       <div className="flex justify-center">
-        <ContextCards day={day} time={time} location={location} weather={weather} />
+        <Suspense fallback={<ContextCards day={day} time={time} location={location} weather={null} />}>
+          <ContextCardsWithWeather day={day} time={time} location={location} geo={geo} />
+        </Suspense>
       </div>
 
       <h1 className="mt-5 text-center text-4xl leading-tight tracking-tight sm:text-5xl">
@@ -285,24 +379,19 @@ export default async function HomePage({
         <div className="mt-7">
           {/* The recommendation is the unambiguous focal point of the
               page -- full column width, alone, dramatically taller than
-              everything below it (see recommendation-reveal.tsx). */}
-          {heroRevealPicks.length > 0 && (
-            <RecommendationReveal picks={heroRevealPicks} isColdStart={isColdStart} />
-          )}
-
-          {/* Quiet thumbnail row -- deliberately smaller and less
-              prominent than the hero above it. Movie Night, Hidden Gem,
-              the circle feed, and Indie Spotlight news all moved off
-              Home entirely (Movie Night already has its own start-a-night
-              form at /movie-night; Hidden Gem and Indie Spotlight moved
-              to /daily; the circle feed's "Clubs" link moved to /feed) so
-              this page stays to exactly two things: today's pick, and a
-              few more like it. */}
-          {morePicks.length > 0 && (
-            <div className="mt-8">
-              <MoodRow picks={morePicks} isColdStart={isColdStart} />
-            </div>
-          )}
+              everything below it (see recommendation-reveal.tsx). Movie
+              Night, Hidden Gem, the circle feed, and Indie Spotlight news
+              all moved off Home entirely (Movie Night already has its own
+              start-a-night form at /movie-night; Hidden Gem and Indie
+              Spotlight moved to /daily; the circle feed's "Clubs" link
+              moved to /feed) so this page stays to exactly two things:
+              today's pick, and a few more like it -- both streamed in
+              together below, since they come from the same
+              getRecommendationsForUser call (see HomeRecommendationsSection
+              above). */}
+          <Suspense fallback={<HomeRecommendationsSkeleton />}>
+            <HomeRecommendationsSection userId={user.id} activeContext={activeContext} geo={geo} hour={zonedNow.getHours()} />
+          </Suspense>
         </div>
       )}
     </div>

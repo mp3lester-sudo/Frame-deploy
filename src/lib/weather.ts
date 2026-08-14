@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 /**
  * Open-Meteo (open-meteo.com) — free, no API key, no rate-limit signup
  * required. Fetches current conditions for a lat/lon (from Vercel's request
@@ -53,7 +55,17 @@ export interface CurrentWeather {
 // showing the weather card for a few seconds.
 const WEATHER_FETCH_TIMEOUT_MS = 2000;
 
-export async function getCurrentWeather(latitude: number, longitude: number): Promise<CurrentWeather | null> {
+// Wrapped in React's cache() (request-scoped memoization) because the home
+// page now calls this from two independent places -- the ContextCards
+// weather badge and the recommendation engine's weather/time weighting --
+// each streamed in its own Suspense boundary (see page.tsx). Without this,
+// splitting those into separate components would mean two real Open-Meteo
+// round trips per page load for the exact same lat/lon; cache() collapses
+// concurrent/duplicate calls with identical args into a single underlying
+// fetch, scoped to this one request only (it does not persist across
+// requests -- the fetch()-level `next: { revalidate: 600 }` below is what
+// handles that).
+export const getCurrentWeather = cache(async function getCurrentWeather(latitude: number, longitude: number): Promise<CurrentWeather | null> {
   try {
     const url = new URL("https://api.open-meteo.com/v1/forecast");
     url.searchParams.set("latitude", String(latitude));
@@ -78,4 +90,4 @@ export async function getCurrentWeather(latitude: number, longitude: number): Pr
     // fail quietly and let the caller just omit the card.
     return null;
   }
-}
+});
