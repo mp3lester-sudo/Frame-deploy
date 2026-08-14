@@ -24,12 +24,47 @@ const EXAMPLE_PROMPTS = [
   "A twist I won't see coming",
 ];
 
+// One round of the exchange -- the request that was actually sent to the
+// concierge (which, for a reply, is the original ask plus every prior
+// reply folded in -- see buildContextedMessage) and what came back.
+interface Exchange {
+  sentMessage: string;
+  reply: string;
+  topPicks: Pick[];
+  morePicks: Pick[];
+  yearWindow: YearWindow | null;
+}
+
+// The concierge (see SYSTEM_PROMPT in lib/ai/concierge.ts) is explicitly
+// instructed to ask a short clarifying question instead of guessing when a
+// request is ambiguous, rather than force-returning picks that don't fit.
+// That already comes back as a message with no picks -- this page just
+// didn't have anywhere to route that case before. A reply box is exactly
+// what a clarifying question wants: not a fresh top-of-page search, a
+// continuation of the same thread.
+function needsReply(exchange: Exchange): boolean {
+  return exchange.topPicks.length === 0 && exchange.morePicks.length === 0 && exchange.reply.trim().length > 0;
+}
+
+// The concierge endpoint is single-shot and stateless -- it has no memory
+// of what was asked before. Rather than adding conversation-history plumbing
+// to the API, a reply folds the whole thread into one plain-text message:
+// still exactly what askConcierge() already accepts, just with enough of
+// the prior back-and-forth included that "yeah, something like that but
+// funnier" reads as an answer to the concierge's own question instead of a
+// non-sequitur.
+function buildContextedMessage(history: Exchange[], latestReply: string): string {
+  if (history.length === 0) return latestReply;
+  const threadSoFar = history
+    .map((e) => `I asked: "${e.sentMessage}"\nYou said: "${e.reply}"`)
+    .join("\n\n");
+  return `${threadSoFar}\n\nMy follow-up: "${latestReply}"`;
+}
+
 export default function AskBacklotPage() {
   const [query, setQuery] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const [topPicks, setTopPicks] = useState<Pick[]>([]);
-  const [morePicks, setMorePicks] = useState<Pick[]>([]);
-  const [yearWindow, setYearWindow] = useState<YearWindow | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [history, setHistory] = useState<Exchange[]>([]);
   // Era-matching toggle for "movies like X" requests -- restricts results
   // to within a few years of a named movie's release by default, since
   // that's what "like X" usually means for someone anchoring on an era.
@@ -39,9 +74,13 @@ export default function AskBacklotPage() {
   const [error, setError] = useState<string | null>(null);
   const [upgradeUrl, setUpgradeUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const replyRef = useRef<HTMLInputElement>(null);
 
-  async function ask(text: string) {
-    if (!text.trim()) return;
+  const latest = history[history.length - 1] ?? null;
+  const awaitingReply = latest ? needsReply(latest) : false;
+
+  async function ask(sentMessage: string) {
+    if (!sentMessage.trim()) return;
     setLoading(true);
     setError(null);
     setUpgradeUrl(null);
@@ -49,20 +88,26 @@ export default function AskBacklotPage() {
       const res = await fetch("/api/ai/concierge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, matchEra }),
+        body: JSON.stringify({ message: sentMessage, matchEra }),
       });
       const data = await res.json();
       if (!res.ok) {
         setUpgradeUrl(data.upgradeUrl ?? null);
         throw new Error(data.error ?? "Something went wrong");
       }
-      setMessage(data.message);
       const allTopPicks: Pick[] = data.topPicks ?? [];
       const allRecommendations: Pick[] = data.recommendations ?? [];
       const topIds = new Set(allTopPicks.map((p) => p.title.id));
-      setTopPicks(allTopPicks);
-      setMorePicks(allRecommendations.filter((p) => !topIds.has(p.title.id)));
-      setYearWindow(data.yearWindow ?? null);
+      setHistory((prev) => [
+        ...prev,
+        {
+          sentMessage,
+          reply: data.message ?? "",
+          topPicks: allTopPicks,
+          morePicks: allRecommendations.filter((p) => !topIds.has(p.title.id)),
+          yearWindow: data.yearWindow ?? null,
+        },
+      ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -70,9 +115,22 @@ export default function AskBacklotPage() {
     }
   }
 
+  // A fresh ask from the top box always starts a new thread -- replying
+  // is the only path that carries context forward, so someone typing a
+  // brand new mood into the main box isn't unexpectedly anchored to
+  // whatever they asked five minutes ago.
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setHistory([]);
     ask(query);
+  }
+
+  function handleReplySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+    const contexted = buildContextedMessage(history, replyText);
+    setReplyText("");
+    ask(contexted);
   }
 
   function handleExampleClick(prompt: string) {
@@ -82,15 +140,15 @@ export default function AskBacklotPage() {
 
   return (
     <section className="mx-auto max-w-3xl px-4 py-14 sm:py-20">
-      {/* Concierge-desk header -- eyebrow label, gold-foil display
-          heading, and a thin gradient hairline underneath (same "framed
-          moment" treatment as the greeting splash's name), rather than
-          a flat left-aligned h1 + one line of body copy. This is the
-          one AI surface in the app framed as a person you're asking,
-          not a search bar you're typing into. */}
+      {/* Concierge-desk header -- flattened to match the quieter, solid-
+          accent treatment already shipped on Home (task a1b1314): plain
+          text-accent instead of the gold-foil gradient/glow, sharper
+          corners throughout. This page kept the older heavier look
+          through that pass since it was scoped Home-only; this brings
+          it in line now. */}
       <div className="flex flex-col items-center text-center">
         <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-accent">AI Concierge</span>
-        <h1 className="font-display text-gold-foil mt-2 text-4xl italic sm:text-5xl">Ask Backlot</h1>
+        <h1 className="font-display mt-2 text-4xl italic text-accent sm:text-5xl">Ask Backlot</h1>
         <div className="mt-4 h-px w-24 bg-gradient-to-r from-transparent via-accent-deep to-transparent" />
         <p className="font-section-body mt-5 max-w-md text-sm leading-relaxed text-foreground-muted sm:text-base">
           &ldquo;I want something that feels lonely.&rdquo; &ldquo;A movie where the villain wins.&rdquo;{" "}
@@ -100,7 +158,7 @@ export default function AskBacklotPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="mt-8 rounded-[var(--radius-lg)] border border-border bg-surface p-2 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.8)] transition-colors focus-within:border-accent/50"
+        className="mt-8 rounded-[var(--radius-sm)] border border-border bg-surface p-2 transition-colors focus-within:border-accent/50"
       >
         <div className="flex gap-2">
           <Input
@@ -110,7 +168,12 @@ export default function AskBacklotPage() {
             placeholder="What are you in the mood for?"
             className="h-12 border-none bg-transparent text-base focus:ring-0"
           />
-          <Button type="submit" size="lg" isLoading={loading}>
+          <Button
+            type="submit"
+            size="lg"
+            isLoading={loading}
+            className="rounded-[var(--radius-sm)] bg-accent shadow-none hover:bg-accent-soft hover:brightness-100"
+          >
             Ask
           </Button>
         </div>
@@ -156,7 +219,7 @@ export default function AskBacklotPage() {
       </div>
 
       {error && (
-        <div className="mt-8 rounded-[var(--radius-md)] border border-danger/40 bg-danger/10 px-4 py-3">
+        <div className="mt-8 rounded-[var(--radius-sm)] border border-danger/40 bg-danger/10 px-4 py-3">
           <p className="text-sm text-danger">
             {error}
             {upgradeUrl && (
@@ -178,7 +241,7 @@ export default function AskBacklotPage() {
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6">
             {[0, 1, 2].map((i) => (
               <div key={i}>
-                <div className="skeleton aspect-[2/3] w-full rounded-[var(--radius-md)]" />
+                <div className="skeleton aspect-[2/3] w-full rounded-[var(--radius-sm)]" />
                 <div className="skeleton mt-2 h-3.5 w-4/5 rounded-[var(--radius-sm)]" />
               </div>
             ))}
@@ -186,43 +249,74 @@ export default function AskBacklotPage() {
         </div>
       )}
 
-      {!loading && message && (
-        <div className="stagger-card mt-10 rounded-[var(--radius-lg)] border border-border bg-surface-raised/60 px-6 py-5">
-          <p className="font-display border-l-2 border-accent pl-4 text-base italic leading-relaxed text-foreground sm:text-lg">
-            {message}
-          </p>
-          {yearWindow && (
-            <p className="mt-3 pl-4 text-xs text-foreground-muted">
-              Showing movies from {yearWindow.minYear}–{yearWindow.maxYear}.
-            </p>
-          )}
-        </div>
-      )}
+      {!loading &&
+        history.map((exchange, i) => (
+          <div key={i} className="stagger-card mt-10">
+            <div className="rounded-[var(--radius-sm)] border border-border bg-surface-raised/60 px-6 py-5">
+              <p className="font-display border-l-2 border-accent pl-4 text-base italic leading-relaxed text-foreground sm:text-lg">
+                {exchange.reply}
+              </p>
+              {exchange.yearWindow && (
+                <p className="mt-3 pl-4 text-xs text-foreground-muted">
+                  Showing movies from {exchange.yearWindow.minYear}–{exchange.yearWindow.maxYear}.
+                </p>
+              )}
+            </div>
 
-      {!loading && topPicks.length > 0 && (
-        <div className="stagger-card mt-8">
-          <p className="mb-4 text-center text-[11px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
-            Top picks
-          </p>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6">
-            {topPicks.map((p, i) => (
-              <TitleCard key={p.title.id} title={p.title} reason={p.reason} index={i} />
-            ))}
-          </div>
-        </div>
-      )}
+            {exchange.topPicks.length > 0 && (
+              <div className="mt-8">
+                <p className="mb-4 text-center text-[11px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
+                  Top picks
+                </p>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6">
+                  {exchange.topPicks.map((p, j) => (
+                    <TitleCard key={p.title.id} title={p.title} reason={p.reason} index={j} />
+                  ))}
+                </div>
+              </div>
+            )}
 
-      {!loading && morePicks.length > 0 && (
-        <div className="stagger-card mt-8">
-          <p className="mb-4 text-center text-[11px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
-            More suggestions
-          </p>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6">
-            {morePicks.map((p, i) => (
-              <TitleCard key={p.title.id} title={p.title} reason={p.reason} index={i} />
-            ))}
+            {exchange.morePicks.length > 0 && (
+              <div className="mt-8">
+                <p className="mb-4 text-center text-[11px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
+                  More suggestions
+                </p>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6">
+                  {exchange.morePicks.map((p, j) => (
+                    <TitleCard key={p.title.id} title={p.title} reason={p.reason} index={j} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        ))}
+
+      {/* Reply box -- only appears once the concierge has actually asked
+          something back (see needsReply above), so it never sits there
+          as dead chrome under a normal picks response. Deliberately
+          smaller and less prominent than the top-of-page ask bar: this
+          is a continuation of the thread the message above just opened,
+          not a fresh search. */}
+      {!loading && awaitingReply && (
+        <form onSubmit={handleReplySubmit} className="stagger-card mx-auto mt-4 max-w-md">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-2 py-1.5 transition-colors focus-within:border-accent/50">
+            <Input
+              ref={replyRef}
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="Reply to Backlot..."
+              className="h-9 border-none bg-transparent text-sm focus:ring-0"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={loading}
+              className="rounded-full bg-accent shadow-none hover:bg-accent-soft hover:brightness-100"
+            >
+              Reply
+            </Button>
+          </div>
+        </form>
       )}
     </section>
   );
