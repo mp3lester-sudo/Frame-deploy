@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 import { z } from "zod";
 
 async function requireUser() {
@@ -22,7 +23,18 @@ export async function dismissRecommendation(titleId: string) {
   const { titleId: id } = z.object({ titleId: z.string().uuid() }).parse({ titleId });
   const { supabase, user } = await requireUser();
 
-  await supabase.from("title_dismissals").upsert({ user_id: user.id, title_id: id });
+  const { error } = await supabase.from("title_dismissals").upsert({ user_id: user.id, title_id: id });
+  // The swipe deck calls this fire-and-forget (void dismissRecommendation(...))
+  // with no UI feedback on failure -- deliberately, see the comment below on
+  // why there's no revalidation to hang an error state off of either. That
+  // silence is fine for a slow network blip, but a genuine write failure
+  // (e.g. a broken RLS policy) would otherwise be completely invisible: no
+  // error surfaced to the user, nothing logged, nothing in Sentry -- the
+  // title would just keep quietly resurfacing forever with no trace of why.
+  if (error) {
+    console.error("[dismissRecommendation]", error.message);
+    await captureServerError(error, { action: "dismissRecommendation", userId: user.id, titleId: id });
+  }
 
   // Deliberately NOT revalidatePath("/discover") -- this fires on every
   // single left-swipe, and a Server Action's revalidatePath triggers a
@@ -47,7 +59,15 @@ export async function undoDismissRecommendation(titleId: string) {
   const { titleId: id } = z.object({ titleId: z.string().uuid() }).parse({ titleId });
   const { supabase, user } = await requireUser();
 
-  await supabase.from("title_dismissals").delete().eq("user_id", user.id).eq("title_id", id);
+  const { error } = await supabase
+    .from("title_dismissals")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("title_id", id);
+  if (error) {
+    console.error("[undoDismissRecommendation]", error.message);
+    await captureServerError(error, { action: "undoDismissRecommendation", userId: user.id, titleId: id });
+  }
 
   // Same reasoning as dismissRecommendation above -- no mid-session
   // revalidation needed.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { isRateLimited } from "@/lib/rate-limit";
 
 /**
  * GDPR-style "export my data" -- previously the only way to see what
@@ -20,6 +21,16 @@ export async function GET() {
   const supabase = await createClient();
   const user = await getVerifiedUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  // This route fans out to ~20 tables in one Promise.all (see below) --
+  // cheap for one request, but nothing stopped a compromised or scripted
+  // session from hammering it repeatedly. Same audit pass that already
+  // covers messaging/reviews/comments/auth (#495, #371) missed this one;
+  // a generous limit since a real user might legitimately re-export more
+  // than once while double-checking something.
+  if (await isRateLimited(`account-export:${user.id}`, { maxRequests: 5, windowSeconds: 3600 })) {
+    return NextResponse.json({ error: "Too many export requests — try again in a bit" }, { status: 429 });
+  }
 
   const [
     profile,
