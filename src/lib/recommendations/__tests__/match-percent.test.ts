@@ -35,4 +35,30 @@ describe("calibrateMatchPercents", () => {
   it("falls back to a flat value when all scores are identical (no spread to normalize)", () => {
     expect(calibrateMatchPercents([0.5, 0.5, 0.5])).toEqual([88, 88, 88]);
   });
+
+  describe("with topRawSimilarity (dynamic band)", () => {
+    it("uses the original confident 75-98 band when the top raw similarity is strong", () => {
+      const result = calibrateMatchPercents([0.9, 0.6, 0.3], 0.7);
+      expect(result[0]).toBe(98);
+      expect(result[2]).toBe(75);
+    });
+
+    it("scales the whole band down when the top raw similarity is weak", () => {
+      const result = calibrateMatchPercents([0.32, 0.31, 0.3], 0.31);
+      expect(Math.max(...result)).toBeLessThan(75);
+      expect(Math.min(...result)).toBeGreaterThanOrEqual(45);
+    });
+
+    it("never produces a percent below the weak floor even for a very thin match", () => {
+      const result = calibrateMatchPercents([0.31], 0.05);
+      expect(result[0]).toBeGreaterThanOrEqual(45);
+      expect(result[0]).toBeLessThan(75);
+    });
+
+    it("a strong top similarity still lets a weaker candidate in the same slate read low, but never below the weak floor", () => {
+      const result = calibrateMatchPercents([0.9, 0.2], 0.9);
+      expect(result[0]).toBe(98);
+      expect(result[1]).toBe(75);
+    });
+  });
 });

@@ -75,6 +75,9 @@ export async function getHiddenGemForUser(userId: string, excludeIds: string[] =
   if (!gems.length) return null;
 
   const best = gems[0];
-  const [matchPercent] = calibrateMatchPercents([best.similarity]);
+  // best.similarity is already the raw content similarity -- same number
+  // used as both the score to calibrate AND its own confidence anchor,
+  // since a hidden gem's only ever one candidate (see match-percent.ts).
+  const [matchPercent] = calibrateMatchPercents([best.similarity], best.similarity);
   return { title: best.title, matchPercent };
 }

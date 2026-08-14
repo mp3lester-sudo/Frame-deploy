@@ -57,11 +57,18 @@ export const CONTENT_MATCH_THRESHOLD = 0.5;
 // ratings) could get the RPC's p_match_count worth of candidates back even
 // when the closest available titles are only weakly related -- which is
 // how tangential, seemingly-random recommendations were sneaking into the
-// final slate. Calibrated conservatively (permissive) since there's no
-// production data available to sample real similarity distributions from
-// this session -- raise this if weak matches are still
-// getting through, lower it if the pool is coming back too thin.
-const MIN_CONTENT_SIMILARITY = 0.2;
+// final slate.
+//
+// Raised from 0.2 to 0.3 on 2026-08-14 based on the first real measurement
+// of this pipeline (recommendation_impressions joined forward to ratings,
+// see analyze-rec-accuracy.ts): titles landing in the displayed 75-80%
+// match band -- the weakest content that was still clearing every gate --
+// carried a 69% miss rate (score <= 2.5) on a real sample of 187 ratings,
+// actively worse than a coin flip. 0.2 was letting genuinely tangential
+// matches all the way into the scored, ranked, displayed slate. Revisit
+// with the same query once post-fix volume builds up -- this is still a
+// reasoned step, not a fully calibrated number.
+const MIN_CONTENT_SIMILARITY = 0.3;
 
 /**
  * Content-based recommendation: scores every title purely on cosine
@@ -373,7 +380,17 @@ export async function getRecommendationsForUser(
   // back as "how good a match, right now."
   const adjustedScoreById = new Map(adjusted.map((a) => [a.id, a.score]));
   const finalIds = rankedIds.filter((id) => byId.has(id));
-  const matchPercents = calibrateMatchPercents(finalIds.map((id) => adjustedScoreById.get(id) ?? 0));
+  // Raw (pre-adjustment) content similarity of the #1 displayed pick --
+  // NOT the adjusted score, which is polluted by generic context/weather/
+  // quality/genre-affinity multipliers that have nothing to do with how
+  // close a taste match actually is. This is what calibrateMatchPercents
+  // uses to decide whether the whole displayed band should read as
+  // confident or hedge lower -- see that file's doc comment for why.
+  const topRawSimilarity = finalIds.length ? blended.get(finalIds[0]) : undefined;
+  const matchPercents = calibrateMatchPercents(
+    finalIds.map((id) => adjustedScoreById.get(id) ?? 0),
+    topRawSimilarity
+  );
 
   const recommendations = finalIds.map((id, i) => {
     const title = byId.get(id)!;
