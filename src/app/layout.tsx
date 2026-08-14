@@ -218,14 +218,20 @@ export default async function RootLayout({
         <PostHogProvider userId={user?.id ?? null}>
           <ToastProvider>
             <ServiceWorkerRegistration />
-            <PullToRefresh />
-            <NavBar isAuthed={!!user} />
-            {showPromoBanner && <PromoBanner />}
-            {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
-                own bottom padding (see bottom-nav.tsx) -- otherwise page
-                content would be hidden behind the taller bar on notched
-                iPhones instead of just behind the original 64px tab row. */}
-            <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
+            {/* PullToRefresh now wraps the header + page content as one
+                dragged sheet (see its own comment for why) -- BottomNav is
+                deliberately left outside it so the bottom tab bar stays
+                pinned to the true viewport edge instead of sliding down
+                with the rest of the page mid-gesture. */}
+            <PullToRefresh>
+              <NavBar isAuthed={!!user} />
+              {showPromoBanner && <PromoBanner />}
+              {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
+                  own bottom padding (see bottom-nav.tsx) -- otherwise page
+                  content would be hidden behind the taller bar on notched
+                  iPhones instead of just behind the original 64px tab row. */}
+              <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
+            </PullToRefresh>
             <BottomNav />
           </ToastProvider>
         </PostHogProvider>
