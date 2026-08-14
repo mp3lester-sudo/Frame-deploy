@@ -100,9 +100,23 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
     if (!pointerRef.current.active) return;
     pointerRef.current.active = false;
     setIsDragging(false);
-    if (dragOffset.x > SWIPE_THRESHOLD) decide("right");
-    else if (dragOffset.x < -SWIPE_THRESHOLD) decide("left");
-    else setDragOffset({ x: 0, y: 0 });
+    if (dragOffset.x > SWIPE_THRESHOLD) {
+      decide("right");
+      return;
+    }
+    if (dragOffset.x < -SWIPE_THRESHOLD) {
+      decide("left");
+      return;
+    }
+    // Didn't cross the swipe threshold -- if the pointer barely moved at
+    // all, this was a tap on the poster rather than an abandoned drag,
+    // so send it straight to the movie page instead of just snapping
+    // back to center. Same 4px tolerance the title/fallback buttons
+    // already use for their own tap-vs-drag check below.
+    if (Math.abs(dragOffset.x) < 4 && Math.abs(dragOffset.y) < 4 && current) {
+      router.push(`/movie/${current.id}`);
+    }
+    setDragOffset({ x: 0, y: 0 });
   }
 
   if (deck.length === 0) return null;
@@ -178,47 +192,25 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
             the poster paints directly on top and simply covers it. */}
         <div className="swipe-card-shimmer absolute inset-0" />
         {current.posterUrl ? (
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onPointerUp={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              // A tap (not a drag) on the poster itself goes straight to
-              // the movie page -- it's by far the biggest hit target on
-              // the card, and the standalone title link a few lines down
-              // is small enough to be an unreliable primary way in.
-              // Opening the full-screen swipe session used to live here
-              // too, but that's still reachable via the small expand icon
-              // in the corner (see below) rather than fighting this poster
-              // for the same tap.
-              if (Math.abs(dragOffset.x) < 4 && Math.abs(dragOffset.y) < 4) {
-                goToMovie(e, current.id);
-              }
-            }}
-            style={{ touchAction: "manipulation" }}
-            className="pointer-events-auto absolute inset-0 block w-full cursor-grab bg-transparent p-0 active:cursor-grabbing"
-            aria-label={`View ${current.name}`}
-          >
-            <Image
-              src={current.posterUrl}
-              alt=""
-              fill
-              priority={!isFullscreenVariant}
-              sizes="(max-width: 640px) 220px, 384px"
-              className="pointer-events-none object-cover"
-            />
-          </button>
+          // Tap-to-navigate for this whole region is handled by endDrag
+          // above (a release with near-zero movement) -- this stays a
+          // plain, non-interactive layer so it never competes with the
+          // card's own onPointerDown/onPointerUp a few lines up for the
+          // same gesture. Opening the full-screen swipe session used to
+          // live here too, still reachable via the small expand icon in
+          // the corner instead (see below).
+          <Image
+            src={current.posterUrl}
+            alt=""
+            fill
+            priority={!isFullscreenVariant}
+            sizes="(max-width: 640px) 220px, 384px"
+            className="pointer-events-none object-cover"
+          />
         ) : (
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onPointerUp={(e) => e.stopPropagation()}
-            onClick={(e) => goToMovie(e, current.id)}
-            style={{ touchAction: "manipulation" }}
-            className="flex h-full w-full items-center justify-center bg-transparent px-2 text-center text-xs font-semibold uppercase tracking-widest text-foreground-muted hover:text-foreground"
-          >
+          <div className="flex h-full w-full items-center justify-center px-2 text-center text-xs font-semibold uppercase tracking-widest text-foreground-muted">
             {current.name}
-          </button>
+          </div>
         )}
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
