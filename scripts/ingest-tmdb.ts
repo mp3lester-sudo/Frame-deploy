@@ -206,11 +206,33 @@ const emptyTaste: TasteMetadata = {
   color_palette: [],
 };
 
-type IngestResult = { taste: "ok" | "skipped"; embedding: "ok" | "skipped" };
+type IngestResult = { taste: "ok" | "skipped" | "already"; embedding: "ok" | "skipped" | "already" };
 
 async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<IngestResult> {
   const details = await tmdbFetch(`/movie/${summary.id}`, { append_to_response: "credits" });
   const genres: string[] = (details.genres ?? []).map((g: { name: string }) => g.name);
+
+  // A broad --list=discover sweep at catalogue-expansion scale re-surfaces
+  // plenty of titles already ingested in earlier runs -- discover sorts by
+  // popularity, so the same well-known titles resurface near the top of
+  // every date band before a page range reaches genuinely new ones. Check
+  // for an existing, already-enriched row up front so this doesn't spend
+  // an OpenAI call re-deriving taste metadata/an embedding a title already
+  // has -- the alternative (running inferTasteMetadata unconditionally on
+  // every upsert) would burn real spend re-tagging the same popular
+  // titles over and over across every date band in a large expansion run.
+  let alreadyEnriched = false;
+  if (!noAi) {
+    const { data: existing } = await supabase.from("titles").select("id").eq("tmdb_id", details.id).maybeSingle();
+    if (existing) {
+      const { data: existingEmbedding } = await supabase
+        .from("title_embeddings")
+        .select("title_id")
+        .eq("title_id", existing.id)
+        .maybeSingle();
+      alreadyEnriched = !!existingEmbedding;
+    }
+  }
 
   // Taste-metadata inference needs a billed OpenAI account. If it's not
   // available yet (or --no-ai was passed for a fast bulk-catalogue run),
@@ -218,8 +240,8 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
   // rather than failing the whole ingest — enrich-titles.ts backfills these
   // later once billing is active.
   let taste = emptyTaste;
-  let tasteStatus: IngestResult["taste"] = "skipped";
-  if (!noAi) {
+  let tasteStatus: IngestResult["taste"] = alreadyEnriched ? "already" : "skipped";
+  if (!noAi && !alreadyEnriched) {
     try {
       taste = await inferTasteMetadata(details.title, details.overview ?? "", genres);
       tasteStatus = "ok";
@@ -228,7 +250,7 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
     }
   }
 
-  const titleRow = {
+  const titleRow: Record<string, unknown> = {
     tmdb_id: details.id,
     type: "movie" as const,
     name: details.title,
@@ -240,20 +262,30 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
     backdrop_url: details.backdrop_path ? `${IMAGE_BASE}/w1280${details.backdrop_path}` : null,
     original_language: details.original_language,
     genres,
-    themes: taste.themes ?? [],
-    tone: taste.tone ?? [],
-    pacing: taste.pacing ?? null,
-    violence_level: taste.violence_level ?? null,
-    comedy_level: taste.comedy_level ?? null,
-    emotional_intensity: taste.emotional_intensity ?? null,
-    dialogue_density: taste.dialogue_density ?? null,
-    ending_type: taste.ending_type ?? null,
-    color_palette: taste.color_palette ?? [],
-    mood_tags: taste.mood_tags ?? [],
     tmdb_rating: details.vote_average ?? null,
     tmdb_vote_count: details.vote_count ?? null,
     popularity: details.popularity ?? null,
   };
+  // Taste-metadata columns are only included in the upsert when this run
+  // actually resolved fresh values (tasteStatus "ok") or genuinely has
+  // none yet ("skipped", the existing --no-ai/no-billing path) -- an
+  // "already" title omits them entirely so the ON CONFLICT update never
+  // touches those columns, instead of overwriting the real taste data
+  // already sitting there with emptyTaste's placeholders.
+  if (!alreadyEnriched) {
+    Object.assign(titleRow, {
+      themes: taste.themes ?? [],
+      tone: taste.tone ?? [],
+      pacing: taste.pacing ?? null,
+      violence_level: taste.violence_level ?? null,
+      comedy_level: taste.comedy_level ?? null,
+      emotional_intensity: taste.emotional_intensity ?? null,
+      dialogue_density: taste.dialogue_density ?? null,
+      ending_type: taste.ending_type ?? null,
+      color_palette: taste.color_palette ?? [],
+      mood_tags: taste.mood_tags ?? [],
+    });
+  }
 
   const { data: title, error } = await supabase
     .from("titles")
@@ -314,10 +346,12 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
   // failed keeps the title "pending" so enrich-titles.ts (which does
   // taste + embedding as one atomic unit, see its inferTasteMetadata call
   // throwing before the embedding upsert) can backfill both correctly.
-  let embeddingStatus: IngestResult["embedding"] = "skipped";
-  if (!noAi && tasteStatus === "ok") {
+  let embeddingStatus: IngestResult["embedding"] = alreadyEnriched ? "already" : "skipped";
+  if (!noAi && !alreadyEnriched && tasteStatus === "ok") {
     try {
-      const input = buildEmbeddingInput(titleRow);
+      const input = buildEmbeddingInput(
+        titleRow as Parameters<typeof buildEmbeddingInput>[0]
+      );
       const embeddingResponse = await openai.embeddings.create({ model: EMBEDDING_MODEL, input });
       const embedding = embeddingResponse.data[0].embedding;
       await supabase.from("title_embeddings").upsert({ title_id: title.id, embedding, model: EMBEDDING_MODEL });
@@ -327,7 +361,11 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
     }
   }
 
-  const flags = [tasteStatus === "skipped" ? "no-taste" : null, embeddingStatus === "skipped" ? "no-embedding" : null]
+  const flags = [
+    tasteStatus === "already" ? "already-enriched" : null,
+    tasteStatus === "skipped" ? "no-taste" : null,
+    embeddingStatus === "skipped" ? "no-embedding" : null,
+  ]
     .filter(Boolean)
     .join(", ");
   console.log(`  ok  ${details.title} (${details.release_date?.slice(0, 4) ?? "?"})${flags ? ` [${flags}]` : ""}`);
@@ -377,7 +415,9 @@ async function main() {
         try {
           const result = await ingestOne(summary, noAi);
           ok++;
-          if (result.taste === "ok" && result.embedding === "ok") enriched++;
+          const tasteDone = result.taste === "ok" || result.taste === "already";
+          const embeddingDone = result.embedding === "ok" || result.embedding === "already";
+          if (tasteDone && embeddingDone) enriched++;
         } catch (e) {
           failed++;
           console.error(`  FAIL id=${summary.id}:`, e instanceof Error ? e.message : e);
