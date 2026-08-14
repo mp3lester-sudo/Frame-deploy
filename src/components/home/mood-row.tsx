@@ -63,7 +63,10 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
               <X size={14} />
             </button>
             <Link href={`/movie/${title.id}`} className="block">
-              <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface transition-colors group-hover:border-border-strong">
+              {/* Sharpened from --radius-md (10px) to --radius-sm (6px),
+                  matching the flattened hero card corner radius from the
+                  same modernization pass -- see recommendation-reveal.tsx. */}
+              <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-sm)] border border-border bg-surface transition-colors group-hover:border-border-strong">
                 {title.poster_url && (
                   <Image
                     src={title.poster_url}

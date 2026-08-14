@@ -158,7 +158,16 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
     // tallest single element on the home page by a wide margin, with
     // everything else (mood row, social feed, hidden gem) demoted below
     // it at a visibly smaller, quieter scale.
-    <div className="relative h-[480px] overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface-raised sm:h-[600px] lg:h-[680px]">
+    <div className="relative h-[480px] overflow-hidden rounded-[var(--radius-sm)] border border-border bg-surface-raised sm:h-[600px] lg:h-[680px]">
+      {/* Modernization pass (flattened direction): corner radius sharpened
+          from --radius-lg (14px) to --radius-sm (6px), and the decorative
+          gold-foil/glow treatments below (badge, title glow, polish-sweep
+          shine, CTA gloss shadow) are gone -- closer to a current flat-
+          chrome streaming-app look than the earlier velvet-and-foil
+          identity. Scoped to this component (home hero) only -- .bg-
+          gold-foil itself is untouched since it's shared by buttons
+          sitewide (nav login, signup, premium, etc.) that weren't part
+          of this pass. */}
       {backdropImage && (
         <Link
           href={href}
@@ -235,10 +244,6 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
         </button>
       )}
 
-      {phase === "sweeping" && (
-        <div aria-hidden="true" className="polish-sweep pointer-events-none absolute inset-0 z-10" />
-      )}
-
       {revealed && (
         <div className="reveal-glow absolute inset-x-0 bottom-0 p-5 sm:p-8">
           {/* Badge + meta share one baseline-aligned line instead of
@@ -248,7 +253,7 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
               with nothing competing on it. */}
           <div className="reveal-fade-up flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
             {matchPercent !== null && (
-              <span className="bg-gold-foil text-accent-foreground rounded-[var(--radius-sm)] px-2.5 py-1 text-xs font-bold tracking-wide">
+              <span className="bg-accent text-accent-foreground rounded-[var(--radius-sm)] px-2.5 py-1 text-xs font-bold tracking-wide">
                 {displayPercent}% MATCH
               </span>
             )}
@@ -259,10 +264,7 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
           </div>
 
           <Link href={href} className="block">
-            <h2
-              className="font-display reveal-fade-up mt-2 text-3xl leading-[1.08] text-foreground [animation-delay:60ms] sm:text-5xl"
-              style={{ textShadow: "0 0 20px rgba(217,184,118,0.5), 0 0 44px rgba(217,184,118,0.3)" }}
-            >
+            <h2 className="font-display reveal-fade-up mt-2 text-3xl leading-[1.08] text-foreground [animation-delay:60ms] sm:text-5xl">
               {title.name}
             </h2>
 
@@ -286,7 +288,7 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
           <div className="reveal-fade-up mt-5 flex flex-wrap items-center gap-4 [animation-delay:210ms]">
             <Link
               href={href}
-              className="bg-gold-foil text-accent-foreground inline-flex h-12 items-center justify-center rounded-[var(--radius-md)] px-7 text-sm font-semibold uppercase tracking-wide shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] transition-[filter] hover:brightness-110"
+              className="bg-accent text-accent-foreground inline-flex h-12 items-center justify-center rounded-[var(--radius-sm)] px-7 text-sm font-semibold uppercase tracking-wide transition-colors hover:bg-accent-soft"
             >
               Watch tonight
             </Link>
