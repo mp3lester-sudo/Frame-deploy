@@ -237,23 +237,44 @@ export default async function HomePage({
           page underneath (recommendations included) has usually already
           painted, showing the wrong thing first. This inline script runs
           synchronously as the browser parses the page, before anything
-          below it paints: on a fresh session it marks the flag and lets
-          the splash render+animate normally; on a repeat visit within
-          the same session it flags <html> so the CSS rule right below
-          (html.splash-shown .greeting-splash) hides it instantly, no
-          animation, no flash. */}
+          below it paints: on a fresh-enough visit it marks the flag and
+          lets the intro/splash render+animate normally; on a repeat visit
+          it flags <html> so the CSS rules right below
+          (html.intro-shown / html.splash-shown) hide them instantly, no
+          animation, no flash.
+
+          Used to key this off sessionStorage (cleared per browser
+          session) rather than a timestamp -- worked fine in mobile
+          Safari, but WKWebView (the native iOS app's WebView, see
+          mobile-app/capacitor.config.ts) has a long-documented WebKit
+          quirk where sessionStorage doesn't reliably clear between app
+          relaunches the way it does in an actual browser tab -- it can
+          persist indefinitely across a full force-quit + relaunch. Once
+          that flag got set once on-device, the intro/splash could just
+          never come back, no matter how many times someone actually
+          reopened the app. localStorage + an explicit timestamp sidesteps
+          the question of what "session" even means in WKWebView entirely:
+          it replays whenever it's actually been a while (idle threshold
+          below), on every platform, regardless of that engine's own
+          session-storage lifetime semantics. */}
       <script
         dangerouslySetInnerHTML={{
           __html: `try {
-  if (sessionStorage.getItem('backlot:cinematic-intro-shown')) {
+  var STALE_MS = 30 * 60 * 1000; // away 30+ min counts as a fresh app open
+  var now = Date.now();
+
+  var introAt = localStorage.getItem('backlot:cinematic-intro-shown-at');
+  if (introAt && (now - parseInt(introAt, 10)) < STALE_MS) {
     document.documentElement.classList.add('intro-shown');
   } else {
-    sessionStorage.setItem('backlot:cinematic-intro-shown', '1');
+    localStorage.setItem('backlot:cinematic-intro-shown-at', String(now));
   }
-  if (sessionStorage.getItem('backlot:greeting-splash-shown')) {
+
+  var splashAt = localStorage.getItem('backlot:greeting-splash-shown-at');
+  if (splashAt && (now - parseInt(splashAt, 10)) < STALE_MS) {
     document.documentElement.classList.add('splash-shown');
   } else {
-    sessionStorage.setItem('backlot:greeting-splash-shown', '1');
+    localStorage.setItem('backlot:greeting-splash-shown-at', String(now));
   }
 } catch (e) {}`,
         }}
@@ -278,7 +299,7 @@ export default async function HomePage({
           dismisses the whole intro instantly instead of waiting out the
           fade -- the plain <script> right after registers the one
           listener needed for that, same zero-framework approach as the
-          sessionStorage script above (no client component needed just
+          localStorage script above (no client component needed just
           for this). The video/title layers themselves stay
           pointer-events-none so the tap-zone (not them) is what's
           actually clickable. */}

@@ -32,11 +32,37 @@ type Phase = "intro-video" | "intro-title" | "swiping" | "loading" | "done";
 type ExitDirection = "left" | "right" | "fade";
 
 // Shared with the home page's own cinematic-intro overlay (see
-// src/app/page.tsx) -- whichever surface plays the video+title first in
-// a session sets this, so a just-signed-up user redirected from
-// onboarding straight to Home doesn't see the same footage twice back
-// to back.
-const INTRO_SEEN_KEY = "backlot:cinematic-intro-shown";
+// src/app/page.tsx) -- whichever surface plays the video+title first
+// sets this, so a just-signed-up user redirected from onboarding
+// straight to Home doesn't see the same footage twice back to back.
+//
+// localStorage + an explicit timestamp, not sessionStorage -- WKWebView
+// (the native iOS app's WebView) has a documented WebKit quirk where
+// sessionStorage doesn't reliably clear between app relaunches, which
+// could leave this permanently "seen" on-device with no way to ever
+// replay it. STALE_MS must match the threshold in page.tsx's inline
+// script exactly, or the two surfaces would disagree about whether a
+// given visit still counts as "recent."
+const INTRO_SEEN_AT_KEY = "backlot:cinematic-intro-shown-at";
+const INTRO_STALE_MS = 30 * 60 * 1000;
+
+function markIntroSeen() {
+  try {
+    localStorage.setItem(INTRO_SEEN_AT_KEY, String(Date.now()));
+  } catch {
+    // Ignore -- private browsing / storage-disabled contexts just replay
+    // the intro every time, which is a harmless fallback.
+  }
+}
+
+function wasIntroRecentlyShown() {
+  try {
+    const at = localStorage.getItem(INTRO_SEEN_AT_KEY);
+    return at !== null && Date.now() - parseInt(at, 10) < INTRO_STALE_MS;
+  } catch {
+    return false;
+  }
+}
 const INTRO_VIDEO_MS = 3400;
 const INTRO_TITLE_MS = 1400;
 const SWIPE_THRESHOLD = 110;
@@ -45,7 +71,7 @@ const EXIT_DURATION_MS = 260;
 export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
   const [index, setIndex] = useState(0);
   // Starts `null` rather than guessing a phase, because whether to show
-  // the intro depends on sessionStorage + prefers-reduced-motion, both
+  // the intro depends on localStorage + prefers-reduced-motion, both
   // only knowable client-side -- guessing here would either flash the
   // intro before swapping it out, or mismatch what the server rendered.
   const [phase, setPhase] = useState<Phase | null>(null);
@@ -72,9 +98,9 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
   useEffect(() => {
     if (phase !== null) return;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const alreadySeen = sessionStorage.getItem(INTRO_SEEN_KEY) === "1";
+    const alreadySeen = wasIntroRecentlyShown();
     // Deliberately in an effect, not a lazy useState initializer -- the
-    // latter would run during SSR too (no sessionStorage/matchMedia
+    // latter would run during SSR too (no localStorage/matchMedia
     // there) and disagree with the client's first hydration render, the
     // same class of bug this pattern avoids elsewhere (see
     // promo-banner.tsx).
@@ -91,7 +117,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
   useEffect(() => {
     if (phase !== "intro-title") return;
     const timer = setTimeout(() => {
-      sessionStorage.setItem(INTRO_SEEN_KEY, "1");
+      markIntroSeen();
       setPhase("swiping");
     }, INTRO_TITLE_MS);
     return () => clearTimeout(timer);
@@ -127,7 +153,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
   }, [current?.id]);
 
   function skipIntro() {
-    sessionStorage.setItem(INTRO_SEEN_KEY, "1");
+    markIntroSeen();
     setPhase("swiping");
   }
 
