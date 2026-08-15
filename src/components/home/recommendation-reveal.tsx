@@ -26,22 +26,23 @@ export interface RevealPick {
   initiallyOnWatchlist: boolean;
 }
 
-// Tap-to-reveal: a radial match meter counts up from 0% to the pick's
-// match score while the backdrop -- already on screen, just heavily
-// blurred -- sharpens into focus in the same motion. Replaces the old
-// pulsing-icon + opaque-wipe treatment: the meter and the blur clearing
-// together read as "the taste engine just finished," rather than a
-// decorative curtain being pulled back on something that was already
-// sitting there. Both durations are intentionally equal so the number
-// finishes counting at the exact moment the image reaches full focus.
+// Tap-to-reveal: a literal curtain rise. Two textured panels fully cover
+// the backdrop while sealed, a spotlit number counts up from 0% to the
+// pick's match score center-stage, and the panels slide apart to the
+// sides as the count finishes -- Concept M from the redesign round,
+// replacing the previous version's blur-clearing backdrop + abstract
+// SVG progress ring (which itself had replaced an even older
+// pulsing-icon + opaque-wipe treatment). The backdrop no longer needs
+// its own blur/scale animation now that the curtains -- not the image
+// itself -- are what's covering the pick; it just sits ready underneath,
+// fully sharp, the instant the panels part.
 const METER_MS = 1400;
-// How blurred the backdrop is at rest (sealed) and how far it un-blurs
-// over METER_MS. High enough that nothing about the pick is guessable
-// before the tap, low enough that the shape/lighting still reads as "a
-// real photo," not noise -- part of the tease.
-const MAX_BLUR_PX = 36;
-const RING_RADIUS = 44;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+// Curtain slide duration is intentionally a touch shorter than METER_MS
+// so the panels visibly finish parting slightly before the count-up
+// hits its final number and phase flips to "revealed" -- by that
+// instant the curtain divs (only mounted while meterActive, see below)
+// unmount with nothing left mid-transition to pop.
+const CURTAIN_MS = 1300;
 
 // "Generate another pick" keeps the original quick opaque-sweep swap
 // rather than re-running the full meter animation -- it's a secondary,
@@ -173,13 +174,14 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
   const revealed = phase === "revealed";
   const meterActive = phase === "sealed" || phase === "revealing";
 
-  // Sealed: full blur, empty ring. Revealing: blur target flips to 0 so
-  // the CSS transition below carries it there over METER_MS, exactly
-  // alongside the ring filling and the number counting up. Revealed /
-  // sweeping: stays clear.
-  const blurPx = phase === "sealed" ? MAX_BLUR_PX : 0;
-  const ringPercent = phase === "sealed" ? 0 : displayPercent;
-  const ringOffset = RING_CIRCUMFERENCE * (1 - Math.min(ringPercent, 100) / 100);
+  // Curtains are closed only while sealed -- the instant reveal() fires
+  // (phase -> "revealing") they start parting, over CURTAIN_MS, so the
+  // motion begins in the same beat as the count-up rather than waiting
+  // for it to finish. displayPercent itself still only reads real values
+  // once past "sealed" (same guard the old ring used), since the count-up
+  // effect resets it to 0 right as "revealing" begins.
+  const curtainsOpen = phase !== "sealed";
+  const displayedPercent = phase === "sealed" ? 0 : displayPercent;
 
   return (
     // Dramatically taller than the old 368/440px card, and no longer
@@ -211,16 +213,14 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
             alt=""
             fill
             priority
-            className="object-cover transition-[filter,transform] duration-[1400ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
-            style={{
-              filter: `blur(${blurPx}px) grayscale(0.15) brightness(0.75)`,
-              // Scaled up while blurred so the heavy blur radius doesn't
-              // sample past the image's own edge into the container's
-              // empty padding (which reads as a faint soft halo at the
-              // border) -- settles back to 1 in step with the blur
-              // clearing.
-              transform: phase === "sealed" ? "scale(1.08)" : "scale(1)",
-            }}
+            className="object-cover"
+            // No phase-dependent blur/scale here anymore -- the curtain
+            // panels below (not the image itself) are what hide the pick
+            // while sealed, so the backdrop can just sit fully sharp and
+            // ready underneath, exactly as it'll look once the curtains
+            // part. grayscale/brightness stay static, purely for the
+            // scrim-friendly moodiness the old blurred version also had.
+            style={{ filter: "grayscale(0.15) brightness(0.75)" }}
             sizes="(max-width: 1024px) 100vw, 60vw"
           />
         </Link>
@@ -231,48 +231,66 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
       )}
 
       {meterActive && (
-        <button
-          type="button"
-          onClick={reveal}
-          disabled={phase !== "sealed"}
-          aria-label="Tap to generate tonight's recommendation"
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-center"
-        >
-          <div className="relative flex h-24 w-24 items-center justify-center text-accent">
-            <svg width="96" height="96" viewBox="0 0 96 96" className="-rotate-90">
-              <circle cx="48" cy="48" r={RING_RADIUS} fill="none" stroke="currentColor" strokeOpacity="0.16" strokeWidth="3" />
-              <circle
-                cx="48"
-                cy="48"
-                r={RING_RADIUS}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                style={{
-                  strokeDasharray: RING_CIRCUMFERENCE,
-                  strokeDashoffset: ringOffset,
-                  transition: "stroke-dashoffset 1400ms cubic-bezier(0.16,1,0.3,1)",
-                }}
-              />
-            </svg>
-            <span className="absolute font-display text-xl text-foreground tabular-nums">
-              {hasMatch ? `${ringPercent}%` : (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+        <>
+          {/* Curtain panels -- Concept M. Two textured panels fully
+              cover the backdrop while sealed and part to the sides as
+              curtainsOpen flips true, instead of the old blur-clearing
+              image. Purely decorative (no pointer handling), z-10, sit
+              below the tap-target button (z-20) which spans the same
+              full-bleed area and owns the actual click/keyboard target. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[51%] shadow-[inset_0_0_60px_rgba(0,0,0,0.5)] transition-transform ease-[cubic-bezier(0.7,0,0.15,1)]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(90deg, rgba(0,0,0,0.18) 0 10px, transparent 10px 20px), linear-gradient(180deg, var(--surface-raised) 0%, #14110d 100%)",
+              transitionDuration: `${CURTAIN_MS}ms`,
+              transformOrigin: "left",
+              transform: curtainsOpen ? "translateX(-100%)" : "translateX(0)",
+            }}
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-[51%] shadow-[inset_0_0_60px_rgba(0,0,0,0.5)] transition-transform ease-[cubic-bezier(0.7,0,0.15,1)]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(90deg, rgba(0,0,0,0.18) 0 10px, transparent 10px 20px), linear-gradient(180deg, var(--surface-raised) 0%, #14110d 100%)",
+              transitionDuration: `${CURTAIN_MS}ms`,
+              transformOrigin: "right",
+              transform: curtainsOpen ? "translateX(100%)" : "translateX(0)",
+            }}
+          />
+          <button
+            type="button"
+            onClick={reveal}
+            disabled={phase !== "sealed"}
+            aria-label="Tap to generate tonight's recommendation"
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 text-center"
+          >
+            {/* Spotlit number, center stage -- replaces the old SVG
+                progress ring. A soft gold text-shadow stands in for an
+                actual stage light without needing a separate glow
+                element behind it. */}
+            <span
+              className="font-display text-6xl italic text-accent-soft tabular-nums sm:text-7xl"
+              style={{ textShadow: "0 0 22px rgba(217,184,118,0.55), 0 0 46px rgba(217,184,118,0.28)" }}
+            >
+              {hasMatch ? `${displayedPercent}%` : (
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                   <path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" strokeLinecap="round" />
                 </svg>
               )}
             </span>
-          </div>
-          <span>
-            <span className="font-display block text-xl text-foreground sm:text-2xl">
-              {isColdStart ? "A pick is ready" : "Tonight's pick is ready"}
+            <span>
+              <span className="font-display block text-xl text-foreground sm:text-2xl">
+                {isColdStart ? "A pick is ready" : "Tonight's pick is ready"}
+              </span>
+              <span className="mt-1 block text-[11px] uppercase tracking-wider text-foreground-muted">
+                {phase === "sealed" ? "Tap to raise the curtain" : "Curtain rising…"}
+              </span>
             </span>
-            <span className="mt-1 block text-[11px] uppercase tracking-wider text-foreground-muted">
-              {phase === "sealed" ? "Tap to calculate tonight's match" : "Calculating your match…"}
-            </span>
-          </span>
-        </button>
+          </button>
+        </>
       )}
 
       {revealed && (
