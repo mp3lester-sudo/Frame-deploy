@@ -1,6 +1,7 @@
 /**
  * TMDB ingestion script — populates public.titles, public.people,
- * public.title_credits, and public.title_embeddings from TMDB.
+ * public.title_credits, and public.title_embeddings from TMDB. Handles
+ * both movies and TV shows (--type=movie, the default, or --type=tv).
  *
  * This is intentionally a standalone script (not importing from src/lib)
  * because src/lib/supabase/server.ts and src/lib/ai/openai.ts assume a
@@ -14,6 +15,32 @@
  *   npm run ingest:tmdb -- --pages=1-5 --list=popular --no-ai   (skip taste/embedding
  *     calls entirely for max throughput during a bulk catalogue build; run
  *     enrich:titles later once OpenAI billing is active)
+ *   npm run ingest:tmdb -- --type=tv --pages=1-10 --list=popular,top_rated,on_the_air
+ *     (TV shows -- list names are TV-specific, see parseArgs; movie-only
+ *     lists like "now_playing"/"upcoming" don't exist for TV)
+ *   npm run ingest:tmdb -- --type=tv --list=discover --pages=1-50 --vote-count-gte=50
+ *
+ * TV notes (see ingestOne):
+ *   - TMDB's movie-id and tv-id numbering are independent counters that
+ *     collide (movie id 1396 is "Sneakers", tv id 1396 is "Breaking
+ *     Bad") -- titles.tmdb_id is unique on (tmdb_id, type) as of
+ *     migration 0070, not tmdb_id alone, and this script's upsert
+ *     conflicts on "tmdb_id,type" to match.
+ *   - TV genre names (e.g. "Sci-Fi & Fantasy", "Action & Adventure")
+ *     don't match the movie genre vocabulary Discover/onboarding filter
+ *     on -- TV_GENRE_EXPANSIONS below remaps them onto the closest movie
+ *     genre string(s) at ingestion time so genre filters behave the same
+ *     in both Movies and Shows mode.
+ *   - No director-equivalent credit is ingested for TV shows. TMDB's
+ *     closest analog (created_by, i.e. the showrunner) isn't the same
+ *     thing a "Director" credit means everywhere else in this app
+ *     (Director of the Day, same-director diversify exclusion, the
+ *     embedding input's "Director: ..." line) -- mislabeling a
+ *     showrunner as a director would quietly corrupt those movie-scoped
+ *     features once TV rows start showing up in candidate pools that
+ *     join through title_credits. TV rows get cast credits only; a
+ *     dedicated creator/showrunner credit type is a follow-up, not part
+ *     of this first pass.
  *
  * Requires TMDB_API_KEY, OPENAI_API_KEY, NEXT_PUBLIC_SUPABASE_URL,
  * SUPABASE_SERVICE_ROLE_KEY — loaded via `node --env-file=.env.local`
@@ -63,11 +90,20 @@ function parseArgs() {
     pageStart = pageEnd = Number(pagesArg);
   }
 
+  const mediaType = (args.type === "tv" ? "tv" : "movie") as "movie" | "tv";
+
+  // Movie-list names ("now_playing", "upcoming") don't exist for TV;
+  // TV's own list names ("on_the_air", "airing_today") don't exist for
+  // movies. Not validated against mediaType here -- an invalid
+  // combination just 404s per-page against TMDB, logs "FAIL fetching",
+  // and moves on, same as any other bad list name would.
   const lists = (args.list ?? "popular").split(",") as (
     | "popular"
     | "top_rated"
     | "now_playing"
     | "upcoming"
+    | "on_the_air"
+    | "airing_today"
     | "discover"
   )[];
 
@@ -82,6 +118,7 @@ function parseArgs() {
     pageStart,
     pageEnd,
     lists,
+    mediaType,
     noAi,
     concurrency,
     // Only meaningful for --list=discover — a bulk-catalogue query filtered
@@ -104,7 +141,34 @@ async function tmdbFetch(path: string, params: Record<string, string> = {}) {
   return res.json();
 }
 
-type TmdbMovieSummary = { id: number };
+type TmdbSummary = { id: number };
+
+// TMDB's TV genre vocabulary doesn't match its movie genre vocabulary --
+// several TV genres are merges of two movie genres ("Sci-Fi & Fantasy",
+// "Action & Adventure"), and Discover/onboarding/the landing teaser all
+// filter on the movie vocabulary (see ANCHOR_GENRES in
+// src/lib/catalogue/diverse-deck.ts and the GENRES list in
+// src/app/discover/page.tsx). Expanding a merged TV genre into both of
+// its movie-genre equivalents at ingestion time means those filters
+// behave the same in Shows mode as they already do in Movies mode,
+// without every genre-filtered query needing its own TV-aware branch.
+// TV genres with no reasonable movie equivalent (News, Reality, Soap,
+// Talk) are left as-is -- they just won't match any anchor-genre filter,
+// which is correct (nothing in ANCHOR_GENRES claims to cover them).
+const TV_GENRE_EXPANSIONS: Record<string, string[]> = {
+  "Action & Adventure": ["Action", "Adventure"],
+  "Sci-Fi & Fantasy": ["Science Fiction", "Fantasy"],
+  "War & Politics": ["War"],
+  Kids: ["Family"],
+};
+
+function expandTvGenres(rawGenres: string[]): string[] {
+  const expanded = new Set<string>();
+  for (const g of rawGenres) {
+    for (const mapped of TV_GENRE_EXPANSIONS[g] ?? [g]) expanded.add(mapped);
+  }
+  return [...expanded];
+}
 
 type TasteMetadata = {
   themes: string[];
@@ -208,9 +272,26 @@ const emptyTaste: TasteMetadata = {
 
 type IngestResult = { taste: "ok" | "skipped" | "already"; embedding: "ok" | "skipped" | "already" };
 
-async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<IngestResult> {
-  const details = await tmdbFetch(`/movie/${summary.id}`, { append_to_response: "credits" });
-  const genres: string[] = (details.genres ?? []).map((g: { name: string }) => g.name);
+async function ingestOne(summary: TmdbSummary, noAi: boolean, mediaType: "movie" | "tv"): Promise<IngestResult> {
+  const isTv = mediaType === "tv";
+  const details = await tmdbFetch(isTv ? `/tv/${summary.id}` : `/movie/${summary.id}`, {
+    append_to_response: "credits",
+  });
+  const rawGenres: string[] = (details.genres ?? []).map((g: { name: string }) => g.name);
+  const genres = isTv ? expandTvGenres(rawGenres) : rawGenres;
+
+  // TMDB shapes these fields differently between /movie and /tv --
+  // "title"/"name", "release_date"/"first_air_date", a single "runtime"
+  // vs. an "episode_run_time" array (per-episode length; take the first
+  // reported value -- most shows only ever report one).
+  const name: string = isTv ? details.name : details.title;
+  const originalName: string | null = isTv ? details.original_name : details.original_title;
+  const releaseDate: string | null = isTv ? details.first_air_date : details.release_date;
+  const runtimeMinutes: number | null = isTv
+    ? (Array.isArray(details.episode_run_time) && details.episode_run_time.length
+        ? details.episode_run_time[0]
+        : null)
+    : details.runtime || null;
 
   // A broad --list=discover sweep at catalogue-expansion scale re-surfaces
   // plenty of titles already ingested in earlier runs -- discover sorts by
@@ -223,7 +304,12 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
   // titles over and over across every date band in a large expansion run.
   let alreadyEnriched = false;
   if (!noAi) {
-    const { data: existing } = await supabase.from("titles").select("id").eq("tmdb_id", details.id).maybeSingle();
+    const { data: existing } = await supabase
+      .from("titles")
+      .select("id")
+      .eq("tmdb_id", details.id)
+      .eq("type", mediaType)
+      .maybeSingle();
     if (existing) {
       const { data: existingEmbedding } = await supabase
         .from("title_embeddings")
@@ -243,21 +329,21 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
   let tasteStatus: IngestResult["taste"] = alreadyEnriched ? "already" : "skipped";
   if (!noAi && !alreadyEnriched) {
     try {
-      taste = await inferTasteMetadata(details.title, details.overview ?? "", genres);
+      taste = await inferTasteMetadata(name, details.overview ?? "", genres);
       tasteStatus = "ok";
     } catch (e) {
-      console.warn(`  (taste metadata skipped for ${details.title}: ${e instanceof Error ? e.message : e})`);
+      console.warn(`  (taste metadata skipped for ${name}: ${e instanceof Error ? e.message : e})`);
     }
   }
 
   const titleRow: Record<string, unknown> = {
     tmdb_id: details.id,
-    type: "movie" as const,
-    name: details.title,
-    original_name: details.original_title,
+    type: mediaType,
+    name,
+    original_name: originalName,
     overview: details.overview,
-    release_date: details.release_date || null,
-    runtime_minutes: details.runtime || null,
+    release_date: releaseDate || null,
+    runtime_minutes: runtimeMinutes,
     poster_url: details.poster_path ? `${IMAGE_BASE}/w780${details.poster_path}` : null,
     backdrop_url: details.backdrop_path ? `${IMAGE_BASE}/w1280${details.backdrop_path}` : null,
     original_language: details.original_language,
@@ -289,15 +375,26 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
 
   const { data: title, error } = await supabase
     .from("titles")
-    .upsert(titleRow, { onConflict: "tmdb_id" })
+    // Conflict target is the (tmdb_id, type) pair (migration 0070), not
+    // tmdb_id alone -- TMDB's movie-id and tv-id counters are
+    // independent and do collide (e.g. movie id 1396 is "Sneakers", tv
+    // id 1396 is "Breaking Bad"), so tmdb_id alone isn't a safe upsert
+    // key once both types are being ingested into the same table.
+    .upsert(titleRow, { onConflict: "tmdb_id,type" })
     .select("id")
     .single();
-  if (error || !title) throw new Error(`upsert titles failed for ${details.title}: ${error?.message}`);
+  if (error || !title) throw new Error(`upsert titles failed for ${name}: ${error?.message}`);
 
-  // Credits: director + top 5 billed cast
+  // Credits: top 5 billed cast, plus a director credit for movies only.
+  // TV has no real equivalent -- TMDB's closest analog (created_by, the
+  // showrunner) isn't what a "Director" credit means anywhere else in
+  // this app (Director of the Day, diversify.ts's same-director
+  // exclusion, the embedding input's "Director: ..." line), so labeling
+  // a showrunner as one would quietly corrupt those movie-scoped
+  // features. TV rows simply have no director-type credit for now.
   const crew = details.credits?.crew ?? [];
   const cast = (details.credits?.cast ?? []).slice(0, 5);
-  const director = crew.find((c: { job: string }) => c.job === "Director");
+  const director = isTv ? undefined : crew.find((c: { job: string }) => c.job === "Director");
   const creditPeople = [
     ...(director ? [{ ...director, credit_type: "director" as const, billing_order: null }] : []),
     ...cast.map((c: { order: number }, i: number) => ({ ...c, credit_type: "actor" as const, billing_order: i })),
@@ -357,7 +454,7 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
       await supabase.from("title_embeddings").upsert({ title_id: title.id, embedding, model: EMBEDDING_MODEL });
       embeddingStatus = "ok";
     } catch (e) {
-      console.warn(`  (embedding skipped for ${details.title}: ${e instanceof Error ? e.message : e})`);
+      console.warn(`  (embedding skipped for ${name}: ${e instanceof Error ? e.message : e})`);
     }
   }
 
@@ -368,13 +465,13 @@ async function ingestOne(summary: TmdbMovieSummary, noAi: boolean): Promise<Inge
   ]
     .filter(Boolean)
     .join(", ");
-  console.log(`  ok  ${details.title} (${details.release_date?.slice(0, 4) ?? "?"})${flags ? ` [${flags}]` : ""}`);
+  console.log(`  ok  ${name} (${releaseDate?.slice(0, 4) ?? "?"})${flags ? ` [${flags}]` : ""}`);
 
   return { taste: tasteStatus, embedding: embeddingStatus };
 }
 
 async function main() {
-  const { pageStart, pageEnd, lists, noAi, concurrency, voteCountGte, dateGte, dateLte } = parseArgs();
+  const { pageStart, pageEnd, lists, mediaType, noAi, concurrency, voteCountGte, dateGte, dateLte } = parseArgs();
 
   let ok = 0;
   let failed = 0;
@@ -386,25 +483,30 @@ async function main() {
       const isDiscover = list === "discover";
       console.log(
         isDiscover
-          ? `Fetching TMDB discover page ${page} (vote_count>=${voteCountGte}, ${dateGte || "any"}..${dateLte || "any"})...`
-          : `Fetching TMDB "${list}" page ${page}...`
+          ? `Fetching TMDB ${mediaType} discover page ${page} (vote_count>=${voteCountGte}, ${dateGte || "any"}..${dateLte || "any"})...`
+          : `Fetching TMDB ${mediaType} "${list}" page ${page}...`
       );
-      let listResponse: { results?: TmdbMovieSummary[] };
+      // Discover's date-range params are named differently per type --
+      // "primary_release_date.gte/lte" for movies, "first_air_date.gte/lte"
+      // for TV (matching the field TMDB actually filters on server-side).
+      const dateGteParam = mediaType === "tv" ? "first_air_date.gte" : "primary_release_date.gte";
+      const dateLteParam = mediaType === "tv" ? "first_air_date.lte" : "primary_release_date.lte";
+      let listResponse: { results?: TmdbSummary[] };
       try {
         listResponse = isDiscover
-          ? await tmdbFetch(`/discover/movie`, {
+          ? await tmdbFetch(`/discover/${mediaType}`, {
               page: String(page),
               sort_by: "popularity.desc",
               "vote_count.gte": voteCountGte,
-              ...(dateGte ? { "primary_release_date.gte": dateGte } : {}),
-              ...(dateLte ? { "primary_release_date.lte": dateLte } : {}),
+              ...(dateGte ? { [dateGteParam]: dateGte } : {}),
+              ...(dateLte ? { [dateLteParam]: dateLte } : {}),
             })
-          : await tmdbFetch(`/movie/${list}`, { page: String(page) });
+          : await tmdbFetch(`/${mediaType}/${list}`, { page: String(page) });
       } catch (e) {
         console.error(`  FAIL fetching ${list} page ${page}:`, e instanceof Error ? e.message : e);
         continue;
       }
-      const summaries: TmdbMovieSummary[] = listResponse.results ?? [];
+      const summaries: TmdbSummary[] = listResponse.results ?? [];
       if (!summaries.length) {
         console.log(`  (no results — list may be exhausted)`);
         continue;
@@ -413,7 +515,7 @@ async function main() {
 
       await runWithConcurrency(summaries, concurrency, async (summary) => {
         try {
-          const result = await ingestOne(summary, noAi);
+          const result = await ingestOne(summary, noAi, mediaType);
           ok++;
           const tasteDone = result.taste === "ok" || result.taste === "already";
           const embeddingDone = result.embedding === "ok" || result.embedding === "already";
@@ -427,8 +529,8 @@ async function main() {
   }
 
   console.log(
-    `\nDone. Saw ${totalSeen} listings across ${lists.join(", ")} pages ${pageStart}-${pageEnd}; ` +
-      `${ok} upserted (dedup'd by tmdb_id), ${failed} failed, ${enriched}/${ok} fully AI-enriched.`
+    `\nDone. Saw ${totalSeen} ${mediaType} listings across ${lists.join(", ")} pages ${pageStart}-${pageEnd}; ` +
+      `${ok} upserted (dedup'd by tmdb_id+type), ${failed} failed, ${enriched}/${ok} fully AI-enriched.`
   );
   if (ok > enriched) {
     console.log(`Run "npm run enrich:titles" once OpenAI billing is active to backfill the rest.`);
