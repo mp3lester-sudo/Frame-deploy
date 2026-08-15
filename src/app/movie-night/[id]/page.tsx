@@ -16,6 +16,7 @@ import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { captureServerError } from "@/lib/monitoring/sentry-server";
 import { getActiveMediaType } from "@/lib/context/media-type";
+import { movieNightLabel, movieNightLabelLower, movieNightsLabelLower } from "@/lib/copy/movie-night-copy";
 
 type ParticipantRow = MovieNightParticipantRow;
 
@@ -111,11 +112,11 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
   return (
     <section className="mx-auto max-w-2xl px-4 py-8">
       <Link href="/movie-night" className="text-xs text-foreground-muted hover:text-foreground">
-        &larr; All movie nights
+        &larr; All {movieNightsLabelLower(mediaType)}
       </Link>
 
       <div className="mt-3 flex items-center justify-between">
-        <h1 className="font-display text-2xl">Movie night</h1>
+        <h1 className="font-display text-2xl">{movieNightLabel(mediaType)}</h1>
         <span className="text-xs uppercase tracking-wider text-accent">
           {night.status === "collecting" && "Collecting picks"}
           {night.status === "decided" && "Decided"}
@@ -135,7 +136,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
       )}
 
       {night.status === "cancelled" && (
-        <p className="mt-8 text-sm text-foreground-muted">This movie night was cancelled.</p>
+        <p className="mt-8 text-sm text-foreground-muted">This {movieNightLabelLower(mediaType)} was cancelled.</p>
       )}
 
       {night.status === "decided" && decidedTitle && (
@@ -219,7 +220,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
           {isHost && (
             <form action={cancelMovieNight.bind(null, night.id)} className="mt-6">
               <Button type="submit" size="sm" variant="ghost">
-                Cancel this movie night
+                Cancel this {movieNightLabelLower(mediaType)}
               </Button>
             </form>
           )}

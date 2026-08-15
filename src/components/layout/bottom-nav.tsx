@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Compass, Sparkles, Clapperboard, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { MediaType } from "@/lib/context/media-type-cookie";
+import { movieNightLabel } from "@/lib/copy/movie-night-copy";
 
 // Movie Night replaces Social here -- this bar is the primary navigation
 // surface for most people (mobile web and the native app both), and
@@ -11,17 +13,20 @@ import { cn } from "@/lib/utils";
 // the desktop-only top nav or a home-page card that only appeared once
 // you already had a session going. Social (the Feed) is still one tap
 // away from Home's "Your circle" rail, just no longer a dedicated tab.
-const tabs = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/discover", label: "Discover", icon: Compass },
-  { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
-  { href: "/ai", label: "AI", icon: Sparkles },
-  { href: "/profile/me", label: "Profile", icon: User },
-];
+function getTabs(mediaType: MediaType) {
+  return [
+    { href: "/", label: "Home", icon: Home },
+    { href: "/discover", label: "Discover", icon: Compass },
+    { href: "/movie-night", label: movieNightLabel(mediaType), icon: Clapperboard },
+    { href: "/ai", label: "AI", icon: Sparkles },
+    { href: "/profile/me", label: "Profile", icon: User },
+  ];
+}
 
 /** Mobile-only bottom tab bar. The top NavBar carries the same destinations on desktop. */
-export function BottomNav() {
+export function BottomNav({ mediaType }: { mediaType: MediaType }) {
   const pathname = usePathname();
+  const tabs = getTabs(mediaType);
 
   return (
     // pb adds the iOS home-indicator gutter as pure extra space below the

@@ -23,6 +23,8 @@ import { BackdropHero } from "@/components/backdrop-hero";
 import { CustomizeTitleImages } from "@/components/movie/customize-title-images";
 import { getMyTitleImageOverride } from "@/lib/actions/title-image-overrides";
 import { isAuteurActive } from "@/lib/premium/tier";
+import { getMySeasonRatings } from "@/lib/actions/season-ratings";
+import { SeasonRatings } from "@/components/season-ratings";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -72,6 +74,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
     { data: myLists },
     { data: viewerProfile },
     imageOverride,
+    mySeasonRatings,
   ] =
     await Promise.all([
       supabase.from("titles").select("*").eq("id", id).single(),
@@ -112,6 +115,10 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
       // displays (see getMyTitleImageOverride's doc comment); the *button
       // to change it* is what's actually gated below.
       viewer ? getMyTitleImageOverride(id) : Promise.resolve(null),
+      // Per-season ratings (optional, TV only, task #544) -- empty map
+      // for movies and logged-out visitors, cheap to fetch unconditionally
+      // here since getMySeasonRatings itself no-ops without a viewer.
+      viewer ? getMySeasonRatings(id) : Promise.resolve({}),
     ]);
 
   if (!title) notFound();
@@ -215,6 +222,13 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
           <div className="mt-6">
             <p className="mb-1 text-xs uppercase tracking-wide text-foreground-muted">Your rating</p>
             <RateControl titleId={title.id} initialScore={userRating?.score ?? 0} />
+            {viewer && title.type === "tv" && !!title.number_of_seasons && (
+              <SeasonRatings
+                titleId={title.id}
+                numberOfSeasons={title.number_of_seasons}
+                initialRatings={mySeasonRatings as Record<number, number>}
+              />
+            )}
           </div>
 
           {viewer && (

@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveMediaType } from "@/lib/context/media-type";
 import { getDirectorOfTheDay } from "@/lib/director-of-day/fetch";
 import { DirectorOfTheDay } from "@/components/home/director-of-the-day";
+import { getCreatorSpotlight } from "@/lib/creator-spotlight/fetch";
+import { CreatorSpotlight } from "@/components/home/creator-spotlight";
 import { getOrCreateDailyTrivia, toPublicTrivia } from "@/lib/daily-trivia/generate";
 import { DailyTriviaCard } from "@/components/daily/daily-trivia-card";
 import { getOnThisDayTitles } from "@/lib/on-this-day/fetch";
@@ -21,13 +23,16 @@ export default async function DailyPage() {
 
   const supabase = await createClient();
   const mediaType = await getActiveMediaType();
-  // Director of the Day has no Shows-mode equivalent -- TV ingestion
-  // (Phase 2) deliberately skipped a showrunner/creator credit (see
-  // ingest-tmdb.ts), so there's no director data to personalize against
-  // for a TV catalogue. Skipped entirely in Shows mode rather than
-  // showing a movie director while the rest of the page is TV-scoped.
-  const [directorOfTheDay, trivia, onThisDayTitles, newsStory, hiddenGem] = await Promise.all([
+  // Director of the Day (movies) and Creator Spotlight (shows) are the
+  // media-type-scoped pair here -- TV ingestion now carries a 'creator'
+  // credit (migration 0073) instead of the director credit movies use
+  // (see ingest-tmdb.ts's comments on why those two are kept as
+  // genuinely separate credit types), so each mode gets its own feature
+  // built off its own credit type rather than one mode showing a
+  // mislabeled or missing feature.
+  const [directorOfTheDay, creatorSpotlight, trivia, onThisDayTitles, newsStory, hiddenGem] = await Promise.all([
     mediaType === "movie" ? getDirectorOfTheDay(user.id) : Promise.resolve(null),
+    mediaType === "tv" ? getCreatorSpotlight(user.id) : Promise.resolve(null),
     getOrCreateDailyTrivia(),
     getOnThisDayTitles(),
     getDailyNewsStory(),
@@ -69,12 +74,14 @@ export default async function DailyPage() {
 
           {directorOfTheDay ? (
             <DirectorOfTheDay director={directorOfTheDay} />
+          ) : creatorSpotlight ? (
+            <CreatorSpotlight creator={creatorSpotlight} />
           ) : (
-            mediaType === "movie" && (
-              <p className="font-section-body text-sm text-foreground-muted">
-                Rate a few titles to unlock your Director of the Day.
-              </p>
-            )
+            <p className="font-section-body text-sm text-foreground-muted">
+              {mediaType === "movie"
+                ? "Rate a few titles to unlock your Director of the Day."
+                : "Rate a few shows to unlock your Showrunner of the Day."}
+            </p>
           )}
 
           {/* Relocated from Home (Option B declutter). */}

@@ -123,6 +123,7 @@ export async function inviteToMovieNight(input: z.infer<typeof inviteSchema>) {
     actorId: user.id,
     type: "movie_night_invite",
     refId: movieNightId,
+    mediaType: await getActiveMediaType(),
   });
 
   revalidatePath(`/movie-night/${movieNightId}`);
@@ -188,6 +189,7 @@ export async function joinMovieNightByToken(input: z.infer<typeof joinByTokenSch
       actorId: user.id,
       type: "movie_night_invite",
       refId: night.id,
+      mediaType: await getActiveMediaType(),
     });
   }
 

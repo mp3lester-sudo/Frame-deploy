@@ -64,11 +64,30 @@ export interface Database {
           streaming_checked_at: string | null;
           poster_font: string | null;
           poster_font_checked_at: string | null;
+          number_of_seasons: number | null;
+          number_of_episodes: number | null;
+          in_production: boolean | null;
+          tv_status: string | null;
+          next_episode_air_date: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["titles"]["Row"]> & { type: "movie" | "tv"; name: string };
         Update: Partial<Database["public"]["Tables"]["titles"]["Row"]>;
+        Relationships: [];
+      };
+      season_ratings: {
+        Row: {
+          id: string;
+          user_id: string;
+          title_id: string;
+          season_number: number;
+          score: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: { user_id: string; title_id: string; season_number: number; score: number };
+        Update: Partial<{ score: number }>;
         Relationships: [];
       };
       ratings: {
@@ -481,14 +500,14 @@ export interface Database {
         Row: {
           title_id: string;
           person_id: string;
-          credit_type: "director" | "writer" | "composer" | "actor" | "cinematographer";
+          credit_type: "director" | "writer" | "composer" | "actor" | "cinematographer" | "creator";
           character_name: string | null;
           billing_order: number | null;
         };
         Insert: {
           title_id: string;
           person_id: string;
-          credit_type: "director" | "writer" | "composer" | "actor" | "cinematographer";
+          credit_type: "director" | "writer" | "composer" | "actor" | "cinematographer" | "creator";
           character_name?: string;
           billing_order?: number;
         };

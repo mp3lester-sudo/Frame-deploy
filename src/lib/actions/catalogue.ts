@@ -16,10 +16,13 @@ import { getActiveMediaType } from "@/lib/context/media-type";
  */
 
 export async function loadMoreDiscoverTitles(
-  filters: { genre?: string } & AdvancedDiscoverFilters,
+  // airing is intentionally outside AdvancedDiscoverFilters -- it's a
+  // TV-only, always-free navigational filter (like genre), not one of
+  // the four Premium-gated dimensions, so it needs no is_premium check.
+  filters: { genre?: string; airing?: "airing" | "ended" } & AdvancedDiscoverFilters,
   page: number
 ) {
-  const { genre, era, pacing, tone, mood } = filters;
+  const { genre, airing, era, pacing, tone, mood } = filters;
   const supabase = await createClient();
   const mediaType = await getActiveMediaType();
 
@@ -43,6 +46,8 @@ export async function loadMoreDiscoverTitles(
     .eq("type", mediaType)
     .order("weighted_rating", { ascending: false, nullsFirst: false });
   if (genre) query = query.contains("genres", [genre]);
+  if (airing === "airing") query = query.eq("in_production", true);
+  if (airing === "ended") query = query.eq("in_production", false);
   if (isPremium && pacing) query = query.eq("pacing", pacing);
   if (isPremium && tone) query = query.contains("tone", [tone]);
   if (isPremium && mood) query = query.contains("mood_tags", [mood]);

@@ -6,12 +6,19 @@ import { Avatar } from "@/components/ui/avatar";
 import { markAllNotificationsRead } from "@/lib/actions/notifications";
 import { formatDistanceToNow } from "@/lib/date";
 import type { Database } from "@/lib/supabase/types";
+import { getActiveMediaType } from "@/lib/context/media-type";
+import { movieNightLabel, movieNightLabelLower } from "@/lib/copy/movie-night-copy";
 
 type NotificationType = Database["public"]["Tables"]["notifications"]["Row"]["type"];
 type ActorInfo = { username: string; display_name: string | null; avatar_url: string | null };
 
 /** The message shown for each notification type. */
-function describe(type: NotificationType, actorName: string, titleName: string | null): string {
+function describe(
+  type: NotificationType,
+  actorName: string,
+  titleName: string | null,
+  mediaType: "movie" | "tv"
+): string {
   switch (type) {
     case "follow":
       return `${actorName} started following you.`;
@@ -20,9 +27,9 @@ function describe(type: NotificationType, actorName: string, titleName: string |
     case "reaction":
       return `${actorName} reacted to your review${titleName ? ` of ${titleName}` : ""}.`;
     case "movie_night_invite":
-      return `${actorName} invited you to a Movie Night.`;
+      return `${actorName} invited you to a ${movieNightLabelLower(mediaType)}.`;
     case "movie_night_decided":
-      return `Movie Night picked ${titleName ?? "a title"}.`;
+      return `${movieNightLabel(mediaType)} picked ${titleName ?? "a title"}.`;
     case "payment_failed":
       return "We couldn't process your Premium payment — update your card to keep your subscription.";
   }
@@ -47,6 +54,7 @@ export default async function NotificationsPage() {
   const supabase = await createClient();
   const viewer = await getVerifiedUser();
   if (!viewer) redirect("/login?next=/notifications");
+  const activeMediaType = await getActiveMediaType();
 
   const { data: rows } = await supabase
     .from("notifications")
@@ -72,12 +80,13 @@ export default async function NotificationsPage() {
       ? supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", actorIds)
       : Promise.resolve({ data: [] as { id: string; username: string; display_name: string | null; avatar_url: string | null }[] }),
     titleIds.length
-      ? supabase.from("titles").select("id, name").in("id", titleIds)
-      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      ? supabase.from("titles").select("id, name, type").in("id", titleIds)
+      : Promise.resolve({ data: [] as { id: string; name: string; type: string }[] }),
   ]);
 
   const actorById = new Map((actorRows ?? []).map((a) => [a.id, a as ActorInfo]));
   const titleNameById = new Map((titleRows ?? []).map((t) => [t.id, t.name]));
+  const titleTypeById = new Map((titleRows ?? []).map((t) => [t.id, t.type]));
 
   // Marks everything as read once the viewer has actually loaded this page
   // (mirrors markConversationRead's pattern in messages.ts) — the rows
@@ -92,7 +101,7 @@ export default async function NotificationsPage() {
 
       {notifications.length === 0 ? (
         <p className="text-sm text-foreground-muted">
-          Nothing yet. Follows, comments, reactions, and Movie Night invites will show up here.
+          Nothing yet. Follows, comments, reactions, and {movieNightLabel(activeMediaType)} invites will show up here.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -100,7 +109,9 @@ export default async function NotificationsPage() {
             const actor = n.actor_id ? actorById.get(n.actor_id) : undefined;
             const titleName = n.title_id ? titleNameById.get(n.title_id) ?? null : null;
             const actorName = actor?.display_name || actor?.username || "Someone";
-            const message = describe(n.type, actorName, titleName);
+            const notificationMediaType =
+              n.title_id && titleTypeById.get(n.title_id) === "tv" ? "tv" : activeMediaType;
+            const message = describe(n.type, actorName, titleName, notificationMediaType);
             const href = linkFor(n.type, actor?.username ?? null, n.title_id, n.ref_id);
             const unread = !n.read_at;
 

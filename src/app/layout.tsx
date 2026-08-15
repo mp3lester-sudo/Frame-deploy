@@ -228,7 +228,7 @@ export default async function RootLayout({
                   iPhones instead of just behind the original 64px tab row. */}
               <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
             </PullToRefresh>
-            <BottomNav />
+            <BottomNav mediaType={mediaType} />
           </ToastProvider>
         </PostHogProvider>
       </body>

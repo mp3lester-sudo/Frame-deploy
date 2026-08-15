@@ -6,11 +6,14 @@ import { createMovieNight } from "@/lib/actions/movie-night";
 import { Button } from "@/components/ui/button";
 import { NightHeroTile } from "@/components/movie-night/night-hero-tile";
 import { PastMovieNights, type PastNightRow } from "@/components/movie-night/past-movie-nights";
+import { getActiveMediaType } from "@/lib/context/media-type";
+import { movieNightLabel, movieNightLabelLower, movieNightsLabelLower } from "@/lib/copy/movie-night-copy";
 
 export default async function MovieNightListPage() {
   const supabase = await createClient();
   const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/movie-night");
+  const mediaType = await getActiveMediaType();
 
   const { data: memberships } = await supabase
     .from("movie_night_participants")
@@ -87,17 +90,17 @@ export default async function MovieNightListPage() {
   return (
     <section className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-section-heading text-2xl">Movie night</h1>
+        <h1 className="font-section-heading text-2xl">{movieNightLabel(mediaType)}</h1>
         <form action={createMovieNight}>
           <Button type="submit" size="sm">
-            Start a movie night
+            Start a {movieNightLabelLower(mediaType)}
           </Button>
         </form>
       </div>
 
       {!nights?.length && (
         <p className="mb-6 font-section-body text-sm text-foreground-muted">
-          No movie nights yet. Start one above and invite friends by username -- Marquee will
+          No {movieNightsLabelLower(mediaType)} yet. Start one above and invite friends by username -- Marquee will
           suggest something everyone&apos;s taste agrees on.
         </p>
       )}

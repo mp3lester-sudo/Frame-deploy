@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { sendPushToUser } from "@/lib/push/send-push";
 import { captureServerError } from "@/lib/monitoring/sentry-server";
+import { movieNightLabel } from "@/lib/copy/movie-night-copy";
 
 export type NotificationType =
   | "follow"
@@ -49,6 +50,12 @@ export async function notify(
     type: NotificationType;
     titleId?: string | null;
     refId?: string | null;
+    // Only consulted for movie_night_invite copy (no title exists yet to
+    // read a type off of) -- pass the inviter's current getActiveMediaType()
+    // read. movie_night_decided instead reads the decided title's own
+    // `type` column below, which is the actual truth for that night
+    // regardless of what the notify() caller's toggle happens to be set to.
+    mediaType?: "movie" | "tv";
   }
 ) {
   if (params.recipientId === params.actorId) return;
@@ -73,7 +80,7 @@ export async function notify(
     const [{ data: actor }, { data: title }] = await Promise.all([
       supabase.from("profiles").select("username, display_name").eq("id", params.actorId).maybeSingle(),
       params.titleId
-        ? supabase.from("titles").select("name").eq("id", params.titleId).maybeSingle()
+        ? supabase.from("titles").select("name, type").eq("id", params.titleId).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
     const actorName = actor?.display_name ?? actor?.username ?? "Someone";
@@ -97,16 +104,22 @@ export async function notify(
         body = title?.name ? `${actorName} reacted to your review of ${title.name}` : `${actorName} reacted to your review`;
         url = params.titleId ? `/movie/${params.titleId}` : "/notifications";
         break;
-      case "movie_night_invite":
-        pushTitle = "Movie Night";
-        body = `${actorName} invited you to a Movie Night`;
+      case "movie_night_invite": {
+        const label = movieNightLabel(params.mediaType ?? "movie");
+        pushTitle = label;
+        body = `${actorName} invited you to a ${label}`;
         url = params.refId ? `/movie-night/${params.refId}` : "/movie-night";
         break;
-      case "movie_night_decided":
+      }
+      case "movie_night_decided": {
+        const decidedMediaType = title && "type" in title && title.type === "tv" ? "tv" : "movie";
         pushTitle = "It's decided";
-        body = title?.name ? `Tonight's pick: ${title.name}` : "Your Movie Night has a pick";
+        body = title?.name
+          ? `Tonight's pick: ${title.name}`
+          : `Your ${movieNightLabel(decidedMediaType).toLowerCase()} has a pick`;
         url = params.refId ? `/movie-night/${params.refId}` : "/movie-night";
         break;
+      }
     }
 
     // Per-type opt-out (see migration 0043_notification_preferences.sql) --

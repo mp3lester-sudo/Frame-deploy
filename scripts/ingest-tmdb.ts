@@ -31,16 +31,17 @@
  *     on -- TV_GENRE_EXPANSIONS below remaps them onto the closest movie
  *     genre string(s) at ingestion time so genre filters behave the same
  *     in both Movies and Shows mode.
- *   - No director-equivalent credit is ingested for TV shows. TMDB's
- *     closest analog (created_by, i.e. the showrunner) isn't the same
- *     thing a "Director" credit means everywhere else in this app
- *     (Director of the Day, same-director diversify exclusion, the
- *     embedding input's "Director: ..." line) -- mislabeling a
- *     showrunner as a director would quietly corrupt those movie-scoped
- *     features once TV rows start showing up in candidate pools that
- *     join through title_credits. TV rows get cast credits only; a
- *     dedicated creator/showrunner credit type is a follow-up, not part
- *     of this first pass.
+ *   - TV shows get a 'creator' credit (TMDB's created_by / showrunner
+ *     field), never 'director' -- a showrunner isn't the same thing a
+ *     "Director" credit means everywhere else in this app (Director of
+ *     the Day, same-director diversify exclusion, the embedding input's
+ *     "Director: ..." line), so the two credit types are kept fully
+ *     separate (migration 0073) rather than mislabeling one as the
+ *     other. Creator Spotlight reads 'creator' exclusively.
+ *   - TV rows also carry number_of_seasons/number_of_episodes/
+ *     in_production/tv_status/next_episode_air_date (migration 0073) --
+ *     TMDB's /tv/{id} response has always included these, they just
+ *     weren't persisted until this pass.
  *
  * Requires TMDB_API_KEY, OPENAI_API_KEY, NEXT_PUBLIC_SUPABASE_URL,
  * SUPABASE_SERVICE_ROLE_KEY — loaded via `node --env-file=.env.local`
@@ -352,6 +353,19 @@ async function ingestOne(summary: TmdbSummary, noAi: boolean, mediaType: "movie"
     tmdb_vote_count: details.vote_count ?? null,
     popularity: details.popularity ?? null,
   };
+  // TV-only metadata (migration 0073) -- the /tv/{id} response has always
+  // included these fields, they were just never persisted. Left undefined
+  // (omitted from the upsert) for movies rather than set to null, so a
+  // movie row never even has these columns touched.
+  if (isTv) {
+    Object.assign(titleRow, {
+      number_of_seasons: details.number_of_seasons ?? null,
+      number_of_episodes: details.number_of_episodes ?? null,
+      in_production: details.in_production ?? null,
+      tv_status: details.status ?? null,
+      next_episode_air_date: details.next_episode_to_air?.air_date ?? null,
+    });
+  }
   // Taste-metadata columns are only included in the upsert when this run
   // actually resolved fresh values (tasteStatus "ok") or genuinely has
   // none yet ("skipped", the existing --no-ai/no-billing path) -- an
@@ -385,18 +399,24 @@ async function ingestOne(summary: TmdbSummary, noAi: boolean, mediaType: "movie"
     .single();
   if (error || !title) throw new Error(`upsert titles failed for ${name}: ${error?.message}`);
 
-  // Credits: top 5 billed cast, plus a director credit for movies only.
-  // TV has no real equivalent -- TMDB's closest analog (created_by, the
-  // showrunner) isn't what a "Director" credit means anywhere else in
+  // Credits: top 5 billed cast, plus a director credit for movies or a
+  // creator (showrunner) credit for TV -- deliberately two different
+  // credit_type values (migration 0073), never the same one. TMDB's
+  // created_by is not what a "Director" credit means anywhere else in
   // this app (Director of the Day, diversify.ts's same-director
-  // exclusion, the embedding input's "Director: ..." line), so labeling
-  // a showrunner as one would quietly corrupt those movie-scoped
-  // features. TV rows simply have no director-type credit for now.
+  // exclusion, the embedding input's "Director: ..." line); labeling a
+  // showrunner as a director would quietly corrupt those movie-scoped
+  // features. Creator Spotlight (the TV analog of Director of the Day)
+  // reads credit_type = 'creator' exclusively.
   const crew = details.credits?.crew ?? [];
   const cast = (details.credits?.cast ?? []).slice(0, 5);
   const director = isTv ? undefined : crew.find((c: { job: string }) => c.job === "Director");
+  const createdBy: { id: number; name: string; profile_path: string | null }[] = isTv
+    ? (details.created_by ?? [])
+    : [];
   const creditPeople = [
     ...(director ? [{ ...director, credit_type: "director" as const, billing_order: null }] : []),
+    ...createdBy.map((c, i) => ({ ...c, credit_type: "creator" as const, billing_order: i })),
     ...cast.map((c: { order: number }, i: number) => ({ ...c, credit_type: "actor" as const, billing_order: i })),
   ];
 

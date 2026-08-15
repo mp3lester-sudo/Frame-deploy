@@ -52,26 +52,33 @@ describe("rankFavoriteDirectors", () => {
 });
 
 describe("pickDirectorOfDay", () => {
+  // pickDirectorOfDay is generic over any { id: string } candidate (it's
+  // reused as-is for Creator Spotlight, see creator-spotlight/pick.ts) --
+  // these tests use plain { id } objects rather than bare strings to
+  // match that signature.
+  const candidate = (id: string) => ({ id });
+
   it("returns null for an empty candidate list", () => {
     expect(pickDirectorOfDay([], "user-1", "2026-07-31")).toBeNull();
   });
 
   it("returns the single candidate when there's only one", () => {
-    expect(pickDirectorOfDay(["only"], "user-1", "2026-07-31")).toBe("only");
+    expect(pickDirectorOfDay([candidate("only")], "user-1", "2026-07-31")).toEqual(candidate("only"));
   });
 
   it("is deterministic: same user + same day always picks the same candidate", () => {
-    const candidates = ["a", "b", "c", "d", "e"];
+    const candidates = ["a", "b", "c", "d", "e"].map(candidate);
     const first = pickDirectorOfDay(candidates, "user-1", "2026-07-31");
     const second = pickDirectorOfDay(candidates, "user-1", "2026-07-31");
-    expect(first).toBe(second);
+    expect(first).toEqual(second);
   });
 
   it("changes when the day changes", () => {
-    const candidates = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const candidates = ["a", "b", "c", "d", "e", "f", "g", "h"].map(candidate);
     const picks = new Set<string>();
     for (let day = 1; day <= 8; day++) {
-      picks.add(pickDirectorOfDay(candidates, "user-1", `2026-07-${String(day).padStart(2, "0")}`) as string);
+      const pick = pickDirectorOfDay(candidates, "user-1", `2026-07-${String(day).padStart(2, "0")}`);
+      picks.add(pick!.id);
     }
     // Over 8 distinct days with 8 candidates, expect real variation, not
     // the exact same pick every day (that would indicate the day isn't
@@ -80,10 +87,11 @@ describe("pickDirectorOfDay", () => {
   });
 
   it("different users can get different picks on the same day", () => {
-    const candidates = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const candidates = ["a", "b", "c", "d", "e", "f", "g", "h"].map(candidate);
     const picks = new Set<string>();
     for (let i = 0; i < 8; i++) {
-      picks.add(pickDirectorOfDay(candidates, `user-${i}`, "2026-07-31") as string);
+      const pick = pickDirectorOfDay(candidates, `user-${i}`, "2026-07-31");
+      picks.add(pick!.id);
     }
     expect(picks.size).toBeGreaterThan(1);
   });

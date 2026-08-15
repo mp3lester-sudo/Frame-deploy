@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { getNavBadgeCounts } from "@/lib/actions/nav-badges";
 import { MediaTypeToggle } from "@/components/layout/media-type-toggle";
 import type { MediaType } from "@/lib/context/media-type-cookie";
+import { movieNightLabel } from "@/lib/copy/movie-night-copy";
 
 // How often to re-poll unread badge counts once mounted. Not tied to
 // navigation anymore (see below) -- this alone keeps them reasonably
@@ -32,13 +33,15 @@ const BADGE_POLL_MS = 60_000;
 // six equal-weight tabs -- see the home page and bottom nav for the same
 // promotion. Recommendations don't need a nav entry of their own: they
 // already own the home page, the first thing anyone sees.
-const links = [
-  { href: "/discover", label: "Discover", icon: Compass },
-  { href: "/movie-night", label: "Movie Night", icon: Clapperboard },
-  { href: "/ai", label: "Ask Marquee", icon: Sparkles },
-  { href: "/feed", label: "Social", icon: Users },
-  { href: "/daily", label: "Daily", icon: CalendarDays },
-];
+function getLinks(mediaType: MediaType) {
+  return [
+    { href: "/discover", label: "Discover", icon: Compass },
+    { href: "/movie-night", label: movieNightLabel(mediaType), icon: Clapperboard },
+    { href: "/ai", label: "Ask Marquee", icon: Sparkles },
+    { href: "/feed", label: "Social", icon: Users },
+    { href: "/daily", label: "Daily", icon: CalendarDays },
+  ];
+}
 
 export function NavBar({ isAuthed, mediaType }: { isAuthed: boolean; mediaType: MediaType }) {
   // Badge counts are fetched client-side, after the page has already
@@ -114,7 +117,7 @@ export function NavBar({ isAuthed, mediaType }: { isAuthed: boolean; mediaType: 
         </div>
 
         <nav className="hidden items-center gap-6 md:flex">
-          {links.map(({ href, label, icon: Icon }) => (
+          {getLinks(mediaType).map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}

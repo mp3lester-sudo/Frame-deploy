@@ -126,9 +126,17 @@ function SwipeDeckSkeleton() {
 export default async function DiscoverPage({
   searchParams,
 }: {
-  searchParams: Promise<{ genre?: string; era?: string; pacing?: string; tone?: string; mood?: string }>;
+  searchParams: Promise<{
+    genre?: string;
+    era?: string;
+    pacing?: string;
+    tone?: string;
+    mood?: string;
+    airing?: string;
+  }>;
 }) {
-  const { genre, era, pacing, tone, mood } = await searchParams;
+  const { genre, era, pacing, tone, mood, airing } = await searchParams;
+  const activeAiring = airing === "airing" || airing === "ended" ? airing : undefined;
   const supabase = await createClient();
   const viewer = await getVerifiedUser();
 
@@ -175,6 +183,11 @@ export default async function DiscoverPage({
     .order("weighted_rating", { ascending: false, nullsFirst: false })
     .range(0, DISCOVER_PAGE_SIZE - 1);
   if (genre) query = query.contains("genres", [genre]);
+  // Airing is TV-only and always free (like genre) -- only ever applied
+  // when mediaType is "tv", so it's a no-op (and never rendered as a
+  // filter pill) in Movies mode.
+  if (mediaType === "tv" && activeAiring === "airing") query = query.eq("in_production", true);
+  if (mediaType === "tv" && activeAiring === "ended") query = query.eq("in_production", false);
   if (effectivePacing) query = query.eq("pacing", effectivePacing);
   if (effectiveTone) query = query.contains("tone", [effectiveTone]);
   if (effectiveMood) query = query.contains("mood_tags", [effectiveMood]);
@@ -192,6 +205,7 @@ export default async function DiscoverPage({
 
   const loadMore = loadMoreDiscoverTitles.bind(null, {
     genre,
+    airing: mediaType === "tv" ? activeAiring : undefined,
     era: effectiveEra,
     pacing: effectivePacing,
     tone: effectiveTone,
@@ -201,7 +215,7 @@ export default async function DiscoverPage({
   // Preserves every other active filter when a Link only changes one facet.
   function hrefWith(overrides: Record<string, string | undefined>) {
     const params = new URLSearchParams();
-    const merged = { genre, era, pacing, tone, mood, ...overrides };
+    const merged = { genre, era, pacing, tone, mood, airing: activeAiring, ...overrides };
     for (const [key, value] of Object.entries(merged)) {
       if (value) params.set(key, value);
     }
@@ -258,6 +272,20 @@ export default async function DiscoverPage({
         </div>
       </div>
 
+      {mediaType === "tv" && (
+        <div className="mb-2 mt-3">
+          <FilterRail
+            label="Airing"
+            allHref={hrefWith({ airing: undefined })}
+            isAll={!activeAiring}
+            options={[
+              { label: "Currently airing", href: hrefWith({ airing: "airing" }), active: activeAiring === "airing" },
+              { label: "Ended", href: hrefWith({ airing: "ended" }), active: activeAiring === "ended" },
+            ]}
+          />
+        </div>
+      )}
+
       {isPremium ? (
         <div className="mb-6 mt-4">
           <FilterRail
@@ -303,8 +331,8 @@ export default async function DiscoverPage({
         // under (see use-persisted-pagination.ts), so browser back/forward
         // restores exactly this filter combo's progress, not some other
         // combo's leftover state.
-        key={`discover:${genre ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
-        storageKey={`discover:${genre ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
+        key={`discover:${genre ?? ""}|${activeAiring ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
+        storageKey={`discover:${genre ?? ""}|${activeAiring ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
         initialTitles={titles ?? []}
         initialHasMore={(titles?.length ?? 0) === DISCOVER_PAGE_SIZE}
         loadMore={loadMore}

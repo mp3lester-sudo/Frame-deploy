@@ -48,6 +48,11 @@ export function TitleCard({
             {title.name}
           </div>
         )}
+        {title.type === "tv" && title.in_production && (
+          <span className="absolute left-1.5 top-1.5 rounded-[var(--radius-sm)] bg-accent px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent-foreground">
+            On air
+          </span>
+        )}
       </div>
       <p className="mt-2 line-clamp-1 text-sm font-medium">{title.name}</p>
       {reason && <p className="line-clamp-2 text-xs text-foreground-muted">{reason}</p>}

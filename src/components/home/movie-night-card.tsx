@@ -1,18 +1,22 @@
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
+import type { MediaType } from "@/lib/context/media-type-cookie";
+import { movieNightLabel } from "@/lib/copy/movie-night-copy";
 
 export function MovieNightCard({
   nightId,
   participants,
   isHost,
+  mediaType,
 }: {
   nightId: string;
   participants: { username: string; display_name: string | null; avatar_url: string | null }[];
   isHost: boolean;
+  mediaType: MediaType;
 }) {
   return (
     <div>
-      <h3 className="font-display mb-3 text-lg">Movie night</h3>
+      <h3 className="font-display mb-3 text-lg">{movieNightLabel(mediaType)}</h3>
       <Link
         href={`/movie-night/${nightId}`}
         className="bento-card flex items-center gap-4 p-4"
