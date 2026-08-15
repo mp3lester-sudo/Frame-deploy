@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { WATCHED_PAGE_SIZE } from "@/lib/constants/catalogue";
 import type { Database } from "@/lib/supabase/types";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -22,7 +23,11 @@ export interface WatchedRow {
  * called (the page itself resolves "me" -> the viewer's own username
  * server-side before rendering), so no special-casing needed here.
  */
-export async function loadMoreWatchedTitles(username: string, page: number): Promise<{ rows: WatchedRow[]; hasMore: boolean }> {
+export async function loadMoreWatchedTitles(
+  username: string,
+  mediaType: MediaType,
+  page: number
+): Promise<{ rows: WatchedRow[]; hasMore: boolean }> {
   const supabase = await createClient();
 
   const { data: profile } = await supabase.from("profiles").select("id").eq("username", username).maybeSingle();
@@ -34,11 +39,15 @@ export async function loadMoreWatchedTitles(username: string, page: number): Pro
   // of rows with the same created_at timestamp, and ORDER BY on a non-unique
   // key alone doesn't guarantee a stable row order across separate paged
   // queries — without a tiebreaker, "Load more" could theoretically skip or
-  // repeat rows within a tied batch.
+  // repeat rows within a tied batch. titles!inner + eq("titles.type", ...)
+  // scopes this to the active Movies/Shows toggle -- see watched/page.tsx's
+  // doc comment for why this was a real gap, not just this action's own
+  // pagination but the page's own first-load query too.
   const { data } = await supabase
     .from("ratings")
-    .select("score, titles(*)")
+    .select("score, titles!inner(*)")
     .eq("user_id", profile.id)
+    .eq("titles.type", mediaType)
     .order("created_at", { ascending: false })
     .order("id", { ascending: true })
     .range(from, to);

@@ -5,6 +5,7 @@ import { WatchedTitleCard } from "@/components/profile/watched-title-card";
 import { Button } from "@/components/ui/button";
 import { usePersistedPagination } from "@/lib/hooks/use-persisted-pagination";
 import { loadMoreWatchedTitles, type WatchedRow } from "@/lib/actions/watched";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 
 /**
  * Full paginated version of the profile page's "Recently watched" teaser
@@ -13,19 +14,25 @@ import { loadMoreWatchedTitles, type WatchedRow } from "@/lib/actions/watched";
  */
 export function WatchedGrid({
   username,
+  mediaType,
   isOwnProfile,
   initialRows,
   initialHasMore,
   totalCount,
 }: {
   username: string;
+  mediaType: MediaType;
   isOwnProfile: boolean;
   initialRows: WatchedRow[];
   initialHasMore: boolean;
   totalCount: number;
 }) {
+  // mediaType is part of the storage key for the same reason Discover's and
+  // Search's LoadMoreGrid keys needed it: without it, toggling Movies<->Shows
+  // with no other state change collapses to the same sessionStorage key and
+  // restores the other tab's stale rows.
   const { items: rows, hasMore, page, appendPage } = usePersistedPagination(
-    `watched:${username}`,
+    `watched:${mediaType}:${username}`,
     initialRows,
     initialHasMore,
     // Invalidates the sessionStorage cache whenever the total number of
@@ -38,7 +45,7 @@ export function WatchedGrid({
   function handleLoadMore() {
     const next = page + 1;
     startTransition(async () => {
-      const result = await loadMoreWatchedTitles(username, next);
+      const result = await loadMoreWatchedTitles(username, mediaType, next);
       appendPage(result.rows, result.hasMore, next);
     });
   }
