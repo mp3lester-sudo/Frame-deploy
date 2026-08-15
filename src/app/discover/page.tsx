@@ -324,15 +324,22 @@ export default async function DiscoverPage({
       )}
 
       <LoadMoreGrid
-        // Keyed on every active filter so switching any of them remounts the
-        // grid — otherwise its internal state keeps showing the previous
-        // filter's titles until a full page reload. The same string doubles
+        // Keyed on every active filter (mediaType included) so switching
+        // any of them remounts the grid — otherwise its internal state
+        // keeps showing the previous combo's titles until a full page
+        // reload. mediaType specifically: without it, toggling Movies/
+        // Shows with no other filters active collapsed to the exact same
+        // key both sides ("discover:|||||"), so the sessionStorage-
+        // persisted pagination state (see use-persisted-pagination.ts)
+        // restored the OTHER media type's cached titles right over the
+        // fresh server-rendered ones -- the swipe deck above never had
+        // this problem since it's re-fetched fresh every render with no
+        // client-side cache, only this grid did. The same string doubles
         // as the sessionStorage key the grid persists its loaded pages
-        // under (see use-persisted-pagination.ts), so browser back/forward
-        // restores exactly this filter combo's progress, not some other
-        // combo's leftover state.
-        key={`discover:${genre ?? ""}|${activeAiring ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
-        storageKey={`discover:${genre ?? ""}|${activeAiring ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
+        // under, so browser back/forward restores exactly this filter
+        // combo's progress, not some other combo's leftover state.
+        key={`discover:${mediaType}|${genre ?? ""}|${activeAiring ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
+        storageKey={`discover:${mediaType}|${genre ?? ""}|${activeAiring ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
         initialTitles={titles ?? []}
         initialHasMore={(titles?.length ?? 0) === DISCOVER_PAGE_SIZE}
         loadMore={loadMore}

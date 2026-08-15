@@ -123,14 +123,18 @@ export default async function SearchPage({
           )}
           {q && !companyMatch && (
             <LoadMoreGrid
-              // Keyed on the query so a new search remounts the grid instead
-              // of reusing the previous query's cached state (see
-              // discover/page.tsx for the same fix and why it's needed).
-              // storageKey namespaced separately from Discover's so browser
-              // back/forward restores this query's loaded pages specifically
-              // (see use-persisted-pagination.ts).
-              key={q}
-              storageKey={`search-titles:${q}`}
+              // Keyed on the query AND mediaType so a new search -- or a
+              // Movies/Shows toggle with the same query -- remounts the
+              // grid instead of reusing the previous combo's cached state
+              // (see discover/page.tsx for the identical bug: toggling
+              // media type with an unchanged query used to collapse to
+              // the same storageKey and restore the other media type's
+              // stale titles from sessionStorage). storageKey namespaced
+              // separately from Discover's so browser back/forward
+              // restores this query's loaded pages specifically (see
+              // use-persisted-pagination.ts).
+              key={`${mediaType}:${q}`}
+              storageKey={`search-titles:${mediaType}:${q}`}
               initialTitles={titles}
               initialHasMore={titlesHaveMore}
               loadMore={loadMoreTitles}
