@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Allura } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
@@ -17,8 +16,6 @@ import { isCircumstantialContext, type CircumstantialContext } from "@/lib/conte
 import { getActiveMediaType } from "@/lib/context/media-type";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { PreciseLocation } from "@/components/home/precise-location";
-
-const allura = Allura({ subsets: ["latin"], weight: "400" });
 
 // --- Streamed subtrees -----------------------------------------------------
 // The home page used to await getRecommendationsForUser (a several-round-trip
@@ -218,7 +215,6 @@ export default async function HomePage({
   // nobody would see.
   const isCompanionContext = activeContext === "date_night" || activeContext === "with_friends";
 
-  const greeting = zonedNow.getHours() < 12 ? "Good morning" : zonedNow.getHours() < 18 ? "Good afternoon" : "Good evening";
   const day = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: geo?.timezone ?? undefined })
     .format(now)
     .toUpperCase();
@@ -277,30 +273,25 @@ export default async function HomePage({
     window.__introWillPlay = true;
   }
 
-  var splashAt = localStorage.getItem('marquee:greeting-splash-shown-at');
-  if (splashAt && (now - parseInt(splashAt, 10)) < STALE_MS) {
-    document.documentElement.classList.add('splash-shown');
-  } else {
-    localStorage.setItem('marquee:greeting-splash-shown-at', String(now));
-  }
 } catch (e) {}`,
         }}
       />
       {/* Vintage cinematic intro -- same public-domain footage as the
           onboarding flow's first-run sequence (see onboarding-swipe.tsx),
           now also playing at the top of every fresh Home session, not
-          just right after signup. Built the same server-rendered, zero-
-          client-JS way as the greeting splash right below it (CSS
-          keyframes only, gated by the html.intro-shown class the inline
-          script above sets) rather than porting onboarding's stateful
-          React version -- there's no Skip button here because both
-          layers are pointer-events-none, so they never block the page
+          just right after signup. Built server-rendered, zero-client-JS
+          (CSS keyframes only, gated by the html.intro-shown class the
+          inline script above sets) rather than porting onboarding's
+          stateful React version -- there's no Skip button here because
+          this layer is pointer-events-none, so it never blocks the page
           underneath; a user can start scrolling/tapping immediately if
           they don't want to wait. The intro-shown flag is shared with
           onboarding's own key, so a just-signed-up user redirected here
-          doesn't see the same footage twice in a row -- they still get
-          the greeting splash below, though (see the delay rule in
-          globals.css keyed off :not(.intro-shown)).
+          doesn't see the same footage twice in a row. (There used to be
+          a full-screen greeting splash that played right after this and
+          shared the same gating -- removed per product direction; the
+          quiet initial mark near the top of the page, further down this
+          file, replaced it with no animation of its own.)
 
           Wrapped in a tap-zone div (id below) so a tap/click anywhere
           dismisses the whole intro instantly instead of waiting out the
@@ -365,26 +356,6 @@ export default async function HomePage({
 } catch (e) {}`,
         }}
       />
-      {/* Screen-centered marquee card -- both axes, via fixed inset-0
-          flex centering -- rather than the inline "Good evening Name"
-          sentence the persistent in-page heading below still uses.
-          Thin rule lines above and below the name (same accent-deep
-          hairline both times) frame it like a vintage title card. The
-          greeting word now matches the Marquee wordmark's own typeface
-          (font-hollywood -> Bebas Neue, see nav-bar.tsx); the name stays
-          Allura cursive, per product direction (reversed from an earlier
-          pass). */}
-      <div
-        className="greeting-splash pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background"
-        aria-hidden="true"
-      >
-        <span className="font-hollywood text-3xl text-accent-soft sm:text-4xl">{greeting}</span>
-        <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
-        <span className={`${allura.className} text-5xl text-accent-soft sm:text-7xl`}>
-          {firstName}
-        </span>
-        <div className="h-px w-40 bg-gradient-to-r from-transparent via-accent-deep to-transparent sm:w-56" />
-      </div>
       {/* Marquee wordmark removed from this header per request -- it
           already lives in the nav bar above, so repeating it here was
           redundant. The day/time/location/weather line now centers on
@@ -395,15 +366,21 @@ export default async function HomePage({
         </Suspense>
       </div>
 
-      <h1 className="mt-5 text-center text-4xl leading-tight tracking-tight sm:text-5xl">
-        {/* "Good evening"/"Good morning" now matches the Marquee wordmark's
-            own typeface (font-hollywood -> Bebas Neue, see nav-bar.tsx),
-            reversed from an earlier pass where the name had this treatment. */}
-        <span className="font-hollywood text-4xl text-accent sm:text-5xl">{greeting}</span>{" "}
-        {/* Name stays Allura cursive -- reversed back from font-hollywood
-            per product direction. */}
-        <span className={`${allura.className} text-5xl text-accent sm:text-6xl`}>{firstName}</span>
-      </h1>
+      {/* Quiet mark, Concept C -- the "Good evening Name" greeting (both
+          this persistent line and the full-screen splash that used to run
+          before it) is gone entirely per product direction. A small
+          centered initial anchors the top of the page where the greeting
+          used to sit without restating anything the ContextCards line
+          above or the recommendation below already say better. */}
+      <div className="mt-5 flex justify-center">
+        <span
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border-strong font-display text-lg italic text-accent"
+          aria-hidden="true"
+        >
+          {firstName.charAt(0).toUpperCase()}
+        </span>
+        <span className="sr-only">{firstName}&apos;s home</span>
+      </div>
       {/* Home header declutter pass: dropped the ratedCount-true branch
           ("Tonight's picks are tuned to your ratings") entirely -- it told
           the user nothing the page itself doesn't already show just by
