@@ -157,17 +157,32 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const ready = pull >= PULL_THRESHOLD || refreshing;
   const showIndicator = active || refreshing;
 
-  // A proper ring, not just a rotating icon: while dragging, the arc
-  // fills in step with the pull (0 -> 100% of the ring's circumference)
-  // so the gesture itself visibly "loads" the indicator -- the same
-  // language as iOS's native UIRefreshControl. Once armed/refreshing, it
-  // switches to a fixed partial arc that spins continuously -- the
-  // standard indeterminate-spinner look -- rather than continuing to
-  // track a "progress" that no longer means anything once the reload has
-  // actually been triggered.
+  // A proper ring, not just a rotating icon: while dragging below the
+  // arm threshold, the arc fills in step with the pull (0 -> 100% of the
+  // ring's circumference) so the gesture itself visibly "loads" the
+  // indicator -- the same language as iOS's native UIRefreshControl.
+  //
+  // The moment the drag crosses the arm threshold (`ready` flips true --
+  // this happens at most once per gesture, whether by dragging past
+  // PULL_THRESHOLD or by the release-triggered setRefreshing(true)), the
+  // ring settles into a fixed partial arc and starts spinning
+  // continuously via the CSS `pull-refresh-spin` class below. That class
+  // is applied for the *entire* rest of the gesture -- through the armed
+  // hold, into `refreshing`, all the way to reload -- rather than being
+  // toggled on separately once `refreshing` becomes true. Switching
+  // classes at that later point would restart the CSS animation from its
+  // 0% keyframe, snapping the ring's rotation backwards at exactly the
+  // moment it should read as one continuous spin -- which is what
+  // actually produced the "jittery"/"stuck-then-jumps" look: a static
+  // full ring sitting motionless through the held/armed moment, then a
+  // sudden cut to a smaller arc at a different angle when refreshing
+  // kicked in. Keying both the spin class and the arc-length switch off
+  // the same `ready` boolean means there's exactly one transition per
+  // gesture, and it's a single smooth handoff instead of two separate
+  // jump cuts.
   const RADIUS = 15;
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-  const dashOffset = refreshing ? CIRCUMFERENCE * 0.75 : CIRCUMFERENCE * (1 - progress);
+  const dashOffset = ready ? CIRCUMFERENCE * 0.75 : CIRCUMFERENCE * (1 - progress);
   const label = refreshing ? "Refreshing…" : ready ? "Release to refresh" : "Pull to refresh";
 
   return (
@@ -196,17 +211,34 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
               transition: "transform 200ms ease-out, background 200ms ease-out, border-color 200ms ease-out",
             }}
           >
+            {/* Fixed at -90deg (not proportional to pull progress), both
+                below and as the spin keyframes' own starting point --
+                the arc's fill (strokeDashoffset) alone conveys pull
+                progress, the same way iOS's own UIRefreshControl doesn't
+                rotate while filling either. Keeping this rotation
+                constant across the fill phase means there's nothing to
+                interpolate when pull-refresh-spin takes over: the
+                computed rotation is identical the instant before and
+                the instant after, so the only thing that visibly
+                changes at that handoff is the arc smoothly settling to
+                its spinner length (via the transition on the circle
+                below), not a rotation jump. */}
             <svg
               width="30"
               height="30"
               viewBox="0 0 34 34"
-              className={refreshing ? "pull-refresh-spin" : ""}
-              style={{ transform: refreshing ? undefined : `rotate(${-90 + progress * 270}deg)` }}
+              className={ready ? "pull-refresh-spin" : ""}
+              style={{ transform: ready ? undefined : "rotate(-90deg)" }}
             >
               {/* Faint full-circle track so the ring reads clearly even at
                   low pull distances, before much of the gold arc has
                   filled in. */}
               <circle cx="17" cy="17" r={RADIUS} fill="none" stroke="rgba(217,184,118,0.18)" strokeWidth="3" />
+              {/* Only the single fill->armed handoff should ease -- while
+                  actively filling (dragging, not yet armed) this needs to
+                  track the finger 1:1 with zero lag, same rationale as the
+                  dragged-sheet transform below. `ready` flips at most once
+                  per gesture, so this transition also fires at most once. */}
               <circle
                 cx="17"
                 cy="17"
@@ -217,6 +249,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
                 strokeLinecap="round"
                 strokeDasharray={CIRCUMFERENCE}
                 strokeDashoffset={dashOffset}
+                style={{ transition: active && !ready ? "none" : "stroke-dashoffset 260ms ease-out" }}
               />
             </svg>
           </div>
@@ -231,8 +264,12 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
               animation: pull-refresh-rotate 800ms linear infinite;
             }
             @keyframes pull-refresh-rotate {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
+              /* Starts at the same -90deg the static (pre-spin) fill
+                 phase renders, so switching this class on never has a
+                 rotation value to jump from/to -- see the comment on the
+                 svg's inline style above. */
+              from { transform: rotate(-90deg); }
+              to { transform: rotate(270deg); }
             }
           `}</style>
         </div>

@@ -123,9 +123,17 @@ export async function computeTasteDna(
   const result = computeTasteDnaFromRatings(rated);
   const evolution = computeTasteEvolution(rated, maxArchetypeInsights);
 
-  // Best-effort persistence — a failed write here shouldn't break the page.
-  try {
-    await supabase.from("taste_attributes").upsert({
+  // Best-effort persistence — a failed write here shouldn't break the
+  // page, and there's no reason to make every single profile page view
+  // (this runs unconditionally on every call, not just occasionally)
+  // wait on a write whose own result nothing downstream reads. Was
+  // previously `await`ed, adding a full DB round trip to computeTasteDna's
+  // critical path purely to update a cache table -- fired-and-forgotten
+  // instead, with .catch() (not try/catch) since there's no await left to
+  // wrap.
+  void supabase
+    .from("taste_attributes")
+    .upsert({
       user_id: userId,
       media_type: mediaType,
       pacing_preference: result.pacingPreference,
@@ -135,10 +143,8 @@ export async function computeTasteDna(
       favorite_genres: result.favoriteGenres,
       favorite_decades: result.favoriteDecades,
       favorite_directors: result.favoriteDirectors.map((d) => d.id),
-    });
-  } catch {
-    // non-fatal
-  }
+    })
+    .then(() => {}, () => {});
 
   return { ...result, evolution };
 }
