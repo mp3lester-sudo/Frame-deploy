@@ -73,40 +73,43 @@
    media-type-toggle.tsx). Same token names, same structural roles as
    :root above, so every component that already reads --accent/
    --background/etc. picks this up automatically with zero component-
-   level branching -- only the values change. Deliberately a cool
-   broadcast-blue/cyan family rather than a variant of the movie
-   palette's warm gold: the two modes need to read as genuinely
-   different rooms at a glance, not "the same gold app with the
-   temperature turned down." Set by media-type.ts reading the
+   level branching -- only the values change. "Cold open" direction --
+   icy slate-blue toward near-black, with a pale ice-white accent
+   rather than a saturated hue, so the room reads as a quiet broadcast
+   desk/newsroom rather than a variant of the movie palette's warm
+   gold: the two modes need to read as genuinely different rooms at a
+   glance, not "the same gold app with the temperature turned down."
+   (Superseded an earlier cyan/teal pass -- same structural intent,
+   different mood.) Set by media-type.ts reading the
    marquee_media_type cookie server-side (data-media attribute on
    <html>, no flash-of-wrong-palette) and by the toggle client component
    writing that same attribute immediately on click, before the cookie
    round-trips through router.refresh(). */
 [data-media="tv"] {
-  --background: #07090c;
-  --surface: #12161c;
-  --surface-raised: #1a2029;
-  --spotlight: #16232f;
-  --border: rgba(148, 197, 227, 0.18);
-  --border-strong: rgba(148, 197, 227, 0.34);
-  --foreground: #e8f0f5;
-  --foreground-muted: #93a3b0;
+  --background: #0a0c0f;
+  --surface: #151c22;
+  --surface-raised: #1c2731;
+  --spotlight: #1a2530;
+  --border: rgba(207, 224, 236, 0.16);
+  --border-strong: rgba(207, 224, 236, 0.30);
+  --foreground: #f0f4f8;
+  --foreground-muted: #93a0ac;
 
-  --accent: #5fd0d9;
-  --accent-soft: #96e4ea;
-  --accent-deep: #2f8990;
-  --accent-foreground: #041619;
+  --accent: #cfe0ec;
+  --accent-soft: #eef5fa;
+  --accent-deep: #7f9caf;
+  --accent-foreground: #0a141a;
   --accent-gradient: linear-gradient(
     135deg,
-    #cdeef0 0%,
-    #5fd0d9 32%,
-    #2f8990 68%,
-    #96e4ea 100%
+    #eef5fa 0%,
+    #cfe0ec 32%,
+    #7f9caf 68%,
+    #eef5fa 100%
   );
 
-  --glass-bg: rgba(180, 220, 235, 0.045);
-  --glass-bg-hover: rgba(180, 220, 235, 0.07);
-  --glass-border: rgba(180, 220, 235, 0.09);
+  --glass-bg: rgba(207, 224, 236, 0.045);
+  --glass-bg-hover: rgba(207, 224, 236, 0.07);
+  --glass-border: rgba(207, 224, 236, 0.09);
   --glass-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.65);
 }
 
