@@ -123,17 +123,48 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
   if (!title) notFound();
 
-  const [rtScore, tmdbReviews, watchProviders, trailer] = await Promise.all([
+  // These four groups only depend on data already resolved by the first
+  // Promise.all above (title, reviews, myLists) -- none of them depend on
+  // each other, so they used to run as four separate sequential await
+  // blocks (rtScore/etc, then list membership, then reviewer ratings,
+  // then reactions/comments) purely because they were written in that
+  // order. Folded into one Promise.all so they run concurrently instead.
+  const myListIds = (myLists ?? []).map((l) => l.id);
+  const reviewIds = (reviews ?? []).map((r) => r.id);
+  const reviewerIds = [...new Set((reviews ?? []).map((r) => r.user_id))];
+
+  const [
+    rtScore,
+    tmdbReviews,
+    watchProviders,
+    trailer,
+    { data: listItemsForThisTitle },
+    { data: reviewerRatingRows },
+    { data: reactionRows },
+    { data: commentRows },
+  ] = await Promise.all([
     getOrFetchRtCriticScore(title),
     title.tmdb_id ? getTmdbReviews(title.tmdb_id, title.type) : Promise.resolve([]),
     getOrFetchWatchProviders(title),
     title.tmdb_id ? getTmdbTrailer(title.tmdb_id, title.type) : Promise.resolve(null),
+    myListIds.length
+      ? supabase.from("list_items").select("list_id").eq("title_id", id).in("list_id", myListIds)
+      : Promise.resolve({ data: [] }),
+    reviewerIds.length
+      ? supabase.from("ratings").select("user_id, score").eq("title_id", id).in("user_id", reviewerIds)
+      : Promise.resolve({ data: [] }),
+    reviewIds.length
+      ? supabase.from("review_reactions").select("review_id, reaction, user_id").in("review_id", reviewIds)
+      : Promise.resolve({ data: [] }),
+    reviewIds.length
+      ? supabase
+          .from("review_comments")
+          .select("id, review_id, user_id, body, created_at, profiles(username, avatar_url)")
+          .in("review_id", reviewIds)
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
   ]);
 
-  const myListIds = (myLists ?? []).map((l) => l.id);
-  const { data: listItemsForThisTitle } = myListIds.length
-    ? await supabase.from("list_items").select("list_id").eq("title_id", id).in("list_id", myListIds)
-    : { data: [] };
   const listIdsWithTitle = new Set((listItemsForThisTitle ?? []).map((li) => li.list_id));
   const addToListMenuLists: AddToListMenuList[] = (myLists ?? []).map((l) => ({
     id: l.id,
@@ -141,22 +172,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
     hasTitle: listIdsWithTitle.has(l.id),
   }));
 
-  const reviewIds = (reviews ?? []).map((r) => r.id);
-  const reviewerIds = [...new Set((reviews ?? []).map((r) => r.user_id))];
-  const { data: reviewerRatingRows } = reviewerIds.length
-    ? await supabase.from("ratings").select("user_id, score").eq("title_id", id).in("user_id", reviewerIds)
-    : { data: [] };
   const ratingByReviewer = new Map((reviewerRatingRows ?? []).map((r) => [r.user_id, r.score]));
-  const [{ data: reactionRows }, { data: commentRows }] = reviewIds.length
-    ? await Promise.all([
-        supabase.from("review_reactions").select("review_id, reaction, user_id").in("review_id", reviewIds),
-        supabase
-          .from("review_comments")
-          .select("id, review_id, user_id, body, created_at, profiles(username, avatar_url)")
-          .in("review_id", reviewIds)
-          .order("created_at", { ascending: true }),
-      ])
-    : [{ data: [] }, { data: [] }];
   const reactionsByReview = aggregateReactions(reactionRows ?? [], viewer?.id ?? null);
 
   const commentsByReview = new Map<string, DisplayComment[]>();

@@ -41,7 +41,7 @@ export function ReportRow({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-surface-1 p-4">
+    <div className="rounded-[var(--radius-lg)] border border-border bg-surface p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-wider text-foreground-muted">
@@ -71,7 +71,7 @@ export function ReportRow({
                   type="button"
                   disabled={isPending}
                   onClick={() => resolve("reviewed")}
-                  className="rounded-md border border-border-strong px-3 py-1.5 text-xs uppercase tracking-wider hover:bg-surface-2 disabled:opacity-50"
+                  className="rounded-[var(--radius-md)] border border-border-strong px-3 py-1.5 text-xs uppercase tracking-wider hover:bg-surface-raised disabled:opacity-50"
                 >
                   Mark reviewed
                 </button>
@@ -79,7 +79,7 @@ export function ReportRow({
                   type="button"
                   disabled={isPending}
                   onClick={() => resolve("dismissed")}
-                  className="rounded-md border border-border-strong px-3 py-1.5 text-xs uppercase tracking-wider hover:bg-surface-2 disabled:opacity-50"
+                  className="rounded-[var(--radius-md)] border border-border-strong px-3 py-1.5 text-xs uppercase tracking-wider hover:bg-surface-raised disabled:opacity-50"
                 >
                   Dismiss
                 </button>

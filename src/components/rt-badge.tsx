@@ -1,12 +1,14 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Rotten Tomatoes-style critic score badge. Fresh (score 60%+) uses the
- * app's own --danger token at low opacity (border-danger/40 bg-danger/10
- * text-danger) rather than raw Tailwind red-* -- the stock red read too
- * saturated and cold against the deep wine background, out of step with
- * every other accent/danger use in the app, which all go through this
- * same muted token. Rotten (below 60%) is unchanged.
+ * Rotten Tomatoes-style critic score badge. Both states use the app's own
+ * tokens at low opacity (border-X/40 bg-X/10 text-X) rather than raw
+ * Tailwind color scales -- fresh (score 60%+) goes through --danger, and
+ * rotten (below 60%) goes through --success, matching the muted,
+ * low-saturation treatment every other accent/danger/success use in the
+ * app shares. Raw Tailwind emerald-* previously used for the rotten state
+ * read too saturated and cold against the deep wine background, the same
+ * way raw red-* did before this component was first tokenized.
  */
 export function RtBadge({ score }: { score: number }) {
   const fresh = score >= 60;
@@ -16,7 +18,7 @@ export function RtBadge({ score }: { score: number }) {
         "inline-flex items-center gap-1 rounded-[var(--radius-full)] border px-2.5 py-0.5 text-xs font-semibold",
         fresh
           ? "border-danger/40 bg-danger/10 text-danger"
-          : "border-emerald-800/40 bg-emerald-950/30 text-emerald-500"
+          : "border-success/40 bg-success/10 text-success"
       )}
       title="Rotten Tomatoes critic score"
     >

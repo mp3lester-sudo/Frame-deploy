@@ -236,7 +236,8 @@ export async function toggleFollow(followeeId: string) {
       event_type: "followed",
       ref_id: followeeId,
     });
-    await notify(supabase, { recipientId: followeeId, actorId: user.id, type: "follow" });
+    // Fire-and-forget -- see comments.ts's addComment for why.
+    void notify(supabase, { recipientId: followeeId, actorId: user.id, type: "follow" });
   }
 
   revalidatePath(`/profile/${followeeId}`);

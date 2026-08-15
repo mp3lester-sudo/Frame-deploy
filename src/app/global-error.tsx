@@ -29,7 +29,7 @@ export default function GlobalError({
     <html>
       <body
         style={{
-          background: "#120708",
+          background: "#0a0908",
           color: "#f2e9df",
           minHeight: "100vh",
           margin: 0,

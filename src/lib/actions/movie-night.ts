@@ -118,7 +118,9 @@ export async function inviteToMovieNight(input: z.infer<typeof inviteSchema>) {
     throw new Error(error.message);
   }
 
-  await notify(supabase, {
+  // Fire-and-forget -- see notify()'s doc comment (fully best-effort,
+  // swallows its own failures); no reason to make the inviter wait on it.
+  void notify(supabase, {
     recipientId: profile.id,
     actorId: user.id,
     type: "movie_night_invite",
@@ -184,7 +186,8 @@ export async function joinMovieNightByToken(input: z.infer<typeof joinByTokenSch
   if (error && error.code !== "23505") throw new Error(error.message);
 
   if (!error && night.host_id !== user.id) {
-    await notify(supabase, {
+    // Fire-and-forget -- see inviteToMovieNight above for why.
+    void notify(supabase, {
       recipientId: night.host_id,
       actorId: user.id,
       type: "movie_night_invite",
@@ -358,7 +361,10 @@ async function finalizeDecision(
   // Parallelized -- was a sequential for-await loop, each notify() doing an
   // insert plus a couple more queries and a push send, so a large group all
   // waited on each other's notification round trips one at a time.
-  await Promise.all(
+  // Fire-and-forget -- notify() never throws (best-effort internally),
+  // so decideMovieNight can report success back to whoever locked in the
+  // vote without waiting on every participant's notification round trip.
+  void Promise.all(
     (participants ?? []).map((p) =>
       notify(supabase, {
         recipientId: p.user_id,

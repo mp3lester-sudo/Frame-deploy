@@ -56,22 +56,15 @@ export function PreciseLocation() {
           // wrong, and *this* cookie's mere presence would block retrying
           // for 24h. Better to leave nothing cached and just try again next
           // visit than to lock in a half-successful result.
-          if (process.env.NODE_ENV !== "production") {
-            console.warn("[PreciseLocation] got coordinates but reverse geocoding returned no city — not caching");
-          }
           return;
         }
 
         setCookie(PRECISE_GEO_COOKIE, JSON.stringify({ city, region, latitude, longitude, ts: Date.now() }), MAX_AGE_SECONDS);
         router.refresh();
       },
-      (err) => {
+      () => {
         // Permission denied, or position unavailable — fine, IP-based
-        // location remains the fallback. Logged in dev only so "why didn't
-        // this update" is diagnosable without guessing.
-        if (process.env.NODE_ENV !== "production") {
-          console.warn("[PreciseLocation] geolocation unavailable:", err.message);
-        }
+        // location remains the fallback.
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: MAX_AGE_SECONDS * 1000 }
     );

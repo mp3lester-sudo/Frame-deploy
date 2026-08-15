@@ -76,7 +76,7 @@ export default async function ListsPage() {
               <Link
                 key={list.id}
                 href={`/lists/${list.id}`}
-                className="bento-card flex items-center justify-between gap-4 p-4"
+                className="bento-card flex items-center justify-between gap-4 p-3"
               >
                 <div className="flex min-w-0 items-center gap-4">
                   <div className="flex shrink-0">

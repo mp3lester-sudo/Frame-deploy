@@ -212,7 +212,8 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
         if (!joinError) {
           movieNightRedirectId = night.id;
           if (night.host_id !== data.user.id) {
-            await notify(supabase, {
+            // Fire-and-forget -- see comments.ts's addComment for why.
+            void notify(supabase, {
               recipientId: night.host_id,
               actorId: data.user.id,
               type: "movie_night_invite",

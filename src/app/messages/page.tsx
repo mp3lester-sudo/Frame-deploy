@@ -9,11 +9,7 @@ export default async function MessagesPage() {
   const viewer = await getVerifiedUser();
   if (!viewer) redirect("/login?next=/messages");
 
-  // Capped at 100 -- this page fans out 3 more queries per conversation
-  // below (profile, last message, unread count), so an unbounded list here
-  // means unbounded concurrent Supabase round trips on every load for a
-  // heavy messenger. 100 recent conversations is far more than a normal
-  // inbox view needs; a dedicated paginated/archived view would be the
+  // Capped at 100 -- a dedicated paginated/archived view would be the
   // right place for anything beyond that, not this page.
   const { data: conversations } = await supabase
     .from("conversations")
@@ -22,28 +18,60 @@ export default async function MessagesPage() {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  const rows = await Promise.all(
-    (conversations ?? []).map(async (c) => {
-      const otherId = c.user_a === viewer.id ? c.user_b : c.user_a;
-      const [{ data: profile }, { data: lastMessage }, { count: unreadCount }] = await Promise.all([
-        supabase.from("profiles").select("username, display_name, avatar_url").eq("id", otherId).maybeSingle(),
-        supabase
+  const conversationIds = (conversations ?? []).map((c) => c.id);
+  const otherIds = [...new Set((conversations ?? []).map((c) => (c.user_a === viewer.id ? c.user_b : c.user_a)))];
+
+  // Used to fan out 3 queries PER conversation (profile, last message,
+  // unread count) -- up to 300 concurrent round trips for a full inbox.
+  // Batched into 3 queries total instead, each scoped to every
+  // conversation at once, then reduced in memory below.
+  const [{ data: profiles }, { data: recentMessages }, { data: unreadRows }] = await Promise.all([
+    otherIds.length
+      ? supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", otherIds)
+      : Promise.resolve({ data: [] as { id: string; username: string; display_name: string | null; avatar_url: string | null }[] }),
+    // No per-conversation "last row" query exists without a dedicated RPC,
+    // so this pulls the most recent messages across ALL of this viewer's
+    // conversations at once (capped well above what 100 active threads
+    // would realistically need) and keeps only the first (= most recent,
+    // already sorted desc) row per conversation_id below -- equivalent
+    // result to the old per-conversation query for any normal inbox.
+    conversationIds.length
+      ? supabase
           .from("messages")
-          .select("body, created_at, sender_id")
-          .eq("conversation_id", c.id)
+          .select("conversation_id, body, created_at, sender_id")
+          .in("conversation_id", conversationIds)
           .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
+          .limit(500)
+      : Promise.resolve({ data: [] as { conversation_id: string; body: string; created_at: string; sender_id: string }[] }),
+    conversationIds.length
+      ? supabase
           .from("messages")
-          .select("*", { count: "exact", head: true })
-          .eq("conversation_id", c.id)
+          .select("conversation_id")
+          .in("conversation_id", conversationIds)
           .neq("sender_id", viewer.id)
-          .is("read_at", null),
-      ]);
-      return { conversationId: c.id, profile, lastMessage, unreadCount: unreadCount ?? 0 };
-    })
-  );
+          .is("read_at", null)
+      : Promise.resolve({ data: [] as { conversation_id: string }[] }),
+  ]);
+
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const lastMessageByConversation = new Map<string, { body: string; created_at: string; sender_id: string }>();
+  for (const m of recentMessages ?? []) {
+    if (!lastMessageByConversation.has(m.conversation_id)) lastMessageByConversation.set(m.conversation_id, m);
+  }
+  const unreadCountByConversation = new Map<string, number>();
+  for (const row of unreadRows ?? []) {
+    unreadCountByConversation.set(row.conversation_id, (unreadCountByConversation.get(row.conversation_id) ?? 0) + 1);
+  }
+
+  const rows = (conversations ?? []).map((c) => {
+    const otherId = c.user_a === viewer.id ? c.user_b : c.user_a;
+    return {
+      conversationId: c.id,
+      profile: profileById.get(otherId) ?? null,
+      lastMessage: lastMessageByConversation.get(c.id) ?? null,
+      unreadCount: unreadCountByConversation.get(c.id) ?? 0,
+    };
+  });
 
   // Conversations with no messages yet (just started) sort after ones with
   // activity, most-recent-message first.

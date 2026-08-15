@@ -22,11 +22,11 @@ export default async function WrappedPage({
   const year = yearParam && /^\d{4}$/.test(yearParam) ? Number(yearParam) : currentYear;
   const isCurrentYear = year === currentYear;
 
-  const result = await getMyWrapped(year);
-  // Independent of the year param above -- always "the current week/
-  // month" (week for Auteur, month for Premium -- see getMyRecentWrapped),
-  // gated inside the action itself.
-  const recent = await getMyRecentWrapped();
+  // getMyRecentWrapped is independent of the year param above -- always
+  // "the current week/month" (week for Auteur, month for Premium -- see
+  // getMyRecentWrapped), gated inside the action itself -- so it doesn't
+  // need to wait on getMyWrapped(year) or vice versa.
+  const [result, recent] = await Promise.all([getMyWrapped(year), getMyRecentWrapped()]);
   const recentLabel = recent.cadence === "week" ? getWeekRange(now).label : getMonthRange(now).label;
   const recentHeadline = recent.cadence === "week" ? `Your week of ${recentLabel}` : `Your ${recentLabel}`;
 

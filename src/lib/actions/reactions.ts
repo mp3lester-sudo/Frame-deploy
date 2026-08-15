@@ -40,7 +40,9 @@ export async function setReviewReaction(reviewId: string, reaction: ReviewReacti
   // Only notify on setting a reaction, not clearing one — nobody needs to
   // hear "so-and-so un-reacted to your review."
   if (reaction !== null && review?.user_id) {
-    await notify(supabase, {
+    // Fire-and-forget -- see comments.ts's addComment for why (notify()
+    // never throws, so awaiting it here just delays the response).
+    void notify(supabase, {
       recipientId: review.user_id,
       actorId: user.id,
       type: "reaction",

@@ -75,6 +75,15 @@ export default async function NotificationsPage() {
   const actorIds = [...new Set(notifications.map((n) => n.actor_id).filter((id): id is string => !!id))];
   const titleIds = [...new Set(notifications.map((n) => n.title_id).filter((id): id is string => !!id))];
 
+  // markAllNotificationsRead only depends on viewer.id (already resolved
+  // above), not on the actor/title lookups below, so it runs alongside
+  // them instead of waiting its turn after -- it still runs strictly
+  // after the `rows` fetch above, which is what actually matters: marks
+  // everything as read once the viewer has loaded this page (mirrors
+  // markConversationRead's pattern in messages.ts), while `rows` still
+  // reflects each notification's read_at as originally fetched, so the
+  // unread highlight remains visible for this render even though the
+  // badge in the nav will clear on the next navigation.
   const [{ data: actorRows }, { data: titleRows }] = await Promise.all([
     actorIds.length
       ? supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", actorIds)
@@ -82,18 +91,12 @@ export default async function NotificationsPage() {
     titleIds.length
       ? supabase.from("titles").select("id, name, type").in("id", titleIds)
       : Promise.resolve({ data: [] as { id: string; name: string; type: string }[] }),
+    markAllNotificationsRead(),
   ]);
 
   const actorById = new Map((actorRows ?? []).map((a) => [a.id, a as ActorInfo]));
   const titleNameById = new Map((titleRows ?? []).map((t) => [t.id, t.name]));
   const titleTypeById = new Map((titleRows ?? []).map((t) => [t.id, t.type]));
-
-  // Marks everything as read once the viewer has actually loaded this page
-  // (mirrors markConversationRead's pattern in messages.ts) — the rows
-  // above still reflect their read_at as originally fetched, so the unread
-  // highlight remains visible for this render even though the badge in the
-  // nav will clear on the next navigation.
-  await markAllNotificationsRead();
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">

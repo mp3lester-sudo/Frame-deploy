@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { resendVerificationEmail } from "@/lib/actions/auth";
+import { Button } from "@/components/ui/button";
 
 /**
  * A gentle, dismissible nudge for accounts whose email was never
@@ -30,19 +31,19 @@ export function VerifyEmailBanner() {
       </div>
       <div className="flex items-center gap-3">
         {!sent && (
-          <button
+          <Button
             type="button"
-            disabled={isPending}
+            size="sm"
+            isLoading={isPending}
             onClick={() =>
               startTransition(async () => {
                 const result = await resendVerificationEmail();
                 if (result.success) setSent(true);
               })
             }
-            className="rounded-[var(--radius-md)] border border-accent bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground disabled:opacity-50"
           >
             Resend email
-          </button>
+          </Button>
         )}
         <button
           type="button"

@@ -10,7 +10,7 @@ import { InviteForm } from "@/components/movie-night/invite-form";
 import { InviteLink } from "@/components/movie-night/invite-link";
 import { siteOrigin } from "@/lib/seo/site";
 import { PreferencesForm } from "@/components/movie-night/preferences-form";
-import { LiveCandidateVoting } from "@/components/movie-night/live-candidate-voting";
+import { LiveCandidateVotingLazy } from "@/components/movie-night/live-candidate-voting-lazy";
 import { LiveParticipants } from "@/components/movie-night/live-participants";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
@@ -145,7 +145,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
           {/* Bento-card wrap -- the last remaining old-style bordered box
               on this page, everything else here (chips, form fields) is
               already using the app's established surface language. */}
-          <div className="bento-card flex gap-4 p-4">
+          <div className="bento-card flex gap-4 p-3">
             <div className="relative h-36 w-24 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised">
               {decidedTitle.poster_url && (
                 <Image src={decidedTitle.poster_url} alt={decidedTitle.name} fill className="object-cover" />
@@ -208,7 +208,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
             <p className="mb-3 text-[11px] uppercase tracking-wider text-foreground-muted">
               Vote on picks everyone might like
             </p>
-            <LiveCandidateVoting
+            <LiveCandidateVotingLazy
               movieNightId={night.id}
               candidates={candidates}
               initialVotes={initialVotes}

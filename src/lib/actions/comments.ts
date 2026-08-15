@@ -55,7 +55,11 @@ export async function addComment(reviewId: string, rawBody: string): Promise<New
     const { data: review } = await supabase.from("reviews").select("title_id, user_id").eq("id", reviewId).maybeSingle();
     if (review?.title_id) revalidatePath(`/movie/${review.title_id}`);
     if (review?.user_id) {
-      await notify(supabase, {
+      // Fire-and-forget -- notify() is fully best-effort internally (see
+      // its doc comment: it swallows and reports its own failures), so
+      // there's nothing for the caller to gain by waiting on the DB
+      // insert + push-send round trip before returning.
+      void notify(supabase, {
         recipientId: review.user_id,
         actorId: user.id,
         type: "comment",

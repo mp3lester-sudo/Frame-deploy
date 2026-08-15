@@ -24,16 +24,18 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   const { data: person } = await supabase.from("people").select("*").eq("id", id).single();
   if (!person) notFound();
 
-  const [{ bio, birthday, placeOfBirth }, stillImages, taggedImages] = await Promise.all([
+  // credits only depends on `id` (not on person.tmdb_id like the other
+  // three), so it doesn't need to wait behind them -- folded into the
+  // same Promise.all instead of running as its own sequential await.
+  const [{ bio, birthday, placeOfBirth }, stillImages, taggedImages, { data: credits }] = await Promise.all([
     getOrFetchPersonBio(person),
     person.tmdb_id ? getTmdbPersonImages(person.tmdb_id) : Promise.resolve([]),
     person.tmdb_id ? getTmdbTaggedImages(person.tmdb_id) : Promise.resolve([]),
+    supabase
+      .from("title_credits")
+      .select("credit_type, character_name, titles(id, name, poster_url, release_date, type, popularity, tmdb_id)")
+      .eq("person_id", id),
   ]);
-
-  const { data: credits } = await supabase
-    .from("title_credits")
-    .select("credit_type, character_name, titles(id, name, poster_url, release_date, type, popularity, tmdb_id)")
-    .eq("person_id", id);
 
   type FilmographyRow = {
     credit_type: string;

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { setConsent } from "@/lib/analytics/consent";
 import { initPostHog } from "@/lib/analytics/posthog-client";
+import { Button } from "@/components/ui/button";
 
 /**
  * Gates PostHog behind an explicit choice instead of firing unconditionally
@@ -52,20 +53,12 @@ export function CookieConsentBanner() {
           .
         </p>
         <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
-            onClick={() => decide("denied")}
-            className="rounded-[var(--radius-md)] border border-border px-3 py-1.5 text-xs text-foreground-muted hover:border-border-strong"
-          >
+          <Button type="button" variant="secondary" size="sm" onClick={() => decide("denied")}>
             Decline
-          </button>
-          <button
-            type="button"
-            onClick={() => decide("granted")}
-            className="rounded-[var(--radius-md)] border border-accent bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
-          >
+          </Button>
+          <Button type="button" size="sm" onClick={() => decide("granted")}>
             Accept
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -68,14 +68,17 @@ export async function postToClub(clubId: string, rawBody: string): Promise<NewCl
   if (!validation.ok) throw new Error(validation.error);
   const { supabase, user } = await requireUser();
 
-  const { data: post, error } = await supabase
-    .from("club_posts")
-    .insert({ club_id: clubId, user_id: user.id, body: validation.value })
-    .select("id, club_id, user_id, body, created_at")
-    .single();
+  // The profile lookup only depends on user.id, not on the post insert
+  // succeeding, so it doesn't need to wait behind it.
+  const [{ data: post, error }, { data: profile }] = await Promise.all([
+    supabase
+      .from("club_posts")
+      .insert({ club_id: clubId, user_id: user.id, body: validation.value })
+      .select("id, club_id, user_id, body, created_at")
+      .single(),
+    supabase.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle(),
+  ]);
   if (error || !post) throw new Error(error?.message ?? "Failed to post — are you a member of this club?");
-
-  const { data: profile } = await supabase.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle();
 
   revalidatePath(`/clubs/${clubId}`);
   return { ...post, username: profile?.username ?? "you", avatar_url: profile?.avatar_url ?? null };

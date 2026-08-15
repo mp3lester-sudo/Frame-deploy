@@ -5,8 +5,14 @@ import type { WrappedResult } from "@/lib/taste-dna/wrapped";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const GOLD = "#cda646";
-const BACKGROUND = "#0c0908";
+// Satori (next/og) renders this route standalone -- it can't read CSS
+// custom properties from globals.css, so these are literal copies of
+// --accent/--background (movie palette; this predates the TV palette
+// split and Wrapped itself isn't per-media-type) that had drifted out of
+// sync with the real tokens. Keep these in sync by hand if either token
+// changes.
+const GOLD = "#d9b876";
+const BACKGROUND = "#0a0908";
 
 /**
  * Branded preview card for the public share link — this is what actually

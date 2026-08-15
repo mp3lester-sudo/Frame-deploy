@@ -67,7 +67,7 @@ export default async function ClubsPage() {
               <Link
                 key={club.id}
                 href={`/clubs/${club.id}`}
-                className="bento-card flex items-center gap-4 p-4"
+                className="bento-card flex items-center gap-4 p-3"
               >
                 <Avatar name={club.name} size={44} className="shrink-0" />
                 <div className="min-w-0 flex-1">
