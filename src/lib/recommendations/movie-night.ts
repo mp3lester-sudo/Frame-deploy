@@ -282,19 +282,31 @@ export async function getCandidatesForUserGroup({
   // fairness rule can't tolerate guessing at (see title_similarity_for_user,
   // migration 0023).
   const allIds = [...candidateIds];
-  const participantScores: ParticipantScores[] = [];
-  for (const userId of userIds) {
-    const { data: sims, error: simsError } = await supabase.rpc("title_similarity_for_user", {
-      p_user_id: userId,
-      p_title_ids: allIds,
-      p_media_type: mediaType,
-    });
+  // Same fix as the seed step above: this used to be a sequential
+  // `for` loop, one round trip per participant, one after another. A
+  // full Auteur-tier Watch Party (up to AUTEUR_MOVIE_NIGHT_MAX_PARTICIPANTS
+  // people, see premium/tier.ts) paid that RPC's latency up to 24x in a
+  // row before ranking could even start. Every participant's exact
+  // similarity over the shared pool is independent of everyone else's,
+  // so there's nothing here to wait on either.
+  const simsResults = await Promise.all(
+    userIds.map((userId) =>
+      supabase
+        .rpc("title_similarity_for_user", {
+          p_user_id: userId,
+          p_title_ids: allIds,
+          p_media_type: mediaType,
+        })
+        .then((r) => ({ userId, ...r }))
+    )
+  );
+  const participantScores: ParticipantScores[] = simsResults.map(({ userId, data: sims, error: simsError }) => {
     if (simsError) void captureServerError(simsError, { where: "getCandidatesForUserGroup:title_similarity_for_user", userId });
-    participantScores.push({
+    return {
       userId,
       scores: new Map((sims ?? []).map((s) => [s.title_id, s.similarity])),
-    });
-  }
+    };
+  });
 
   const ranked = rankGroupCandidates(participantScores);
   if (ranked.length === 0) {

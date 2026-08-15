@@ -67,7 +67,18 @@ async function claimAnonymousSwipes(
 
   let applied = 0;
   for (const { titleId, score } of swipes) {
-    const { error } = await supabase.from("ratings").upsert({ user_id: userId, title_id: titleId, score });
+    // onConflict must name the real (user_id, title_id) unique constraint
+    // explicitly -- without it PostgREST resolves conflicts against the
+    // fresh-uuid primary key, which never matches, so this degraded to a
+    // plain INSERT and threw on the real constraint for anyone who'd
+    // swiped the same title twice pre-signup (or rated it during
+    // onboarding before this ran) -- exactly the failure mode `continue`
+    // below was meant to shrug off, except it was firing on legitimate
+    // rows too, not just the "stale/deleted title id" case the comment
+    // originally described.
+    const { error } = await supabase
+      .from("ratings")
+      .upsert({ user_id: userId, title_id: titleId, score }, { onConflict: "user_id,title_id" });
     if (error) continue; // e.g. a stale/deleted title id — skip, don't fail the whole batch
     await supabase.from("watch_history").upsert({ user_id: userId, title_id: titleId });
     await supabase.from("activity_events").insert({ user_id: userId, event_type: "rated", title_id: titleId });

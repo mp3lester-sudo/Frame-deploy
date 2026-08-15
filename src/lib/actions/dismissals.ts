@@ -23,7 +23,16 @@ export async function dismissRecommendation(titleId: string) {
   const { titleId: id } = z.object({ titleId: z.string().uuid() }).parse({ titleId });
   const { supabase, user } = await requireUser();
 
-  const { error } = await supabase.from("title_dismissals").upsert({ user_id: user.id, title_id: id });
+  // onConflict must name the real (user_id, title_id) unique constraint --
+  // without it PostgREST resolves against the fresh-uuid primary key,
+  // which never matches, so dismissing a title that's already dismissed
+  // (a repeat left-swipe on a title already excluded but still in a
+  // stale client-side deck) threw on the real constraint instead of
+  // being the harmless no-op it should be. Same bug class as
+  // rateTitle/addToWatchlist/setSeasonRating, found while auditing those.
+  const { error } = await supabase
+    .from("title_dismissals")
+    .upsert({ user_id: user.id, title_id: id }, { onConflict: "user_id,title_id" });
   // The swipe deck calls this fire-and-forget (void dismissRecommendation(...))
   // with no UI feedback on failure -- deliberately, see the comment below on
   // why there's no revalidation to hang an error state off of either. That

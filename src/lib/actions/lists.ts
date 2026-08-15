@@ -5,6 +5,7 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { validateListTitle, validateListDescription, validateListItemNote } from "@/lib/lists/validate";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -31,7 +32,22 @@ export async function addToWatchlist(titleId: string) {
   const { titleId: id } = z.object({ titleId: z.string().uuid() }).parse({ titleId });
   const { supabase, user } = await requireUser();
 
-  await supabase.from("watchlist").upsert({ user_id: user.id, title_id: id });
+  // onConflict must name the real (user_id, title_id) unique constraint --
+  // without it PostgREST resolves against the fresh-uuid primary key,
+  // which never matches, so re-adding a title already on the watchlist
+  // (a double-click, or toggling it from two tabs) degraded to a plain
+  // INSERT and threw on the real constraint. The error was also never
+  // checked here, so the hero's optimistic bookmark toggle
+  // (recommendation-reveal.tsx) could silently diverge from the DB with
+  // no error ever reaching its catch block.
+  const { error } = await supabase
+    .from("watchlist")
+    .upsert({ user_id: user.id, title_id: id }, { onConflict: "user_id,title_id" });
+  if (error) {
+    console.error("[addToWatchlist]", error.message);
+    await captureServerError(error, { action: "addToWatchlist", userId: user.id, titleId: id });
+    throw new Error("Couldn't add that to your watchlist -- try again");
+  }
 
   revalidatePath(`/movie/${id}`);
   revalidatePath("/watchlist");
@@ -41,7 +57,12 @@ export async function removeFromWatchlist(titleId: string) {
   const { titleId: id } = z.object({ titleId: z.string().uuid() }).parse({ titleId });
   const { supabase, user } = await requireUser();
 
-  await supabase.from("watchlist").delete().eq("user_id", user.id).eq("title_id", id);
+  const { error } = await supabase.from("watchlist").delete().eq("user_id", user.id).eq("title_id", id);
+  if (error) {
+    console.error("[removeFromWatchlist]", error.message);
+    await captureServerError(error, { action: "removeFromWatchlist", userId: user.id, titleId: id });
+    throw new Error("Couldn't remove that from your watchlist -- try again");
+  }
 
   revalidatePath(`/movie/${id}`);
   revalidatePath("/watchlist");

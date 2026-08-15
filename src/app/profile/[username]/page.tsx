@@ -133,8 +133,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // toggle the VIEWER currently has active, same convention Discover/Home
   // already use app-wide (a single global mode, not a per-page switch).
   const mediaType = await getActiveMediaType();
-  const compatibility =
-    viewer && !isOwnProfile ? await computeCompatibilityForUsers(viewer.id, profile.id, mediaType) : null;
+  // Kicked off here (not awaited) so it runs concurrently with
+  // dnaPromise/signaturePickPromise/wrappedPromise below instead of
+  // blocking them from even starting -- this used to be a direct await
+  // sitting in front of all three, serializing the compatibility RPC
+  // ahead of everything else on every non-own-profile view.
+  const compatibilityPromise =
+    viewer && !isOwnProfile ? computeCompatibilityForUsers(viewer.id, profile.id, mediaType) : Promise.resolve(null);
 
   // Marquee DNA used to live behind its own link in the self-service menu
   // (viewer's own DNA only, at /taste-dna); it now renders inline right
@@ -233,7 +238,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     supabase.rpc("compute_cinema_score", { p_user_id: profile.id, p_media_type: mediaType }).maybeSingle(),
   ]);
 
-  const [dna, signaturePick, wrapped] = await Promise.all([dnaPromise, signaturePickPromise, wrappedPromise]);
+  const [dna, signaturePick, wrapped, compatibility] = await Promise.all([
+    dnaPromise,
+    signaturePickPromise,
+    wrappedPromise,
+    compatibilityPromise,
+  ]);
 
   const favorites = (favoriteRows ?? [])
     .map((r) => (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] | null }).titles)

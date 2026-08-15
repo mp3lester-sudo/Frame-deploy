@@ -29,9 +29,18 @@ export async function setSeasonRating(input: z.infer<typeof setSchema>) {
   if (!user) throw new Error("Sign in to rate seasons");
   const supabase = await createClient();
 
+  // Same upsert-without-onConflict bug as ratings/rateTitle: this
+  // table's PK is a fresh gen_random_uuid(), not (user_id, title_id,
+  // season_number), so without an explicit onConflict target every
+  // re-rate of a season degraded to a plain INSERT and threw a raw
+  // Postgres duplicate-key error against the real unique constraint
+  // below instead of updating the existing score.
   const { error } = await supabase
     .from("season_ratings")
-    .upsert({ user_id: user.id, title_id: titleId, season_number: seasonNumber, score });
+    .upsert(
+      { user_id: user.id, title_id: titleId, season_number: seasonNumber, score },
+      { onConflict: "user_id,title_id,season_number" }
+    );
   if (error) throw new Error(error.message);
 
   revalidatePath(`/movie/${titleId}`);

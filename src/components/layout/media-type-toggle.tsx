@@ -38,6 +38,11 @@ export function MediaTypeToggle({ active }: { active: MediaType }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  // disabled={isPending} on both buttons below guards against a rapid
+  // double-click (Movies -> Shows -> Movies before the first transition's
+  // router.push("/onboarding") vs router.refresh() has resolved) racing
+  // against `active`, which is a prop and doesn't update until that first
+  // transition's server round trip actually lands.
   function setMediaType(next: MediaType) {
     if (next === active) return;
     document.documentElement.setAttribute("data-media", next);
@@ -71,6 +76,7 @@ export function MediaTypeToggle({ active }: { active: MediaType }) {
         type="button"
         role="radio"
         aria-checked={active === "movie"}
+        disabled={isPending}
         onClick={() => setMediaType("movie")}
         className={cn(
           "media-toggle-movie flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-[opacity,filter,transform] duration-300 sm:px-3",
@@ -86,6 +92,7 @@ export function MediaTypeToggle({ active }: { active: MediaType }) {
         type="button"
         role="radio"
         aria-checked={active === "tv"}
+        disabled={isPending}
         onClick={() => setMediaType("tv")}
         className={cn(
           "media-toggle-tv flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-[opacity,filter,transform] duration-300 sm:px-3",

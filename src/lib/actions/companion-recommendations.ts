@@ -46,10 +46,13 @@ export async function getCompanionBlendRecommendations(usernamesInput: string[])
   const usernames = [...new Set(usernamesInput.map((u) => usernameSchema.parse(u)))].slice(0, MAX_COMPANIONS);
   if (usernames.length === 0) throw new Error("Add at least one person to blend with");
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, username, display_name")
-    .in("username", usernames);
+  // The companions lookup and the caller's own profile lookup (for
+  // consensus-note display names, see below) don't depend on each other
+  // -- fired together instead of one after another.
+  const [{ data: profiles }, { data: selfProfile }] = await Promise.all([
+    supabase.from("profiles").select("id, username, display_name").in("username", usernames),
+    supabase.from("profiles").select("username, display_name").eq("id", user.id).maybeSingle(),
+  ]);
 
   const foundUsernames = new Set((profiles ?? []).map((p) => p.username));
   const missing = usernames.filter((u) => !foundUsernames.has(u));
@@ -57,14 +60,6 @@ export async function getCompanionBlendRecommendations(usernamesInput: string[])
 
   const companions = (profiles ?? []).filter((p) => p.id !== user.id);
   if (companions.length === 0) throw new Error("That's you — add someone else to blend with");
-
-  // Own display name too, for consensus notes that might say "leans toward
-  // Michael's taste."
-  const { data: selfProfile } = await supabase
-    .from("profiles")
-    .select("username, display_name")
-    .eq("id", user.id)
-    .maybeSingle();
 
   const namesByUserId = new Map<string, string>();
   namesByUserId.set(user.id, firstName(selfProfile?.display_name, selfProfile?.username ?? "you"));

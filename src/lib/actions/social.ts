@@ -34,7 +34,25 @@ export async function rateTitle(input: z.infer<typeof rateSchema>) {
   const { titleId, score } = rateSchema.parse(input);
   const { supabase, user } = await requireUser();
 
-  await supabase.from("ratings").upsert({ user_id: user.id, title_id: titleId, score });
+  // Without an explicit onConflict target, PostgREST resolves upsert
+  // conflicts against the table's primary key (id) -- a fresh insert
+  // always has a brand-new one, so it never actually matches. That
+  // silently degrades this into a plain INSERT, which then hits the
+  // *real* unique constraint on (user_id, title_id) and throws a raw
+  // Postgres duplicate-key error on every re-rate -- exactly the bug
+  // already diagnosed and fixed for the CSV import path (see the comment
+  // in import.ts), just never carried over to the primary rating action.
+  // Since the error also wasn't checked here, a re-rate would silently
+  // keep the star rating stuck at its old value with no sign anything
+  // had gone wrong -- the single highest-traffic write in the app.
+  const { error: ratingError } = await supabase
+    .from("ratings")
+    .upsert({ user_id: user.id, title_id: titleId, score }, { onConflict: "user_id,title_id" });
+  if (ratingError) {
+    console.error("[rateTitle]", ratingError.message);
+    await captureServerError(ratingError, { action: "rateTitle", userId: user.id, titleId });
+    throw new Error("Couldn't save that rating -- try again");
+  }
   await supabase.from("watch_history").upsert({ user_id: user.id, title_id: titleId });
   await supabase.from("activity_events").insert({
     user_id: user.id,
