@@ -154,6 +154,16 @@ export async function setFavoriteTitles(titleIds: string[], mediaType: MediaType
     if (insertError) throw new Error(insertError.message);
   }
 
+  // Taste-signal expansion (migration 0075): the Pyramid is a user's most
+  // deliberate taste statement, previously invisible to the recommendation
+  // engine entirely. Type-scoped (not the whole-user recompute_taste_vector_
+  // for_user) since we already know exactly which vector changed here --
+  // no reason to also touch the other media type's vector on every Pyramid
+  // edit. Awaited, unlike writeReview's fire-and-forget sentiment call --
+  // this is a fast DB-only recompute (no OpenAI round trip), and a user
+  // rearranging their Pyramid should see it reflected immediately.
+  await supabase.rpc("recompute_taste_vector_for_user_for_type", { p_user_id: user.id, p_media_type: mediaType });
+
   revalidatePath("/settings");
   revalidatePath("/profile/me");
   revalidatePath(`/profile/${user.id}`);

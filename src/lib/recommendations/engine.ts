@@ -203,6 +203,8 @@ export async function getRecommendationsForUser(
     { data: dislikeSimilarities },
     { data: implicitSimilarities },
     { data: directorCredits },
+    { data: favoriteTitlesForAffinity },
+    { data: reviewedTitlesForAffinity },
   ] = await Promise.all([
     ratedTitleIds.length
       ? supabase.from("titles").select("id, genres").in("id", ratedTitleIds)
@@ -234,12 +236,49 @@ export async function getRecommendationsForUser(
       .select("title_id, person_id, people(name)")
       .eq("credit_type", "director")
       .in("title_id", candidateIds),
+    // Pyramid favorites feeding genre-affinity too, not just the taste
+    // vector (migration 0075 only touches the vector) -- same "AI should
+    // pull from everything" motivation. Position tapers 5.0 (#1) down to
+    // 4.0 (#6), same synthetic-score convention as the SQL side.
+    supabase
+      .from("favorite_titles")
+      .select("title_id, position, titles!inner(genres)")
+      .eq("user_id", userId)
+      .eq("media_type", mediaType),
+    // Reviews already AI-scored at write time (writeReview, social.ts) --
+    // same signal genre-affinity was missing entirely before.
+    supabase
+      .from("reviews")
+      .select("title_id, inferred_score, titles!inner(type, genres)")
+      .eq("user_id", userId)
+      .eq("titles.type", mediaType)
+      .not("inferred_score", "is", null),
   ]);
 
   const genresByRatedTitleId = new Map((ratedTitleGenres ?? []).map((t) => [t.id, t.genres]));
-  const genreAffinity = computeGenreAffinity(
-    (userRatings ?? []).map((r) => ({ score: r.score, genres: genresByRatedTitleId.get(r.title_id) ?? null }))
-  );
+  const ratedTitleIdSet = new Set(ratedTitleIds);
+  // Same "only when this title has no explicit rating" rule the SQL side
+  // uses (migration 0075's `favorited`/`reviewed` CTEs) -- a title the
+  // user also star-rated already has its genres counted via userRatings
+  // below, so adding it again here would just double-weight it rather
+  // than closing a real gap.
+  const favoriteGenreInputs = (favoriteTitlesForAffinity ?? [])
+    .filter((f) => !ratedTitleIdSet.has(f.title_id))
+    .map((f) => ({
+      score: 5.0 - ((f.position as number) - 1) * 0.2,
+      genres: (f.titles as unknown as { genres: string[] | null } | null)?.genres ?? null,
+    }));
+  const reviewedGenreInputs = (reviewedTitlesForAffinity ?? [])
+    .filter((rv) => !ratedTitleIdSet.has(rv.title_id) && rv.inferred_score != null)
+    .map((rv) => ({
+      score: rv.inferred_score as number,
+      genres: (rv.titles as unknown as { genres: string[] | null } | null)?.genres ?? null,
+    }));
+  const genreAffinity = computeGenreAffinity([
+    ...(userRatings ?? []).map((r) => ({ score: r.score, genres: genresByRatedTitleId.get(r.title_id) ?? null })),
+    ...favoriteGenreInputs,
+    ...reviewedGenreInputs,
+  ]);
 
   // "User curation is the key": how much room generic signals (context/
   // weather/quality/genre-affinity/dislike/implicit, all below) get to

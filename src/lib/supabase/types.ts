@@ -116,11 +116,18 @@ export interface Database {
           body: string;
           contains_spoilers: boolean;
           like_count: number;
+          // AI-estimated 0.5-5.0 sentiment of the review body, written
+          // once at review time (see inferReviewSentimentScore) -- only
+          // used by the taste vector when this title has no explicit
+          // rating from the same user (migration 0075). Null until
+          // scored, and stays null if scoring fails or was never run
+          // (e.g. pre-migration reviews, not backfilled).
+          inferred_score: number | null;
           created_at: string;
           updated_at: string;
         };
-        Insert: { user_id: string; title_id: string; body: string; contains_spoilers?: boolean };
-        Update: Partial<{ body: string; contains_spoilers: boolean }>;
+        Insert: { user_id: string; title_id: string; body: string; contains_spoilers?: boolean; inferred_score?: number | null };
+        Update: Partial<{ body: string; contains_spoilers: boolean; inferred_score: number | null }>;
         Relationships: [];
       };
       lists: {
@@ -753,6 +760,10 @@ export interface Database {
       };
       recompute_taste_vector_for_user: {
         Args: { p_user_id: string };
+        Returns: void;
+      };
+      recompute_taste_vector_for_user_for_type: {
+        Args: { p_user_id: string; p_media_type: string };
         Returns: void;
       };
       most_similar_liked_title: {

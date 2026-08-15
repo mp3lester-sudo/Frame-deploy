@@ -7,6 +7,7 @@ import { z } from "zod";
 import { notify } from "@/lib/actions/notifications";
 import { isRateLimited } from "@/lib/rate-limit";
 import { captureServerError } from "@/lib/monitoring/sentry-server";
+import { inferReviewSentimentScore } from "@/lib/reviews/sentiment";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -120,6 +121,37 @@ export async function writeReview(input: z.infer<typeof reviewSchema>) {
       title_id: titleId,
       ref_id: review?.id,
     });
+
+    // Taste-signal expansion (migration 0075): a review written for a
+    // title the user never star-rated used to contribute nothing to their
+    // taste vector. Fire-and-forget, same pattern as log-impressions and
+    // push sending elsewhere in this codebase -- an OpenAI sentiment call
+    // plus a taste-vector recompute must never slow down "your review
+    // posted." Only bothers scoring when there's no rating already on
+    // file: if the user did rate this title, that rating's own weight
+    // already covers it (see the `reviewed` CTE's doc comment in the
+    // migration), so a review-derived score would just be wasted work.
+    if (review?.id) {
+      void (async () => {
+        try {
+          const { data: existingRating } = await supabase
+            .from("ratings")
+            .select("title_id")
+            .eq("user_id", user.id)
+            .eq("title_id", titleId)
+            .maybeSingle();
+          if (existingRating) return;
+
+          const score = await inferReviewSentimentScore(body);
+          if (score == null) return;
+
+          await supabase.from("reviews").update({ inferred_score: score }).eq("id", review.id);
+          await supabase.rpc("recompute_taste_vector_for_user", { p_user_id: user.id });
+        } catch (err) {
+          await captureServerError(err, { action: "writeReview.inferSentiment", userId: user.id, titleId });
+        }
+      })();
+    }
 
     revalidatePath(`/movie/${titleId}`);
   } catch (err) {
