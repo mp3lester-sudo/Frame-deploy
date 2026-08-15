@@ -49,6 +49,23 @@
   --success: #4ade80;
   --danger: #e0685f;
 
+  /* Fixed dual-palette preview tokens for the Movies/Shows toggle
+     (media-type-toggle.tsx, "palette preview split" treatment). Unlike
+     --accent above, which the [data-media="tv"] block below overrides
+     wholesale depending on which mode is *currently* active, these two
+     pairs are declared once here in :root only and never overridden --
+     so the toggle can show its Movies half in gold and its Shows half
+     in icy blue *simultaneously*, regardless of which mode the rest of
+     the page is currently in. Values intentionally mirror --accent /
+     [data-media="tv"]'s --accent exactly -- these aren't a third color,
+     just the same two palette accents made available unconditionally. */
+  --movie-accent: #d9b876;
+  --movie-accent-soft: #e8cf99;
+  --movie-accent-foreground: #2a0f14;
+  --tv-accent: #cfe0ec;
+  --tv-accent-soft: #eef5fa;
+  --tv-accent-foreground: #0a141a;
+
   /* Glass surface tokens -- modernization pass (nav bar, bento cards
      below the hero on the home page). A frosted, translucent panel
      rather than the flat --surface fill: a soft white tint over the
@@ -721,6 +738,20 @@ html.consent-decided .cookie-consent-banner {
 /* Same idea for solid surfaces — primary buttons, active pills. */
 .bg-gold-foil {
   background-image: var(--accent-gradient);
+}
+
+/* Movies/Shows toggle "palette preview split" halves (see
+   media-type-toggle.tsx) -- a quiet gradient tint using the fixed
+   --movie-accent / --tv-accent tokens above, present at all times on
+   both halves regardless of which mode is active. The inactive half
+   dims via opacity/saturate utility classes on the button itself
+   rather than losing this background entirely, so the control reads
+   as a small live swatch of both destinations, not just the active one. */
+.media-toggle-movie {
+  background-image: linear-gradient(155deg, rgb(217 184 118 / 0.28), rgb(217 184 118 / 0.08));
+}
+.media-toggle-tv {
+  background-image: linear-gradient(155deg, rgb(207 224 236 / 0.24), rgb(207 224 236 / 0.06));
 }
 
 /* Modernization pass: frosted glass "bento" card surface. Originally
