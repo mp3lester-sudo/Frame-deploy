@@ -6,6 +6,7 @@ import { X, Search } from "lucide-react";
 import { searchTitlesForPicker, setFavoriteTitles } from "@/lib/actions/profile";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 
 type PickerTitle = { id: string; name: string; release_date: string | null; poster_url: string | null };
 
@@ -62,7 +63,18 @@ function FavoriteSlot({
   );
 }
 
-export function FavoriteTitlesEditor({ initialFavorites }: { initialFavorites: PickerTitle[] }) {
+export function FavoriteTitlesEditor({
+  initialFavorites,
+  mediaType,
+}: {
+  initialFavorites: PickerTitle[];
+  /** "Fully separate profiles" -- movie favorites and show favorites are
+   *  two independent top-6 lists. This component always edits whichever
+   *  one matches the currently active toggle (passed down from the
+   *  server-rendered Settings page, which re-fetches initialFavorites
+   *  scoped to it too). */
+  mediaType: MediaType;
+}) {
   const [favorites, setFavorites] = useState<(PickerTitle | null)[]>(() => {
     const slots: (PickerTitle | null)[] = [null, null, null, null, null, null];
     initialFavorites.slice(0, 6).forEach((t, i) => {
@@ -87,7 +99,7 @@ export function FavoriteTitlesEditor({ initialFavorites }: { initialFavorites: P
     setQuery(value);
     setSaved(false);
     startSearch(async () => {
-      const data = await searchTitlesForPicker(value);
+      const data = await searchTitlesForPicker(value, mediaType);
       setResults(data);
     });
   }
@@ -115,7 +127,7 @@ export function FavoriteTitlesEditor({ initialFavorites }: { initialFavorites: P
   function handleSave() {
     const ids = favorites.filter((f): f is PickerTitle => f !== null).map((f) => f.id);
     startSaving(async () => {
-      await setFavoriteTitles(ids);
+      await setFavoriteTitles(ids, mediaType);
       setSaved(true);
     });
   }

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 import { CONTENT_MATCH_THRESHOLD } from "./engine";
 import { calibrateMatchPercents } from "./match-percent";
 
@@ -37,19 +38,25 @@ const CANDIDATE_POOL_SIZE = 40;
  * quality bars -- no fallback to a lower bar, since a "hidden gem" that
  * isn't actually either of those things isn't worth showing.
  */
-export async function getHiddenGemForUser(userId: string, excludeIds: string[] = []): Promise<HiddenGem | null> {
+export async function getHiddenGemForUser(
+  userId: string,
+  mediaType: MediaType,
+  excludeIds: string[] = []
+): Promise<HiddenGem | null> {
   const supabase = await createClient();
 
   const { data: tasteVector } = await supabase
     .from("taste_vectors")
     .select("user_id")
     .eq("user_id", userId)
+    .eq("media_type", mediaType)
     .maybeSingle();
   if (!tasteVector) return null;
 
   const { data: contentMatches } = await supabase.rpc("match_titles_for_user", {
     p_user_id: userId,
     p_match_count: CANDIDATE_POOL_SIZE,
+    p_media_type: mediaType,
   });
   if (!contentMatches?.length) return null;
 
@@ -57,7 +64,7 @@ export async function getHiddenGemForUser(userId: string, excludeIds: string[] =
   const candidateIds = contentMatches.map((m) => m.title_id).filter((id) => !excluded.has(id));
   if (!candidateIds.length) return null;
 
-  const { data: titles } = await supabase.from("titles").select("*").in("id", candidateIds);
+  const { data: titles } = await supabase.from("titles").select("*").in("id", candidateIds).eq("type", mediaType);
   const byId = new Map((titles ?? []).map((t) => [t.id, t]));
   const similarityById = new Map(contentMatches.map((m) => [m.title_id, m.similarity]));
 

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveMediaType } from "@/lib/context/media-type";
 import { getDirectorOfTheDay } from "@/lib/director-of-day/fetch";
 import { DirectorOfTheDay } from "@/components/home/director-of-the-day";
 import { getOrCreateDailyTrivia, toPublicTrivia } from "@/lib/daily-trivia/generate";
@@ -19,16 +20,21 @@ export default async function DailyPage() {
   if (!user) redirect("/login?next=/daily");
 
   const supabase = await createClient();
-
+  const mediaType = await getActiveMediaType();
+  // Director of the Day has no Shows-mode equivalent -- TV ingestion
+  // (Phase 2) deliberately skipped a showrunner/creator credit (see
+  // ingest-tmdb.ts), so there's no director data to personalize against
+  // for a TV catalogue. Skipped entirely in Shows mode rather than
+  // showing a movie director while the rest of the page is TV-scoped.
   const [directorOfTheDay, trivia, onThisDayTitles, newsStory, hiddenGem] = await Promise.all([
-    getDirectorOfTheDay(user.id),
+    mediaType === "movie" ? getDirectorOfTheDay(user.id) : Promise.resolve(null),
     getOrCreateDailyTrivia(),
     getOnThisDayTitles(),
     getDailyNewsStory(),
     // Relocated here from Home (Option B declutter) -- a single high-match,
     // low-popularity pick from this user's own taste vector. No other
     // pick list on this page to exclude from, so no excludeIds needed.
-    getHiddenGemForUser(user.id),
+    getHiddenGemForUser(user.id, mediaType),
   ]);
 
   // Only ever fetched once trivia is known to exist, and only to check
@@ -64,9 +70,11 @@ export default async function DailyPage() {
           {directorOfTheDay ? (
             <DirectorOfTheDay director={directorOfTheDay} />
           ) : (
-            <p className="font-section-body text-sm text-foreground-muted">
-              Rate a few titles to unlock your Director of the Day.
-            </p>
+            mediaType === "movie" && (
+              <p className="font-section-body text-sm text-foreground-muted">
+                Rate a few titles to unlock your Director of the Day.
+              </p>
+            )
           )}
 
           {/* Relocated from Home (Option B declutter). */}

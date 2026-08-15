@@ -73,7 +73,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
           return {
             userId: p.user_id,
             name: p.profiles?.display_name ?? p.profiles?.username ?? "them",
-            compatibility: await computeCompatibilityForUsers(user.id, p.user_id),
+            compatibility: await computeCompatibilityForUsers(user.id, p.user_id, mediaType),
           };
         } catch (err) {
           await captureServerError(err, { movieNightId: id, otherUserId: p.user_id, stage: "compatibility" });

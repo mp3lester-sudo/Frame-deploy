@@ -50,7 +50,11 @@ export async function runReengagementCampaign(): Promise<ReengagementRunSummary>
     try {
       const [{ data: profile }, { data: tasteVector }] = await Promise.all([
         supabase.from("profiles").select("username").eq("id", userId).maybeSingle(),
-        supabase.from("taste_vectors").select("user_id").eq("user_id", userId).maybeSingle(),
+        // Re-engagement is a cron job with no active toggle to read (no
+        // logged-in request/cookie) -- scoped to 'movie' since that's still
+        // the overwhelming majority of both the catalogue and every
+        // existing user's rating history post-TV-launch.
+        supabase.from("taste_vectors").select("user_id").eq("user_id", userId).eq("media_type", "movie").maybeSingle(),
       ]);
       if (!profile) {
         summary.errors++;
@@ -92,7 +96,11 @@ async function pickForUser(
   hasTasteVector: boolean
 ): Promise<ReengagementPick | null> {
   if (hasTasteVector) {
-    const { data: matches } = await supabase.rpc("match_titles_for_user", { p_user_id: userId, p_match_count: 1 });
+    const { data: matches } = await supabase.rpc("match_titles_for_user", {
+      p_user_id: userId,
+      p_match_count: 1,
+      p_media_type: "movie",
+    });
     const topTitleId = matches?.[0]?.title_id;
     if (topTitleId) {
       const { data: title } = await supabase
@@ -110,6 +118,7 @@ async function pickForUser(
   const { data: popular } = await supabase
     .from("titles")
     .select("name, release_date, poster_url")
+    .eq("type", "movie")
     .order("weighted_rating", { ascending: false, nullsFirst: false })
     .limit(1);
   if (popular && popular[0]) return toPick(popular[0]);

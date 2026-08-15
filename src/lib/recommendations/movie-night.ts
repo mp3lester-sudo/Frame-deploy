@@ -287,6 +287,7 @@ export async function getCandidatesForUserGroup({
     const { data: sims, error: simsError } = await supabase.rpc("title_similarity_for_user", {
       p_user_id: userId,
       p_title_ids: allIds,
+      p_media_type: mediaType,
     });
     if (simsError) void captureServerError(simsError, { where: "getCandidatesForUserGroup:title_similarity_for_user", userId });
     participantScores.push({
@@ -342,6 +343,7 @@ export async function getCandidatesForUserGroup({
             p_user_id: userId,
             p_title_id: c.title.id,
             p_min_similarity: CONTENT_MATCH_THRESHOLD,
+            p_media_type: mediaType,
           })
           .then((r) => ({
             titleId: c.title.id,

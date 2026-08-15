@@ -119,9 +119,9 @@ export interface Database {
         Relationships: [];
       };
       favorite_titles: {
-        Row: { user_id: string; title_id: string; position: number; created_at: string };
-        Insert: { user_id: string; title_id: string; position: number };
-        Update: Partial<{ title_id: string; position: number }>;
+        Row: { user_id: string; title_id: string; position: number; media_type: string; created_at: string };
+        Insert: { user_id: string; title_id: string; position: number; media_type: string };
+        Update: Partial<{ title_id: string; position: number; media_type: string }>;
         Relationships: [];
       };
       follows: {
@@ -131,8 +131,8 @@ export interface Database {
         Relationships: [];
       };
       taste_vectors: {
-        Row: { user_id: string; embedding: number[]; sample_size: number; updated_at: string };
-        Insert: { user_id: string; embedding: number[]; sample_size?: number };
+        Row: { user_id: string; media_type: string; embedding: number[]; sample_size: number; updated_at: string };
+        Insert: { user_id: string; media_type: string; embedding: number[]; sample_size?: number };
         Update: Partial<{ embedding: number[]; sample_size: number }>;
         Relationships: [];
       };
@@ -519,6 +519,7 @@ export interface Database {
       taste_attributes: {
         Row: {
           user_id: string;
+          media_type: string;
           pacing_preference: string | null;
           violence_tolerance: number | null;
           comedy_tolerance: number | null;
@@ -528,7 +529,7 @@ export interface Database {
           favorite_directors: string[];
           updated_at: string;
         };
-        Insert: { user_id: string } & Partial<Omit<Database["public"]["Tables"]["taste_attributes"]["Row"], "user_id" | "updated_at">>;
+        Insert: { user_id: string; media_type: string } & Partial<Omit<Database["public"]["Tables"]["taste_attributes"]["Row"], "user_id" | "media_type" | "updated_at">>;
         Update: Partial<Omit<Database["public"]["Tables"]["taste_attributes"]["Row"], "user_id">>;
         Relationships: [];
       };

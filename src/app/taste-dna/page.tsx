@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveMediaType } from "@/lib/context/media-type";
 import { computeTasteDna } from "@/lib/taste-dna/compute";
 import { computeSignaturePicks } from "@/lib/taste-dna/signature-pick";
 import { withTimeout } from "@/lib/with-timeout";
@@ -30,6 +31,9 @@ export default async function TasteDnaPage() {
     .eq("id", user.id)
     .maybeSingle();
   const isAuteur = isAuteurActive(profile);
+  // "Fully separate profiles" (no movies bleeding into Shows mode and vice
+  // versa) -- everything below is scoped to whichever toggle is active.
+  const mediaType = await getActiveMediaType();
 
   // computeSignaturePicks makes several sequential DB round trips on top of
   // computeTasteDna's own queries; it's a nice-to-have section, not core to
@@ -39,9 +43,9 @@ export default async function TasteDnaPage() {
   // against a timeout and falling back to [] (silently hiding the section)
   // guarantees this page always resolves.
   const [dna, signaturePicks] = await Promise.all([
-    computeTasteDna(user.id, isAuteur ? AUTEUR_MAX_ARCHETYPE_INSIGHTS : undefined),
+    computeTasteDna(user.id, mediaType, isAuteur ? AUTEUR_MAX_ARCHETYPE_INSIGHTS : undefined),
     withTimeout(
-      computeSignaturePicks(user.id, isAuteur ? AUTEUR_SIGNATURE_PICK_COUNT : STANDARD_SIGNATURE_PICK_COUNT),
+      computeSignaturePicks(user.id, isAuteur ? AUTEUR_SIGNATURE_PICK_COUNT : STANDARD_SIGNATURE_PICK_COUNT, mediaType),
       10000,
       []
     ),

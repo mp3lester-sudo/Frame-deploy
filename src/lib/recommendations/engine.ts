@@ -216,13 +216,13 @@ export async function getRecommendationsForUser(
     // above). The negative counterpart to the "because you loved X"
     // citation logic below (CONTENT_MATCH_THRESHOLD). See
     // dislike-penalty.ts and migrations 0052/0068.
-    supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds }),
+    supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds, p_media_type: mediaType }),
     // Implicit signals: how close each candidate is to something on the
     // user's watchlist (deliberate intent) vs. something they watched but
     // never rated (ambiguous) -- kept as two separate columns since
     // migration 0060 so they can be weighted differently. See
     // implicit-affinity.ts.
-    supabase.rpc("similarity_to_implicit_positive_titles", { p_user_id: userId, p_title_ids: candidateIds }),
+    supabase.rpc("similarity_to_implicit_positive_titles", { p_user_id: userId, p_title_ids: candidateIds, p_media_type: mediaType }),
     // Director, for diversify.ts's same-director check below (person_id)
     // and for the Recommendation.director display field (person's name,
     // joined in the same query rather than a separate round trip -- see
@@ -374,6 +374,7 @@ export async function getRecommendationsForUser(
       // them under the old default. Passing the same threshold through
       // keeps both checks in sync.
       p_min_similarity: CONTENT_MATCH_THRESHOLD,
+      p_media_type: mediaType,
     });
     const citedIdsByRecId = new Map<string, string[]>();
     for (const row of citationRows ?? []) {

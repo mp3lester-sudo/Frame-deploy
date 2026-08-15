@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import { Film, Tv } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MEDIA_TYPE_COOKIE, type MediaType } from "@/lib/context/media-type-cookie";
+import { hasAnyRatingsForType } from "@/lib/actions/onboarding";
 
 const COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60; // a year -- this is a standing preference, not a session-scoped one
 
@@ -31,7 +32,20 @@ export function MediaTypeToggle({ active }: { active: MediaType }) {
     if (next === active) return;
     document.documentElement.setAttribute("data-media", next);
     document.cookie = `${MEDIA_TYPE_COOKIE}=${next}; path=/; max-age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
-    startTransition(() => router.refresh());
+    startTransition(async () => {
+      // "Fully separate profiles" -- switching into a mode this account
+      // has zero ratings in gets the same taste-check swipe flow a brand
+      // new signup gets (see /onboarding), instead of landing on an empty
+      // cold-start feed with no way to seed a taste vector for that mode.
+      // The cookie write above already happened, so /onboarding's own
+      // getActiveMediaType() read sees `next`, not the value being left.
+      const hasRatings = await hasAnyRatingsForType(next);
+      if (!hasRatings) {
+        router.push("/onboarding");
+      } else {
+        router.refresh();
+      }
+    });
   }
 
   return (

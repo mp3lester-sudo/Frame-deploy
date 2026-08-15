@@ -1,13 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 import { computeCompatibility, type UserTasteSignal } from "@/lib/matchmaking/scoring";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-async function buildSignal(supabase: Supabase, userId: string): Promise<UserTasteSignal> {
+async function buildSignal(supabase: Supabase, userId: string, mediaType: MediaType): Promise<UserTasteSignal> {
   const [{ data: attrs }, { data: vector }, { data: ratings }] = await Promise.all([
-    supabase.from("taste_attributes").select("favorite_genres, favorite_directors").eq("user_id", userId).maybeSingle(),
-    supabase.from("taste_vectors").select("embedding").eq("user_id", userId).maybeSingle(),
-    supabase.from("ratings").select("title_id, score").eq("user_id", userId),
+    supabase
+      .from("taste_attributes")
+      .select("favorite_genres, favorite_directors")
+      .eq("user_id", userId)
+      .eq("media_type", mediaType)
+      .maybeSingle(),
+    supabase.from("taste_vectors").select("embedding").eq("user_id", userId).eq("media_type", mediaType).maybeSingle(),
+    supabase.from("ratings").select("title_id, score, titles!inner(type)").eq("user_id", userId).eq("titles.type", mediaType),
   ]);
 
   const ratingsById: Record<string, number> = {};
@@ -58,10 +64,11 @@ const MIN_RATINGS_EACH = 3;
  */
 export async function computeCompatibilityForUsers(
   userAId: string,
-  userBId: string
+  userBId: string,
+  mediaType: MediaType
 ): Promise<CompatibilityWithNames> {
   const supabase = await createClient();
-  const [a, b] = await Promise.all([buildSignal(supabase, userAId), buildSignal(supabase, userBId)]);
+  const [a, b] = await Promise.all([buildSignal(supabase, userAId, mediaType), buildSignal(supabase, userBId, mediaType)]);
 
   const result = computeCompatibility(a, b);
 

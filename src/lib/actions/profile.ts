@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ExperienceTier } from "@/lib/constants/experience-tier";
 import { tierForPoints } from "@/lib/profile/cinema-score";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -50,14 +51,19 @@ export async function updateProfile(input: z.infer<typeof profileSchema>) {
 // a profile page's Watched count and review list already expose), so
 // there's nothing more sensitive being computed for someone else's userId
 // than what's already visible elsewhere on their profile.
-export async function getCinemaScore(userId: string): Promise<{
+export async function getCinemaScore(
+  userId: string,
+  mediaType: "movie" | "tv" = "movie"
+): Promise<{
   points: number;
   watchedCount: number;
   reviewedCount: number;
   tier: ExperienceTier;
 }> {
   const { supabase } = await requireUser();
-  const { data, error } = await supabase.rpc("compute_cinema_score", { p_user_id: userId }).maybeSingle();
+  const { data, error } = await supabase
+    .rpc("compute_cinema_score", { p_user_id: userId, p_media_type: mediaType })
+    .maybeSingle();
   if (error || !data) {
     return { points: 0, watchedCount: 0, reviewedCount: 0, tier: "rookie" };
   }
@@ -107,13 +113,17 @@ export async function uploadAvatar(formData: FormData) {
   return avatarUrl;
 }
 
-/** Lightweight title search for the favorites picker — name match, ranked by weighted_rating. */
-export async function searchTitlesForPicker(query: string) {
+/** Lightweight title search for the favorites picker — name match, ranked by
+ *  weighted_rating, scoped to the toggle whose Pyramid is being edited so a
+ *  Movies-mode search never turns up a TV show to pick as a "favorite
+ *  movie" and vice versa. */
+export async function searchTitlesForPicker(query: string, mediaType: MediaType) {
   if (!query.trim()) return [];
   const supabase = await createClient();
   const { data } = await supabase
     .from("titles")
     .select("id, name, release_date, poster_url")
+    .eq("type", mediaType)
     .ilike("name", `%${query.trim()}%`)
     .order("weighted_rating", { ascending: false, nullsFirst: false })
     .limit(8);
@@ -122,16 +132,24 @@ export async function searchTitlesForPicker(query: string) {
 
 const favoritesSchema = z.array(z.string().uuid()).max(6);
 
-/** Replaces the user's six favorite films in one go, in the given order (position 1-6). */
-export async function setFavoriteTitles(titleIds: string[]) {
+/** Replaces the user's six favorite titles FOR ONE MEDIA TYPE in one go, in
+ *  the given order (position 1-6) -- "fully separate profiles" means this
+ *  only ever touches the Movies Pyramid or the Shows Pyramid, never both,
+ *  so picking new favorite shows can't bump a favorite movie out of its
+ *  slot (see migration 0072). */
+export async function setFavoriteTitles(titleIds: string[], mediaType: MediaType) {
   const parsed = favoritesSchema.parse(titleIds);
   const { supabase, user } = await requireUser();
 
-  const { error: deleteError } = await supabase.from("favorite_titles").delete().eq("user_id", user.id);
+  const { error: deleteError } = await supabase
+    .from("favorite_titles")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("media_type", mediaType);
   if (deleteError) throw new Error(deleteError.message);
 
   if (parsed.length > 0) {
-    const rows = parsed.map((titleId, i) => ({ user_id: user.id, title_id: titleId, position: i + 1 }));
+    const rows = parsed.map((titleId, i) => ({ user_id: user.id, title_id: titleId, position: i + 1, media_type: mediaType }));
     const { error: insertError } = await supabase.from("favorite_titles").insert(rows);
     if (insertError) throw new Error(insertError.message);
   }

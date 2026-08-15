@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { getActiveMediaType } from "@/lib/context/media-type";
 import { AvatarUpload } from "@/components/settings/avatar-upload";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { PasswordChangeForm } from "@/components/settings/password-change-form";
@@ -33,12 +34,14 @@ export default async function SettingsPage() {
   const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/settings");
 
+  const mediaType = await getActiveMediaType();
   const [{ data: profile }, { data: favoriteRows }, { count: referralCount }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     supabase
       .from("favorite_titles")
       .select("position, titles(id, name, release_date, poster_url)")
       .eq("user_id", user.id)
+      .eq("media_type", mediaType)
       .order("position", { ascending: true }),
     supabase.from("referrals").select("*", { count: "exact", head: true }).eq("referrer_id", user.id),
   ]);
@@ -83,7 +86,7 @@ export default async function SettingsPage() {
 
       <section className="mb-6 bento-card p-4">
         <SectionLabel>Favorite films</SectionLabel>
-        <FavoriteTitlesEditor initialFavorites={favorites} />
+        <FavoriteTitlesEditor key={mediaType} initialFavorites={favorites} mediaType={mediaType} />
       </section>
 
       {/* All three import paths (RSS by username, paste-HTML for free

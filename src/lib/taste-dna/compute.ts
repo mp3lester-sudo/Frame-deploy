@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 import { computeTasteDnaFromRatings, type TasteDnaResult } from "@/lib/taste-dna/archetypes";
 import { computeTasteEvolution, type RatedTitleFeaturesWithTime, type TasteEvolutionResult } from "@/lib/taste-dna/evolution";
 import {
@@ -37,6 +38,10 @@ export interface TasteDnaWithEvolution extends TasteDnaResult {
  */
 export async function computeTasteDna(
   userId: string,
+  /** "Fully separate profiles" -- Taste DNA only ever reflects whichever
+   *  toggle is active, movie ratings never contribute to the Shows DNA
+   *  and vice versa. */
+  mediaType: MediaType,
   /** Forwarded to computeTasteEvolution -- how many rising/fading
    *  archetype insights to surface per direction. Defaults to that
    *  function's own default; the Taste DNA page passes a higher number
@@ -67,7 +72,8 @@ export async function computeTasteDna(
       .select(
         "id, name, genres, tone, themes, mood_tags, pacing, violence_level, comedy_level, emotional_intensity, release_date, original_language"
       )
-      .in("id", titleIds),
+      .in("id", titleIds)
+      .eq("type", mediaType),
     supabase
       .from("title_credits")
       .select("title_id, people(id, name)")
@@ -75,6 +81,11 @@ export async function computeTasteDna(
       .in("title_id", titleIds),
   ]);
 
+  // Filtering the titles query above by mediaType is what actually keeps
+  // this DNA scoped to one toggle -- any rating whose title didn't come
+  // back (wrong type) has no entry in titleById, so the `if (!title)
+  // return null` below silently drops it rather than needing a second
+  // pass over `ratings` itself.
   const titleById = new Map((titles ?? []).map((t) => [t.id, t]));
   const directorByTitle = new Map<string, { id: string; name: string }>();
   for (const c of directorCredits ?? []) {
@@ -116,6 +127,7 @@ export async function computeTasteDna(
   try {
     await supabase.from("taste_attributes").upsert({
       user_id: userId,
+      media_type: mediaType,
       pacing_preference: result.pacingPreference,
       violence_tolerance: result.violenceTolerance,
       comedy_tolerance: result.comedyTolerance,
@@ -141,6 +153,7 @@ export async function computeTasteDna(
  */
 async function fetchRatedTitlesInRange(
   userId: string,
+  mediaType: MediaType,
   startIso: string,
   endIso: string
 ): Promise<WrappedRatedTitle[]> {
@@ -163,7 +176,8 @@ async function fetchRatedTitlesInRange(
       .select(
         "id, name, poster_url, genres, tone, themes, mood_tags, pacing, violence_level, comedy_level, emotional_intensity, release_date, original_language, runtime_minutes, tmdb_vote_count"
       )
-      .in("id", titleIds),
+      .in("id", titleIds)
+      .eq("type", mediaType),
     supabase
       .from("title_credits")
       .select("title_id, people(id, name)")
@@ -210,10 +224,10 @@ async function fetchRatedTitlesInRange(
     .filter((f): f is WrappedRatedTitle => f !== null);
 }
 
-export async function computeWrapped(userId: string, year: number): Promise<WrappedResult | null> {
+export async function computeWrapped(userId: string, mediaType: MediaType, year: number): Promise<WrappedResult | null> {
   const yearStart = `${year}-01-01T00:00:00.000Z`;
   const yearEnd = `${year + 1}-01-01T00:00:00.000Z`;
-  const rated = await fetchRatedTitlesInRange(userId, yearStart, yearEnd);
+  const rated = await fetchRatedTitlesInRange(userId, mediaType, yearStart, yearEnd);
   if (!rated.length) return null;
   return computeWrappedFromRatings(rated, year);
 }
@@ -228,9 +242,9 @@ export async function computeWrapped(userId: string, year: number): Promise<Wrap
  * text uses the month label instead -- see computeWrapped's summaryLabel
  * param.
  */
-export async function computeMonthlyWrapped(userId: string): Promise<WrappedResult | null> {
+export async function computeMonthlyWrapped(userId: string, mediaType: MediaType): Promise<WrappedResult | null> {
   const { start, end, label } = getMonthRange(new Date());
-  const rated = await fetchRatedTitlesInRange(userId, start, end);
+  const rated = await fetchRatedTitlesInRange(userId, mediaType, start, end);
   if (!rated.length) return null;
   return computeWrappedFromRatings(rated, new Date().getUTCFullYear(), label);
 }
@@ -241,9 +255,9 @@ export async function computeMonthlyWrapped(userId: string): Promise<WrappedResu
  * (task #342): gated in lib/actions/wrapped.ts's getMyRecentWrapped, not
  * here, matching the monthly perk's "gating lives in the action" split.
  */
-export async function computeWeeklyWrapped(userId: string): Promise<WrappedResult | null> {
+export async function computeWeeklyWrapped(userId: string, mediaType: MediaType): Promise<WrappedResult | null> {
   const { start, end, label } = getWeekRange(new Date());
-  const rated = await fetchRatedTitlesInRange(userId, start, end);
+  const rated = await fetchRatedTitlesInRange(userId, mediaType, start, end);
   if (!rated.length) return null;
   return computeWrappedFromRatings(rated, new Date().getUTCFullYear(), label);
 }

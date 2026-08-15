@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { buildReasonDetail, type ExplainableTitle, type ReasonDetail } from "@/lib/recommendations/explain";
+import type { MediaType } from "@/lib/context/media-type-cookie";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -91,8 +92,8 @@ export function pickSignatureCandidates(
  * that hybrid scoring (and, as a side effect, rarely surfaces the exact
  * same title as today's hero pick).
  */
-export async function computeSignaturePick(userId: string): Promise<SignaturePick | null> {
-  const picks = await computeSignaturePicks(userId, 1);
+export async function computeSignaturePick(userId: string, mediaType: MediaType): Promise<SignaturePick | null> {
+  const picks = await computeSignaturePicks(userId, 1, mediaType);
   return picks[0] ?? null;
 }
 
@@ -103,12 +104,12 @@ export async function computeSignaturePick(userId: string): Promise<SignaturePic
  * #343). count=1 (what computeSignaturePick passes) makes the two
  * equivalent to the pre-multi-pick behavior.
  */
-export async function computeSignaturePicks(userId: string, count: number): Promise<SignaturePick[]> {
+export async function computeSignaturePicks(userId: string, count: number, mediaType: MediaType): Promise<SignaturePick[]> {
   const supabase = await createClient();
 
   const [{ data: matches }, { data: userRatings }] = await Promise.all([
-    supabase.rpc("match_titles_for_user", { p_user_id: userId, p_match_count: CANDIDATE_POOL }),
-    supabase.from("ratings").select("title_id").eq("user_id", userId),
+    supabase.rpc("match_titles_for_user", { p_user_id: userId, p_match_count: CANDIDATE_POOL, p_media_type: mediaType }),
+    supabase.from("ratings").select("title_id, titles!inner(type)").eq("user_id", userId).eq("titles.type", mediaType),
   ]);
 
   if (!matches?.length) return [];
@@ -122,14 +123,15 @@ export async function computeSignaturePicks(userId: string, count: number): Prom
   // winner is built in parallel rather than paying for N sequential round
   // trips -- each buildSignaturePick call still has its own unavoidable
   // internal sequential step (cited titles' names depend on citedIds).
-  const built = await Promise.all(winners.map((winner) => buildSignaturePick(supabase, userId, winner)));
+  const built = await Promise.all(winners.map((winner) => buildSignaturePick(supabase, userId, winner, mediaType)));
   return built.filter((p): p is SignaturePick => p !== null);
 }
 
 async function buildSignaturePick(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-  winner: { titleId: string; similarity: number }
+  winner: { titleId: string; similarity: number },
+  mediaType: MediaType
 ): Promise<SignaturePick | null> {
   // The title row and its citations don't depend on each other, so fetch
   // both in parallel rather than paying for two sequential round trips --
@@ -144,6 +146,7 @@ async function buildSignaturePick(
       p_user_id: userId,
       p_title_id: winner.titleId,
       p_min_similarity: SIMILARITY_FLOOR,
+      p_media_type: mediaType,
     }),
   ]);
   if (!title) return null;

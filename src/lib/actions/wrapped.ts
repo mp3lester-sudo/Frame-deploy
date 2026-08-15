@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { getActiveMediaType } from "@/lib/context/media-type";
 import { isPremiumActive } from "@/lib/premium/is-premium";
 import { isAuteurActive } from "@/lib/premium/tier";
 import { computeWrapped, computeMonthlyWrapped, computeWeeklyWrapped } from "@/lib/taste-dna/compute";
@@ -17,7 +18,8 @@ import type { WrappedResult } from "@/lib/taste-dna/wrapped";
 export async function getMyWrapped(year: number): Promise<WrappedResult | null> {
   const user = await getVerifiedUser();
   if (!user) return null;
-  return computeWrapped(user.id, year);
+  const mediaType = await getActiveMediaType();
+  return computeWrapped(user.id, mediaType, year);
 }
 
 export interface RecentWrappedState {
@@ -54,7 +56,9 @@ export async function getMyRecentWrapped(): Promise<RecentWrappedState> {
   if (!isPremium) return { isPremium: false, cadence: "month", result: null };
 
   const cadence: "week" | "month" = isAuteurActive(profile) ? "week" : "month";
-  const result = cadence === "week" ? await computeWeeklyWrapped(user.id) : await computeMonthlyWrapped(user.id);
+  const mediaType = await getActiveMediaType();
+  const result =
+    cadence === "week" ? await computeWeeklyWrapped(user.id, mediaType) : await computeMonthlyWrapped(user.id, mediaType);
   return { isPremium: true, cadence, result };
 }
 
@@ -72,7 +76,8 @@ export async function createWrappedShare(year: number): Promise<WrappedShareResu
   const user = await getVerifiedUser();
   if (!user) throw new Error("Not authenticated");
 
-  const stats = await computeWrapped(user.id, year);
+  const mediaType = await getActiveMediaType();
+  const stats = await computeWrapped(user.id, mediaType, year);
   if (!stats) throw new Error("Not enough rated titles yet to share a recap for this year");
 
   const { data, error } = await supabase

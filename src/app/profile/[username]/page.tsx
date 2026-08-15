@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
+import { getActiveMediaType } from "@/lib/context/media-type";
 import Image from "@/components/ui/fade-image";
 import { Avatar } from "@/components/ui/avatar";
 import { TitleCard } from "@/components/title-card";
@@ -127,8 +128,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   if (!profile) notFound();
 
   const isOwnProfile = viewer?.id === profile.id;
+  // "Fully separate profiles" -- every stat/section below (DNA, Wrapped,
+  // Cinema Score, Personal Pyramid, compatibility) is scoped to whichever
+  // toggle the VIEWER currently has active, same convention Discover/Home
+  // already use app-wide (a single global mode, not a per-page switch).
+  const mediaType = await getActiveMediaType();
   const compatibility =
-    viewer && !isOwnProfile ? await computeCompatibilityForUsers(viewer.id, profile.id) : null;
+    viewer && !isOwnProfile ? await computeCompatibilityForUsers(viewer.id, profile.id, mediaType) : null;
 
   // Marquee DNA used to live behind its own link in the self-service menu
   // (viewer's own DNA only, at /taste-dna); it now renders inline right
@@ -145,16 +151,17 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const isAuteur = isAuteurActive(profile);
   const dnaPromise = computeTasteDna(
     profile.id,
+    mediaType,
     isAuteur ? AUTEUR_MAX_ARCHETYPE_INSIGHTS : undefined
   );
-  const signaturePickPromise = withTimeout(computeSignaturePick(profile.id), 10000, null);
+  const signaturePickPromise = withTimeout(computeSignaturePick(profile.id, mediaType), 10000, null);
   // Wrapped preview card (own profile only -- see the rail below): kicked
   // off here for the same reason as the other two -- runs concurrently
   // with the big Promise.all rather than adding its own sequential round
   // trip. "This year so far" mirrors the default the standalone /wrapped
   // page itself shows before you page back through past years.
   const wrappedPromise = isOwnProfile
-    ? computeWrapped(profile.id, new Date().getUTCFullYear())
+    ? computeWrapped(profile.id, mediaType, new Date().getUTCFullYear())
     : Promise.resolve(null);
 
   const [
@@ -172,13 +179,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
     supabase
       .from("ratings")
-      .select("score, titles(*)")
+      .select("score, titles!inner(*)")
       .eq("user_id", profile.id)
+      .eq("titles.type", mediaType)
       .order("created_at", { ascending: false })
       .limit(12),
     // Separate count so "See all" only shows up when there's actually
     // more than the 12-item teaser above already covers.
-    supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
+    supabase
+      .from("ratings")
+      .select("*, titles!inner(type)", { count: "exact", head: true })
+      .eq("user_id", profile.id)
+      .eq("titles.type", mediaType),
     viewer
       ? supabase
           .from("follows")
@@ -191,6 +203,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       .from("favorite_titles")
       .select("position, titles(*)")
       .eq("user_id", profile.id)
+      .eq("media_type", mediaType)
       .order("position", { ascending: true }),
     // Lightweight, genres-only fetch across this person's ENTIRE rating
     // history (not just the 12-item "recently watched" teaser above) --
@@ -199,7 +212,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     // best-effort populated once someone's visited a page that calls
     // computeTasteDna and would otherwise leave this stat blank for a
     // lot of profiles that clearly do have a most-watched genre.
-    supabase.from("ratings").select("titles(genres)").eq("user_id", profile.id),
+    supabase.from("ratings").select("titles!inner(genres)").eq("user_id", profile.id).eq("titles.type", mediaType),
     viewer
       ? supabase
           .from("user_blocks")
@@ -217,7 +230,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     // a verified user and a live supabase client from further up this
     // same function -- re-authenticating again per the same "redundant
     // auth.getUser() calls" fix applied elsewhere on this page.
-    supabase.rpc("compute_cinema_score", { p_user_id: profile.id }).maybeSingle(),
+    supabase.rpc("compute_cinema_score", { p_user_id: profile.id, p_media_type: mediaType }).maybeSingle(),
   ]);
 
   const [dna, signaturePick, wrapped] = await Promise.all([dnaPromise, signaturePickPromise, wrappedPromise]);
