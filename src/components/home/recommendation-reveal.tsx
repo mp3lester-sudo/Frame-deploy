@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "@/components/ui/fade-image";
 import Link from "next/link";
+import { Bookmark } from "lucide-react";
 import type { Database } from "@/lib/supabase/types";
 import type { ReasonDetail } from "@/lib/recommendations/explain";
 import { formatRuntime } from "@/lib/utils";
+import { addToWatchlist, removeFromWatchlist } from "@/lib/actions/lists";
 import { WhyThisPick } from "./why-this-pick";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
@@ -16,6 +18,12 @@ export interface RevealPick {
   detail: ReasonDetail;
   matchPercent: number | null;
   director: string | null;
+  // Resolved server-side (one batched query over the whole hero pool, see
+  // HomeRecommendationsSection in page.tsx) rather than fetched here --
+  // this is a client component with no data-fetching pattern of its own,
+  // consistent with the rest of the app (see ContextPicker's comment on
+  // why nothing here does client-side fetching).
+  initiallyOnWatchlist: boolean;
 }
 
 // Tap-to-reveal: a radial match meter counts up from 0% to the pick's
@@ -68,8 +76,31 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
   const [displayPercent, setDisplayPercent] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  // Keyed by title id, not by the current pick alone -- "generate another
+  // pick" cycles the hero through picks[] via index, and a toggle made on
+  // pick A shouldn't reset just because someone cycled to pick B and back.
+  // Falls back to each pick's own server-resolved initiallyOnWatchlist
+  // whenever there's no local override yet.
+  const [watchlistOverrides, setWatchlistOverrides] = useState<Record<string, boolean>>({});
+  const [isWatchlistPending, startWatchlistTransition] = useTransition();
+
   const current = picks[index];
   const hasMatch = current?.matchPercent != null;
+  const onWatchlist = current ? (watchlistOverrides[current.title.id] ?? current.initiallyOnWatchlist) : false;
+
+  function toggleWatchlist() {
+    if (!current) return;
+    const titleId = current.title.id;
+    const next = !onWatchlist;
+    setWatchlistOverrides((prev) => ({ ...prev, [titleId]: next }));
+    startWatchlistTransition(async () => {
+      try {
+        await (next ? addToWatchlist(titleId) : removeFromWatchlist(titleId));
+      } catch {
+        setWatchlistOverrides((prev) => ({ ...prev, [titleId]: !next }));
+      }
+    });
+  }
 
   useEffect(() => {
     const activeTimers = timers.current;
@@ -280,17 +311,34 @@ export function RecommendationReveal({ picks, isColdStart }: { picks: RevealPick
             <WhyThisPick detail={detail} />
           </div>
 
-          {/* Primary CTA -- previously there was no direct call to
-              action at all, only the secondary "generate another"
-              cycle button. Same gold-foil treatment as every other
-              primary button in the app (wordmark, sign-up, onboarding
-              CTAs). */}
-          <div className="reveal-fade-up mt-5 flex flex-wrap items-center gap-4 [animation-delay:210ms]">
+          {/* Streaming-home CTA pair (Concept G) -- replaces the old
+              single "Watch tonight" button, which just linked to the
+              same movie page the poster/title already link to. Primary
+              is now a real distinct action (queue it up) rather than a
+              second route to the page you're already looking at;
+              secondary is the plain "more info" link that used to be
+              the only CTA. Both keep the same h-12/px-7/radius-sm
+              sizing as the old single button so the reveal layout
+              doesn't shift. */}
+          <div className="reveal-fade-up mt-5 flex flex-wrap items-center gap-3 [animation-delay:210ms]">
+            <button
+              type="button"
+              onClick={toggleWatchlist}
+              disabled={isWatchlistPending}
+              className={
+                onWatchlist
+                  ? "inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-border-strong bg-white/5 px-7 text-sm font-semibold uppercase tracking-wide text-accent transition-colors hover:bg-white/10 disabled:opacity-60"
+                  : "bg-accent text-accent-foreground inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-sm)] px-7 text-sm font-semibold uppercase tracking-wide transition-colors hover:bg-accent-soft disabled:opacity-60"
+              }
+            >
+              <Bookmark size={15} fill={onWatchlist ? "currentColor" : "none"} />
+              {onWatchlist ? "On watchlist" : "Add to watchlist"}
+            </button>
             <Link
               href={href}
-              className="bg-accent text-accent-foreground inline-flex h-12 items-center justify-center rounded-[var(--radius-sm)] px-7 text-sm font-semibold uppercase tracking-wide transition-colors hover:bg-accent-soft"
+              className="inline-flex h-12 items-center justify-center rounded-[var(--radius-sm)] border border-border-strong bg-white/5 px-7 text-sm font-semibold uppercase tracking-wide text-foreground transition-colors hover:bg-white/10"
             >
-              Watch tonight
+              More info
             </Link>
             {picks.length > 1 && (
               <button

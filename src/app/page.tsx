@@ -90,6 +90,24 @@ async function HomeRecommendationsSection({
   const heroReserve = recommendations.slice(7, 9);
   const heroPool = hero ? [hero, ...heroReserve] : [];
 
+  // Streaming-home hero CTA (Concept G) needs to know, per pick, whether
+  // it's already on the watchlist -- one batched query over just the
+  // hero pool's few ids (hero + 2 reserve, see comment above), not the
+  // whole recommendations array, since MoodRow's cards don't show this
+  // state. Runs inside this already-streamed/Suspense-gated section, so
+  // it doesn't add to the page shell's own critical path.
+  const heroPoolIds = heroPool.map((r) => r.title.id);
+  let watchlistedIds = new Set<string>();
+  if (heroPoolIds.length > 0) {
+    const supabase = await createClient();
+    const { data: watchlistRows } = await supabase
+      .from("watchlist")
+      .select("title_id")
+      .eq("user_id", userId)
+      .in("title_id", heroPoolIds);
+    watchlistedIds = new Set((watchlistRows ?? []).map((row) => row.title_id));
+  }
+
   // Director now comes straight off each Recommendation -- engine.ts
   // already fetches title_credits for its whole candidate pool (for
   // diversify.ts's same-director check) and now joins the person's name
@@ -101,6 +119,7 @@ async function HomeRecommendationsSection({
     detail: r.detail,
     matchPercent: r.matchPercent,
     director: r.director,
+    initiallyOnWatchlist: watchlistedIds.has(r.title.id),
   }));
 
   return (
