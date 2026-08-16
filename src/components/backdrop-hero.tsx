@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX, X } from "lucide-react";
 import Image from "@/components/ui/fade-image";
 import { BackButton } from "@/components/ui/back-button";
@@ -30,6 +30,36 @@ export function BackdropHero({
   const [playing, setPlaying] = useState(Boolean(trailerKey));
   const [muted, setMuted] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // enablejsapi=1 in the iframe src (below) makes YouTube's player post
+  // status messages back to this window -- listening for onError here
+  // catches the cases no embed parameter can prevent: embedding disabled
+  // by the uploader, age-restricted content, region blocks, or a video
+  // pulled after TMDB indexed it. Every one of those makes YouTube render
+  // its own "watch on YouTube" card with the red play button instead of
+  // actually autoplaying, which is exactly the broken state this is
+  // meant to catch -- falling back to the plain backdrop image means
+  // that red button is never visible, only ever a clean still if a
+  // trailer can't play. Scoped to messages from YouTube specifically
+  // (event.origin check) since postMessage is a shared, unauthenticated
+  // channel any other script on the page could also post to.
+  useEffect(() => {
+    if (!trailerKey) return;
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== "https://www.youtube.com") return;
+      let data: unknown;
+      try {
+        data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+      } catch {
+        return;
+      }
+      if (data && typeof data === "object" && "event" in data && (data as { event: unknown }).event === "onError") {
+        setPlaying(false);
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [trailerKey]);
 
   function toggleMute() {
     const next = !muted;
