@@ -334,11 +334,27 @@ export async function getCandidatesForUserGroup({
   const { data: titles } = await supabase.from("titles").select("*").in("id", allIds);
   const byId = new Map((titles ?? []).map((t) => [t.id, t]));
 
-  const filtered = ranked
+  const rankedWithTitles = ranked
     .map((r) => ({ ...r, title: byId.get(r.titleId) }))
     .filter((r): r is typeof r & { title: Title } => !!r.title)
-    .filter((r) => !r.title.genres?.some((g) => excludedGenres.has(g)))
     .filter((r) => !excludeIds.has(r.title.id));
+
+  // The hard per-genre veto (manual excludes + each participant's own
+  // HARD_DISLIKE_THRESHOLD genres, unioned) is meant to steer away from a
+  // guaranteed miss for someone -- not to leave the group with nothing at
+  // all. With 3-4 people (the "with friends" cap), the union of "someone
+  // hard-dislikes this genre" can plausibly cover everything left in a
+  // ~80-title seeded pool, silently zeroing out a candidate list that
+  // *did* pass the fairness floor -- the exact "AI says there's nothing"
+  // dead end this was meant to prevent, not the popularity fallback above
+  // (which only fires when nobody has enough rating signal at all). When
+  // the veto empties an otherwise-real compromise, fall back to the
+  // fairness-ranked list without it rather than showing an empty result
+  // for a group that does have a genuine, scored answer.
+  let filtered = rankedWithTitles.filter((r) => !r.title.genres?.some((g) => excludedGenres.has(g)));
+  if (filtered.length === 0 && rankedWithTitles.length > 0) {
+    filtered = rankedWithTitles;
+  }
 
   const topCandidates = filtered.slice(0, limit);
 
