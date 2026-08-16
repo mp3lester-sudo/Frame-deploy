@@ -558,9 +558,15 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
       )}
 
       <style>{`
+        /* Opacity-only now -- no scale/translateY. Each new card used to
+           pop up from slightly below and grow into place, which read as
+           the whole deck jumping vertically after every swipe instead of
+           staying put and only reacting to the horizontal drag. A plain
+           fade keeps the "new card" cue without moving anything on the
+           y-axis; the card's own top/bottom position never changes. */
         @keyframes swipe-card-enter {
-          from { opacity: 0; transform: scale(0.94) translateY(10px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         .swipe-card-enter {
           animation: swipe-card-enter ${ENTER_DURATION_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
