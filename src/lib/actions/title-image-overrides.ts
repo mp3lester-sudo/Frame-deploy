@@ -58,7 +58,7 @@ export async function setTitleImageOverride(input: z.infer<typeof setSchema>): P
     .eq("id", user.id)
     .maybeSingle();
   if (!isAuteurActive(profile)) {
-    throw new Error("Custom posters are a Marquee Auteur perk. Upgrade at /premium to customize this title.");
+    throw new Error("Custom posters are a Slate Auteur perk. Upgrade at /premium to customize this title.");
   }
 
   const { error } = await supabase.from("title_image_overrides").upsert({

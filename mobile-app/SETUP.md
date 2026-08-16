@@ -1,6 +1,6 @@
-# Marquee iOS app — setup on your Mac
+# Slate iOS app — setup on your Mac
 
-This folder is a Capacitor wrapper around the live Marquee website. It has no
+This folder is a Capacitor wrapper around the live Slate website. It has no
 copy of the app's code or content — the native app just opens
 `https://taste-green-tau.vercel.app` inside a WebView. That means:
 
@@ -48,7 +48,7 @@ workspace file once pods are installed.
    `capacitor.config.ts`. If you want a different one (e.g. matching a
    specific App Store Connect app record you've already created), change it
    both there and in Xcode's signing settings, then re-run `npx cap sync ios`.
-4. Confirm the **Display Name** (currently "Marquee") under the target's
+4. Confirm the **Display Name** (currently "Slate") under the target's
    **General** tab if you want it to differ from what's in
    `capacitor.config.ts`.
 5. The app icon (`AppIcon-1024.png`, the gold "B" monogram) and a matching
@@ -75,7 +75,7 @@ public release.
 
 1. **Create the App Store Connect record** (one-time, if you haven't
    already): go to appstoreconnect.apple.com → **Apps** → **+** → **New
-   App**. Platform iOS, name "Marquee", bundle ID `app.marquee.ios`
+   App**. Platform iOS, name "Slate", bundle ID `app.marquee.ios`
    (must match `capacitor.config.ts` exactly), and pick a SKU (any unique
    string, e.g. `marquee-ios-1`). None of the store-listing fields
    (screenshots, description, pricing, age rating) need to be filled in
@@ -114,7 +114,7 @@ public release.
 
 5. **Testers install the TestFlight app** (from the regular App Store)
    and accept your invite (email link, or the public link if you made
-   one) to install Marquee through it.
+   one) to install Slate through it.
 
 ### Things specific to TestFlight worth knowing
 
@@ -150,7 +150,7 @@ release is the same archive, just with the store listing filled in:
 
 ### One policy note worth knowing before you submit
 
-Marquee's Premium subscription is sold via Stripe Checkout, not Apple's
+Slate's Premium subscription is sold via Stripe Checkout, not Apple's
 In-App Purchase. Apple generally requires a choice here: either digital
 subscriptions go through Apple's own In-App Purchase (StoreKit, with
 Apple's 15-30% cut), or the purchase has to happen entirely *outside* the
@@ -169,7 +169,7 @@ here.
 
 ### Push notifications don't work in this build yet
 
-Marquee's push notification toggle (Settings -> Push notifications) is
+Slate's push notification toggle (Settings -> Push notifications) is
 built on the standard Web Push APIs (`Notification`, `PushManager`, VAPID
 keys) -- these work in real browsers but don't exist inside a Capacitor
 WKWebView, so `getInitialStatus()` in `push-toggle.tsx` correctly detects
@@ -194,7 +194,7 @@ its own, the same category of manual step as the widget extension below.
   then re-archive and re-submit through Xcode (to either TestFlight or
   the App Store -- both need a bumped build number for every new upload).
 
-## Home-screen widget (Marquee Daily Pick)
+## Home-screen widget (Slate Daily Pick)
 
 An optional iOS WidgetKit widget -- today's personalized recommendation,
 right on the home screen, refreshed on the OS's own schedule whether or
@@ -291,12 +291,12 @@ choose your device, hit Run. Xcode installs the widget extension
 alongside the already-installed main app rather than launching a
 separate app.
 
-Then on the device: make sure you're logged into Marquee in the main app
+Then on the device: make sure you're logged into Slate in the main app
 first (the widget has nothing to show until `WidgetTokenBootstrap` has
 run at least once), then long-press the home screen → **+** → search
-"Marquee" → add the widget in either the small or medium size.
+"Slate" → add the widget in either the small or medium size.
 
-If it shows "Open Marquee / Sign in to see your daily pick" after that,
+If it shows "Open Slate / Sign in to see your daily pick" after that,
 force-quit and reopen the main app once (the token write happens on
 mount, not instantly in the background) and check again after a few
 seconds.

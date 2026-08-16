@@ -15,7 +15,7 @@ import { movieNightLabel } from "@/lib/copy/movie-night-copy";
 // putting a DB round trip back on the critical path of every click.
 const BADGE_POLL_MS = 60_000;
 
-// Marquee DNA no longer gets its own persistent nav entry -- it now
+// Slate DNA no longer gets its own persistent nav entry -- it now
 // lives inline on the profile page (see profile/[username]/page.tsx),
 // which people already visit far more often than a standalone page.
 // The route itself (/taste-dna) is untouched and still linked from the
@@ -37,7 +37,7 @@ function getLinks(mediaType: MediaType) {
   return [
     { href: "/discover", label: "Discover", icon: Compass },
     { href: "/movie-night", label: movieNightLabel(mediaType), icon: Clapperboard },
-    { href: "/ai", label: "Ask Marquee", icon: Sparkles },
+    { href: "/ai", label: "Ask Slate", icon: Sparkles },
     { href: "/feed", label: "Social", icon: Users },
     { href: "/daily", label: "Daily", icon: CalendarDays },
   ];
@@ -111,7 +111,7 @@ export function NavBar({ isAuthed, mediaType }: { isAuthed: boolean; mediaType: 
             href="/"
             className="text-gold-foil font-hollywood text-2xl uppercase tracking-[0.08em]"
           >
-            Marquee
+            Slate
           </Link>
           <MediaTypeToggle active={mediaType} />
         </div>

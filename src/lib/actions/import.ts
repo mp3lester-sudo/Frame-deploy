@@ -163,7 +163,7 @@ async function upsertResolvedEntries(
     // hits the *real* unique constraint on (user_id, title_id) — the one
     // that fires for anyone importing a title they already have a rating
     // for from any source (onboarding, a prior partial import, manually
-    // rating it in Marquee) — and throws a raw Postgres duplicate-key
+    // rating it in Slate) — and throws a raw Postgres duplicate-key
     // error instead of updating the score like the "safe to re-run" doc
     // comment above promises. This was the actual cause of every real
     // import failing: onConflict has to name the constraint's columns
@@ -178,7 +178,7 @@ async function upsertResolvedEntries(
   // is supposed to care most about — hundreds of explicit ratings in one
   // go — but this function used to never touch taste_vectors at all, so an
   // imported history contributed nothing to recommendations until the user
-  // happened to rate something new inside Marquee itself. Recompute once,
+  // happened to rate something new inside Slate itself. Recompute once,
   // after all rows are written, rather than once per row (see migration
   // 0031 — recompute_taste_vector_for_user rebuilds fresh from every 4-5
   // star rating, so a single call already reflects the whole import).
@@ -411,7 +411,7 @@ export async function importLetterboxdRss(usernameRaw: string): Promise<ImportRe
     let res: Response;
     try {
       res = await fetch(`https://letterboxd.com/${encodeURIComponent(username)}/rss/`, {
-        headers: { "User-Agent": "Marquee/1.0 (+https://marquee.app; RSS import for a signed-in member)" },
+        headers: { "User-Agent": "Slate/1.0 (+https://slate.app; RSS import for a signed-in member)" },
         cache: "no-store",
       });
     } catch {

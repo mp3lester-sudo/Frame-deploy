@@ -46,7 +46,7 @@ export function CookieConsentBanner() {
     <div className="cookie-consent-banner fixed inset-x-0 bottom-0 z-50 border-t border-border bg-surface px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.2)] md:bottom-16">
       <div className="mx-auto flex max-w-3xl flex-col items-center justify-between gap-3 sm:flex-row">
         <p className="text-xs text-foreground-muted">
-          We use analytics to understand how Marquee is used. No data is sold to third parties.{" "}
+          We use analytics to understand how Slate is used. No data is sold to third parties.{" "}
           <a href="/privacy" className="underline hover:text-accent">
             Privacy Policy
           </a>

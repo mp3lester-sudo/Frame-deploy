@@ -42,7 +42,7 @@ export function LetterboxdImport() {
         free accounts don&apos;t have that tab. If that&apos;s you, use the paste-based import below instead. Pro
         members: download your export bundle there, unzip it, and upload{" "}
         <code className="text-foreground">ratings.csv</code> and/or <code className="text-foreground">watched.csv</code>{" "}
-        below. Films are matched by title and year — anything not yet in Marquee&apos;s catalogue will show up as
+        below. Films are matched by title and year — anything not yet in Slate&apos;s catalogue will show up as
         unmatched rather than being guessed at.
       </p>
 
@@ -84,7 +84,7 @@ export function LetterboxdImport() {
           {summary.unmatchedSample.length > 0 && (
             <details className="mt-2">
               <summary className="cursor-pointer text-foreground-muted">
-                {summary.totalRows - summary.matched} not found in Marquee&apos;s catalogue yet
+                {summary.totalRows - summary.matched} not found in Slate&apos;s catalogue yet
               </summary>
               <ul className="mt-2 flex flex-col gap-0.5 text-xs text-foreground-muted">
                 {summary.unmatchedSample.map((u, i) => (

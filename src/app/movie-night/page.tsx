@@ -100,7 +100,7 @@ export default async function MovieNightListPage() {
 
       {!nights?.length && (
         <p className="mb-6 font-section-body text-sm text-foreground-muted">
-          No {movieNightsLabelLower(mediaType)} yet. Start one above and invite friends by username -- Marquee will
+          No {movieNightsLabelLower(mediaType)} yet. Start one above and invite friends by username -- Slate will
           suggest something everyone&apos;s taste agrees on.
         </p>
       )}

@@ -6,7 +6,7 @@
  * but importing it from media-type.ts directly would pull next/headers
  * into the client bundle.
  */
-export const MEDIA_TYPE_COOKIE = "marquee_media_type";
+export const MEDIA_TYPE_COOKIE = "slate_media_type";
 
 export type MediaType = "movie" | "tv";
 

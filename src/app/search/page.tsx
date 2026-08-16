@@ -111,7 +111,7 @@ export default async function SearchPage({
           {q && !titles.length && <p className="text-sm text-foreground-muted">No results for &ldquo;{q}&rdquo;.</p>}
           {q && companyMatch && titles.length > 0 && (
             <p className="mb-4 text-xs uppercase tracking-wider text-foreground-muted">
-              {`Movies from ${companyMatch.name} in Marquee's catalogue`}
+              {`Movies from ${companyMatch.name} in Slate's catalogue`}
             </p>
           )}
           {q && companyMatch && titles.length > 0 && (

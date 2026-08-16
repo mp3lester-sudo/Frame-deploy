@@ -194,7 +194,7 @@ export function LetterboxdPasteImport() {
           {summary.unmatchedSample.length > 0 && (
             <details className="mt-2">
               <summary className="cursor-pointer text-foreground-muted">
-                {summary.totalRows - summary.matched} not found in Marquee&apos;s catalogue yet
+                {summary.totalRows - summary.matched} not found in Slate&apos;s catalogue yet
               </summary>
               <ul className="mt-2 flex flex-col gap-0.5 text-xs text-foreground-muted">
                 {summary.unmatchedSample.map((u, i) => (

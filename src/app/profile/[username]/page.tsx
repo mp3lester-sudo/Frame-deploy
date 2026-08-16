@@ -108,7 +108,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
   if (!profile) return { title: "Profile not found" };
 
   const name = profile.display_name ?? profile.username;
-  const description = profile.bio?.slice(0, 200) || `${name}'s taste profile on Marquee.`;
+  const description = profile.bio?.slice(0, 200) || `${name}'s taste profile on Slate.`;
 
   return {
     title: `${name} (@${profile.username})`,
@@ -154,7 +154,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const compatibilityPromise =
     viewer && !isOwnProfile ? computeCompatibilityForUsers(viewer.id, profile.id, mediaType) : Promise.resolve(null);
 
-  // Marquee DNA used to live behind its own link in the self-service menu
+  // Slate DNA used to live behind its own link in the self-service menu
   // (viewer's own DNA only, at /taste-dna); it now renders inline right
   // next to the Personal Pyramid instead, scoped to THIS profile (not the
   // viewer) so it's public the same way the pyramid and stats already are.
@@ -371,7 +371,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           {isAuteur && (
             <span
               className="rounded-[var(--radius-full)] border border-accent bg-accent px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-background"
-              title="Marquee Auteur subscriber"
+              title="Slate Auteur subscriber"
             >
               Auteur
             </span>
@@ -397,7 +397,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // Right rail: bio, then a 2x2 stat grid (watched / top genre /
   // followers / following -- previously split awkwardly between plain
   // text and pills up in the banner overlay), then the self-service
-  // links row (Edit profile / Marquee DNA / Watchlist / Your lists),
+  // links row (Edit profile / Slate DNA / Watchlist / Your lists),
   // now stacked as a real vertical menu instead of squeezed pills that
   // had to share a row with the follow-stats text.
   const rail = (
@@ -537,7 +537,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
           <div className="relative flex h-full flex-col justify-end gap-1.5 px-6 py-6">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">Marquee Wrapped</p>
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">Slate Wrapped</p>
             <h3 className="font-display text-3xl">{wrapped.year} Recap</h3>
             <p className="text-sm text-foreground-muted">
               {wrapped.totalRated} title{wrapped.totalRated === 1 ? "" : "s"} rated
@@ -555,7 +555,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           className="stagger-card mt-6 rounded-[var(--radius-lg)] border border-dashed border-glass-border bg-glass px-5 py-5 text-center backdrop-blur-sm"
           style={{ animationDelay: "560ms" }}
         >
-          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Marquee Wrapped</p>
+          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Slate Wrapped</p>
           <p className="mt-1 text-sm text-foreground-muted">
             Rate a few more titles this year and your Wrapped recap fills in here.
           </p>
@@ -679,7 +679,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       )}
 
       <div className="mx-auto max-w-6xl px-4 pb-8 pt-6">
-      {/* Three panels, widest in the middle: Marquee DNA (what the app
+      {/* Three panels, widest in the middle: Slate DNA (what the app
           reads out of your ratings) on the left, Personal Pyramid (what
           you picked yourself) as the visual centerpiece, profile info
           (avatar/bio/stats/self-service links) on the right. DNA and
@@ -693,7 +693,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           align-items (stretch) is what makes the h-full added to both of
           those panels actually do anything. */}
       <div className="grid gap-6 xl:grid-cols-[1fr_1.3fr_1fr]">
-      {/* Marquee DNA, inline: used to be a link out to a separate page
+      {/* Slate DNA, inline: used to be a link out to a separate page
           (/taste-dna), now sits directly beside the Personal Pyramid as
           this profile's own analytics -- same public visibility as the
           pyramid and stat strip above, scoped to whoever's profile this
@@ -713,9 +713,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               <div className="mb-6 text-center">
                 <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">
-                  Marquee Analysis
+                  Slate Analysis
                 </p>
-                <h2 className="font-section-heading mt-1 text-xl">Marquee DNA</h2>
+                <h2 className="font-section-heading mt-1 text-xl">Slate DNA</h2>
                 <span className="font-section-body text-xs text-foreground-muted">
                   Based on {dna.sampleSize} rated title{dna.sampleSize === 1 ? "" : "s"}
                 </span>

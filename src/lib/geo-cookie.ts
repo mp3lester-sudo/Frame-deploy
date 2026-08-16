@@ -7,4 +7,4 @@
  * next/headers into the client bundle, which Next.js rejects outright and
  * was the actual cause of the 500s on every page.
  */
-export const PRECISE_GEO_COOKIE = "marquee_geo";
+export const PRECISE_GEO_COOKIE = "slate_geo";

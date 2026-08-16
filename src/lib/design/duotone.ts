@@ -2,7 +2,7 @@ import type { MediaType } from "@/lib/context/media-type-cookie";
 
 /**
  * One shared duotone recipe for every place a real photo needs to sit
- * inside Marquee's palette instead of clashing with it -- originally
+ * inside Slate's palette instead of clashing with it -- originally
  * built for the profile page's avatar-backdrop collage (see
  * profile/[username]/page.tsx), now also driving the home hero's
  * RecommendationReveal ("Kinetic Numerals" pass). Keeping this in one

@@ -1,6 +1,6 @@
 "use client";
 
-const KEY = "marquee_analytics_consent";
+const KEY = "slate_analytics_consent";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 export type ConsentState = "granted" | "denied" | null;

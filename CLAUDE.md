@@ -1,6 +1,6 @@
-# Marquee — project notes for Claude
+# Slate — project notes for Claude
 
-Marquee is a Letterboxd-style movie/TV app with an AI "Taste Graph" recommendation
+Slate is a Letterboxd-style movie/TV app with an AI "Taste Graph" recommendation
 engine. This file exists so any Claude session working in this repo — yours or a
 teammate's — picks up the same conventions without needing them re-explained.
 
@@ -12,9 +12,9 @@ teammate's — picks up the same conventions without needing them re-explained.
   `main` via the GitHub integration (no separate deploy step or Vercel CLI needed —
   pushing is deploying)
 - GitHub: `mp3lester-sudo/Frame-deploy` (repo name predates a rebrand from "Frame" to
-  "Marquee" — not worth renaming mid-project)
+  "Slate" — not worth renaming mid-project)
 - External APIs: TMDB (catalogue + person data + watch providers), OMDB (Rotten
-  Tomatoes scores), OpenAI (embeddings + Ask Marquee concierge + ending explainer),
+  Tomatoes scores), OpenAI (embeddings + Ask Slate concierge + ending explainer),
   Open-Meteo (home page weather, no key required)
 
 ## Environment variables

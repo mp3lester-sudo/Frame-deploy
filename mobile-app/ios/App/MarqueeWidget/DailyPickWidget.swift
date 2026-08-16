@@ -8,7 +8,7 @@ struct DailyPickWidget: Widget {
         StaticConfiguration(kind: kind, provider: DailyPickProvider()) { entry in
             DailyPickWidgetView(entry: entry)
         }
-        .configurationDisplayName("Marquee Daily Pick")
+        .configurationDisplayName("Slate Daily Pick")
         .description("Your personalized recommendation, refreshed once a day.")
         .supportedFamilies([.systemSmall, .systemMedium])
         // WidgetKit's own dark-mode background handling adds a system

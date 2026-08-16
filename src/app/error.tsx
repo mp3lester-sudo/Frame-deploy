@@ -28,7 +28,7 @@ export default function Error({
 
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-4 text-center">
-      <span className="font-hollywood text-gold-foil text-2xl uppercase tracking-[0.08em]">Marquee</span>
+      <span className="font-hollywood text-gold-foil text-2xl uppercase tracking-[0.08em]">Slate</span>
       <h1 className="text-xl font-medium text-foreground">Something cut the scene short.</h1>
       <p className="max-w-sm text-sm text-foreground-muted">
         An unexpected error interrupted this page. Try again, or head back home.
@@ -38,7 +38,7 @@ export default function Error({
           Try again
         </Button>
         <Link href="/">
-          <Button variant="secondary">Back to Marquee</Button>
+          <Button variant="secondary">Back to Slate</Button>
         </Link>
       </div>
       {error.digest && <p className="text-[11px] text-foreground-muted">Error ref: {error.digest}</p>}

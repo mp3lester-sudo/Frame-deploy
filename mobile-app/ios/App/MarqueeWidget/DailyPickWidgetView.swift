@@ -19,11 +19,11 @@ struct DailyPickWidgetView: View {
     var body: some View {
         switch entry.state {
         case .notSignedIn:
-            MessageView(title: "Open Marquee", subtitle: "Sign in to see your daily pick")
+            MessageView(title: "Open Slate", subtitle: "Sign in to see your daily pick")
         case .noPickYet:
             MessageView(title: "Rate a few movies", subtitle: "Your daily pick unlocks after that")
         case .error:
-            MessageView(title: "Marquee", subtitle: "Couldn't load your pick")
+            MessageView(title: "Slate", subtitle: "Couldn't load your pick")
         case .loaded(let pick, let posterImage):
             switch family {
             case .systemMedium:

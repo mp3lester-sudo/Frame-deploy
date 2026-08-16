@@ -332,7 +332,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
         // (including the identity translateY(0)) makes this div the
         // containing block for every position:fixed element rendered
         // anywhere inside it, which is the entire app. That silently
-        // clipped full-viewport fixed backgrounds (Ask Marquee's poster
+        // clipped full-viewport fixed backgrounds (Ask Slate's poster
         // wall, the cinematic intro, greeting splash, decision reveal,
         // full Wrapped story) to whatever this div's own content height
         // happened to be instead of the real screen. Only actively

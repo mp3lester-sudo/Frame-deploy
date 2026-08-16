@@ -31,7 +31,7 @@ export default async function MovieNightJoinPage({ params }: { params: Promise<{
           This link isn&apos;t valid, or the movie night it pointed to no longer exists.
         </p>
         <Link href="/" className="mt-6 inline-block text-sm text-accent hover:underline">
-          Go to Marquee
+          Go to Slate
         </Link>
       </section>
     );

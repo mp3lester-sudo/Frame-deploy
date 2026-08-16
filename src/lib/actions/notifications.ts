@@ -85,7 +85,7 @@ export async function notify(
     ]);
     const actorName = actor?.display_name ?? actor?.username ?? "Someone";
 
-    let pushTitle = "Marquee";
+    let pushTitle = "Slate";
     let body = "";
     let url = "/notifications";
     switch (params.type) {

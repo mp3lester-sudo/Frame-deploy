@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   const year = title.release_date ? new Date(title.release_date).getFullYear() : null;
   const displayName = year ? `${title.name} (${year})` : title.name;
-  const description = title.overview?.slice(0, 200) || `Ratings, reviews, and where to watch ${title.name} on Marquee.`;
+  const description = title.overview?.slice(0, 200) || `Ratings, reviews, and where to watch ${title.name} on Slate.`;
 
   return {
     title: displayName,

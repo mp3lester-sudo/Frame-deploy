@@ -12,7 +12,7 @@ const COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60; // a year -- this is a standi
 /**
  * Movies/Shows segmented toggle -- the single control that decides which
  * half of the catalogue every other feature on the site (Discover, Home,
- * Ask Marquee, Movie Night, Wrapped, Marquee DNA) filters against, and
+ * Ask Slate, Movie Night, Wrapped, Slate DNA) filters against, and
  * which color palette (see globals.css's [data-media="tv"] block) is
  * active. Lives in the nav bar so it's reachable from every page, on
  * every screen size -- unlike the desktop-only link row next to it.

@@ -52,7 +52,7 @@ export async function saveDiscoverPreset(input: z.infer<typeof saveSchema>): Pro
     .eq("id", user.id)
     .maybeSingle();
   if (!isAuteurActive(profile)) {
-    throw new Error("Saved filter presets are a Marquee Auteur perk. Upgrade at /premium to save this search.");
+    throw new Error("Saved filter presets are a Slate Auteur perk. Upgrade at /premium to save this search.");
   }
 
   const { error } = await supabase.from("discover_filter_presets").insert({

@@ -562,7 +562,7 @@ export async function getCandidatesForMovieNight(
 
 /**
  * Group pick for the home page's ad-hoc "Date night" / "With friends"
- * companion picker — no persisted session, just whichever real Marquee
+ * companion picker — no persisted session, just whichever real Slate
  * users were picked just now (see src/lib/actions/companion-recommendations.ts
  * for how usernames get resolved into ids + names before calling this).
  * Same strict fairness rule as Movie Night: nobody sees a pick that's a

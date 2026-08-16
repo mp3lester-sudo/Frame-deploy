@@ -18,9 +18,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (!share) return { title: "Wrapped not found" };
 
   const owner = (share as unknown as { profiles: { username: string; display_name: string | null } | null }).profiles;
-  const ownerName = owner?.display_name ?? owner?.username ?? "A Marquee user";
+  const ownerName = owner?.display_name ?? owner?.username ?? "A Slate user";
   const title = `${ownerName}'s ${share.year} Wrapped`;
-  const description = `See ${ownerName}'s year in movies and TV, powered by Marquee's Taste Graph.`;
+  const description = `See ${ownerName}'s year in movies and TV, powered by Slate's Taste Graph.`;
 
   return {
     title,
@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 /**
  * Public, no-auth share page — reads a frozen snapshot from wrapped_shares
  * (public-read RLS, see migration 0028), not a live recompute. Anyone with
- * the link can view this, including someone with no Marquee account.
+ * the link can view this, including someone with no Slate account.
  */
 export default async function WrappedSharePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -50,7 +50,7 @@ export default async function WrappedSharePage({ params }: { params: Promise<{ i
   if (!share) notFound();
 
   const owner = (share as unknown as { profiles: { username: string; display_name: string | null } | null }).profiles;
-  const ownerName = owner?.display_name ?? owner?.username ?? "A Marquee user";
+  const ownerName = owner?.display_name ?? owner?.username ?? "A Slate user";
   const result = share.stats as unknown as WrappedResult;
 
   return (

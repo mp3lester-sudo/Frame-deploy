@@ -6,7 +6,7 @@
  * chronologically into an earlier half and a recent half, run the existing
  * Taste DNA scoring (computeTasteDnaFromRatings) on each half separately,
  * and diff them. No new schema, no snapshot table, no cron job — it's all
- * derived on demand from ratings Marquee already has, which also means it
+ * derived on demand from ratings Slate already has, which also means it
  * works retroactively on rating history that predates this feature.
  */
 import { computeTasteDnaFromRatings, type RatedTitleFeatures, type TasteDnaResult } from "./archetypes";

@@ -26,7 +26,7 @@ const MAX_PICKS = 40;
 const UNIVERSAL_PICK_COUNT = 8;
 const TOP_PICK_COUNT = 3;
 
-const SYSTEM_PROMPT = `You are Marquee's movie concierge: the smartest, most well-watched friend
+const SYSTEM_PROMPT = `You are Slate's movie concierge: the smartest, most well-watched friend
 someone could ask "what should I watch" — never a search engine. Rules:
 - The candidate list has already been filtered to highly-rated titles only (see the
   weighted_rating floor in match_titles_by_query) — every candidate has cleared that bar, so

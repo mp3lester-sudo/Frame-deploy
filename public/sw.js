@@ -15,7 +15,7 @@
 //   4. Show a system notification for incoming Web Push messages (see
 //      src/lib/push/send-push.ts, the server side that sends these), and
 //      focus/open the app to the right page when someone taps one.
-const CACHE_VERSION = "marquee-shell-v1";
+const CACHE_VERSION = "slate-shell-v1";
 const SHELL_ASSETS = [
   "/offline.html",
   "/icons/icon-192.png",
@@ -57,7 +57,7 @@ self.addEventListener("fetch", (event) => {
 // any reason (malformed payload, or none at all) rather than throwing and
 // silently dropping the notification.
 self.addEventListener("push", (event) => {
-  let data = { title: "Marquee", body: "You have a new notification", url: "/notifications" };
+  let data = { title: "Slate", body: "You have a new notification", url: "/notifications" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {
@@ -74,7 +74,7 @@ self.addEventListener("push", (event) => {
   );
 });
 
-// Focuses an already-open Marquee tab and navigates it to the notification's
+// Focuses an already-open Slate tab and navigates it to the notification's
 // target page if one exists, rather than always opening a fresh tab --
 // closer to how native app notifications behave.
 self.addEventListener("notificationclick", (event) => {

@@ -99,7 +99,7 @@ export function CompanionPicker({ context }: { context: "date_night" | "with_fri
     <div className="rounded-[var(--radius-lg)] border border-border bg-surface p-5">
       <p className="text-sm font-medium">{LABEL_BY_CONTEXT[context]}</p>
       <p className="mt-1 text-xs text-foreground-muted">
-        Add their Marquee username(s) and we&apos;ll find a genuine compromise — never a pick that&apos;s a clear
+        Add their Slate username(s) and we&apos;ll find a genuine compromise — never a pick that&apos;s a clear
         miss for either of you.
       </p>
 

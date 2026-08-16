@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 
 /**
- * True only when the app is running inside the Marquee native wrapper
+ * True only when the app is running inside the Slate native wrapper
  * (Capacitor's iOS WebView). False for the ordinary website, including
  * when the website is opened in mobile Safari or installed as a PWA —
  * this is specifically about the native app shell, not device type.

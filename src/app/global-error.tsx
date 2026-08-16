@@ -45,7 +45,7 @@ export default function GlobalError({
       >
         <h1 style={{ fontSize: "1.125rem", fontWeight: 500, margin: 0 }}>Something went seriously wrong.</h1>
         <p style={{ maxWidth: 380, fontSize: "0.875rem", color: "#ab949a", margin: 0 }}>
-          Marquee hit an unexpected error and couldn&apos;t load. Try refreshing the page.
+          Slate hit an unexpected error and couldn&apos;t load. Try refreshing the page.
         </p>
         <button
           onClick={() => reset()}

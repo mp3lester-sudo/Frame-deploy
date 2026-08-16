@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Marquee</string>
+        <string>Slate</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -53,16 +53,16 @@
 	     versions -- and App Review flags the missing purpose strings
 	     regardless of whether a tester happens to trigger the crash. -->
 	<key>NSCameraUsageDescription</key>
-	<string>Marquee uses your camera so you can take a new profile photo.</string>
+	<string>Slate uses your camera so you can take a new profile photo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Marquee uses your photo library so you can choose a profile photo.</string>
+	<string>Slate uses your photo library so you can choose a profile photo.</string>
 	<!-- Required because the home page's weather widget calls
 	     navigator.geolocation.getCurrentPosition() to show local weather.
 	     Without this key the permission prompt can't be shown at all, so
 	     the request just fails and App Review flags the missing purpose
 	     string. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Marquee uses your location to show local weather on your home page.</string>
+	<string>Slate uses your location to show local weather on your home page.</string>
 	<!-- Declares this app only uses standard HTTPS/TLS (via the WebView
 	     loading the production site) with no proprietary/non-exempt
 	     encryption. Without this key, App Store Connect asks the export

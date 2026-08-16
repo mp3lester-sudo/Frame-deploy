@@ -9,7 +9,7 @@ import type { IndieNewsItem } from "@/lib/news/indie-news";
  * couple of horizontal-scroll rows so it fits above a single-column
  * Twitter-style timeline instead of the home page's wider layout.
  *
- * Marquee treatment (part of the Social tab redesign): sprocket-hole rows
+ * Slate treatment (part of the Social tab redesign): sprocket-hole rows
  * top and bottom turn the strip into a filmstrip band, distinct from the
  * bento-card posts below it -- this is meant to read as a physical reel
  * running along the top of the page, not another card in the feed.

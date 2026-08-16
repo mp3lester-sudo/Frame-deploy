@@ -50,7 +50,7 @@ export default async function HotTakesPage() {
     <div className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="font-display text-2xl">Hot Takes</h1>
       <p className="mt-1 text-sm text-foreground-muted">
-        The most agreed- and disagreed-with reviews on Marquee right now.
+        The most agreed- and disagreed-with reviews on Slate right now.
       </p>
 
       {ranked.length === 0 ? (

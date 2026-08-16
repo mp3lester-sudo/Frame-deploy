@@ -11,7 +11,7 @@ import { tierLabel } from "@/lib/premium/tier";
  * "Upgrade to Premium" pitch with no way to cancel, change plans, or see
  * an invoice from inside the app at all.
  *
- * Same ticket motif as PremiumUpgradeCard (perforated tear-line, "Marquee
+ * Same ticket motif as PremiumUpgradeCard (perforated tear-line, "Slate
  * presents" eyebrow) so an active subscriber's "you're in" moment reads
  * as the stub half of the same ticket they bought, not a different UI.
  */
@@ -60,7 +60,7 @@ export function PremiumManageCard({
         }}
       >
         <div className="p-6 pb-5 text-center">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-foreground-muted">Marquee presents</p>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-foreground-muted">Slate presents</p>
           <h1 className="font-display mt-1 text-2xl italic text-accent-soft">{tierLabel(tier)}</h1>
           <p className="mt-1 text-sm text-foreground-muted">
             You&apos;re subscribed.

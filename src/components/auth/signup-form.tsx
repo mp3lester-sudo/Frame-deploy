@@ -83,7 +83,7 @@ export function SignUpForm() {
       </form>
 
       <p className="mt-4 text-center text-xs text-foreground-muted">
-        By creating an account, you agree to Marquee&apos;s{" "}
+        By creating an account, you agree to Slate&apos;s{" "}
         <Link href="/terms" className="text-accent hover:underline">
           Terms of Service
         </Link>{" "}

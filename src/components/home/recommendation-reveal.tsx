@@ -62,7 +62,7 @@ type Phase = "sealed" | "revealing" | "sweeping" | "revealed";
  * already visible in "More picks for you").
  *
  * This was a deliberate product call, not just a visual one: the AI
- * recommendation is Marquee's whole differentiator, and a fully-formed
+ * recommendation is Slate's whole differentiator, and a fully-formed
  * card that's already on screen the instant the page paints reads as
  * decoration, not something that happened for you. Gating it behind a
  * tap -- with the match score visibly being calculated in between --

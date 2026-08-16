@@ -1,4 +1,4 @@
-# Marquee
+# Slate
 
 Letterboxd's core (catalogue, ratings, reviews, lists, social) with an AI-driven
 "Taste Graph" as the differentiator — see `/docs` (in the parent folder,
@@ -16,7 +16,7 @@ All 11 phases from the build plan have a working implementation:
 4. **Design system** — dark-first token system (`globals.css`), core components in
    `src/components/ui` (Button, Card, Input, Avatar, Badge, Skeleton, RatingStars).
 5. **Navigation/app structure** — nav bar + routes: home, discover, search, movie detail,
-   profile, feed, Ask Marquee (AI), premium, login/signup.
+   profile, feed, Ask Slate (AI), premium, login/signup.
 6. **Recommendation engine** — hybrid vector + collaborative filtering
    (`src/lib/recommendations/engine.ts`), backed by Postgres/pgvector functions
    (`0003_recommendation_functions.sql`) and an OpenAI embedding pipeline

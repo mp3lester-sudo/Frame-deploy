@@ -1,4 +1,4 @@
--- Movies/Shows toggle (Marquee, task #518-522): match_titles_for_user is
+-- Movies/Shows toggle (Slate, task #518-522): match_titles_for_user is
 -- the one RPC every recommendation path funnels through (engine.ts's
 -- warm-start scoring), so it's the highest-leverage place to add
 -- media-type filtering -- everything downstream of it (candidate pool,
@@ -62,7 +62,7 @@ $$;
 create index if not exists titles_type_idx on public.titles (type);
 
 -- Same p_media_type treatment (default null, so any existing caller keeps
--- its current behavior) for Ask Marquee's embedding search, so a
+-- its current behavior) for Ask Slate's embedding search, so a
 -- Shows-mode "what should I watch" ask only ever surfaces TV candidates
 -- and vice versa -- concierge.ts is updated in this same deploy to always
 -- pass the active toggle value explicitly.

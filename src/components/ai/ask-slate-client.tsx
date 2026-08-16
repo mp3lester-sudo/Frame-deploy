@@ -61,7 +61,7 @@ function buildContextedMessage(history: Exchange[], latestReply: string): string
 // query), with the concierge chrome floating on top in frosted glass
 // (.bento-card). Rendered `fixed` rather than `absolute` so the wall
 // stays put as the page grows with chat history instead of scrolling
-// away after the first screen -- the point is that Ask Marquee always
+// away after the first screen -- the point is that Ask Slate always
 // feels like it's standing in front of the whole catalogue, not just on
 // the opening screen.
 function PosterWall({ posters }: { posters: string[] }) {
@@ -96,7 +96,7 @@ function PosterWall({ posters }: { posters: string[] }) {
   );
 }
 
-export function AskMarqueeClient({ posters }: { posters: string[] }) {
+export function AskSlateClient({ posters }: { posters: string[] }) {
   const [query, setQuery] = useState("");
   const [replyText, setReplyText] = useState("");
   const [history, setHistory] = useState<Exchange[]>([]);
@@ -186,7 +186,7 @@ export function AskMarqueeClient({ posters }: { posters: string[] }) {
             instead of piling more chrome onto the header itself. */}
         <div className="flex flex-col items-center text-center">
           <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-accent">AI Concierge</span>
-          <h1 className="font-section-heading mt-2 text-3xl text-accent">Ask Marquee</h1>
+          <h1 className="font-section-heading mt-2 text-3xl text-accent">Ask Slate</h1>
           <div className="mt-4 h-px w-24 bg-gradient-to-r from-transparent via-accent-deep to-transparent" />
           <p className="font-section-body mt-4 text-sm text-foreground-muted">
             Describe the feeling, not the genre.
@@ -341,7 +341,7 @@ export function AskMarqueeClient({ posters }: { posters: string[] }) {
                 ref={replyRef}
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
-                placeholder="Reply to Marquee..."
+                placeholder="Reply to Slate..."
                 className="h-9 border-none bg-transparent text-sm focus:ring-0"
               />
               <Button

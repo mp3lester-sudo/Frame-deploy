@@ -45,7 +45,7 @@ export function LoginForm() {
       </form>
 
       <p className="mt-6 text-center text-sm text-foreground-muted">
-        New to Marquee?{" "}
+        New to Slate?{" "}
         <Link href="/signup" className="text-accent hover:underline">
           Create an account
         </Link>

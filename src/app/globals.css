@@ -98,7 +98,7 @@
    glance, not "the same gold app with the temperature turned down."
    (Superseded an earlier cyan/teal pass -- same structural intent,
    different mood.) Set by media-type.ts reading the
-   marquee_media_type cookie server-side (data-media attribute on
+   slate_media_type cookie server-side (data-media attribute on
    <html>, no flash-of-wrong-palette) and by the toggle client component
    writing that same attribute immediately on click, before the cookie
    round-trips through router.refresh(). */
@@ -177,7 +177,7 @@ html.media-switching main {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-instrument-serif);
-  /* The Marquee wordmark's font (see layout.tsx) -- also used for
+  /* The Slate wordmark's font (see layout.tsx) -- also used for
      Wrapped's headline/stat typography (see wrapped-story.tsx) so the
      "your year in film" moment reads like it's set in the same
      marquee-logotype voice as the brand itself. */
@@ -188,7 +188,7 @@ html.media-switching main {
      title has one on file; this is just the fallback everyone starts on. */
   --font-greeting: var(--font-syne);
   /* Header + smaller-text pair reserved for the seven section pages
-     (Discover, Marquee DNA, Wrapped, Ask Marquee, Social, Movie Night,
+     (Discover, Slate DNA, Wrapped, Ask Slate, Social, Movie Night,
      Clubs) — see layout.tsx. Copy on those pages is unchanged; only the
      font applied to the existing heading/subtext elements. */
   --font-section-heading: var(--font-big-shoulders-display);
@@ -283,7 +283,7 @@ body {
    literal keyword "none" (an identity value like translateY(0) or
    translate: 0 0 still counts as "not none"). That silently traps
    any fixed-position element rendered inside a page -- the Ask
-   Marquee poster wall, cinematic intro overlay, greeting splash,
+   Slate poster wall, cinematic intro overlay, greeting splash,
    decision reveal, full Wrapped story -- sizing it to this wrapper's
    own content height instead of the real viewport. margin-top
    produces the identical slide-up-and-fade without ever touching a
@@ -828,7 +828,7 @@ html.consent-decided .cookie-consent-banner {
    by what the card contains -- this just makes that convention
    discoverable instead of living only in scattered commit messages:
      - p-2 / small utility chrome: a compact interactive control that
-       happens to use the bento surface (e.g. Ask Marquee's chat input
+       happens to use the bento surface (e.g. Ask Slate's chat input
        wrapper), not a content card at all.
      - p-3: a single flush row -- poster/avatar + title + meta laid out
        horizontally, list-style (Clubs roster rows, the Movie Night

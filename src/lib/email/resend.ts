@@ -24,7 +24,7 @@ function getClient(): Resend | null {
 // delivers to the Resend account owner's own inbox -- fine for verifying
 // the integration works, but a real "from" domain is needed before this
 // can email arbitrary users.
-const FROM = process.env.RESEND_FROM_EMAIL ?? "Marquee <onboarding@resend.dev>";
+const FROM = process.env.RESEND_FROM_EMAIL ?? "Slate <onboarding@resend.dev>";
 
 export async function sendWelcomeEmail(to: string, username: string) {
   const resend = getClient();
@@ -33,7 +33,7 @@ export async function sendWelcomeEmail(to: string, username: string) {
   const { error } = await resend.emails.send({
     from: FROM,
     to,
-    subject: "Welcome to Marquee",
+    subject: "Welcome to Slate",
     html: welcomeEmailHtml(username),
   });
 
@@ -54,7 +54,7 @@ export async function sendReengagementEmail(to: string, username: string, pick: 
   const { error } = await resend.emails.send({
     from: FROM,
     to,
-    subject: `${pick.name} is waiting for you on Marquee`,
+    subject: `${pick.name} is waiting for you on Slate`,
     html: reengagementEmailHtml(username, pick),
   });
 
@@ -77,10 +77,10 @@ function reengagementEmailHtml(username: string, pick: ReengagementPick): string
       }
       <p style="font-size: 17px; font-weight: bold; margin: 8px 0 16px;">${titleLine}</p>
       <p style="font-size: 15px; line-height: 1.6; color: #4a4038;">
-        <a href="${siteOrigin()}" style="color: #9a7b2f;">Open Marquee</a> to see the full pick and why we chose it.
+        <a href="${siteOrigin()}" style="color: #9a7b2f;">Open Slate</a> to see the full pick and why we chose it.
       </p>
       <p style="font-size: 12px; color: #8a8078; margin-top: 32px;">
-        You're receiving this because you have a Marquee account. We only send these occasionally.
+        You're receiving this because you have a Slate account. We only send these occasionally.
       </p>
     </div>
   `;
@@ -89,16 +89,16 @@ function reengagementEmailHtml(username: string, pick: ReengagementPick): string
 function welcomeEmailHtml(username: string): string {
   return `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color: #1a1512; background: #faf7f2;">
-      <h1 style="font-size: 22px; letter-spacing: 0.02em; margin-bottom: 4px;">Welcome to Marquee, ${escapeHtml(username)}.</h1>
+      <h1 style="font-size: 22px; letter-spacing: 0.02em; margin-bottom: 4px;">Welcome to Slate, ${escapeHtml(username)}.</h1>
       <p style="font-size: 15px; line-height: 1.6; color: #4a4038;">
         Your account is live. Rate a few films to sharpen your Taste DNA, build a Personal Pyramid
         of your favorites, and start getting picks tuned to how you actually watch.
       </p>
       <p style="font-size: 15px; line-height: 1.6; color: #4a4038;">
-        Jump back in any time at <a href="https://marquee.app" style="color: #9a7b2f;">marquee.app</a>.
+        Jump back in any time at <a href="https://slate.app" style="color: #9a7b2f;">slate.app</a>.
       </p>
       <p style="font-size: 12px; color: #8a8078; margin-top: 32px;">
-        You're receiving this because you created a Marquee account with this address.
+        You're receiving this because you created a Slate account with this address.
       </p>
     </div>
   `;

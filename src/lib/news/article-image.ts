@@ -20,7 +20,7 @@ const OG_IMAGE_PATTERNS = [
 export async function getArticleImage(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; MarqueeBot/1.0; +https://taste-green-tau.vercel.app)" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; SlateBot/1.0; +https://taste-green-tau.vercel.app)" },
       next: { revalidate: 3600 },
       // Several of these can run concurrently (one per trade article on the
       // home page) -- cap each at a few seconds so one slow/unresponsive

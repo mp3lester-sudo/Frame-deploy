@@ -32,15 +32,15 @@ describe("CookieConsentBanner", () => {
     render(<CookieConsentBanner />);
     fireEvent.click(screen.getByRole("button", { name: /accept/i }));
     expect(screen.queryByText(/No data is sold/i)).not.toBeInTheDocument();
-    expect(window.localStorage.getItem("marquee_analytics_consent")).toBe("granted");
-    expect(document.cookie).toContain("marquee_analytics_consent=granted");
+    expect(window.localStorage.getItem("slate_analytics_consent")).toBe("granted");
+    expect(document.cookie).toContain("slate_analytics_consent=granted");
   });
 
   it("hides immediately after clicking Decline and persists the choice", () => {
     render(<CookieConsentBanner />);
     fireEvent.click(screen.getByRole("button", { name: /decline/i }));
     expect(screen.queryByText(/No data is sold/i)).not.toBeInTheDocument();
-    expect(window.localStorage.getItem("marquee_analytics_consent")).toBe("denied");
+    expect(window.localStorage.getItem("slate_analytics_consent")).toBe("denied");
   });
 
   it("carries the cookie-consent-banner class the layout CSS rule targets", () => {

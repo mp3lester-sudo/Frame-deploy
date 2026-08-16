@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 /**
  * Alongside InviteForm's by-username invite (which only works for people
- * already on Marquee), this is what makes Movie Night reachable by
+ * already on Slate), this is what makes Movie Night reachable by
  * anyone: opening the link shows a preview at /movie-night/join/[token]
  * with no account needed, and joining from there is what actually creates
  * the account. The link itself is the same either way -- this just picks
@@ -35,7 +35,7 @@ export function InviteLink({ inviteLink }: { inviteLink: string }) {
     try {
       await navigator.share({
         title: "Movie night",
-        text: "Help pick what we're watching tonight on Marquee",
+        text: "Help pick what we're watching tonight on Slate",
         url: inviteLink,
       });
     } catch {
