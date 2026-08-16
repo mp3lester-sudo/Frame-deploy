@@ -250,6 +250,26 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
   const saveOpacity = exitDirection === "right" ? 1 : exitDirection ? 0 : Math.min(Math.max(dragOffset.x / 90, 0), 1);
   const passOpacity = exitDirection === "left" ? 1 : exitDirection ? 0 : Math.min(Math.max(-dragOffset.x / 90, 0), 1);
 
+  // Live drag-reactive feedback (Concept A from the interactivity
+  // renderings) -- edge-tint glow + the taste-alignment meter tracking
+  // the *in-progress* drag instead of only ever showing the resting
+  // value. Driven by the same dragOffset/SWIPE_THRESHOLD already used
+  // for the Pass/Watchlist stamp fade above, so all three react to one
+  // continuous gesture instead of separate effects kicking in at
+  // different distances.
+  const dragActive = isDragging && !exitDirection;
+  const dragProgress = dragActive ? Math.max(-1, Math.min(1, dragOffset.x / SWIPE_THRESHOLD)) : 0;
+  const edgeGlowRight = dragProgress > 0 ? dragProgress : 0;
+  const edgeGlowLeft = dragProgress < 0 ? -dragProgress : 0;
+  const liveMatchPercent =
+    current.matchPercent === null
+      ? null
+      : Math.round(
+          dragProgress >= 0
+            ? current.matchPercent + dragProgress * (100 - current.matchPercent)
+            : current.matchPercent * (1 + dragProgress)
+        );
+
   const cardTransform = `translate(${translateX}px, ${translateY}px) rotate(${rotation}deg) scale(${dragScale})`;
   const cardTransition = isDragging
     ? "none"
@@ -336,6 +356,26 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
 
+        {/* Edge-tint glow -- fills in from whichever side is being
+            dragged toward, opacity driven directly by drag distance.
+            Purely decorative/pointer-events-none, same colors as the
+            Pass/Watchlist stamps below so the whole card reads as one
+            reaction to the gesture. */}
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 w-2/3"
+          style={{
+            opacity: edgeGlowRight,
+            background: "radial-gradient(circle at 100% 50%, rgba(217,184,118,0.35), transparent 65%)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0 w-2/3"
+          style={{
+            opacity: edgeGlowLeft,
+            background: "radial-gradient(circle at 0% 50%, rgba(224,104,95,0.35), transparent 65%)",
+          }}
+        />
+
         {/* Full-screen swipe session used to open on any poster tap --
             now that the poster goes straight to the movie page instead,
             this small corner button is the dedicated way in for anyone
@@ -419,12 +459,16 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
       <div className="mb-2">
         <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wider text-foreground-muted">
           <span>Taste alignment</span>
-          <span className="text-gold-foil font-semibold">{current.matchPercent}%</span>
+          <span className="text-gold-foil font-semibold">{liveMatchPercent}%</span>
         </div>
         <div className="h-[3px] overflow-hidden rounded-full bg-white/10">
           <div
-            className="h-full rounded-full transition-[width] duration-500 ease-out"
-            style={{ width: `${current.matchPercent}%`, backgroundImage: "var(--accent-gradient)" }}
+            className="h-full rounded-full"
+            style={{
+              width: `${liveMatchPercent}%`,
+              backgroundImage: "var(--accent-gradient)",
+              transition: dragActive ? "none" : "width 500ms ease-out",
+            }}
           />
         </div>
       </div>
