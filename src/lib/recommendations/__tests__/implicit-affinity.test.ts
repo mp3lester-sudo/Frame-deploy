@@ -53,4 +53,30 @@ describe("implicitAffinityMultiplier", () => {
     const half = implicitAffinityMultiplier(0.5 + (1 - THRESHOLD) * 0.5, 0, THRESHOLD);
     expect(quarter - 1).toBeCloseTo((half - 1) / 2, 5);
   });
+
+  it("defaults to full confidence (no scaling) when curationConfidence is omitted", () => {
+    const omitted = implicitAffinityMultiplier(1, 1, THRESHOLD);
+    const explicitFull = implicitAffinityMultiplier(1, 1, THRESHOLD, 1);
+    expect(omitted).toBeCloseTo(explicitFull, 10);
+  });
+
+  it("scales the boost up for a brand new account (confidence 0)", () => {
+    const newAccount = implicitAffinityMultiplier(1, 1, THRESHOLD, 0);
+    const establishedAccount = implicitAffinityMultiplier(1, 1, THRESHOLD, 1);
+    expect(newAccount).toBeGreaterThan(establishedAccount);
+  });
+
+  it("caps the zero-confidence combined boost below the dislike penalty's max magnitude", () => {
+    const maxCombinedBoost = implicitAffinityMultiplier(1, 1, THRESHOLD, 0) - 1;
+    expect(maxCombinedBoost).toBeLessThan(0.5);
+  });
+
+  it("interpolates smoothly between confidence 0 and 1", () => {
+    const low = implicitAffinityMultiplier(1, 0, THRESHOLD, 0) - 1;
+    const mid = implicitAffinityMultiplier(1, 0, THRESHOLD, 0.5) - 1;
+    const high = implicitAffinityMultiplier(1, 0, THRESHOLD, 1) - 1;
+    expect(low).toBeGreaterThan(mid);
+    expect(mid).toBeGreaterThan(high);
+    expect(mid).toBeCloseTo((low + high) / 2, 5);
+  });
 });

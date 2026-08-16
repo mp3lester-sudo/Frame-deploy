@@ -23,6 +23,23 @@
 const MAX_WATCHLIST_BOOST = 0.25;
 const MAX_WATCHED_UNRATED_BOOST = 0.12;
 
+// A brand new account has almost nothing else to go on -- watchlist adds
+// and half-finished watches are proportionally a much bigger share of
+// what's actually known about their taste than they are for someone with
+// 50 explicit ratings already anchoring a taste vector. So the boost caps
+// above scale UP as curation-confidence.ts's confidence score goes DOWN,
+// capped at this multiplier (chosen so the combined max boost at zero
+// confidence, 0.325 + 0.156 = 0.481, still stays under
+// dislike-penalty.ts's MAX_DISLIKE_PENALTY of 0.5 -- implicit signals
+// should never be able to outweigh an explicit one, at any confidence
+// level). A deeply curated account (confidence 1) gets exactly the base
+// caps, unchanged from before this scaling existed.
+const LOW_CONFIDENCE_BOOST_SCALE = 1.3;
+
+function boostScale(curationConfidence: number): number {
+  return LOW_CONFIDENCE_BOOST_SCALE - (LOW_CONFIDENCE_BOOST_SCALE - 1) * curationConfidence;
+}
+
 // Threshold is a parameter (not a shared import) for the same reason as
 // dislike-penalty.ts's matchThreshold -- callers pass engine.ts's
 // CONTENT_MATCH_THRESHOLD through directly, avoiding a circular import
@@ -34,12 +51,24 @@ function rampDelta(similarity: number, matchThreshold: number, maxBoost: number)
   return t * maxBoost;
 }
 
+/**
+ * curationConfidence defaults to 1 (i.e. no scaling, the original fixed
+ * caps) so every existing caller that doesn't pass it behaves exactly as
+ * before -- only engine.ts, which already computes confidence per
+ * request for computeAdjustmentBand, needs to thread it through.
+ */
 export function implicitAffinityMultiplier(
   maxSimilarityToWatchlist: number,
   maxSimilarityToWatchedUnrated: number,
-  matchThreshold: number
+  matchThreshold: number,
+  curationConfidence: number = 1
 ): number {
-  const watchlistDelta = rampDelta(maxSimilarityToWatchlist, matchThreshold, MAX_WATCHLIST_BOOST);
-  const watchedUnratedDelta = rampDelta(maxSimilarityToWatchedUnrated, matchThreshold, MAX_WATCHED_UNRATED_BOOST);
+  const scale = boostScale(curationConfidence);
+  const watchlistDelta = rampDelta(maxSimilarityToWatchlist, matchThreshold, MAX_WATCHLIST_BOOST * scale);
+  const watchedUnratedDelta = rampDelta(
+    maxSimilarityToWatchedUnrated,
+    matchThreshold,
+    MAX_WATCHED_UNRATED_BOOST * scale
+  );
   return 1 + watchlistDelta + watchedUnratedDelta;
 }

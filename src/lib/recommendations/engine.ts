@@ -348,7 +348,8 @@ export async function getRecommendationsForUser(
     const implicitMult = implicitAffinityMultiplier(
       implicitWatchlistSimilarityById.get(id) ?? 0,
       implicitWatchedUnratedSimilarityById.get(id) ?? 0,
-      CONTENT_MATCH_THRESHOLD
+      CONTENT_MATCH_THRESHOLD,
+      confidence
     );
     const nonContextDelta =
       (weatherMult - 1) + (qualityMult - 1) + (genreMult - 1) + (dislikeMult - 1) + (implicitMult - 1);
