@@ -135,10 +135,22 @@ export async function getRecommendationsForUser(
     return result;
   };
 
+  // Scoped by media_type, not just user_id -- since migration 0071 made
+  // (user_id, media_type) the composite key, a user with both a 'movie'
+  // and a 'tv' vector has two rows here. Every other taste_vectors lookup
+  // in the codebase (hidden-gem.ts, matchmaking/compute.ts,
+  // reengagement/campaign.ts, movie-night.ts) already scopes by
+  // media_type; this one didn't, so .maybeSingle() silently errored on
+  // any dual-mode user (more than one row matched) and got treated as
+  // "no taste vector at all" -- forcing every recommendation surface
+  // (Home, Discover's swipe deck, MoodRow) into the cold-start
+  // popularity fallback for that user regardless of how many ratings
+  // they actually had.
   const { data: tasteVector } = await supabase
     .from("taste_vectors")
     .select("user_id")
     .eq("user_id", userId)
+    .eq("media_type", mediaType)
     .maybeSingle();
 
   if (!tasteVector) {
