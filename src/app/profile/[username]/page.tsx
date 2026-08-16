@@ -577,6 +577,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                     alt=""
                     fill
                     className="object-cover object-top"
+                    // Gold duotone: five favorites are five unrelated
+                    // movies with nothing in common tonally -- a blue
+                    // sci-fi still next to a red thriller poster next to
+                    // a green period piece reads as visual noise, not a
+                    // cohesive "cover photo." Desaturating and pushing
+                    // everything through the app's own gold/velvet hue
+                    // (same accent used everywhere else on this page)
+                    // makes five random images read as one deliberate
+                    // frame instead of five clashing thumbnails, while
+                    // keeping the actual photo content -- faces,
+                    // composition, what's IN the shot -- fully visible.
+                    style={{ filter: "grayscale(1) sepia(0.5) hue-rotate(-8deg) saturate(2.2) brightness(0.68) contrast(1.1)" }}
                     sizes="400px"
                     // This banner collage is the actual LCP element on
                     // every profile page visit (top of page, immediately
@@ -594,12 +606,29 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               )
             )}
           </div>
-          {/* Bottom-anchored fade only -- same via-background/70 strength
+          {/* Bottom-anchored fade -- same via-background/70 strength
               used by the trailer hero's own fade -- so the collage stays
               clearly visible up top instead of the near-invisible wash
               the first pass had, while the overlaid identity content
               still lands on a fully opaque backdrop behind it. */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/70 to-transparent sm:h-48" />
+          {/* Radial vignette centered on the avatar column, layered on
+              top of the bottom fade above -- this is the fix for
+              "avatar getting lost against the collage" that keeps
+              coming back regardless of which specific photos a given
+              user's favorites happen to be. A duotone tint alone can't
+              guarantee contrast (a bright sky or a pale poster can
+              still sit right behind the avatar for some users), so this
+              adds a targeted dark pool exactly where the avatar sits,
+              independent of what's actually in the photo underneath.
+              Every tile stays fully visible everywhere else. */}
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse 260px 230px at 50% 52%, var(--background) 0%, transparent 72%)",
+            }}
+          />
           {/* Avatar plus name/tier/username/Follow-Message now read as
               one centered column set into the banner's own plain middle
               slot -- a portrait-and-caption inlaid in the cover photo,
