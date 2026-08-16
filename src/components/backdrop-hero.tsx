@@ -61,6 +61,32 @@ export function BackdropHero({
     return () => window.removeEventListener("message", handleMessage);
   }, [trailerKey]);
 
+  // Safety net for a trailer that never actually starts: the onError
+  // listener above only fires for YouTube's *own* explicit rejections
+  // (embedding disabled, age-gated, region-blocked, video pulled) --
+  // posted from inside the iframe's own document. If something outside
+  // that channel keeps the iframe from ever loading in the first place
+  // (an ad/privacy-blocking browser extension, a flaky connection, a
+  // captive network), no postMessage ever arrives and this hero is left
+  // showing a plain black box indefinitely, with no still image, no
+  // error state, nothing -- worse than just not attempting a trailer at
+  // all. `iframeLoaded` tracks the iframe's own document `load` event,
+  // which requires nothing from YouTube's player JS and fires even when
+  // the video itself is blocked, so it's a reliable enough signal that
+  // the request at least reached the network. If that hasn't happened
+  // within a generous window, fall back to the plain backdrop still --
+  // exactly the same fallback path onError already uses, just reached
+  // from "silently stuck" instead of "explicitly rejected".
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  useEffect(() => {
+    if (!playing || !trailerKey) return;
+    const timer = window.setTimeout(() => {
+      if (!iframeLoaded) setPlaying(false);
+    }, 6000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on trailerKey (fresh timer per title), iframeLoaded intentionally read fresh via closure rather than restarting the timer on every load-state flip
+  }, [trailerKey, playing]);
+
   function toggleMute() {
     const next = !muted;
     setMuted(next);
@@ -114,6 +140,7 @@ export function BackdropHero({
             src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1&controls=0&disablekb=1&fs=0&iv_load_policy=3`}
             title={`${title} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            onLoad={() => setIframeLoaded(true)}
           />
           {/* Bottom fade so the hard edge at the base of the hero (very
               visible on high-contrast trailer intros -- rating cards,

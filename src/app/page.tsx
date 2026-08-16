@@ -359,8 +359,30 @@ export default async function HomePage({
           __html: `try {
   var tz = document.getElementById('cinematic-intro-tapzone');
   if (tz) {
-    tz.addEventListener('click', function () {
+    tz.addEventListener('click', function (e) {
       document.documentElement.classList.add('cinematic-intro-dismissed');
+      // The tapzone is a full-screen fixed layer (z-60) sitting on top of
+      // the entire page -- including things like the home hero's "tap for
+      // tonight's pick" button, which can be visible and painted well
+      // before this ~4.8s intro finishes. Without this, someone who taps
+      // the hero *during* that window gets nothing: this listener eats
+      // the tap (correctly dismissing the intro) but the hero itself
+      // never hears about it, so it just sits there looking tappable and
+      // doing nothing -- reading as "the page needs a refresh before it
+      // works," which is exactly what a refresh appeared to fix (a
+      // reload within the same 30-minute window skips the intro/tapzone
+      // entirely, so the *second* tap -- now with no tapzone in the way
+      // -- was really the first one that ever reached the button).
+      // elementFromPoint is called *after* the dismissed class is added
+      // above, which forces a synchronous style recalc, so it correctly
+      // resolves to whatever is now the topmost element at that point
+      // (the tapzone itself is already display:none by then) instead of
+      // finding itself again.
+      var x = e.clientX, y = e.clientY;
+      var target = document.elementFromPoint(x, y);
+      if (target && target !== tz && typeof target.click === 'function') {
+        target.click();
+      }
     }, { once: true });
   }
   if (window.__introWillPlay) {
