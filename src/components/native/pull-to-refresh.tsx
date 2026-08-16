@@ -6,7 +6,20 @@ import { isNativeApp } from "@/lib/native/is-native";
 const PULL_THRESHOLD = 72; // px of (resisted) pull before a release triggers a reload
 const MAX_PULL = 110; // px -- caps how far the page can travel while actively dragging
 const REFRESH_HOLD = 56; // px the page settles at once armed, so the spinner has room to read
-const REFRESH_DELAY_MS = 420; // lets the settle + spin actually register before reload cuts it off
+// One full revolution of pull-refresh-rotate below (800ms), plus a small
+// pad for frame-timing slop, not the ~half-a-turn 420ms this used to be.
+// A hard reload freezes whatever's on screen the instant navigation
+// actually starts (there's no compositor to keep animating a frozen
+// document mid-reload) -- at 420ms the ring was caught mid-arc, maybe a
+// third of the way around, and just stopped dead there for however long
+// the reload itself took. That reads as broken/hung, not "refreshing,"
+// which is exactly backwards from what a loading indicator should
+// communicate. The 360deg keyframes (-90deg -> 270deg) land back on the
+// exact angle they started from, so waiting for one whole turn to finish
+// means the freeze lands on a *complete, settled* ring instead of an
+// arbitrary mid-spin angle -- the same reason real iOS UIRefreshControls
+// never get interrupted mid-rotation either.
+const REFRESH_DELAY_MS = 850;
 
 /**
  * The native iOS app has no browser chrome at all -- no address bar, no
