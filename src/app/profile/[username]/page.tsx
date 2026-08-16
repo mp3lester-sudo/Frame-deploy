@@ -38,6 +38,23 @@ import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
 const AUTEUR_MAX_ARCHETYPE_INSIGHTS = 6;
 
 /**
+ * Duotone recipe for the favorites-backdrop banner (see the Image
+ * style comment further down for the full "why"). Two separate
+ * recipes, not one hue-rotate value shared across modes -- the same
+ * gold recipe pushed through hue-rotate lands on a saturated cyan/teal,
+ * which globals.css explicitly moved away from for Shows mode ("Cold
+ * open" direction: icy slate-blue toward near-black, pale ice-white
+ * accent rather than a saturated hue -- "superseded an earlier cyan/
+ * teal pass"). So Shows gets its own lower-saturation, cooler-and-
+ * brighter recipe tuned to land near --tv-accent-deep's actual muted
+ * slate-blue instead of just algebraically rotating gold's hue.
+ */
+const BANNER_DUOTONE_FILTER: Record<"movie" | "tv", string> = {
+  movie: "grayscale(1) sepia(0.5) hue-rotate(-8deg) saturate(2.2) brightness(0.68) contrast(1.1)",
+  tv: "grayscale(1) sepia(0.25) hue-rotate(180deg) saturate(1.15) brightness(0.75) contrast(1.05)",
+};
+
+/**
  * Tailwind col-start-N classes must appear literally in source for the JIT
  * scanner to pick them up, so this returns full class strings rather than
  * building "col-start-" + n. Centers a row of 1, 2, or 3 tiles (each
@@ -577,18 +594,19 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                     alt=""
                     fill
                     className="object-cover object-top"
-                    // Gold duotone: five favorites are five unrelated
-                    // movies with nothing in common tonally -- a blue
-                    // sci-fi still next to a red thriller poster next to
-                    // a green period piece reads as visual noise, not a
+                    // Duotone: five favorites are five unrelated titles
+                    // with nothing in common tonally -- a blue sci-fi
+                    // still next to a red thriller poster next to a
+                    // green period piece reads as visual noise, not a
                     // cohesive "cover photo." Desaturating and pushing
-                    // everything through the app's own gold/velvet hue
-                    // (same accent used everywhere else on this page)
-                    // makes five random images read as one deliberate
-                    // frame instead of five clashing thumbnails, while
-                    // keeping the actual photo content -- faces,
-                    // composition, what's IN the shot -- fully visible.
-                    style={{ filter: "grayscale(1) sepia(0.5) hue-rotate(-8deg) saturate(2.2) brightness(0.68) contrast(1.1)" }}
+                    // everything through the active mode's own accent
+                    // hue (gold for Movies, cool slate-blue for Shows --
+                    // see BANNER_DUOTONE_FILTER above) makes five random
+                    // images read as one deliberate frame instead of
+                    // five clashing thumbnails, while keeping the actual
+                    // photo content -- faces, composition, what's IN the
+                    // shot -- fully visible.
+                    style={{ filter: BANNER_DUOTONE_FILTER[mediaType] }}
                     sizes="400px"
                     // This banner collage is the actual LCP element on
                     // every profile page visit (top of page, immediately
