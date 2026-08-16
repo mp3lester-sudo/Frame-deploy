@@ -342,7 +342,7 @@ export async function getRecommendationsForUser(
     // for something_short) context multiplier — see weather-time-weighting.ts
     // for why this is never a hard exclusion.
     const weatherMult = weather ? weatherTimeMultiplier(title, weather) : 1;
-    const qualityMult = qualityMultiplier(title.weighted_rating);
+    const qualityMult = qualityMultiplier(title.weighted_rating, title.rt_critic_score);
     const genreMult = genreAffinityMultiplier(title.genres, genreAffinity);
     const dislikeMult = dislikePenaltyMultiplier(dislikeSimilarityById.get(id) ?? 0, CONTENT_MATCH_THRESHOLD);
     const implicitMult = implicitAffinityMultiplier(

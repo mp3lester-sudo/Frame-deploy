@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest";
 import { qualityMultiplier } from "@/lib/recommendations/quality-weighting";
 
 describe("qualityMultiplier", () => {
-  it("returns a mild penalty for titles with no vote history", () => {
+  it("returns a mild penalty for titles with no vote history at all", () => {
     expect(qualityMultiplier(null)).toBeCloseTo(0.85);
+    expect(qualityMultiplier(null, null)).toBeCloseTo(0.85);
   });
 
   it("returns neutral (1.0) at the catalogue average rating", () => {
@@ -22,7 +23,7 @@ describe("qualityMultiplier", () => {
 
   it("is monotonically increasing with rating", () => {
     const ratings = [4, 5, 6, 7, 7.2, 7.5, 8, 8.5, 9];
-    const mults = ratings.map(qualityMultiplier);
+    const mults = ratings.map((r) => qualityMultiplier(r));
     for (let i = 1; i < mults.length; i++) {
       expect(mults[i]).toBeGreaterThanOrEqual(mults[i - 1]);
     }
@@ -34,5 +35,41 @@ describe("qualityMultiplier", () => {
 
   it("rewards a highly-rated title relative to an average one", () => {
     expect(qualityMultiplier(8.5)).toBeGreaterThan(qualityMultiplier(7.2));
+  });
+
+  describe("with rt_critic_score", () => {
+    it("uses rt_critic_score alone when weighted_rating is missing", () => {
+      // 20/100 RT -> rescaled to 2.0/10, well below the floor rating
+      expect(qualityMultiplier(null, 20)).toBeCloseTo(qualityMultiplier(2.0));
+    });
+
+    it("Death Wish (2018) case: a decent-looking audience score gets pulled down hard by a critic bomb", () => {
+      // weighted_rating 6.46 alone reads as "slightly below average" (~0.9x).
+      // rt_critic_score 18 means critics call it a real bomb. The blend
+      // should land at or near the floor multiplier, not a mild dip.
+      const withoutRt = qualityMultiplier(6.46);
+      const withRt = qualityMultiplier(6.46, 18);
+      expect(withRt).toBeLessThan(withoutRt);
+      expect(withRt).toBeCloseTo(0.6, 1);
+    });
+
+    it("does not let a great RT score fully erase a mediocre audience score", () => {
+      // 95/100 RT -> 9.5/10, but weighted_rating only 5.0 -- blend should
+      // sit between the two, weighted toward the worse (5.0) one, not
+      // jump all the way to the ceiling.
+      const blended = qualityMultiplier(5.0, 95);
+      expect(blended).toBeGreaterThan(qualityMultiplier(5.0));
+      expect(blended).toBeLessThan(qualityMultiplier(9.5));
+    });
+
+    it("barely moves the needle when both scores already agree", () => {
+      // weighted_rating 8.0 and rt_critic_score 80 (-> 8.0/10) agree --
+      // blending two equal numbers should return that same number.
+      expect(qualityMultiplier(8.0, 80)).toBeCloseTo(qualityMultiplier(8.0), 5);
+    });
+
+    it("still clamps a critic-bomb blend to the floor, never below it", () => {
+      expect(qualityMultiplier(3.0, 5)).toBeCloseTo(0.6);
+    });
   });
 });
