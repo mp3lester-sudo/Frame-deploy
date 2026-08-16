@@ -165,6 +165,11 @@ export default async function RootLayout({
   // src/lib/actions/nav-badges.ts) -- badges pop in a beat later instead of
   // gating the entire page behind them.
   let isPremium = false;
+  // avatarUrl/avatarName feed BottomNav's Profile tab (task #589) -- pulled
+  // off this same query rather than a second round trip, same reasoning as
+  // the is_premium fetch below.
+  let avatarUrl: string | null = null;
+  let avatarName: string | undefined;
   if (user) {
     const [, { data: profile }] = await Promise.all([
       ensureProfile(supabase, user),
@@ -172,9 +177,15 @@ export default async function RootLayout({
       // means something if free accounts see something to go ad-free
       // from. Cheap enough (single boolean column) to fetch unconditionally
       // alongside the other per-request lookups this layout already does.
-      supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", user.id).maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("is_premium, bonus_premium_until, avatar_url, display_name, username")
+        .eq("id", user.id)
+        .maybeSingle(),
     ]);
     isPremium = isPremiumActive(profile);
+    avatarUrl = profile?.avatar_url ?? null;
+    avatarName = profile?.display_name || profile?.username || undefined;
   }
   // Logged-out visitors get the landing page's own conversion funnel
   // instead of a banner; Premium accounts never see it at all.
@@ -228,7 +239,7 @@ export default async function RootLayout({
                   3.5rem covers the flush bar's own height (~56px). */}
               <main className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
             </PullToRefresh>
-            <BottomNav mediaType={mediaType} />
+            <BottomNav mediaType={mediaType} avatarUrl={avatarUrl} avatarName={avatarName} />
           </ToastProvider>
         </PostHogProvider>
       </body>
