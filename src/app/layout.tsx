@@ -224,10 +224,9 @@ export default async function RootLayout({
               {showPromoBanner && <PromoBanner />}
               {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
                   own bottom padding (see bottom-nav.tsx) -- otherwise page
-                  content would be hidden behind the taller bar on notched
-                  iPhones. 4.5rem covers the floating pill's own height
-                  (~56px) plus the 12px gap it floats above the edge with. */}
-              <main className="flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
+                  content would be hidden behind the bar on notched iPhones.
+                  3.5rem covers the flush bar's own height (~56px). */}
+              <main className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
             </PullToRefresh>
             <BottomNav mediaType={mediaType} />
           </ToastProvider>

@@ -25,24 +25,25 @@ function getTabs(mediaType: MediaType) {
 
 /**
  * Mobile-only bottom tab bar (design round 5, "expanding label pill" --
- * concept 3 of the bottom-nav mockups). A glass pill that floats clear of
- * the screen edge instead of a flush full-width bar; only the active tab
- * carries a text label, expanding to make room for it, so the row reads
- * cleanly without five permanent labels competing for a ~360px width.
+ * concept 3 of the bottom-nav mockups, flush variant). Only the active
+ * tab carries a text label, expanding to make room for it, so the row
+ * reads cleanly without five permanent labels competing for a ~360px
+ * width. Unlike the first pass, the bar itself is NOT detached/floating
+ * -- it sits flush against the true bottom edge with its own background
+ * filling the safe-area gutter, so nothing (page content or bare
+ * background) is ever visible below it, same guarantee the original
+ * flush bar gave.
  */
 export function BottomNav({ mediaType }: { mediaType: MediaType }) {
   const pathname = usePathname();
   const tabs = getTabs(mediaType);
 
   return (
-    // The floating pill sits inside a full-width, transparent nav strip so
-    // the iOS home-indicator safe-area gutter still reserves real space
-    // below it (same purpose the old flush bar's env() padding served).
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-border bg-glass pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
       aria-label="Primary"
     >
-      <div className="mx-auto flex max-w-6xl items-center gap-1 rounded-full border border-glass-border bg-glass p-1.5 shadow-[var(--glass-shadow)] backdrop-blur-xl">
+      <div className="mx-auto flex max-w-6xl items-center gap-1 p-1.5">
         {tabs.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
