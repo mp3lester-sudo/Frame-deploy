@@ -58,6 +58,10 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [matchToast, setMatchToast] = useState<SwipeRec | null>(null);
+  // Every right-swiped card that cleared MATCH_THRESHOLD this session --
+  // feeds the session-recap end state below instead of vanishing once
+  // the toast clears itself.
+  const [matches, setMatches] = useState<SwipeRec[]>([]);
   const pointerRef = useRef<{ startX: number; startY: number; active: boolean }>({
     startX: 0,
     startY: 0,
@@ -91,6 +95,7 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
       void addToWatchlist(current.id);
       if (current.matchPercent !== null && current.matchPercent >= MATCH_THRESHOLD) {
         setMatchToast(current);
+        setMatches((m) => [...m, current]);
         window.setTimeout(() => setMatchToast(null), MATCH_TOAST_MS);
       }
     }
@@ -142,16 +147,89 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
   // (which would read as broken) or auto-fetching forever, a clear
   // completion state that lets someone re-open a fresh batch on demand.
   if (!current) {
+    function reshuffle() {
+      setIndex(0);
+      setMatches([]);
+      setDeck((d) => [...d].sort(() => Math.random() - 0.5));
+    }
+
+    // Session recap -- Concept 3 from the match-deck renderings. Only
+    // shown when at least one card cleared MATCH_THRESHOLD this batch;
+    // otherwise falls through to the plain caught-up card below so a
+    // batch with no strong matches doesn't pretend it had one.
+    if (matches.length > 0) {
+      const sorted = [...matches].sort((a, b) => (b.matchPercent ?? 0) - (a.matchPercent ?? 0));
+      const best = sorted[0];
+      const rest = sorted.slice(1, 3);
+      return (
+        <div className="rounded-[var(--radius-lg)] border border-border bg-glass p-5">
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted">You&apos;re all caught up</p>
+          <p className="mt-1 font-display text-lg">
+            {matches.length === 1 ? "Tonight's match" : "Tonight's top match"}
+          </p>
+          <div className="relative mt-3 overflow-hidden rounded-[var(--radius-md)]" style={{ aspectRatio: "16/9" }}>
+            {(best.backdropUrl ?? best.posterUrl) && (
+              <Image src={(best.backdropUrl ?? best.posterUrl)!} alt="" fill className="object-cover" />
+            )}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+            <div
+              className="absolute left-3 top-3 rounded-[var(--radius-full)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-accent-foreground"
+              style={{ backgroundImage: "var(--accent-gradient)" }}
+            >
+              Best match
+            </div>
+            <div className="absolute inset-x-3 bottom-3">
+              <p className="font-hollywood text-3xl leading-none text-gold-foil">{best.matchPercent}%</p>
+              <p className="font-display text-lg text-foreground">{best.name}</p>
+            </div>
+          </div>
+          {rest.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {rest.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2.5 rounded-[var(--radius-md)] border border-border bg-surface px-2.5 py-2"
+                >
+                  {m.posterUrl && (
+                    <div className="relative h-11 w-8 shrink-0 overflow-hidden rounded-[var(--radius-sm)]">
+                      <Image src={m.posterUrl} alt="" fill className="object-cover" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium">{m.name}</p>
+                    <p className="text-gold-foil text-[10px]">{m.matchPercent}% match</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-4 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => router.push("/movie-night")}
+              className="bg-gold-foil text-accent-foreground inline-flex h-10 items-center justify-center rounded-[var(--radius-full)] px-5 text-xs font-semibold uppercase tracking-wide shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] transition-[filter] hover:brightness-110"
+            >
+              Start a Movie Night with these
+            </button>
+            <button
+              type="button"
+              onClick={reshuffle}
+              className="inline-flex h-9 items-center justify-center rounded-[var(--radius-full)] border border-border-strong px-5 text-xs font-medium uppercase tracking-wide text-foreground-muted"
+            >
+              Shuffle & replay
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-[var(--radius-lg)] border border-border bg-glass p-6 text-center">
         <p className="font-display text-lg">You&apos;re all caught up</p>
         <p className="mt-1 text-xs text-foreground-muted">Swiped through this batch of picks.</p>
         <button
           type="button"
-          onClick={() => {
-            setIndex(0);
-            setDeck((d) => [...d].sort(() => Math.random() - 0.5));
-          }}
+          onClick={reshuffle}
           className="bg-gold-foil text-accent-foreground mt-4 inline-flex h-9 items-center justify-center rounded-[var(--radius-full)] px-5 text-xs font-semibold uppercase tracking-wide shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] transition-[filter] hover:brightness-110"
         >
           Shuffle & replay
