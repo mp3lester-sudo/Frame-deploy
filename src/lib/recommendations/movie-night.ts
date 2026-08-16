@@ -258,6 +258,41 @@ export async function getCandidatesForUserGroup({
   for (const id of excludeIds) candidateIds.delete(id);
 
   if (!anyoneHasMatches) {
+    // This exact branch used to be indistinguishable from a real bug --
+    // "zero seed matches for every participant" reads identically in the
+    // UI whether it's an honest cold start (nobody here has rated any
+    // titles of this media type yet) or something actually broken
+    // (someone has a real rating history but their taste vector never
+    // got built, or the whole vector table is being missed somehow).
+    // Checking who actually HAS a taste_vectors row for this media type
+    // turns that guess into a fact, logged non-blocking so it doesn't
+    // cost this request anything: a participant with a rating history
+    // but no vector row (or a vector row that still produced zero
+    // matches) points at a real bug worth chasing; everyone missing a
+    // row is a genuine cold start and this fallback is doing its job.
+    const [{ data: vectorRows }, { data: ratingRows }] = await Promise.all([
+      supabase.from("taste_vectors").select("user_id").eq("media_type", mediaType).in("user_id", userIds),
+      supabase.from("ratings").select("user_id, title_id").in("user_id", userIds),
+    ]);
+    const withVector = new Set((vectorRows ?? []).map((v) => v.user_id));
+    let ratedThisType = 0;
+    if ((ratingRows ?? []).length > 0) {
+      const ratedTitleIds = [...new Set((ratingRows ?? []).map((r) => r.title_id))];
+      const { data: ratedTypeTitles } = await supabase.from("titles").select("id").eq("type", mediaType).in("id", ratedTitleIds);
+      const ratedThisTypeIds = new Set((ratedTypeTitles ?? []).map((t) => t.id));
+      ratedThisType = (ratingRows ?? []).filter((r) => ratedThisTypeIds.has(r.title_id)).length;
+    }
+    const suspicious = withVector.size > 0 || ratedThisType > 0;
+    if (suspicious) {
+      void captureServerError(new Error("Group blend: zero seed matches despite existing signal"), {
+        where: "getCandidatesForUserGroup:anyoneHasMatches",
+        mediaType,
+        participantCount: userIds.length,
+        participantsWithVector: withVector.size,
+        ratingsOfThisMediaType: ratedThisType,
+      });
+    }
+
     const { data: popular } = await supabase
       .from("titles")
       .select("*")
