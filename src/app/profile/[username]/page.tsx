@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getActiveMediaType } from "@/lib/context/media-type";
+import { BANNER_DUOTONE_FILTER } from "@/lib/design/duotone";
 import Image from "@/components/ui/fade-image";
 import { Avatar } from "@/components/ui/avatar";
 import { TitleCard } from "@/components/title-card";
@@ -49,11 +50,6 @@ const AUTEUR_MAX_ARCHETYPE_INSIGHTS = 6;
  * brighter recipe tuned to land near --tv-accent-deep's actual muted
  * slate-blue instead of just algebraically rotating gold's hue.
  */
-const BANNER_DUOTONE_FILTER: Record<"movie" | "tv", string> = {
-  movie: "grayscale(1) sepia(0.5) hue-rotate(-8deg) saturate(2.2) brightness(0.68) contrast(1.1)",
-  tv: "grayscale(1) sepia(0.25) hue-rotate(180deg) saturate(1.15) brightness(0.75) contrast(1.05)",
-};
-
 /**
  * Tailwind col-start-N classes must appear literally in source for the JIT
  * scanner to pick them up, so this returns full class strings rather than

@@ -127,7 +127,9 @@ async function HomeRecommendationsSection({
       {/* The recommendation is the unambiguous focal point of the page --
           full column width, alone, dramatically taller than everything
           below it (see recommendation-reveal.tsx). */}
-      {heroRevealPicks.length > 0 && <RecommendationReveal picks={heroRevealPicks} isColdStart={isColdStart} />}
+      {heroRevealPicks.length > 0 && (
+        <RecommendationReveal picks={heroRevealPicks} isColdStart={isColdStart} mediaType={mediaType} />
+      )}
 
       {/* Quiet thumbnail row -- deliberately smaller and less prominent
           than the hero above it. */}
