@@ -735,6 +735,33 @@ html.consent-decided .cookie-consent-banner {
   }
 }
 
+/* This is what was actually behind the pull-to-refresh ring reading as
+   "stuck at a quarter circle" for anyone with Reduce Motion on (turns out
+   to be a common setting, not an edge case -- a lot of people enable it
+   purely to save battery, not for motion sensitivity). The universal
+   fallback above forces every `animation-duration` on the page down to
+   0.001ms, which doesn't "turn off" pull-refresh-spin so much as make it
+   play its entire 800ms rotation in under a millisecond and then just sit
+   on its final frame -- a small gold arc frozen in place, with nothing
+   left to signal "this is a spinner," forever.
+   Everything else this file disables under reduced motion is genuinely
+   decorative (hover lifts, parallax, entrance choreography) -- this one
+   is a functional status indicator, the ONLY thing communicating "a
+   network request is in flight" once the ring's armed, so killing its
+   motion doesn't reduce discomfort, it just deletes the one cue that
+   anything is happening and makes the page look hung instead. iOS's own
+   system pull-to-refresh spinner, and most other loading indicators,
+   already carve out this same exception. A class selector always beats
+   the universal `*` selector on specificity regardless of source order,
+   so this reliably wins back over the blanket rule above for just this
+   one element. */
+@media (prefers-reduced-motion: reduce) {
+  .pull-refresh-spin {
+    animation-duration: 800ms !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
 /* Horizontal filter rails (Discover genres, etc.) — scrollable on all
    screen sizes without an ugly visible scrollbar. */
 .no-scrollbar {
