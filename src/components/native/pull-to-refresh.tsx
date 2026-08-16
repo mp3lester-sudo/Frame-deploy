@@ -237,11 +237,37 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
                 its spinner length (via the transition on the circle
                 below), not a rotation jump. */}
             <svg
+              // Forces a brand-new DOM node the one time `ready` flips
+              // true per gesture, instead of toggling the animation class
+              // on an svg that's been sitting still-mounted (and already
+              // painted, inside a backdrop-blur ancestor) since the drag
+              // started. WebKit has real, documented cases where handing
+              // an *already-composited* layer a fresh `animation` via a
+              // class change doesn't reliably kick off -- it can just sit
+              // on the animation's first frame indefinitely, which reads
+              // as exactly "stuck at quarter circle" (the arc shrinks to
+              // its armed length via the stroke-dashoffset transition,
+              // which does fire, but the rotation meant to sell it as
+              // *spinning* never starts). A fresh element has no prior
+              // paint/composite state to inherit and always starts its
+              // animation cleanly. `ready` only ever flips 0->1 once per
+              // gesture (see the comment above), so this is at most one
+              // extra element creation, not a remount loop.
+              key={ready ? "armed" : "filling"}
               width="30"
               height="30"
               viewBox="0 0 34 34"
               className={ready ? "pull-refresh-spin" : ""}
-              style={{ transform: ready ? undefined : "rotate(-90deg)" }}
+              style={{
+                transform: ready ? undefined : "rotate(-90deg)",
+                // Belt-and-suspenders alongside the remount above --
+                // promotes this to its own compositor layer up front so
+                // the rotation is guaranteed to run on the compositor
+                // thread rather than potentially getting bundled into
+                // the same (WebKit-quirky) layer as the backdrop-blur
+                // badge behind it.
+                willChange: "transform",
+              }}
             >
               {/* Faint full-circle track so the ring reads clearly even at
                   low pull distances, before much of the gold arc has
