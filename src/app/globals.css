@@ -769,6 +769,31 @@ html.consent-decided .cookie-consent-banner {
    (e.g. <Card className="border-accent/50">). @layer components sits
    before @layer utilities in Tailwind's declared layer order, so a
    plain utility class now correctly overrides this. */
+/* Padding is deliberately left to each call site's own p-* utility
+   rather than baked into this class -- content density varies too much
+   for one universal number, and an earlier attempt to force everything
+   to a single value (see the "padding-standardization pass" from this
+   app's history) actually made things worse, cramming multi-section
+   settings panels and loosening single-row list items alike. What's
+   actually in use across the app already sorts cleanly into four tiers
+   by what the card contains -- this just makes that convention
+   discoverable instead of living only in scattered commit messages:
+     - p-2 / small utility chrome: a compact interactive control that
+       happens to use the bento surface (e.g. Ask Marquee's chat input
+       wrapper), not a content card at all.
+     - p-3: a single flush row -- poster/avatar + title + meta laid out
+       horizontally, list-style (Clubs roster rows, the Movie Night
+       "decided pick" row, the home page's Movie Night card).
+     - p-4: a labeled content panel with its own internal structure --
+       a form, a multi-line section, several stacked fields (Settings'
+       sections, a club's member roster). This is also the <Card />
+       component's own default (src/components/ui/card.tsx), so
+       anything rendered through <Card> unstyled already lands here.
+     - p-5/p-6: a hero tile or the single dominant card on an otherwise
+       bare page -- Movie Night's "tonight" hero tile, the auth screens'
+       one full-page card.
+   When adding a new bento-card, match padding to which of these four it
+   actually is, not whichever neighboring instance is closest by eye. */
 @layer components {
   .bento-card {
     border-radius: var(--radius-xl);
