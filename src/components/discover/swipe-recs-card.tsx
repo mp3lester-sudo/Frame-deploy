@@ -20,6 +20,18 @@ const SWIPE_THRESHOLD = 110;
 const EXIT_DURATION_MS = 260;
 const ENTER_DURATION_MS = 340;
 
+// "It's a Match" toast -- tuned way down from the full-screen takeover
+// concept it started as: no confetti, no collision graphic, no stopping
+// the deck's momentum. Right-swiping (watchlist-add) a card whose
+// matchPercent clears this bar gets a brief, non-blocking banner
+// instead, reusing the Kinetic Numerals gold-gradient treatment already
+// shipped on the home hero reveal so it reads as the same design
+// language rather than a new one-off. The card still exits and the next
+// one enters on the usual timers underneath it; the toast just floats
+// on top for a moment and clears itself.
+const MATCH_THRESHOLD = 85;
+const MATCH_TOAST_MS = 1800;
+
 type ExitDirection = "left" | "right" | null;
 
 /**
@@ -45,6 +57,7 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
   const [exitDirection, setExitDirection] = useState<ExitDirection>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [matchToast, setMatchToast] = useState<SwipeRec | null>(null);
   const pointerRef = useRef<{ startX: number; startY: number; active: boolean }>({
     startX: 0,
     startY: 0,
@@ -76,6 +89,10 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
       void dismissRecommendation(current.id);
     } else {
       void addToWatchlist(current.id);
+      if (current.matchPercent !== null && current.matchPercent >= MATCH_THRESHOLD) {
+        setMatchToast(current);
+        window.setTimeout(() => setMatchToast(null), MATCH_TOAST_MS);
+      }
     }
     window.setTimeout(() => {
       setIndex((i) => i + 1);
@@ -159,6 +176,32 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
   const cardTransition = isDragging
     ? "none"
     : `transform ${EXIT_DURATION_MS}ms cubic-bezier(0.2,0.8,0.2,1), opacity ${EXIT_DURATION_MS}ms ease-out`;
+
+  // Tuned-down match banner -- gold-gradient "MATCH" wordmark (same
+  // gradient-text technique as the home hero's Kinetic Numerals) plus
+  // the percentage and title, nothing else. Floats over whichever card
+  // surface is currently visible and clears itself on a timer; never
+  // blocks a tap or the next swipe.
+  const matchToastEl = matchToast ? (
+    <div
+      key={matchToast.id}
+      className="toast-enter pointer-events-none absolute inset-x-2 top-2 z-20 flex items-center gap-1.5 overflow-hidden rounded-[var(--radius-md)] border border-accent/40 bg-background/90 px-3 py-1.5 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.65)] backdrop-blur-md"
+    >
+      <span
+        className="font-hollywood shrink-0 text-xs tracking-[0.1em]"
+        style={{
+          backgroundImage: "var(--accent-gradient)",
+          WebkitBackgroundClip: "text",
+          backgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}
+      >
+        MATCH
+      </span>
+      <span className="text-gold-foil shrink-0 text-[11px] font-semibold">{matchToast.matchPercent}%</span>
+      <span className="truncate text-[11px] text-foreground-muted">{matchToast.name}</span>
+    </div>
+  ) : null;
 
   const cardBody = (isFullscreenVariant: boolean) => (
     // Keyed on the title id so every new card is a genuinely fresh DOM
@@ -331,7 +374,10 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
       </div>
       <div className="mx-auto w-full max-w-[220px]">
         <div className="mb-2">{progressBar}</div>
-        {cardBody(false)}
+        <div className="relative">
+          {cardBody(false)}
+          {matchToastEl}
+        </div>
       </div>
 
       {fullscreen && (
@@ -353,7 +399,10 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
           <div className="mb-4">{progressBar}</div>
           <div className="flex flex-1 items-center justify-center">
             <div className="w-full max-w-sm">
-              {cardBody(true)}
+              <div className="relative">
+                {cardBody(true)}
+                {matchToastEl}
+              </div>
               {actionRow}
             </div>
           </div>
