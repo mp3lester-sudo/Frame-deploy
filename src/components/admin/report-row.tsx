@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { resolveReport } from "@/lib/actions/admin";
 import type { ReportableContentType } from "@/lib/moderation/validate";
 
@@ -67,22 +68,26 @@ export function ReportRow({
           <div className="flex shrink-0 gap-2">
             {status === "open" ? (
               <>
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   disabled={isPending}
                   onClick={() => resolve("reviewed")}
-                  className="rounded-[var(--radius-md)] border border-border-strong px-3 py-1.5 text-xs uppercase tracking-wider hover:bg-surface-raised disabled:opacity-50"
+                  className="uppercase tracking-wider"
                 >
                   Mark reviewed
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   disabled={isPending}
                   onClick={() => resolve("dismissed")}
-                  className="rounded-[var(--radius-md)] border border-border-strong px-3 py-1.5 text-xs uppercase tracking-wider hover:bg-surface-raised disabled:opacity-50"
+                  className="uppercase tracking-wider"
                 >
                   Dismiss
-                </button>
+                </Button>
               </>
             ) : (
               <span className="text-xs uppercase tracking-wider text-foreground-muted">{status}</span>
