@@ -313,7 +313,7 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         className={`relative w-full cursor-grab touch-none select-none overflow-hidden rounded-[var(--radius-lg)] bg-black active:cursor-grabbing ${
-          isFullscreenVariant ? "h-[62vh]" : "aspect-[3/4]"
+          isFullscreenVariant ? "h-[62dvh]" : "aspect-[3/4]"
         }`}
         style={{ transform: cardTransform, opacity: cardOpacity, transition: cardTransition }}
       >
