@@ -28,7 +28,6 @@
  *     OpenAI; skip it if you only want the recompute pass)
  */
 import { createClient } from "@supabase/supabase-js";
-import { inferReviewSentimentScore } from "../src/lib/reviews/sentiment";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -42,6 +41,13 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 const SKIP_SENTIMENT = process.argv.includes("--skip-sentiment");
 
 async function backfillReviewSentiment() {
+  // Dynamic import, not a top-level one: sentiment.ts pulls in
+  // lib/ai/openai.ts, which imports the `server-only` marker package --
+  // fine inside Next.js's server runtime, but that package intentionally
+  // throws/doesn't resolve under a plain tsx script. Loading it lazily,
+  // only when this step actually runs (i.e. not under --skip-sentiment),
+  // keeps the recompute-only path usable without an OpenAI key at all.
+  const { inferReviewSentimentScore } = await import("../src/lib/reviews/sentiment");
   // Only reviews with no rating on the same title even matter for the
   // taste vector (migration 0075's `reviewed` CTE only reads a review
   // when there's no explicit rating already covering that title) -- but
