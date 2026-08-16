@@ -64,6 +64,12 @@ export function BottomNav({
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           const isProfileTab = href === "/profile/me";
           const showAvatar = isProfileTab && !!avatarName;
+          // The Profile tab identifies itself with the photo, not a word --
+          // showing your own face is a clearer "this is you" signal than a
+          // text label would be, so it never carries one, active or not.
+          // (When there's no avatar to show, it still falls back to the
+          // plain icon-only treatment every other inactive tab gets.)
+          const showLabel = active && !showAvatar;
           return (
             <Link
               key={href}
@@ -72,7 +78,10 @@ export function BottomNav({
               className={cn(
                 "flex h-11 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full transition-all duration-200",
                 active
-                  ? "flex-[2.2] border border-border-strong bg-surface-raised px-4 text-accent-soft"
+                  ? cn(
+                      "border border-border-strong bg-surface-raised text-accent-soft",
+                      showAvatar ? "flex-1 px-2" : "flex-[2.2] px-4"
+                    )
                   : "flex-1 px-2 text-foreground-muted"
               )}
             >
@@ -80,16 +89,22 @@ export function BottomNav({
                 <Avatar
                   src={avatarUrl}
                   name={avatarName!}
-                  size={active ? 22 : 20}
+                  size={active ? 24 : 20}
                   className={cn(
-                    "shrink-0 ring-1 transition-all duration-200",
-                    active ? "ring-accent-soft" : "ring-border-strong opacity-80"
+                    // w-/h- utilities (not just the size prop) pin the
+                    // rendered <img> to an exact square -- Tailwind's
+                    // preflight resets all <img> to `height: auto`, which
+                    // otherwise wins over next/image's height attribute
+                    // and stretches the circle into an oval whenever the
+                    // photo itself isn't square.
+                    "aspect-square shrink-0 rounded-full object-cover ring-1 transition-all duration-200",
+                    active ? "h-6 w-6 ring-accent-soft" : "h-5 w-5 ring-border-strong opacity-80"
                   )}
                 />
               ) : (
                 <Icon size={20} strokeWidth={active ? 2 : 1.5} className="shrink-0" />
               )}
-              {active && <span className="text-xs font-semibold tracking-wide">{label}</span>}
+              {showLabel && <span className="text-xs font-semibold tracking-wide">{label}</span>}
             </Link>
           );
         })}
