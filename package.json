@@ -15,6 +15,7 @@
     "reembed:credits": "tsx --env-file=.env.local scripts/reembed-catalogue-with-credits.ts",
     "backfill:popularity": "tsx --env-file=.env.local scripts/backfill-popularity.ts",
     "backfill:tv-metadata": "tsx --env-file=.env.local scripts/backfill-tv-metadata.ts",
+    "repair:taste-vectors": "tsx --env-file=.env.local scripts/repair-taste-vectors.ts",
     "simulate:taste-learning": "tsx --env-file=.env.local scripts/simulate-taste-learning.ts",
     "verify:onboarding": "tsx --env-file=.env.local scripts/verify-onboarding-flow.ts",
     "verify:movie-night": "tsx --env-file=.env.local scripts/verify-movie-night-flow.ts",

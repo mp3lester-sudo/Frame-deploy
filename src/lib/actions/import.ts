@@ -5,6 +5,7 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { parseLetterboxdCsv, buildTitleIndex, matchTitle, type LetterboxdRow } from "@/lib/import/letterboxd";
 import { parseLetterboxdDiaryPaste } from "@/lib/import/letterboxd-paste";
 import { parseLetterboxdRss, type LetterboxdRssRow } from "@/lib/import/letterboxd-rss";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -186,8 +187,13 @@ async function upsertResolvedEntries(
     if (error) {
       // Don't fail the whole import over this — the ratings themselves are
       // already safely written, and a stale/missing taste vector just means
-      // recommendations lag behind until the next rating or import.
-      console.error("recompute_taste_vector_for_user failed after import:", error.message);
+      // recommendations lag behind until the next rating or import. But a
+      // silent console.error here is invisible in prod (nobody's tailing
+      // serverless function logs), which is exactly how a bulk import of
+      // hundreds of ratings could leave someone with zero taste vector and
+      // zero visible sign anything went wrong -- captured properly so a
+      // real failure here is provable, not just guessable.
+      void captureServerError(error, { action: "importLetterboxdData.recompute", userId, ratingCount: dedupedRatingUpserts.length });
     }
   }
 
