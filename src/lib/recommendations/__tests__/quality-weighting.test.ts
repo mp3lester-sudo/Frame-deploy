@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { qualityMultiplier } from "@/lib/recommendations/quality-weighting";
+import {
+  qualityMultiplier,
+  passesQualityFloor,
+  MIN_RECOMMENDABLE_RATING,
+} from "@/lib/recommendations/quality-weighting";
 
 describe("qualityMultiplier", () => {
   it("returns a mild penalty for titles with no vote history at all", () => {
@@ -71,5 +75,45 @@ describe("qualityMultiplier", () => {
     it("still clamps a critic-bomb blend to the floor, never below it", () => {
       expect(qualityMultiplier(3.0, 5)).toBeCloseTo(0.6);
     });
+  });
+});
+
+describe("passesQualityFloor", () => {
+  it("rejects a title with no rating data at all -- unknown quality is not 'highly rated'", () => {
+    expect(passesQualityFloor(null)).toBe(false);
+    expect(passesQualityFloor(null, null)).toBe(false);
+  });
+
+  it("rejects a title right below the hard floor", () => {
+    expect(passesQualityFloor(MIN_RECOMMENDABLE_RATING - 0.1)).toBe(false);
+  });
+
+  it("accepts a title right at or above the hard floor", () => {
+    expect(passesQualityFloor(MIN_RECOMMENDABLE_RATING)).toBe(true);
+    expect(passesQualityFloor(MIN_RECOMMENDABLE_RATING + 0.5)).toBe(true);
+  });
+
+  it("Death Wish (2018) case: fails the hard floor even though weighted_rating alone would pass", () => {
+    // weighted_rating 6.46 alone is already below 7.0, so this fails either
+    // way -- the real regression case is a title whose weighted_rating
+    // alone clears 7.0 but whose RT score reveals a critical bomb.
+    expect(passesQualityFloor(6.46)).toBe(false);
+    expect(passesQualityFloor(6.46, 18)).toBe(false);
+  });
+
+  it("a decent audience score with an RT bomb underneath it now fails the floor", () => {
+    // weighted_rating 7.3 alone clears 7.0 comfortably. rt_critic_score 20
+    // reveals the real consensus is bad -- the blend should pull this
+    // below the floor even though the raw audience number looked fine.
+    expect(passesQualityFloor(7.3)).toBe(true);
+    expect(passesQualityFloor(7.3, 20)).toBe(false);
+  });
+
+  it("a genuinely well-reviewed title passes on weighted_rating alone", () => {
+    expect(passesQualityFloor(8.2)).toBe(true);
+  });
+
+  it("a genuinely well-reviewed title passes with a strong RT score too", () => {
+    expect(passesQualityFloor(7.5, 85)).toBe(true);
   });
 });

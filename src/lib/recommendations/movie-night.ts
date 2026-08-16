@@ -8,6 +8,7 @@ import {
 } from "./group-fairness";
 import { computeGenreAffinity } from "./genre-affinity";
 import { CONTENT_MATCH_THRESHOLD } from "./engine";
+import { passesQualityFloor, MIN_RECOMMENDABLE_RATING } from "./quality-weighting";
 import type { ReasonDetail } from "./explain";
 import { captureServerError } from "@/lib/monitoring/sentry-server";
 import type { MediaType } from "@/lib/context/media-type-cookie";
@@ -257,6 +258,28 @@ export async function getCandidatesForUserGroup({
   }
   for (const id of excludeIds) candidateIds.delete(id);
 
+  // "Only highly rated movies should be recommended" -- same hard floor
+  // as the solo engine (see quality-weighting.ts), applied here too since
+  // this seeded pool skipped it entirely before: nothing stopped a
+  // universally-loathed title from winning the group fairness ranking
+  // below as long as its content similarity was high enough for everyone.
+  if (candidateIds.size > 0) {
+    const CHUNK = 100;
+    const idsArray = [...candidateIds];
+    const qualityById = new Map<string, { weighted_rating: number | null; rt_critic_score: number | null }>();
+    for (let i = 0; i < idsArray.length; i += CHUNK) {
+      const { data: chunkTitles } = await supabase
+        .from("titles")
+        .select("id, weighted_rating, rt_critic_score")
+        .in("id", idsArray.slice(i, i + CHUNK));
+      for (const t of chunkTitles ?? []) qualityById.set(t.id, t);
+    }
+    for (const id of idsArray) {
+      const q = qualityById.get(id);
+      if (!q || !passesQualityFloor(q.weighted_rating, q.rt_critic_score)) candidateIds.delete(id);
+    }
+  }
+
   if (!anyoneHasMatches) {
     // This exact branch used to be indistinguishable from a real bug --
     // "zero seed matches for every participant" reads identically in the
@@ -293,10 +316,14 @@ export async function getCandidatesForUserGroup({
       });
     }
 
+    // Same hard "only highly rated" floor as the personalized path above --
+    // a popularity fallback shouldn't reintroduce a movie that couldn't
+    // clear the quality bar just because it's widely watched.
     const { data: popular } = await supabase
       .from("titles")
       .select("*")
       .eq("type", mediaType)
+      .gte("weighted_rating", MIN_RECOMMENDABLE_RATING)
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
     const excludeFiltered = (popular ?? []).filter((t) => !excludeIds.has(t.id));
@@ -354,10 +381,14 @@ export async function getCandidatesForUserGroup({
     // Every active participant has a taste vector, but none of the seeded
     // candidates were scored for all of them (a very small/mismatched
     // seed pool) — fall back to popularity rather than showing nothing.
+    // Same hard "only highly rated" floor as the personalized path above --
+    // a popularity fallback shouldn't reintroduce a movie that couldn't
+    // clear the quality bar just because it's widely watched.
     const { data: popular } = await supabase
       .from("titles")
       .select("*")
       .eq("type", mediaType)
+      .gte("weighted_rating", MIN_RECOMMENDABLE_RATING)
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
     const excludeFiltered = (popular ?? []).filter((t) => !excludeIds.has(t.id));

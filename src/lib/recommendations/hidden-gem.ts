@@ -3,6 +3,7 @@ import type { Database } from "@/lib/supabase/types";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { CONTENT_MATCH_THRESHOLD } from "./engine";
 import { calibrateMatchPercents } from "./match-percent";
+import { passesQualityFloor } from "./quality-weighting";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -16,12 +17,6 @@ export interface HiddenGem {
 // already knowing, so they don't clear the bar no matter how good the
 // taste match is.
 const MAX_VOTE_COUNT = 500;
-
-// Still has to actually be good, not just unheard of. weighted_rating is
-// already a Bayesian average (see 0009_weighted_rating.sql) that discounts
-// thin vote counts toward the catalogue mean, so requiring a real floor
-// here isn't just trusting a 9/10 from three people.
-const MIN_WEIGHTED_RATING = 6.5;
 
 const CANDIDATE_POOL_SIZE = 40;
 
@@ -75,7 +70,11 @@ export async function getHiddenGemForUser(
         !!c.title &&
         c.similarity >= CONTENT_MATCH_THRESHOLD &&
         (c.title.tmdb_vote_count ?? Infinity) <= MAX_VOTE_COUNT &&
-        (c.title.weighted_rating ?? 0) >= MIN_WEIGHTED_RATING
+        // Same shared "only highly rated" hard floor as the rest of the
+        // app (see quality-weighting.ts) -- this used to be its own
+        // looser, weighted_rating-only 6.5 bar, which is now below the
+        // app-wide 7.0 standard.
+        passesQualityFloor(c.title.weighted_rating, c.title.rt_critic_score)
     )
     .sort((a, b) => b.similarity - a.similarity);
 

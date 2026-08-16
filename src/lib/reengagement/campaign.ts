@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendReengagementEmail, type ReengagementPick } from "@/lib/email/resend";
+import { passesQualityFloor, MIN_RECOMMENDABLE_RATING } from "@/lib/recommendations/quality-weighting";
 
 const INACTIVE_DAYS = 14;
 const COOLDOWN_DAYS = 30;
@@ -96,29 +97,39 @@ async function pickForUser(
   hasTasteVector: boolean
 ): Promise<ReengagementPick | null> {
   if (hasTasteVector) {
+    // Ask for more than 1 -- "only highly rated movies should be
+    // recommended" is a hard floor (see quality-weighting.ts), and the
+    // single top content match isn't guaranteed to clear it, so this walks
+    // down the ranked list for the first one that does rather than just
+    // taking #1 blind.
     const { data: matches } = await supabase.rpc("match_titles_for_user", {
       p_user_id: userId,
-      p_match_count: 1,
+      p_match_count: 10,
       p_media_type: "movie",
     });
-    const topTitleId = matches?.[0]?.title_id;
-    if (topTitleId) {
-      const { data: title } = await supabase
+    const topTitleIds = (matches ?? []).map((m) => m.title_id);
+    if (topTitleIds.length) {
+      const { data: candidateTitles } = await supabase
         .from("titles")
-        .select("name, release_date, poster_url")
-        .eq("id", topTitleId)
-        .maybeSingle();
-      if (title) return toPick(title);
+        .select("id, name, release_date, poster_url, weighted_rating, rt_critic_score")
+        .in("id", topTitleIds);
+      const titleById = new Map((candidateTitles ?? []).map((t) => [t.id, t]));
+      for (const id of topTitleIds) {
+        const t = titleById.get(id);
+        if (t && passesQualityFloor(t.weighted_rating, t.rt_critic_score)) return toPick(t);
+      }
     }
   }
 
-  // Cold-start fallback (no taste vector, or no unwatched match found):
-  // the single highest-rated title in the catalogue. Not personalized, but
-  // a reasonable minimum-viable nudge rather than skipping the email.
+  // Cold-start fallback (no taste vector, no unwatched match found, or no
+  // match cleared the quality floor): the single highest-rated title in
+  // the catalogue that's still "highly rated" itself. Not personalized,
+  // but a reasonable minimum-viable nudge rather than skipping the email.
   const { data: popular } = await supabase
     .from("titles")
     .select("name, release_date, poster_url")
     .eq("type", "movie")
+    .gte("weighted_rating", MIN_RECOMMENDABLE_RATING)
     .order("weighted_rating", { ascending: false, nullsFirst: false })
     .limit(1);
   if (popular && popular[0]) return toPick(popular[0]);

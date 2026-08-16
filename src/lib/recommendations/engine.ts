@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { contextMultiplier } from "./context-weighting";
 import { weatherTimeMultiplier, weatherTimeNote, type WeatherTimeSignal } from "./weather-time-weighting";
-import { qualityMultiplier } from "./quality-weighting";
+import { qualityMultiplier, passesQualityFloor, MIN_RECOMMENDABLE_RATING } from "./quality-weighting";
 import { computeGenreAffinity, genreAffinityMultiplier } from "./genre-affinity";
 import { computeCurationConfidence, computeAdjustmentBand } from "./curation-confidence";
 import { calibrateMatchPercents } from "./match-percent";
@@ -338,6 +338,12 @@ export async function getRecommendationsForUser(
     if (!title) continue;
     const contextMult = context ? contextMultiplier(title, context) : 1;
     if (contextMult === null) continue; // hard-excluded by this context (e.g. too long for something_short)
+    // "Only highly rated movies should be recommended" -- a hard floor, not
+    // just the softer qualityMult nudge below. See passesQualityFloor's doc
+    // comment: a strong enough taste-fit (e.g. Death Wish 2018's 0.785
+    // content similarity) could previously outrun even a 0.6x quality
+    // multiplier and still surface. This can't happen anymore.
+    if (!passesQualityFloor(title.weighted_rating, title.rt_critic_score)) continue;
     // Weather/time is a soft nudge layered on top of the (also soft, except
     // for something_short) context multiplier — see weather-time-weighting.ts
     // for why this is never a hard exclusion.
@@ -507,10 +513,16 @@ async function getColdStartRecommendations(
   // Ordered by weighted_rating (not raw popularity) since there's no taste
   // signal to lean on yet — "best reviewed" is the most sensible default
   // first impression a new user can get.
+  // Same hard "only highly rated" floor as the warm-start path -- see
+  // passesQualityFloor's doc comment. Cold start has no rt_critic_score
+  // blending available here (a single DB query can't easily replicate that
+  // blend), but weighted_rating alone at this bar is still a real quality
+  // gate, not just an ordering preference.
   const { data: titles } = await supabase
     .from("titles")
     .select("*")
     .eq("type", mediaType)
+    .gte("weighted_rating", MIN_RECOMMENDABLE_RATING)
     .order("weighted_rating", { ascending: false, nullsFirst: false })
     .limit((limit + watchedIds.size) * 4);
 

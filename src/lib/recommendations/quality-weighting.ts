@@ -7,13 +7,6 @@
  * (see 0009_weighted_rating.sql — a Bayesian average, already correctly
  * discounts small vote counts, so no re-derivation needed here).
  *
- * Deliberately a multiplier layered on top of taste-fit, not a replacement
- * for it — sorting purely by rating would just recommend "The Godfather"
- * to everyone regardless of what they actually like. This nudges the
- * ranking so that, among similarly-good taste matches, the better-reviewed
- * one wins, and a title with no vote history yet doesn't rank alongside
- * well-vetted acclaimed titles on an equal footing.
- *
  * rt_critic_score (Rotten Tomatoes critic consensus, 0-100) is folded in
  * when available. This exists because weighted_rating alone missed real
  * critical bombs: Death Wish (2018) has weighted_rating 6.46 -- reads as
@@ -23,6 +16,25 @@
  * this kind of "watchable but bad" title, so when both are present the
  * lower of the two is weighted more heavily -- a movie can't buy its way
  * out of a critical drubbing with a merely-mediocre audience score.
+ *
+ * Two layers on top of that blended rating:
+ *
+ *  1. passesQualityFloor() -- a HARD exclusion. Nothing below
+ *     MIN_RECOMMENDABLE_RATING (or with no rating data at all) is ever
+ *     shown as a recommendation, full stop. This used to be soft-only (a
+ *     multiplier could dent a bad title's score without ever fully
+ *     removing it, so a strong enough taste-fit could still push a
+ *     mediocre-to-bad movie through) -- Death Wish (2018) is exactly that
+ *     case: 0.785 content similarity was enough to outrun a 0.6x quality
+ *     multiplier. Every caller MUST apply this filter before a title can
+ *     be returned as a recommendation anywhere in the app.
+ *
+ *  2. qualityMultiplier() -- a softer re-ranking layered on top of taste-
+ *     fit for whatever clears the hard floor above, so that among several
+ *     similarly-good taste matches that are ALL "highly rated," the
+ *     better-reviewed one still wins out. Not a replacement for taste-fit
+ *     on its own -- sorting purely by rating would just recommend "The
+ *     Godfather" to everyone regardless of what they actually like.
  */
 
 const CATALOGUE_AVERAGE_RATING = 7.2; // same constant 0009 uses as its Bayesian prior
@@ -33,9 +45,12 @@ const FLOOR_MULTIPLIER = 0.6;
 const NEUTRAL_MULTIPLIER = 1.0;
 const CEILING_MULTIPLIER = 1.3;
 
-/** Titles with no vote history yet get a mild penalty — better to lead with
- *  something vetted than an unknown quantity, though this is soft enough
- *  that a genuinely great obscure match can still surface. */
+/** Titles with no vote history yet get a mild penalty in the multiplier --
+ *  better to lead with something vetted than an unknown quantity, though
+ *  this is soft enough that a genuinely great obscure match can still
+ *  surface AMONG titles that already cleared the hard floor. An unrated
+ *  title never clears passesQualityFloor() on its own, since "no rating
+ *  data" can't be confirmed as "highly rated." */
 const UNRATED_MULTIPLIER = 0.85;
 
 /** When both weighted_rating and rt_critic_score are present, the lower
@@ -43,6 +58,20 @@ const UNRATED_MULTIPLIER = 0.85;
  *  Death Wish example above. Weighted toward the worse score on purpose:
  *  a critical bomb shouldn't get bailed out by a so-so audience score. */
 const WORSE_SCORE_WEIGHT = 0.7;
+
+/**
+ * "Only highly rated movies should be recommended" -- the hard cutoff.
+ * 7.0/10 was picked by checking the actual distribution: the catalogue's
+ * Bayesian-averaged weighted_rating clusters high (73.8% of movies clear
+ * 6.5+ purely from the prior pulling small-vote-count titles toward the
+ * 7.2 mean), so anything meaningfully below 7.0 has real signal behind a
+ * genuinely mediocre-or-worse rating rather than just a thin vote count.
+ * 7.0 still leaves a healthy candidate pool (roughly half of a real user's
+ * raw content matches clear it in spot checks), while 7.5+ or 8+ narrows
+ * the catalogue enough (2.1% / 0.3% respectively) to risk starving
+ * recommendations for niche tastes.
+ */
+export const MIN_RECOMMENDABLE_RATING = 7.0;
 
 export function qualityMultiplier(weightedRating: number | null, rtCriticScore: number | null = null): number {
   const effectiveRating = computeEffectiveRating(weightedRating, rtCriticScore);
@@ -59,7 +88,16 @@ export function qualityMultiplier(weightedRating: number | null, rtCriticScore: 
   return NEUTRAL_MULTIPLIER + t * (CEILING_MULTIPLIER - NEUTRAL_MULTIPLIER);
 }
 
-function computeEffectiveRating(weightedRating: number | null, rtCriticScore: number | null): number | null {
+/** Hard gate -- see MIN_RECOMMENDABLE_RATING above. Returns false (i.e.
+ *  "don't recommend this") for titles with no rating data at all, since
+ *  "unknown quality" can't be confirmed as "highly rated." */
+export function passesQualityFloor(weightedRating: number | null, rtCriticScore: number | null = null): boolean {
+  const effectiveRating = computeEffectiveRating(weightedRating, rtCriticScore);
+  if (effectiveRating == null) return false;
+  return effectiveRating >= MIN_RECOMMENDABLE_RATING;
+}
+
+export function computeEffectiveRating(weightedRating: number | null, rtCriticScore: number | null): number | null {
   const rtOn10 = rtCriticScore == null ? null : rtCriticScore / 10;
 
   if (weightedRating == null) return rtOn10;
