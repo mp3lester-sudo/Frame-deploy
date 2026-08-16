@@ -1,18 +1,26 @@
 /**
  * "User curation is the key" — the recommendation engine used to treat
  * every account the same regardless of how much they'd actually rated: a
- * fixed 65/35 content-vs-collaborative blend, and a fixed band for how
- * hard generic signals (context/weather/quality/genre) could move a score.
- * Neither scaled with how much real, explicit taste signal existed for a
- * given user.
+ * fixed band for how hard generic signals (context/weather/quality/genre)
+ * could move a score, with no regard for how much real, explicit taste
+ * signal existed for a given user.
  *
  * This models a single "curation confidence" in [0, 1] from how many
  * titles someone has explicitly rated highly (score >= 4 — the same set
- * that feeds the taste vector itself, see migration 0031), and everything
- * downstream (blend weights, adjustment band) scales off of it. A brand
- * new account (confidence ~0) still gets sensible defaults; a deeply
- * curated one (confidence ~1) gets a recommendation pipeline that trusts
- * their own taste far more than the crowd or generic quality scores.
+ * that feeds the taste vector itself, see migration 0031), and the
+ * adjustment band below scales off of it. A brand new account
+ * (confidence ~0) still gets sensible defaults; a deeply curated one
+ * (confidence ~1) gets a recommendation pipeline that trusts their own
+ * taste far more than generic quality/context scores.
+ *
+ * This used to also drive a content-vs-collaborative blend weight
+ * (computeBlendWeights, BlendWeights) -- removed along with
+ * behavioral-collaborative.ts when collaborative filtering was pulled
+ * from the solo recommendation engine entirely (see engine.ts's doc
+ * comment: a pick should only ever be explainable by this user's own
+ * curated ratings, never "people whose taste overlaps with yours"). Both
+ * had gone dead -- referenced only by their own unit tests, nothing in
+ * the live pipeline -- since that removal.
  */
 
 /** Confidence reaches its max once someone has this many highly-rated
@@ -23,27 +31,6 @@ const CURATION_SATURATION_COUNT = 50;
 
 export function computeCurationConfidence(highRatedCount: number): number {
   return Math.max(0, Math.min(1, highRatedCount / CURATION_SATURATION_COUNT));
-}
-
-export interface BlendWeights {
-  vectorWeight: number;
-  collaborativeWeight: number;
-}
-
-const MIN_VECTOR_WEIGHT = 0.65;
-const MAX_VECTOR_WEIGHT = 0.85;
-
-/**
- * Content-vs-collaborative split for blending a candidate's score. Thin
- * curation history leans more on what similar users liked, since the
- * personal taste vector alone is built from too little evidence to trust
- * on its own; deep, well-established curation shifts weight toward the
- * user's own vector, which by that point is a far more reliable predictor
- * of their taste than the crowd.
- */
-export function computeBlendWeights(confidence: number): BlendWeights {
-  const vectorWeight = MIN_VECTOR_WEIGHT + (MAX_VECTOR_WEIGHT - MIN_VECTOR_WEIGHT) * confidence;
-  return { vectorWeight, collaborativeWeight: 1 - vectorWeight };
 }
 
 export interface AdjustmentBand {

@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  computeCurationConfidence,
-  computeBlendWeights,
-  computeAdjustmentBand,
-} from "@/lib/recommendations/curation-confidence";
+import { computeCurationConfidence, computeAdjustmentBand } from "@/lib/recommendations/curation-confidence";
 
 describe("computeCurationConfidence", () => {
   it("is 0 for a brand new account with no high ratings", () => {
@@ -20,32 +16,6 @@ describe("computeCurationConfidence", () => {
 
   it("clamps at 1 for accounts well past saturation", () => {
     expect(computeCurationConfidence(500)).toBe(1);
-  });
-});
-
-describe("computeBlendWeights", () => {
-  it("uses the low-confidence default split for a new account", () => {
-    const { vectorWeight, collaborativeWeight } = computeBlendWeights(0);
-    expect(vectorWeight).toBeCloseTo(0.65, 5);
-    expect(collaborativeWeight).toBeCloseTo(0.35, 5);
-  });
-
-  it("shifts toward the personal vector for a deeply curated account", () => {
-    const { vectorWeight, collaborativeWeight } = computeBlendWeights(1);
-    expect(vectorWeight).toBeCloseTo(0.85, 5);
-    expect(collaborativeWeight).toBeCloseTo(0.15, 5);
-  });
-
-  it("always sums to 1", () => {
-    for (const confidence of [0, 0.25, 0.5, 0.75, 1]) {
-      const { vectorWeight, collaborativeWeight } = computeBlendWeights(confidence);
-      expect(vectorWeight + collaborativeWeight).toBeCloseTo(1, 10);
-    }
-  });
-
-  it("interpolates at the midpoint", () => {
-    const { vectorWeight } = computeBlendWeights(0.5);
-    expect(vectorWeight).toBeCloseTo(0.75, 5);
   });
 });
 
