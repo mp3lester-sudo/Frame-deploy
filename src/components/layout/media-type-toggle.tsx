@@ -46,6 +46,17 @@ export function MediaTypeToggle({ active }: { active: MediaType }) {
   function setMediaType(next: MediaType) {
     if (next === active) return;
     document.documentElement.setAttribute("data-media", next);
+    // Dims/blurs <main> for the duration of the round trip below (see
+    // the media-switching rule in globals.css) -- the palette above just
+    // switched instantly, but the page's actual content is still
+    // whatever the server rendered for the mediaType being left, so
+    // without this the stale content visibly clashes with the new
+    // colors until the refresh lands. Removed once React has painted
+    // the new content, not the instant the awaits below resolve --
+    // router.refresh()/router.push() resolving only means the request
+    // finished, not that the resulting re-render has flushed to the
+    // screen yet.
+    document.documentElement.classList.add("media-switching");
     document.cookie = `${MEDIA_TYPE_COOKIE}=${next}; path=/; max-age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
     startTransition(async () => {
       // "Fully separate profiles" -- switching into a mode this account
@@ -60,6 +71,11 @@ export function MediaTypeToggle({ active }: { active: MediaType }) {
       } else {
         router.refresh();
       }
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          document.documentElement.classList.remove("media-switching");
+        });
+      });
     });
   }
 

@@ -130,6 +130,28 @@
   --glass-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.65);
 }
 
+/* Movies/Shows toggle transition (see media-type-toggle.tsx). Clicking
+   the toggle flips [data-media] on <html> -- and therefore every color
+   token above -- synchronously, in the same tick as the click. The page
+   CONTENT underneath (a movie's gold-duotoned backdrop, TV-filtered
+   catalogue rows, etc.) is still whatever the server rendered for the
+   *previous* mediaType until router.refresh()'s async round trip lands
+   a new RSC payload -- there's no pathname change for a refresh, so
+   PageTransition's key={pathname} fade doesn't fire for this case the
+   way it does for a real navigation. Without masking that gap, a still-
+   gold-tinted poster sits under an already-icy-blue page for a beat,
+   which reads as the two palettes bleeding into each other rather than
+   a clean switch. media-type-toggle.tsx adds/removes media-switching on
+   <html> around that gap; this is the only thing that class does. */
+main {
+  transition: opacity 220ms ease, filter 220ms ease;
+}
+html.media-switching main {
+  opacity: 0.35;
+  filter: blur(3px) saturate(0.6);
+  pointer-events: none;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
