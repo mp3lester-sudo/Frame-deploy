@@ -9,11 +9,14 @@ import { Input } from "@/components/ui/input";
 /**
  * The fastest of the three import paths -- just a username, no file
  * wrangling at all. Trades completeness for speed: Letterboxd's RSS feed
- * only carries a member's ~50-76 most recent diary/review entries with no
- * pagination, so this is positioned as the lead/quick option, with the
- * paste-HTML and CSV methods below it still there for a full-history
- * backfill. See lib/actions/import.ts (importLetterboxdRss) for why RSS is
- * viable server-side when the Diary/Films HTML pages aren't (Cloudflare).
+ * only carries a member's ~50-76 most recent entries with no pagination,
+ * so this is positioned as the lead/quick option, with the paste-HTML and
+ * CSV methods below it still there for a full-history backfill (those two
+ * also pick up plain watched/rated titles with no review text -- this path
+ * intentionally only imports films with an actual written review; see
+ * lib/import/letterboxd-rss.ts). See lib/actions/import.ts
+ * (importLetterboxdRss) for why RSS is viable server-side when the
+ * Diary/Films HTML pages aren't (Cloudflare).
  */
 export function LetterboxdRssImport() {
   const [username, setUsername] = useState("");
@@ -40,8 +43,9 @@ export function LetterboxdRssImport() {
     <div>
       <p className="mb-1 text-[11px] uppercase tracking-wider text-accent-soft">Quick import</p>
       <p className="mb-3 text-sm text-foreground-muted">
-        Just your username -- pulls your ~75 most recent diary entries in seconds. For your full history, use CSV or
-        paste import below instead.
+        Just your username -- pulls your ~75 most recent reviews in seconds (ratings and watches with no written
+        review aren&apos;t included). For your full history, or to import ratings without reviews, use CSV or paste
+        import below instead.
       </p>
       <form onSubmit={handleSubmit} className="flex gap-2">
         <Input

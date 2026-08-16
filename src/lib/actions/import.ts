@@ -381,11 +381,16 @@ const USERNAME_PATTERN = /^[A-Za-z0-9_]{1,32}$/;
  * Fetches the member's public RSS feed server-side (confirmed by hand to
  * answer cleanly with no Cloudflare challenge, unlike the Diary/Films HTML
  * pages — see lib/import/letterboxd-rss.ts) and matches tmdb_id-first.
+ * Only imports entries with an actual written review — plain diary logs
+ * (watched, maybe starred, no review text) are filtered out in
+ * parseLetterboxdRss, since Letterboxd's feed doesn't offer a reviews-only
+ * endpoint to fetch that distinction from directly.
  *
  * Trade-off versus the CSV/paste paths: the feed only carries someone's
- * ~50-76 most recent diary/review entries, so this is a quick way to grab
- * recent activity, not a full-history import — the UI positions it as the
- * "quick" option and keeps CSV/paste available for a full backfill.
+ * ~50-76 most recent entries (of any kind), so even after filtering to
+ * reviews this is a quick way to grab recent write-ups, not a full-history
+ * import — the UI positions it as the "quick" option and keeps CSV/paste
+ * available for a full backfill (including ratings with no review text).
  */
 export async function importLetterboxdRss(usernameRaw: string): Promise<ImportResult> {
   try {
@@ -420,7 +425,7 @@ export async function importLetterboxdRss(usernameRaw: string): Promise<ImportRe
     const xml = await res.text();
     const rows = parseLetterboxdRss(xml);
     if (rows.length === 0) {
-      return { ok: false, error: `No diary or review entries found on ${username}'s profile yet.` };
+      return { ok: false, error: `No reviews found on ${username}'s profile yet — try CSV or paste import below to bring in ratings/watches too.` };
     }
 
     const summary = await matchAndUpsertRssRows(supabase, user.id, rows);

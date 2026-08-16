@@ -264,9 +264,15 @@ export async function getCandidatesForUserGroup({
       .eq("type", mediaType)
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
-    const filtered = (popular ?? [])
-      .filter((t) => !t.genres?.some((g) => excludedGenres.has(g)))
-      .filter((t) => !excludeIds.has(t.id));
+    const excludeFiltered = (popular ?? []).filter((t) => !excludeIds.has(t.id));
+    // A group's combined hard dislikes can span most of what's popular right
+    // now (e.g. someone hard-dislikes Comedy, someone else hard-dislikes
+    // Action) — don't let that genre filter empty the fallback list out from
+    // under a group that already has nothing personalized to show them.
+    let filtered = excludeFiltered.filter((t) => !t.genres?.some((g) => excludedGenres.has(g)));
+    if (filtered.length === 0 && excludeFiltered.length > 0) {
+      filtered = excludeFiltered;
+    }
     const note = "Popular right now — nobody in the group has rated enough yet to personalize this.";
     return filtered.slice(0, limit).map((title) => ({
       title,
@@ -319,9 +325,11 @@ export async function getCandidatesForUserGroup({
       .eq("type", mediaType)
       .order("tmdb_vote_count", { ascending: false })
       .limit(60);
-    const filtered = (popular ?? [])
-      .filter((t) => !t.genres?.some((g) => excludedGenres.has(g)))
-      .filter((t) => !excludeIds.has(t.id));
+    const excludeFiltered = (popular ?? []).filter((t) => !excludeIds.has(t.id));
+    let filtered = excludeFiltered.filter((t) => !t.genres?.some((g) => excludedGenres.has(g)));
+    if (filtered.length === 0 && excludeFiltered.length > 0) {
+      filtered = excludeFiltered;
+    }
     const note = "Popular right now — not enough overlap yet to find a personalized group match.";
     return filtered.slice(0, limit).map((title) => ({
       title,
