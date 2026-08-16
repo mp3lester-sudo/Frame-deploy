@@ -25,6 +25,25 @@ export async function ensureProfile(
     .maybeSingle();
   if (existing) return;
 
+  await createMissingProfile(supabase, user);
+}
+
+/**
+ * The create-only half of ensureProfile, for callers that already know
+ * (from a query they were making anyway) that no profile row exists --
+ * skips the redundant existence check. The root layout is the only
+ * current caller: it already does one `select ... from profiles where
+ * id = user.id` per request to get is_premium/avatar/display fields, so
+ * ensureProfile's own extra `select id from profiles` on every single
+ * authenticated page view was a second identical-shape query doing
+ * nothing but re-confirming what the first one already answered. This
+ * only runs on the rare path (missing profile row) instead of on every
+ * request.
+ */
+export async function createMissingProfile(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: VerifiedUser
+): Promise<void> {
   const metaUsername = (user.user_metadata as { username?: string } | null)?.username;
   const base = sanitizeUsername(metaUsername || user.email?.split("@")[0] || "user");
 

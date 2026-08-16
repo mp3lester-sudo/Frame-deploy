@@ -5,7 +5,7 @@ import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { createClient } from "@/lib/supabase/server";
-import { ensureProfile } from "@/lib/actions/ensure-profile";
+import { createMissingProfile } from "@/lib/actions/ensure-profile";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isPremiumActive } from "@/lib/premium/is-premium";
 import { PageTransition } from "@/components/page-transition";
@@ -171,21 +171,33 @@ export default async function RootLayout({
   let avatarUrl: string | null = null;
   let avatarName: string | undefined;
   if (user) {
-    const [, { data: profile }] = await Promise.all([
-      ensureProfile(supabase, user),
-      // Drives the house promo banner below (task #141) -- "ad-free" only
-      // means something if free accounts see something to go ad-free
-      // from. Cheap enough (single boolean column) to fetch unconditionally
-      // alongside the other per-request lookups this layout already does.
-      supabase
-        .from("profiles")
-        .select("is_premium, bonus_premium_until, avatar_url, display_name, username")
-        .eq("id", user.id)
-        .maybeSingle(),
-    ]);
-    isPremium = isPremiumActive(profile);
-    avatarUrl = profile?.avatar_url ?? null;
-    avatarName = profile?.display_name || profile?.username || undefined;
+    // Drives the house promo banner below (task #141) -- "ad-free" only
+    // means something if free accounts see something to go ad-free from.
+    // Cheap enough (single boolean column) to fetch unconditionally
+    // alongside the other per-request lookups this layout already does.
+    //
+    // This used to run in Promise.all alongside ensureProfile(), which did
+    // its OWN `select id from profiles where id = user.id` first to decide
+    // whether to create a row -- an identical-shape second query to the
+    // same table on every single authenticated page view, for a check
+    // this select already answers (no row back = doesn't exist yet).
+    // Running them in parallel hid the extra latency, but it was still a
+    // second real round trip to Supabase on every navigation, for the
+    // ~everyone-after-their-first-request case where a profile obviously
+    // already exists. Now the self-healing insert only runs on the rare
+    // path where this select actually comes back empty.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_premium, bonus_premium_until, avatar_url, display_name, username")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!profile) {
+      await createMissingProfile(supabase, user);
+    } else {
+      isPremium = isPremiumActive(profile);
+      avatarUrl = profile.avatar_url ?? null;
+      avatarName = profile.display_name || profile.username || undefined;
+    }
   }
   // Logged-out visitors get the landing page's own conversion funnel
   // instead of a banner; Premium accounts never see it at all.
