@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
-import { RatingStars } from "@/components/ui/rating-stars";
 import { ReviewReactionBar } from "@/components/review-reaction-bar";
 import { ReviewComments, type DisplayComment } from "@/components/review-comments";
 import { DeleteReviewButton } from "@/components/delete-review-button";
@@ -53,44 +52,57 @@ export function ReviewCard({
   const { counts, myReaction } = reactions ?? emptyReactionSummary();
   return (
     <div className="border-b border-border py-4 last:border-0">
-      <div className="mb-2 flex items-center gap-3">
-        {authorUsername ? (
-          <Link href={`/profile/${authorUsername}`} className="flex items-center gap-3 hover:opacity-80">
-            <Avatar name={authorName} src={authorAvatarUrl} size={32} />
-            <div>
-              <p className="text-sm font-medium">{authorName}</p>
-              <p className="text-xs text-foreground-muted">{formatDistanceToNow(createdAt)}</p>
-            </div>
-          </Link>
-        ) : (
-          <>
-            <Avatar name={authorName} src={authorAvatarUrl} size={32} />
-            <div>
-              <p className="text-sm font-medium">{authorName}</p>
-              <p className="text-xs text-foreground-muted">{formatDistanceToNow(createdAt)}</p>
-            </div>
-          </>
+      <div className="flex gap-4">
+        {/* Ticket-stub rating (design round 3): a torn-stub column echoing
+            the admit-one motif, replacing the small star-icon row this
+            used to carry inline with the byline. Only renders when there's
+            an actual star rating to show -- plenty of reviews have none. */}
+        {typeof rating === "number" && (
+          <div className="flex w-14 shrink-0 flex-col items-center justify-center border-r border-dashed border-border-strong pr-4 text-center">
+            <span className="font-display text-2xl leading-none text-accent">{rating.toFixed(1)}</span>
+            <span className="mt-1 text-[9px] uppercase tracking-[0.14em] text-foreground-muted">Stars</span>
+          </div>
         )}
-        {typeof rating === "number" && <RatingStars value={rating} size={14} className="ml-auto" />}
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex items-center gap-3">
+            {authorUsername ? (
+              <Link href={`/profile/${authorUsername}`} className="flex items-center gap-3 hover:opacity-80">
+                <Avatar name={authorName} src={authorAvatarUrl} size={32} />
+                <div>
+                  <p className="text-sm font-medium">{authorName}</p>
+                  <p className="text-xs text-foreground-muted">{formatDistanceToNow(createdAt)}</p>
+                </div>
+              </Link>
+            ) : (
+              <>
+                <Avatar name={authorName} src={authorAvatarUrl} size={32} />
+                <div>
+                  <p className="text-sm font-medium">{authorName}</p>
+                  <p className="text-xs text-foreground-muted">{formatDistanceToNow(createdAt)}</p>
+                </div>
+              </>
+            )}
+          </div>
+          {containsSpoilers ? (
+            <details>
+              <summary className="cursor-pointer text-sm text-foreground-muted">
+                Contains spoilers — click to reveal
+              </summary>
+              <p className="mt-2 text-sm leading-relaxed">{body}</p>
+            </details>
+          ) : (
+            <p className="text-sm leading-relaxed">{body}</p>
+          )}
+          <div className="mt-2 flex items-center justify-end gap-3">
+            {!isOwnReview && viewerId && <ReportButton contentType="review" contentId={reviewId} />}
+            {isOwnReview && <DeleteReviewButton reviewId={reviewId} />}
+          </div>
+          <ReviewReactionBar reviewId={reviewId} initialCounts={counts} initialMyReaction={myReaction} canReact={canReact} />
+          {showComments && (
+            <ReviewComments reviewId={reviewId} initialComments={comments} viewerId={viewerId} canComment={canReact} />
+          )}
+        </div>
       </div>
-      {containsSpoilers ? (
-        <details>
-          <summary className="cursor-pointer text-sm text-foreground-muted">
-            Contains spoilers — click to reveal
-          </summary>
-          <p className="mt-2 text-sm leading-relaxed">{body}</p>
-        </details>
-      ) : (
-        <p className="text-sm leading-relaxed">{body}</p>
-      )}
-      <div className="mt-2 flex items-center justify-end gap-3">
-        {!isOwnReview && viewerId && <ReportButton contentType="review" contentId={reviewId} />}
-        {isOwnReview && <DeleteReviewButton reviewId={reviewId} />}
-      </div>
-      <ReviewReactionBar reviewId={reviewId} initialCounts={counts} initialMyReaction={myReaction} canReact={canReact} />
-      {showComments && (
-        <ReviewComments reviewId={reviewId} initialComments={comments} viewerId={viewerId} canComment={canReact} />
-      )}
     </div>
   );
 }
