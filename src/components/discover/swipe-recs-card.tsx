@@ -328,6 +328,30 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
     </div>
   );
 
+  // Alignment meter -- a thin, always-visible gauge of the *current*
+  // card's matchPercent (not a session aggregate -- deliberately simple
+  // and legible at a glance rather than another number to interpret).
+  // Concept 2 from the match-deck renderings, kept in regardless of
+  // which reveal concept shipped: cheap, persistent proof that the
+  // engine is scoring every card in real time, independent of whether
+  // any single swipe clears the match-toast threshold. Reflects
+  // `current` automatically on every card change -- no extra state.
+  const alignmentMeter =
+    current.matchPercent !== null ? (
+      <div className="mb-2">
+        <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wider text-foreground-muted">
+          <span>Taste alignment</span>
+          <span className="text-gold-foil font-semibold">{current.matchPercent}%</span>
+        </div>
+        <div className="h-[3px] overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full transition-[width] duration-500 ease-out"
+            style={{ width: `${current.matchPercent}%`, backgroundImage: "var(--accent-gradient)" }}
+          />
+        </div>
+      </div>
+    ) : null;
+
   // Instagram-story-style segmented bar -- reads at a glance how far
   // through the batch this session is, and (unlike a "3 more" caption
   // alone) makes forward progress visible passively while swiping, not
@@ -373,6 +397,7 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
         <p className="text-[11px] text-foreground-muted">Tap to view &middot; drag to pass or save</p>
       </div>
       <div className="mx-auto w-full max-w-[220px]">
+        {alignmentMeter}
         <div className="mb-2">{progressBar}</div>
         <div className="relative">
           {cardBody(false)}
@@ -396,6 +421,7 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
               <X size={18} />
             </button>
           </div>
+          {alignmentMeter}
           <div className="mb-4">{progressBar}</div>
           <div className="flex flex-1 items-center justify-center">
             <div className="w-full max-w-sm">
