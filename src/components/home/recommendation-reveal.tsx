@@ -192,14 +192,24 @@ export function RecommendationReveal({
               app now runs through one shared recipe, so a five-color
               TMDB still reads as "this app's palette" the same way here
               as it does there, instead of two different treatments that
-              happen to both be gold-ish. */}
+              happen to both be gold-ish.
+
+              Blurred while sealed/revealing (stacked onto the duotone
+              filter, not a separate layer) -- with the old curtain
+              panels gone, the backdrop itself is the only thing that
+              could give the pick away before the tap, so the blur is
+              what's actually doing the "sealed" work now. Clears with a
+              transition the instant the count-up lands, same beat as
+              the ghost numeral handing off to the badge. Scaled up
+              slightly so the blurred edges never peek past the card's
+              own rounded corners. */}
           <Image
             src={backdropImage}
             alt=""
             fill
             priority
-            className="object-cover"
-            style={{ filter: BANNER_DUOTONE_FILTER[mediaType] }}
+            className="object-cover scale-105 transition-[filter] duration-700 ease-out"
+            style={{ filter: `${BANNER_DUOTONE_FILTER[mediaType]} blur(${meterActive ? 16 : 0}px)` }}
             sizes="(max-width: 1024px) 100vw, 60vw"
           />
         </Link>
