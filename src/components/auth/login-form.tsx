@@ -16,7 +16,7 @@ export function LoginForm() {
   return (
     <>
       <h1 className="font-display mb-1 text-2xl">Welcome back</h1>
-      <p className="mb-6 text-sm text-foreground-muted">Log in to pick up where your Taste left off.</p>
+      <p className="mb-6 text-sm text-foreground-muted">Log in to pick up where you left off.</p>
 
       {justReset && (
         <p className="mb-4 rounded-[var(--radius-md)] border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
@@ -45,7 +45,7 @@ export function LoginForm() {
       </form>
 
       <p className="mt-6 text-center text-sm text-foreground-muted">
-        New to Taste?{" "}
+        New to Marquee?{" "}
         <Link href="/signup" className="text-accent hover:underline">
           Create an account
         </Link>
