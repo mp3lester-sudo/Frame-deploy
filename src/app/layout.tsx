@@ -225,8 +225,9 @@ export default async function RootLayout({
               {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
                   own bottom padding (see bottom-nav.tsx) -- otherwise page
                   content would be hidden behind the taller bar on notched
-                  iPhones instead of just behind the original 64px tab row. */}
-              <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
+                  iPhones. 4.5rem covers the floating pill's own height
+                  (~56px) plus the 12px gap it floats above the edge with. */}
+              <main className="flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
             </PullToRefresh>
             <BottomNav mediaType={mediaType} />
           </ToastProvider>

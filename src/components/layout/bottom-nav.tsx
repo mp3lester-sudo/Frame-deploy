@@ -23,36 +23,42 @@ function getTabs(mediaType: MediaType) {
   ];
 }
 
-/** Mobile-only bottom tab bar. The top NavBar carries the same destinations on desktop. */
+/**
+ * Mobile-only bottom tab bar (design round 5, "expanding label pill" --
+ * concept 3 of the bottom-nav mockups). A glass pill that floats clear of
+ * the screen edge instead of a flush full-width bar; only the active tab
+ * carries a text label, expanding to make room for it, so the row reads
+ * cleanly without five permanent labels competing for a ~360px width.
+ */
 export function BottomNav({ mediaType }: { mediaType: MediaType }) {
   const pathname = usePathname();
   const tabs = getTabs(mediaType);
 
   return (
-    // pb adds the iOS home-indicator gutter as pure extra space below the
-    // existing 64px tab row (h-16 on the inner div, unchanged) rather than
-    // squeezing icons into a shorter box -- resolves to 0px anywhere
-    // safe-area-inset-bottom is 0 (Android, desktop, non-notched iPhones),
-    // so this is a no-op outside the cases it's meant for. Depends on
-    // viewport-fit: cover being set in layout.tsx's viewport export.
+    // The floating pill sits inside a full-width, transparent nav strip so
+    // the iOS home-indicator safe-area gutter still reserves real space
+    // below it (same purpose the old flush bar's env() padding served).
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] md:hidden"
       aria-label="Primary"
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-around px-2">
+      <div className="mx-auto flex max-w-6xl items-center gap-1 rounded-full border border-glass-border bg-glass p-1.5 shadow-[var(--glass-shadow)] backdrop-blur-xl">
         {tabs.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-2 text-[10px] uppercase tracking-wide",
-                active ? "text-accent" : "text-foreground-muted"
+                "flex h-11 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full transition-all duration-200",
+                active
+                  ? "flex-[2.2] border border-border-strong bg-surface-raised px-4 text-accent-soft"
+                  : "flex-1 px-2 text-foreground-muted"
               )}
             >
-              <Icon size={20} strokeWidth={active ? 2 : 1.5} />
-              {label}
+              <Icon size={20} strokeWidth={active ? 2 : 1.5} className="shrink-0" />
+              {active && <span className="text-xs font-semibold tracking-wide">{label}</span>}
             </Link>
           );
         })}
