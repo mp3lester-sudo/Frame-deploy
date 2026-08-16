@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "@/components/ui/fade-image";
 import { X, Heart, Maximize2 } from "lucide-react";
@@ -68,6 +68,20 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
     active: false,
   });
 
+  // The visible card DOM node itself is never remounted between swipes
+  // (see cardRef below) -- so "just swapped to a new card" is tracked
+  // explicitly instead of relying on element identity. Forces exactly
+  // one paint with transform transitions disabled right after a swap,
+  // so the incoming card snaps straight to its resting position instead
+  // of visibly sliding in from wherever the just-exited card ended up.
+  const [justSwapped, setJustSwapped] = useState(false);
+  // Points at whichever variant of the card (compact or fullscreen) is
+  // currently mounted -- at most one is ever rendered at a time (see
+  // `fullscreen &&` below), so a single ref is enough. Kept stable
+  // (no `key`) across every swipe -- see the comment on the element
+  // itself for why that's the whole point of this ref.
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
   const current = deck[index];
   const next = deck[index + 1];
 
@@ -103,6 +117,7 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
       setIndex((i) => i + 1);
       setExitDirection(null);
       setDragOffset({ x: 0, y: 0 });
+      setJustSwapped(true);
     }, EXIT_DURATION_MS);
   }
 
@@ -140,6 +155,27 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
     }
     setDragOffset({ x: 0, y: 0 });
   }
+
+  // Clears one frame after a swap so the *next* drag/exit still
+  // transitions normally -- see justSwapped's declaration above.
+  useEffect(() => {
+    if (!justSwapped) return;
+    const id = requestAnimationFrame(() => setJustSwapped(false));
+    return () => cancelAnimationFrame(id);
+  }, [justSwapped]);
+
+  // Restarts the swipe-card-enter fade "by hand" on every new card.
+  // The wrapper below is intentionally never remounted (no `key`), so a
+  // plain CSS `animation` on it only ever plays once -- toggling it off,
+  // forcing a reflow, then handing it back to the stylesheet is the
+  // standard way to make a still-mounted element replay a CSS animation.
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    el.style.animation = "none";
+    void el.offsetWidth;
+    el.style.animation = "";
+  }, [current?.id]);
 
   if (deck.length === 0) return null;
 
@@ -271,9 +307,10 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
         );
 
   const cardTransform = `translate(${translateX}px, ${translateY}px) rotate(${rotation}deg) scale(${dragScale})`;
-  const cardTransition = isDragging
-    ? "none"
-    : `transform ${EXIT_DURATION_MS}ms cubic-bezier(0.2,0.8,0.2,1), opacity ${EXIT_DURATION_MS}ms ease-out`;
+  const cardTransition =
+    isDragging || justSwapped
+      ? "none"
+      : `transform ${EXIT_DURATION_MS}ms cubic-bezier(0.2,0.8,0.2,1), opacity ${EXIT_DURATION_MS}ms ease-out`;
 
   // Tuned-down match banner -- gold-gradient "MATCH" wordmark (same
   // gradient-text technique as the home hero's Kinetic Numerals) plus
@@ -302,11 +339,20 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
   ) : null;
 
   const cardBody = (isFullscreenVariant: boolean) => (
-    // Keyed on the title id so every new card is a genuinely fresh DOM
-    // node -- lets swipe-card-enter (below) run a clean, guaranteed
-    // "this is a new pick" animation instead of inheriting whatever
-    // transform the previous, now-exited card happened to be sitting at.
-    <div key={current.id} className="swipe-card-enter">
+    // Deliberately NOT keyed on the title id anymore. Keying this wrapper
+    // per-card was the original design (mount a fresh node per pick, let
+    // React tear down the old one for free) but in production the old,
+    // already-exited card's DOM node was surviving the unmount somehow
+    // and lingering as an invisible sibling -- still translated off-
+    // screen and opacity:0, but still occupying its full height in
+    // normal flow, so the deck (and everything below it on the page)
+    // drifted further down with every single swipe. Keeping this node
+    // permanently mounted and just updating its contents in place (see
+    // cardRef + the justSwapped/animation-restart effects above) makes
+    // that whole class of bug structurally impossible: there is only
+    // ever one of these nodes, full stop, regardless of what React's
+    // reconciler does under the hood.
+    <div ref={cardRef} className="swipe-card-enter">
       <div
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
