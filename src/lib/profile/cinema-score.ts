@@ -38,3 +38,51 @@ export function tierForPoints(points: number): ExperienceTier {
   if (points >= CINEMA_TIER_THRESHOLDS.intermediate) return "intermediate";
   return "rookie";
 }
+
+/**
+ * Letter grade -- what's actually shown on the profile stat strip.
+ * `computeCinemaPoints` above was only ever built to gate the three-tier
+ * rookie/intermediate/pro badge, and its raw output (e.g. 11950 for
+ * someone with 239 watched titles) was never meant to be displayed on
+ * its own -- a bare four/five-digit number with no unit reads as a
+ * glitch, not a stat.
+ *
+ * Named and shaped after the real CinemaScore: the market-research firm
+ * that polls opening-night theater audiences and grades the movie
+ * itself A+ through F. Same letter scale, same "audience report card"
+ * read -- just turned around to grade the *person's* moviegoing instead
+ * of one film's opening night. It's a natural fit for an app that
+ * already borrows Rotten Tomatoes' percentage badge for individual
+ * titles; this is the personal equivalent.
+ *
+ * Eleven steps, not three -- deliberately finer than the tier badge so
+ * the number keeps moving between rookie/intermediate/pro promotions
+ * instead of sitting still for dozens of titles at a time. The C+ and A
+ * cutoffs are pinned to the existing CINEMA_TIER_THRESHOLDS values
+ * (1000 / 5000) on purpose, so the letter grade and the tier badge
+ * always agree at the two boundaries that matter instead of quietly
+ * contradicting each other (e.g. never "Film Buff" but a "C-").
+ */
+const GRADE_THRESHOLDS: [minPoints: number, grade: string][] = [
+  [0, "F"],
+  [150, "D"],
+  [400, "C-"],
+  [800, "C"],
+  [CINEMA_TIER_THRESHOLDS.intermediate, "C+"], // 1000 -- matches "intermediate"/Film Buff
+  [1500, "B-"],
+  [2200, "B"],
+  [3000, "B+"],
+  [4000, "A-"],
+  [CINEMA_TIER_THRESHOLDS.pro, "A"], // 5000 -- matches "pro"/Cinephile
+  [7500, "A+"],
+];
+
+export function letterGradeForPoints(points: number): string {
+  const safe = Math.max(0, points);
+  let grade = GRADE_THRESHOLDS[0][1];
+  for (const [min, letter] of GRADE_THRESHOLDS) {
+    if (safe >= min) grade = letter;
+    else break;
+  }
+  return grade;
+}

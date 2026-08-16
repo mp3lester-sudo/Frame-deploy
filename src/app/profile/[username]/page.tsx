@@ -18,7 +18,7 @@ import { ReportButton } from "@/components/moderation/report-button";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
-import { computeCinemaPoints, tierForPoints } from "@/lib/profile/cinema-score";
+import { computeCinemaPoints, letterGradeForPoints, tierForPoints } from "@/lib/profile/cinema-score";
 import { computeGenreDistribution, buildFingerprintGradient, buildTasteQuote } from "@/lib/profile/taste-fingerprint";
 import { resolveProfileTheme } from "@/lib/profile/theme-preset";
 import { isAuteurActive } from "@/lib/premium/tier";
@@ -301,6 +301,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // instead of duplicated between SQL and TypeScript.
   const cinemaPoints = computeCinemaPoints(cinemaScoreRow?.watched_count ?? 0, cinemaScoreRow?.reviewed_count ?? 0);
   const cinemaTier = tierForPoints(cinemaPoints);
+  // Letter grade (A+ through F) is what actually renders on the stat
+  // strip below -- see letterGradeForPoints's doc comment in
+  // cinema-score.ts for why the raw points total isn't shown directly.
+  const cinemaGrade = letterGradeForPoints(cinemaPoints);
   const tierLabel = EXPERIENCE_TIER_LABEL[cinemaTier];
   const tasteQuote = buildTasteQuote(tierLabel, genreDistribution, ratingCount ?? 0);
 
@@ -444,7 +448,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Watched</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-2xl"><AnimatedCounter value={cinemaPoints} /></p>
+          {/* Static text, not AnimatedCounter -- a letter grade has no
+              meaningful count-up animation (there's nothing to tick
+              through between "" and "A+"), same reasoning as why the Top
+              genre cell beside it is plain text too. */}
+          <p className="font-display text-2xl">{cinemaGrade}</p>
           <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Cinema Score</p>
         </div>
         <div className="flex-1 px-2 text-center">

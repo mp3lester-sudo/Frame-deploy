@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCinemaPoints, tierForPoints, CINEMA_TIER_THRESHOLDS } from "../cinema-score";
+import { computeCinemaPoints, tierForPoints, letterGradeForPoints, CINEMA_TIER_THRESHOLDS } from "../cinema-score";
 
 describe("computeCinemaPoints", () => {
   it("gives 0 for no activity", () => {
@@ -54,5 +54,45 @@ describe("tierForPoints", () => {
 
   it("is pro well above the pro threshold", () => {
     expect(tierForPoints(CINEMA_TIER_THRESHOLDS.pro * 10)).toBe("pro");
+  });
+});
+
+describe("letterGradeForPoints", () => {
+  it("is F at zero", () => {
+    expect(letterGradeForPoints(0)).toBe("F");
+  });
+
+  it("clamps negative points to F instead of throwing or going out of range", () => {
+    expect(letterGradeForPoints(-500)).toBe("F");
+  });
+
+  it("steps up exactly at each threshold, not one point early", () => {
+    expect(letterGradeForPoints(149)).toBe("F");
+    expect(letterGradeForPoints(150)).toBe("D");
+    expect(letterGradeForPoints(399)).toBe("D");
+    expect(letterGradeForPoints(400)).toBe("C-");
+  });
+
+  it("agrees with the intermediate tier boundary (C+ at 1000)", () => {
+    expect(letterGradeForPoints(CINEMA_TIER_THRESHOLDS.intermediate - 1)).toBe("C");
+    expect(letterGradeForPoints(CINEMA_TIER_THRESHOLDS.intermediate)).toBe("C+");
+    expect(tierForPoints(CINEMA_TIER_THRESHOLDS.intermediate)).toBe("intermediate");
+  });
+
+  it("agrees with the pro tier boundary (A at 5000)", () => {
+    expect(letterGradeForPoints(CINEMA_TIER_THRESHOLDS.pro - 1)).toBe("A-");
+    expect(letterGradeForPoints(CINEMA_TIER_THRESHOLDS.pro)).toBe("A");
+    expect(tierForPoints(CINEMA_TIER_THRESHOLDS.pro)).toBe("pro");
+  });
+
+  it("tops out at A+ and never returns anything past it for huge point totals", () => {
+    expect(letterGradeForPoints(7500)).toBe("A+");
+    expect(letterGradeForPoints(1_000_000)).toBe("A+");
+  });
+
+  it("matches the real Jackson-Marley-style case: 239 watched, 0 reviewed", () => {
+    const points = computeCinemaPoints(239, 0);
+    expect(points).toBe(11950);
+    expect(letterGradeForPoints(points)).toBe("A+");
   });
 });
