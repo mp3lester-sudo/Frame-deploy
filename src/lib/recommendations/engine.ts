@@ -161,7 +161,23 @@ export async function getRecommendationsForUser(
   // can knock a title's blended score up or down, or exclude it outright
   // (something_short's runtime cap), so ranking needs a wide enough pool
   // that a hard exclusion doesn't leave the final list short.
-  const CANDIDATE_POOL_MULTIPLIER = 6;
+  //
+  // 8, not 6: at 6x, three DIFFERENT hard exclusions stack in the same
+  // loop below -- a dismissed title, a context exclusion (e.g.
+  // something_short's runtime cap, which disproportionately knocks out
+  // movies vs. TV episodes), and the quality floor (roughly half of raw
+  // matches don't clear MIN_RECOMMENDABLE_RATING by design, see
+  // quality-weighting.ts) -- and for Movies specifically, that combined
+  // attrition could push the survivor count below the 8 needed to fill
+  // `limit=9`'s hero pool (1 hero + 2 reserve, see
+  // HomeRecommendationsSection in page.tsx). When that happened, the
+  // reserve pool came back empty and "Not feeling it? Generate another
+  // pick" silently had nothing to cycle to, so it just didn't render
+  // (recommendation-reveal.tsx only shows it when picks.length > 1).
+  // Diversify never returns fewer than `limit` once enough candidates
+  // exist, so widening the raw net upstream is the actual fix rather
+  // than anything in diversify.ts itself.
+  const CANDIDATE_POOL_MULTIPLIER = 8;
   const [{ data: contentMatches }, { data: userRatings }, { data: dismissals }] = await Promise.all([
     // The only candidate/scoring source: cosine similarity between this
     // user's own taste vector and every title's embedding. See the

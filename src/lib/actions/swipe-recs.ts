@@ -20,14 +20,14 @@ export interface SwipeRec {
 }
 
 // Was 12 -- getRecommendationsForUser over-fetches a candidate pool at
-// CANDIDATE_POOL_MULTIPLIER (6x) the requested limit before scoring/
-// diversifying/citing any of it (see engine.ts), so this single number
-// was driving a 72-candidate pass through the whole pipeline just to
-// hand back a swipe deck, the single most expensive recommendation call
-// in the app. Dropping to 8 cuts that pool to 48 (closer to Home's own
-// 9-pick, 54-candidate pass) for a noticeably faster first paint, at the
-// cost of a shorter batch to swipe through -- "Shuffle & replay" already
-// exists for anyone who wants another round immediately after.
+// CANDIDATE_POOL_MULTIPLIER (8x, see engine.ts) the requested limit before
+// scoring/diversifying/citing any of it, so this single number was driving
+// a big raw candidate pass through the whole pipeline just to hand back a
+// swipe deck, the single most expensive recommendation call in the app.
+// Dropping to 8 cuts that pool to 64 (closer to Home's own 9-pick, 72-
+// candidate pass) for a noticeably faster first paint, at the cost of a
+// shorter batch to swipe through -- "Shuffle & replay" already exists for
+// anyone who wants another round immediately after.
 const SWIPE_DECK_SIZE = 8;
 
 /**

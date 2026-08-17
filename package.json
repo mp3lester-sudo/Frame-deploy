@@ -12,6 +12,7 @@
     "ingest:tmdb": "tsx --env-file=.env.local scripts/ingest-tmdb.ts",
     "enrich:titles": "tsx --env-file=.env.local scripts/enrich-titles.ts",
     "report:catalogue": "tsx --env-file=.env.local scripts/catalogue-completeness.ts",
+  "backfill:rt-scores": "tsx --env-file=.env.local scripts/backfill-rt-scores.ts",
     "reembed:credits": "tsx --env-file=.env.local scripts/reembed-catalogue-with-credits.ts",
     "backfill:popularity": "tsx --env-file=.env.local scripts/backfill-popularity.ts",
     "backfill:tv-metadata": "tsx --env-file=.env.local scripts/backfill-tv-metadata.ts",

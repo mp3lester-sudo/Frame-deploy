@@ -67,7 +67,18 @@ async function main() {
   const embeddings = await count(supabase.from("title_embeddings").select("*", { count: "exact", head: true }));
   const pendingEnrichment = total - embeddings;
 
+  // RT (Rotten Tomatoes critic score) only exists for movies -- OMDb, the
+  // only workable RT data source, has zero TV Tomatometer coverage (see
+  // src/lib/external/rotten-tomatoes.ts). Scored separately as a fraction
+  // of MOVIES, not the whole catalogue, so this number stays meaningful
+  // as TV's share of the catalogue grows.
+  const moviesTotal = await count(supabase.from("titles").select("*", { count: "exact", head: true }).eq("type", "movie"));
+  const moviesMissingRt = await count(
+    supabase.from("titles").select("*", { count: "exact", head: true }).eq("type", "movie").is("rt_checked_at", null)
+  );
+
   const pct = (n: number) => `${((n / total) * 100).toFixed(1)}%`;
+  const pctOfMovies = (n: number) => (moviesTotal === 0 ? "n/a" : `${((n / moviesTotal) * 100).toFixed(1)}%`);
 
   console.log(`Catalogue completeness report (${total} titles)\n`);
   console.log(`  Missing poster:              ${missingPoster.toString().padStart(6)}  (${pct(missingPoster)})`);
@@ -77,10 +88,15 @@ async function main() {
   console.log(`  No embedding yet (pending):  ${pendingEnrichment.toString().padStart(6)}  (${pct(pendingEnrichment)})`);
   console.log(`  Suspicious placeholder taste:${placeholderTaste.toString().padStart(6)}  (${pct(placeholderTaste)})`);
   console.log(
+    `  Movies never RT-checked:     ${moviesMissingRt.toString().padStart(6)}  (${pctOfMovies(moviesMissingRt)} of ${moviesTotal} movies)`
+  );
+  console.log(
     "\nRun `npm run enrich:titles` to work through the pending-enrichment backlog (ordered by popularity, " +
       "so the titles users are most likely to see get fixed first). Placeholder-taste rows won't be picked " +
       "up automatically if they already have an embedding -- see pending_enrichment_titles (migration 0018) " +
-      "-- those may need a manual re-enrichment pass if the count above is non-trivial."
+      "-- those may need a manual re-enrichment pass if the count above is non-trivial.\n" +
+      "Run `npm run backfill:rt-scores` to work through the RT-score backlog -- OMDb's free tier caps at " +
+      "1,000 requests/day, so this needs re-running (same command) once a day until the count above hits 0."
   );
 }
 

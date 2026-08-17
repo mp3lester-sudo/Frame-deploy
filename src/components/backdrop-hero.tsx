@@ -30,6 +30,10 @@ export function BackdropHero({
   const [playing, setPlaying] = useState(Boolean(trailerKey));
   const [muted, setMuted] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Declared up front (used by both the message listener below and the
+  // fallback timeout further down) -- see the fallback timeout's own
+  // comment for what this actually tracks.
+  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   // enablejsapi=1 in the iframe src (below) makes YouTube's player post
   // status messages back to this window -- listening for onError here
@@ -53,6 +57,19 @@ export function BackdropHero({
       } catch {
         return;
       }
+      // Any message at all from the embed's own origin means the player
+      // is alive and talking back to us -- not just the outer iframe
+      // document loading (see iframeLoaded below), but YouTube's own JS
+      // inside it having actually initialized. Treat that as "working"
+      // before even checking what kind of message it is, so the fallback
+      // timer below gets cancelled the moment there's real signal,
+      // regardless of which specific event fires first. This matters on
+      // iOS: WKWebView's cross-origin iframe `load` event can fire much
+      // later relative to when the embedded player is actually up and
+      // playing than it does in a desktop browser, so treating messages
+      // as an earlier/more reliable "it's working" signal avoids the
+      // fallback firing on a trailer that's actually fine.
+      setIframeLoaded(true);
       if (data && typeof data === "object" && "event" in data && (data as { event: unknown }).event === "onError") {
         setPlaying(false);
       }
@@ -77,12 +94,23 @@ export function BackdropHero({
   // within a generous window, fall back to the plain backdrop still --
   // exactly the same fallback path onError already uses, just reached
   // from "silently stuck" instead of "explicitly rejected".
-  const [iframeLoaded, setIframeLoaded] = useState(false);
   useEffect(() => {
     if (!playing || !trailerKey) return;
+    // 15s, not 6s: this was originally tuned against a desktop browser
+    // where an iframe that's ever going to load does so almost
+    // immediately, so 6s comfortably separated "genuinely stuck" from
+    // "loading normally." On iOS (native WKWebView), the gap between the
+    // network request landing and the embedded player actually being up
+    // is measurably longer, and 6s was firing on trailers that were
+    // fine, just not fast -- silently killing autoplay that used to
+    // work. 15s keeps the same safety net (a trailer that's truly never
+    // going to load still gets caught) while giving slower/native
+    // conditions realistic room, and the message listener above now
+    // clears this the moment ANY signal comes back from the embed,
+    // typically well under a second once it's actually alive.
     const timer = window.setTimeout(() => {
       if (!iframeLoaded) setPlaying(false);
-    }, 6000);
+    }, 15000);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on trailerKey (fresh timer per title), iframeLoaded intentionally read fresh via closure rather than restarting the timer on every load-state flip
   }, [trailerKey, playing]);
