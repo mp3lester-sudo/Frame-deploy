@@ -18,13 +18,6 @@ import { getActiveMediaType } from "@/lib/context/media-type";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { PreciseLocation } from "@/components/home/precise-location";
 
-// Shared by both the outline and photo/initial layers of the home page's
-// star-shaped quiet mark below -- a plain 5-point star, flat top point,
-// same proportions as the ones used in the star-rendering mockups this
-// was picked from. Defined once so the two layers can never drift into
-// slightly different star shapes at different sizes.
-const STAR_CLIP_PATH =
-  "polygon(50.0% 0.0%, 68.8% 24.1%, 97.6% 34.5%, 80.4% 59.9%, 79.4% 90.5%, 50.0% 82.0%, 20.6% 90.5%, 19.6% 59.9%, 2.4% 34.5%, 31.2% 24.1%)";
 
 // --- Streamed subtrees -----------------------------------------------------
 // The home page used to await getRecommendationsForUser (a several-round-trip
@@ -426,55 +419,30 @@ export default async function HomePage({
           used to sit without restating anything the ContextCards line
           above or the recommendation below already say better.
 
-          Walk of Fame pass (Concept B from the star renderings) -- swaps
-          the plain circular ring for a five-point star: a gold star sits
-          behind, a slightly smaller star-clipped photo (or star-clipped
-          initial, for anyone without a photo yet) sits on top of it with
-          a bit of gold showing all the way around, same "border"
-          relationship the circular ring used to have, just star-shaped
-          now instead of round. Both stars share one clip-path constant
-          so they're guaranteed to be the same shape at different scales
-          -- point-for-point misalignment between two hand-tuned polygons
-          would be obvious at this size.
-
-          Sized up twice now (36 -> 52 -> this), and the star's own shape
-          changed along with the second size bump -- the first star used
-          a sharp/pointed 5-point outline (inner radius ~35% of outer),
-          which at any size clips away most of a square photo down to
-          thin slivers along the points. This one uses a fuller star
-          (inner radius ~64% of outer, still unmistakably a 5-point star,
-          just less concave) specifically so a real photo actually reads
-          as a photo inside it instead of being cropped down to
-          fragments -- "showcase the entirety of the photo" was the
-          ask, and a thin star can't do that no matter how big it's
-          drawn. */}
+          Reverted the Walk of Fame star treatment -- tried at two sizes
+          (78px, then 168px with a fuller star shape), but the plain
+          circular photo read better against a screenshot side-by-side
+          than either star version, so back to the circle. Sized a tad
+          up from the last circular pass (52px -> 60px) per feedback,
+          same photo-with-initial-fallback logic as before. */}
       <div className="mt-5 flex justify-center">
-        <div className="relative flex h-[168px] w-[168px] items-center justify-center">
-          <div
+        {avatarUrl ? (
+          <Image
+            src={avatarUrl}
+            alt=""
+            width={60}
+            height={60}
+            className="h-[60px] w-[60px] rounded-full border border-border-strong object-cover"
             aria-hidden="true"
-            className="absolute inset-0"
-            style={{ backgroundImage: "var(--accent-gradient)", clipPath: STAR_CLIP_PATH }}
           />
-          {avatarUrl ? (
-            <Image
-              src={avatarUrl}
-              alt=""
-              width={142}
-              height={142}
-              className="relative h-[142px] w-[142px] object-cover"
-              style={{ clipPath: STAR_CLIP_PATH }}
-              aria-hidden="true"
-            />
-          ) : (
-            <span
-              className="relative flex h-[142px] w-[142px] items-center justify-center bg-background font-display text-5xl italic text-accent"
-              style={{ clipPath: STAR_CLIP_PATH }}
-              aria-hidden="true"
-            >
-              {firstName.charAt(0).toUpperCase()}
-            </span>
-          )}
-        </div>
+        ) : (
+          <span
+            className="flex h-[60px] w-[60px] items-center justify-center rounded-full border border-border-strong font-display text-2xl italic text-accent"
+            aria-hidden="true"
+          >
+            {firstName.charAt(0).toUpperCase()}
+          </span>
+        )}
         <span className="sr-only">{firstName}&apos;s home</span>
       </div>
       {/* Home header declutter pass: dropped the ratedCount-true branch
