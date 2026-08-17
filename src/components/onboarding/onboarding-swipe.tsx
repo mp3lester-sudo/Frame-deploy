@@ -63,7 +63,13 @@ function wasIntroRecentlyShown() {
     return false;
   }
 }
-const INTRO_VIDEO_MS = 3400;
+// Matches the actual duration of public/videos/onboarding-intro.mp4
+// (16.1s) so the video plays all the way through before the title
+// card takes over, rather than cutting it off mid-loop partway in --
+// see the "Tap to skip" affordance below (and the click-anywhere
+// handler on the whole overlay) for anyone who'd rather skip straight
+// to the swipe deck instead of waiting it out.
+const INTRO_VIDEO_MS = 16100;
 const INTRO_TITLE_MS = 1400;
 const SWIPE_THRESHOLD = 110;
 const EXIT_DURATION_MS = 260;

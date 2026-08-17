@@ -629,19 +629,23 @@ body {
   }
 }
 
-/* Home page cinematic intro -- video fades out first, title card
-   overlaps and fades in right after. Self-hides via
-   animation-fill-mode: both, and goes instantly display:none on a
-   repeat session visit via the html.intro-shown class the inline
-   script in page.tsx sets -- no JS timers, no client component. (A
-   full-screen greeting splash used to play right after this faded out
-   -- removed per product direction; nothing downstream waits on this
-   animation anymore.) */
+/* Home page cinematic intro -- video plays out in full (duration below
+   matches public/videos/onboarding-intro.mp4's actual 16.1s length, so
+   it isn't cut off mid-scene), then the title card overlaps and fades
+   in right after. Self-hides via animation-fill-mode: both, and goes
+   instantly display:none on a repeat session visit via the
+   html.intro-shown class the inline script in page.tsx sets -- no JS
+   timers, no client component. Anyone who doesn't want to wait it out
+   can tap anywhere on the tapzone to skip straight in (see page.tsx's
+   tapzone click listener), same as the onboarding flow's own intro.
+   (A full-screen greeting splash used to play right after this faded
+   out -- removed per product direction; nothing downstream waits on
+   this animation anymore.) */
 @keyframes cinematic-intro-video-fade {
   0% {
     opacity: 1;
   }
-  93% {
+  97% {
     opacity: 1;
   }
   100% {
@@ -649,7 +653,7 @@ body {
   }
 }
 .cinematic-intro-video {
-  animation: cinematic-intro-video-fade 3500ms ease-in-out both;
+  animation: cinematic-intro-video-fade 16100ms ease-in-out both;
 }
 @keyframes cinematic-intro-title-fade {
   0% {
@@ -666,7 +670,7 @@ body {
   }
 }
 .cinematic-intro-title {
-  animation: cinematic-intro-title-fade 1500ms ease-in-out 3300ms both;
+  animation: cinematic-intro-title-fade 1500ms ease-in-out 15900ms both;
 }
 html.intro-shown .cinematic-intro-video,
 html.intro-shown .cinematic-intro-title {

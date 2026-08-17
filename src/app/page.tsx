@@ -367,7 +367,7 @@ export default async function HomePage({
       // The tapzone is a full-screen fixed layer (z-60) sitting on top of
       // the entire page -- including things like the home hero's "tap for
       // tonight's pick" button, which can be visible and painted well
-      // before this ~4.8s intro finishes. Without this, someone who taps
+      // before this ~17s intro finishes. Without this, someone who taps
       // the hero *during* that window gets nothing: this listener eats
       // the tap (correctly dismissing the intro) but the hero itself
       // never hears about it, so it just sits there looking tappable and

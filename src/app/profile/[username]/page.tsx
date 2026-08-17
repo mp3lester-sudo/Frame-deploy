@@ -31,6 +31,8 @@ import { withTimeout } from "@/lib/with-timeout";
 import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
 import { SignaturePickCard } from "@/components/taste-dna/signature-pick-card";
 import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
+import { HideOnNative } from "@/components/native/hide-on-native";
+import { ShowOnNative } from "@/components/native/show-on-native";
 
 /** Auteur subscribers get the fuller evolution read (more rising/fading
  *  archetype insights per direction) on this page too, matching the
@@ -400,6 +402,61 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   // links row (Edit profile / Slate DNA / Watchlist / Your lists),
   // now stacked as a real vertical menu instead of squeezed pills that
   // had to share a row with the follow-stats text.
+  // Shared between two placements: the usual spot in the rail below, and
+  // (native-app-only, see the ShowOnNative slot right after the Slate DNA
+  // panel further down) a second spot directly under Backlot DNA. Built
+  // once here so neither placement duplicates this JSX -- HideOnNative /
+  // ShowOnNative decide at runtime which one (if either) actually shows,
+  // native vs. ordinary website.
+  const wrappedPreviewNode = isOwnProfile ? (
+    wrapped ? (
+      // Wrapped preview: a real poster-backed card (not another icon in
+      // the row above) -- the favorite title's poster sits behind the
+      // year/stat line the same way a movie poster backs a festival
+      // program note, so this reads as a piece of the page's own layout
+      // rather than a plain navigation link. The whole card is the tap
+      // target. Placed below the icon row (reinstalled here after an
+      // earlier pass replaced it with just an icon).
+      <Link
+        href="/wrapped"
+        className="stagger-card group relative mt-6 block h-64 overflow-hidden rounded-[var(--radius-lg)] border border-glass-border"
+        style={{ animationDelay: "560ms" }}
+      >
+        {wrapped.favoriteTitle?.posterUrl && (
+          <Image
+            src={wrapped.favoriteTitle.posterUrl}
+            alt=""
+            fill
+            sizes="400px"
+            className="object-cover opacity-40 transition-transform duration-300 group-hover:scale-105"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
+        <div className="relative flex h-full flex-col justify-end gap-1.5 px-6 py-6">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">Slate Wrapped</p>
+          <h3 className="font-display text-3xl">{wrapped.year} Recap</h3>
+          <p className="text-sm text-foreground-muted">
+            {wrapped.totalRated} title{wrapped.totalRated === 1 ? "" : "s"} rated
+            {wrapped.topGenres[0] ? ` \u00b7 Mostly ${wrapped.topGenres[0].genre}` : ""}
+          </p>
+          <span className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent">
+            See your full Wrapped &rarr;
+          </span>
+        </div>
+      </Link>
+    ) : (
+      <div
+        className="stagger-card mt-6 rounded-[var(--radius-lg)] border border-dashed border-glass-border bg-glass px-5 py-5 text-center backdrop-blur-sm"
+        style={{ animationDelay: "560ms" }}
+      >
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Slate Wrapped</p>
+        <p className="mt-1 text-sm text-foreground-muted">
+          Rate a few more titles this year and your Wrapped recap fills in here.
+        </p>
+      </div>
+    )
+  ) : null;
+
   const rail = (
     <div>
       {/* Taste fingerprint: a wax-seal-style wheel sized to this person's
@@ -513,54 +570,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         </div>
       )}
 
-      {isOwnProfile && wrapped && (
-        // Wrapped preview: a real poster-backed card (not another icon in
-        // the row above) -- the favorite title's poster sits behind the
-        // year/stat line the same way a movie poster backs a festival
-        // program note, so this reads as a piece of the page's own layout
-        // rather than a plain navigation link. The whole card is the tap
-        // target. Placed below the icon row (reinstalled here after an
-        // earlier pass replaced it with just an icon).
-        <Link
-          href="/wrapped"
-          className="stagger-card group relative mt-6 block h-64 overflow-hidden rounded-[var(--radius-lg)] border border-glass-border"
-          style={{ animationDelay: "560ms" }}
-        >
-          {wrapped.favoriteTitle?.posterUrl && (
-            <Image
-              src={wrapped.favoriteTitle.posterUrl}
-              alt=""
-              fill
-              sizes="400px"
-              className="object-cover opacity-40 transition-transform duration-300 group-hover:scale-105"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
-          <div className="relative flex h-full flex-col justify-end gap-1.5 px-6 py-6">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">Slate Wrapped</p>
-            <h3 className="font-display text-3xl">{wrapped.year} Recap</h3>
-            <p className="text-sm text-foreground-muted">
-              {wrapped.totalRated} title{wrapped.totalRated === 1 ? "" : "s"} rated
-              {wrapped.topGenres[0] ? ` · Mostly ${wrapped.topGenres[0].genre}` : ""}
-            </p>
-            <span className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent">
-              See your full Wrapped &rarr;
-            </span>
-          </div>
-        </Link>
-      )}
-
-      {isOwnProfile && !wrapped && (
-        <div
-          className="stagger-card mt-6 rounded-[var(--radius-lg)] border border-dashed border-glass-border bg-glass px-5 py-5 text-center backdrop-blur-sm"
-          style={{ animationDelay: "560ms" }}
-        >
-          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Slate Wrapped</p>
-          <p className="mt-1 text-sm text-foreground-muted">
-            Rate a few more titles this year and your Wrapped recap fills in here.
-          </p>
-        </div>
-      )}
+      {/* Hidden on native (see the ShowOnNative placement right after the
+          Slate DNA panel below) -- one visible copy of this card
+          regardless of platform, just in a different spot on iOS. */}
+      <HideOnNative>{wrappedPreviewNode}</HideOnNative>
     </div>
   );
 
@@ -841,6 +854,15 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         </Reveal>
       )}
 
+
+      {/* Native-app-only: a second copy of the Wrapped preview card,
+          positioned directly below Slate DNA (order-3 -- after DNA's
+          order-2 and the Pyramid's order-1 in the mobile single-column
+          stack the native app always renders, phones never reaching the
+          xl breakpoint this grid's 3-column layout needs). The rail's
+          own copy is hidden on native via the paired HideOnNative
+          wrapper above, so exactly one copy is ever visible. */}
+      <ShowOnNative className="order-3">{wrappedPreviewNode}</ShowOnNative>
 
       {/* h-full (here and on the bordered box just below) so this panel's
           own border/background stretches to match the DNA panel's row
