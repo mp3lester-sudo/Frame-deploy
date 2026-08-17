@@ -1,18 +1,19 @@
 import Link from "next/link";
-import { Moon, Heart, Users, Waves, Timer } from "lucide-react";
 import { CIRCUMSTANTIAL_CONTEXTS, CONTEXT_LABELS, type CircumstantialContext } from "@/lib/context/circumstantial";
 
-// One icon per context, same size/weight language as the nav's own
-// Movies/Shows segmented toggle (media-type-toggle.tsx) -- Moon for
-// solo/quiet, Heart for date night, Users for a group, Waves for
-// background/ambient (half-attention, nothing urgent), Timer for
-// something short (the one context that's about time, not company).
-const CONTEXT_ICONS: Record<CircumstantialContext, typeof Moon> = {
-  solo: Moon,
-  date_night: Heart,
-  with_friends: Users,
-  background: Waves,
-  something_short: Timer,
+// Short, always-visible label per segment -- distinct from CONTEXT_LABELS
+// (still used in full below, for aria-label) because this control shows
+// its label at every screen size now, not just sm and up, so it has to
+// fit five-across in one row on a narrow phone without wrapping or
+// truncating. "Friends" reads unambiguously as "with friends" once it's
+// sitting next to Solo/Date night/Ambient/Short; the full phrasing is
+// still what a screen reader announces via aria-label below.
+const CONTEXT_SHORT_LABELS: Record<CircumstantialContext, string> = {
+  solo: "Solo",
+  date_night: "Date night",
+  with_friends: "Friends",
+  background: "Ambient",
+  something_short: "Short",
 };
 
 /**
@@ -26,6 +27,15 @@ const CONTEXT_ICONS: Record<CircumstantialContext, typeof Moon> = {
  * already shipped on the Movies/Shows toggle, just generalized from 2
  * segments to 5 and built as a server component instead of a client
  * one (see below for why that split still matters here).
+ *
+ * Text labels only, no icons -- an earlier pass here paired each segment
+ * with a small icon (Moon/Heart/Users/Waves/Timer) and hid the text
+ * label below the sm breakpoint to save room, which read as five vague
+ * glyphs on a phone instead of five clearly-named options. Every segment
+ * now always shows its own short label (see CONTEXT_SHORT_LABELS above)
+ * at every screen width -- a control whose whole job is "tell someone
+ * what each option is" has to actually say so, not lean on an icon
+ * standing in for a word.
  *
  * Still plain server-rendered links (?context=...), not a client
  * component with its own state -- consistent with the rest of the app
@@ -54,11 +64,9 @@ const CONTEXT_ICONS: Record<CircumstantialContext, typeof Moon> = {
  * Fixed 5-up row now, not a horizontally-scrolling rail -- the old
  * version used flex-nowrap + overflow-x-auto because five separate
  * pills at comfortable tap-target width didn't reliably fit one line on
- * a narrow phone. A single track with equal 1/5-width segments does:
- * labels hide below the sm breakpoint (icon + aria-label only, same
- * pattern the Movies/Shows toggle already uses for its own labels), so
- * every screen size shows all five options as one control, nothing to
- * scroll past or miss off the edge.
+ * a narrow phone. A single track with equal 1/5-width segments does,
+ * as long as each label stays short (see CONTEXT_SHORT_LABELS) --
+ * nothing to scroll past or miss off the edge.
  */
 export function ContextPicker({ active }: { active: CircumstantialContext }) {
   const activeIndex = CIRCUMSTANTIAL_CONTEXTS.indexOf(active);
@@ -89,7 +97,6 @@ export function ContextPicker({ active }: { active: CircumstantialContext }) {
       />
       {CIRCUMSTANTIAL_CONTEXTS.map((context) => {
         const isActive = context === active;
-        const Icon = CONTEXT_ICONS[context];
         return (
           <Link
             key={context}
@@ -100,12 +107,11 @@ export function ContextPicker({ active }: { active: CircumstantialContext }) {
             aria-label={CONTEXT_LABELS[context]}
             className={
               isActive
-                ? "relative z-10 flex flex-1 basis-0 items-center justify-center gap-1.5 rounded-[var(--radius-full)] px-1.5 py-2 text-[11px] font-semibold text-[var(--accent-foreground)]"
-                : "relative z-10 flex flex-1 basis-0 items-center justify-center gap-1.5 rounded-[var(--radius-full)] px-1.5 py-2 text-[11px] text-foreground-muted hover:text-foreground"
+                ? "relative z-10 flex flex-1 basis-0 items-center justify-center rounded-[var(--radius-full)] px-1 py-2 text-center text-[9.5px] font-semibold leading-tight text-[var(--accent-foreground)]"
+                : "relative z-10 flex flex-1 basis-0 items-center justify-center rounded-[var(--radius-full)] px-1 py-2 text-center text-[9.5px] leading-tight text-foreground-muted hover:text-foreground"
             }
           >
-            <Icon size={13} />
-            <span className="hidden sm:inline">{CONTEXT_LABELS[context]}</span>
+            {CONTEXT_SHORT_LABELS[context]}
           </Link>
         );
       })}
