@@ -24,7 +24,7 @@ import { PreciseLocation } from "@/components/home/precise-location";
 // was picked from. Defined once so the two layers can never drift into
 // slightly different star shapes at different sizes.
 const STAR_CLIP_PATH =
-  "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)";
+  "polygon(50.0% 0.0%, 68.8% 24.1%, 97.6% 34.5%, 80.4% 59.9%, 79.4% 90.5%, 50.0% 82.0%, 20.6% 90.5%, 19.6% 59.9%, 2.4% 34.5%, 31.2% 24.1%)";
 
 // --- Streamed subtrees -----------------------------------------------------
 // The home page used to await getRecommendationsForUser (a several-round-trip
@@ -430,14 +430,26 @@ export default async function HomePage({
           the plain circular ring for a five-point star: a gold star sits
           behind, a slightly smaller star-clipped photo (or star-clipped
           initial, for anyone without a photo yet) sits on top of it with
-          a few px of gold showing all the way around, same "border"
+          a bit of gold showing all the way around, same "border"
           relationship the circular ring used to have, just star-shaped
           now instead of round. Both stars share one clip-path constant
           so they're guaranteed to be the same shape at different scales
           -- point-for-point misalignment between two hand-tuned polygons
-          would be obvious at this size. */}
+          would be obvious at this size.
+
+          Sized up twice now (36 -> 52 -> this), and the star's own shape
+          changed along with the second size bump -- the first star used
+          a sharp/pointed 5-point outline (inner radius ~35% of outer),
+          which at any size clips away most of a square photo down to
+          thin slivers along the points. This one uses a fuller star
+          (inner radius ~64% of outer, still unmistakably a 5-point star,
+          just less concave) specifically so a real photo actually reads
+          as a photo inside it instead of being cropped down to
+          fragments -- "showcase the entirety of the photo" was the
+          ask, and a thin star can't do that no matter how big it's
+          drawn. */}
       <div className="mt-5 flex justify-center">
-        <div className="relative flex h-[78px] w-[78px] items-center justify-center">
+        <div className="relative flex h-[168px] w-[168px] items-center justify-center">
           <div
             aria-hidden="true"
             className="absolute inset-0"
@@ -447,15 +459,15 @@ export default async function HomePage({
             <Image
               src={avatarUrl}
               alt=""
-              width={62}
-              height={62}
-              className="relative h-[62px] w-[62px] object-cover"
+              width={142}
+              height={142}
+              className="relative h-[142px] w-[142px] object-cover"
               style={{ clipPath: STAR_CLIP_PATH }}
               aria-hidden="true"
             />
           ) : (
             <span
-              className="relative flex h-[62px] w-[62px] items-center justify-center bg-background font-display text-2xl italic text-accent"
+              className="relative flex h-[142px] w-[142px] items-center justify-center bg-background font-display text-5xl italic text-accent"
               style={{ clipPath: STAR_CLIP_PATH }}
               aria-hidden="true"
             >
