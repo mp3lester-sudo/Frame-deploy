@@ -429,14 +429,14 @@ export default async function HomePage({
           <Image
             src={avatarUrl}
             alt=""
-            width={36}
-            height={36}
-            className="h-9 w-9 rounded-full border border-border-strong object-cover"
+            width={52}
+            height={52}
+            className="h-[52px] w-[52px] rounded-full border border-border-strong object-cover"
             aria-hidden="true"
           />
         ) : (
           <span
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border-strong font-display text-lg italic text-accent"
+            className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-border-strong font-display text-xl italic text-accent"
             aria-hidden="true"
           >
             {firstName.charAt(0).toUpperCase()}
