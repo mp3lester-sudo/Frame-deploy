@@ -237,35 +237,40 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
         onClick={skipIntro}
         className="flicker-slow fixed inset-0 z-50 cursor-pointer overflow-hidden bg-black"
       >
-        {/* Public-domain 1920s Hollywoodland-sign footage, self-hosted
-            -- see public/videos/onboarding-intro.mp4. Re-sourced from a
-            higher-resolution archive.org derivative (1280x808, cropped
-            to the real frame -- no pillarbox bars, no watermark strip)
-            and re-encoded, specifically so object-cover's zoom-in on
-            portrait screens draws from real detail instead of upscaling
-            a 640x360 source -- that low-res crop was blurry enough that
-            an earlier pass (see git history) fell back to object-contain
-            just to avoid it. Muted autoplay + loop needs no user gesture
-            in any browser, same pattern as the movie page's backdrop
-            hero and the swipe deck's own trailer embeds. The whole
-            overlay is clickable (not just the Skip label) so anyone who
-            wants straight to the swipe deck can tap anywhere to get
-            there. */}
+        {/* Black-and-white classic-film montage, self-hosted -- see
+            public/videos/onboarding-intro.mp4. Replaced the earlier
+            1920s Hollywoodland-sign footage with a user-supplied cut
+            (cleared for use in this app), re-encoded for the web: audio
+            stripped (the video element is muted anyway, so the source
+            track was dead weight), h264/yuv420p for broad Safari/WebKit
+            compatibility, 30fps (the raw capture was 60fps -- halving
+            that costs nothing visible on a muted background loop and
+            roughly halves decode work), +faststart so playback can
+            begin before the whole file downloads. Already
+            black-and-white at the source, so the grayscale(1) filter
+            below is a no-op for this clip specifically -- left in place
+            rather than special-cased, since it's harmless on already-
+            gray footage and keeps this component agnostic to which
+            video is currently in that file. Muted autoplay + loop needs
+            no user gesture in any browser, same pattern as the movie
+            page's backdrop hero and the swipe deck's own trailer
+            embeds. The whole overlay is clickable (not just the Skip
+            label) so anyone who wants straight to the swipe deck can
+            tap anywhere to get there. */}
         <video
           autoPlay
           muted
           loop
           playsInline
           className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover"
-          /* objectPosition biases the crop toward the Hollywoodland sign
-             (upper region of the source frame) instead of the geometric
-             center -- the source video is cropped tight and tall around
-             the sign so it reads clearly on portrait phones (which show
-             the video edge-to-edge, no cropping needed there), but wider
-             / landscape viewports crop the video's height to cover the
-             container and would otherwise center on the hillside below
-             the sign instead of the sign itself. */
-          style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)", objectPosition: "center 25%" }}
+          /* objectPosition centered rather than biased toward the top --
+             the old Hollywoodland clip was a single continuous shot of
+             one fixed subject (the sign), so biasing the crop toward it
+             made sense; this is a multi-scene montage where the subject
+             of interest moves around frame to frame, so a fixed bias
+             would help some scenes and hurt others. Center is the
+             least-wrong default across all of them. */
+          style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)", objectPosition: "center center" }}
         >
           <source src="/videos/onboarding-intro.mp4" type="video/mp4" />
         </video>

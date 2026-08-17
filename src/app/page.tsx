@@ -327,24 +327,24 @@ export default async function HomePage({
           actually clickable. */}
       <div id="cinematic-intro-tapzone" className="fixed inset-0 z-[60] cursor-pointer">
         <div className="cinematic-intro-video pointer-events-none absolute inset-0 z-[2] overflow-hidden bg-black" aria-hidden="true">
-          {/* object-cover, not object-contain -- see the matching
-              comment in onboarding-swipe.tsx for why this is safe now
-              (higher-res re-sourced footage) after an earlier pass had
-              to use object-contain to avoid a blurry portrait-screen
-              crop. */}
+          {/* object-cover, not object-contain -- the source clip is
+              already high-resolution enough (see the matching comment in
+              onboarding-swipe.tsx) that a full-bleed crop stays sharp,
+              after an earlier pass on a different clip had to use
+              object-contain to avoid a blurry portrait-screen crop. */}
           {/* No autoPlay/<source> in the initial markup, and preload="none"
               on top of that -- a <video autoPlay> element starts the
               browser's resource-fetch algorithm the instant it's parsed,
               completely independent of the html.intro-shown CSS class
               that (later) sets display:none on its container. Before this
               fix, that meant every single Home page load fetched this
-              2MB video in full, even on the ~29 of every 30 minutes the
+              video in full, even on the ~29 of every 30 minutes the
               intro isn't actually going to play. The tap-zone script
               right below now sets .src and calls .play() itself, but
               only when window.__introWillPlay was actually set above --
               so the browser only ever fetches this at all on a genuine
               fresh-session load. */}
-          <video id="cinematic-intro-video-el" muted loop playsInline preload="none" className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)", objectPosition: "center 25%" }} />
+          <video id="cinematic-intro-video-el" muted loop playsInline preload="none" className="onboarding-intro-zoom absolute inset-0 h-full w-full object-cover" style={{ filter: "grayscale(1) contrast(1.15) brightness(0.85)", objectPosition: "center center" }} />
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
           <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.85) 100%)" }} />
           <div className="onboarding-intro-grain absolute inset-0" />
