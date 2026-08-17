@@ -47,7 +47,22 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
   return (
     <div>
       <h3 className="font-display mb-3 text-lg">{isColdStart ? "Popular right now" : "More picks for you"}</h3>
-      <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+      {/* Right-edge fade -- previously the row just clipped mid-card at
+          the container boundary with no visual cue there was more to
+          scroll past it. A plain CSS mask on the scroll container itself
+          (not a child overlay -- an overlay would sit on top of the
+          cards and block taps/hover near that edge) fades the last ~10%
+          of the row toward transparent, the same "there's more here"
+          affordance most native horizontal-scroll UIs use. Left edge
+          stays a hard cut since it's flush with the page's own left
+          margin -- nothing to hint at past the start of the row. */}
+      <div
+        className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1"
+        style={{
+          maskImage: "linear-gradient(to right, black 92%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to right, black 92%, transparent 100%)",
+        }}
+      >
         {visible.map(({ title, reason, matchPercent }, i) => {
           const image = title.backdrop_url ?? title.poster_url;
           return (
