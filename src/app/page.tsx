@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import Image from "@/components/ui/fade-image";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
@@ -205,7 +206,7 @@ export default async function HomePage({
   // Suspense boundary, deduped via getCurrentWeather's cache() wrapper so
   // it's still only ever one real Open-Meteo request per page load.
   const [{ data: profile }, { count: ratedCount }] = await Promise.all([
-    supabase.from("profiles").select("username, display_name").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).maybeSingle(),
     supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", user.id),
   ]);
 
@@ -250,6 +251,7 @@ export default async function HomePage({
   // to username, then a generic "there" if neither is set yet.
   const rawName = profile?.display_name?.trim() || profile?.username || "there";
   const firstName = rawName.split(/\s+/)[0];
+  const avatarUrl = profile?.avatar_url ?? null;
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10 lg:max-w-6xl">
@@ -416,12 +418,30 @@ export default async function HomePage({
           used to sit without restating anything the ContextCards line
           above or the recommendation below already say better. */}
       <div className="mt-5 flex justify-center">
-        <span
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-border-strong font-display text-lg italic text-accent"
-          aria-hidden="true"
-        >
-          {firstName.charAt(0).toUpperCase()}
-        </span>
+        {/* Real profile photo once one's set (settings/page.tsx's
+            AvatarUpload writes profiles.avatar_url) -- same 36px ring
+            this quiet mark has always had, just with an actual face in
+            it instead of a placeholder initial once there is one. Falls
+            back to the italic single-letter mark exactly as before for
+            anyone who hasn't uploaded a photo yet, so this never regresses
+            to a broken image or an empty ring. */}
+        {avatarUrl ? (
+          <Image
+            src={avatarUrl}
+            alt=""
+            width={36}
+            height={36}
+            className="h-9 w-9 rounded-full border border-border-strong object-cover"
+            aria-hidden="true"
+          />
+        ) : (
+          <span
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border-strong font-display text-lg italic text-accent"
+            aria-hidden="true"
+          >
+            {firstName.charAt(0).toUpperCase()}
+          </span>
+        )}
         <span className="sr-only">{firstName}&apos;s home</span>
       </div>
       {/* Home header declutter pass: dropped the ratedCount-true branch
