@@ -18,6 +18,14 @@ import { getActiveMediaType } from "@/lib/context/media-type";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { PreciseLocation } from "@/components/home/precise-location";
 
+// Shared by both the outline and photo/initial layers of the home page's
+// star-shaped quiet mark below -- a plain 5-point star, flat top point,
+// same proportions as the ones used in the star-rendering mockups this
+// was picked from. Defined once so the two layers can never drift into
+// slightly different star shapes at different sizes.
+const STAR_CLIP_PATH =
+  "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)";
+
 // --- Streamed subtrees -----------------------------------------------------
 // The home page used to await getRecommendationsForUser (a several-round-trip
 // pgvector + diversify pipeline -- the single most expensive call anywhere in
@@ -416,32 +424,45 @@ export default async function HomePage({
           before it) is gone entirely per product direction. A small
           centered initial anchors the top of the page where the greeting
           used to sit without restating anything the ContextCards line
-          above or the recommendation below already say better. */}
+          above or the recommendation below already say better.
+
+          Walk of Fame pass (Concept B from the star renderings) -- swaps
+          the plain circular ring for a five-point star: a gold star sits
+          behind, a slightly smaller star-clipped photo (or star-clipped
+          initial, for anyone without a photo yet) sits on top of it with
+          a few px of gold showing all the way around, same "border"
+          relationship the circular ring used to have, just star-shaped
+          now instead of round. Both stars share one clip-path constant
+          so they're guaranteed to be the same shape at different scales
+          -- point-for-point misalignment between two hand-tuned polygons
+          would be obvious at this size. */}
       <div className="mt-5 flex justify-center">
-        {/* Real profile photo once one's set (settings/page.tsx's
-            AvatarUpload writes profiles.avatar_url) -- same 36px ring
-            this quiet mark has always had, just with an actual face in
-            it instead of a placeholder initial once there is one. Falls
-            back to the italic single-letter mark exactly as before for
-            anyone who hasn't uploaded a photo yet, so this never regresses
-            to a broken image or an empty ring. */}
-        {avatarUrl ? (
-          <Image
-            src={avatarUrl}
-            alt=""
-            width={52}
-            height={52}
-            className="h-[52px] w-[52px] rounded-full border border-border-strong object-cover"
+        <div className="relative flex h-[78px] w-[78px] items-center justify-center">
+          <div
             aria-hidden="true"
+            className="absolute inset-0"
+            style={{ backgroundImage: "var(--accent-gradient)", clipPath: STAR_CLIP_PATH }}
           />
-        ) : (
-          <span
-            className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-border-strong font-display text-xl italic text-accent"
-            aria-hidden="true"
-          >
-            {firstName.charAt(0).toUpperCase()}
-          </span>
-        )}
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt=""
+              width={62}
+              height={62}
+              className="relative h-[62px] w-[62px] object-cover"
+              style={{ clipPath: STAR_CLIP_PATH }}
+              aria-hidden="true"
+            />
+          ) : (
+            <span
+              className="relative flex h-[62px] w-[62px] items-center justify-center bg-background font-display text-2xl italic text-accent"
+              style={{ clipPath: STAR_CLIP_PATH }}
+              aria-hidden="true"
+            >
+              {firstName.charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
         <span className="sr-only">{firstName}&apos;s home</span>
       </div>
       {/* Home header declutter pass: dropped the ratedCount-true branch
