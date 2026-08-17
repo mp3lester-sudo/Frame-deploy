@@ -3,8 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "@/components/ui/fade-image";
-import { X, Heart, Maximize2 } from "lucide-react";
-import { dismissRecommendation } from "@/lib/actions/dismissals";
+import { X, Heart, Maximize2, RotateCcw } from "lucide-react";
+import { dismissRecommendation, undoDismissRecommendation } from "@/lib/actions/dismissals";
 import { addToWatchlist } from "@/lib/actions/lists";
 import type { SwipeRec } from "@/lib/actions/swipe-recs";
 
@@ -31,6 +31,14 @@ const ENTER_DURATION_MS = 340;
 // on top for a moment and clears itself.
 const MATCH_THRESHOLD = 85;
 const MATCH_TOAST_MS = 1800;
+
+// How long a "Removed -- Undo" offer stays live after a left swipe (pass)
+// actually lands (i.e. after the exit animation finishes and the next
+// card is showing -- see decide() below for why it's timed from there,
+// not from the tap itself). Long enough to catch an accidental swipe
+// without a frantic race to tap it, short enough that it doesn't linger
+// as stale UI once someone's clearly moved on.
+const UNDO_WINDOW_MS = 5000;
 
 type ExitDirection = "left" | "right" | null;
 
@@ -62,6 +70,12 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
   // feeds the session-recap end state below instead of vanishing once
   // the toast clears itself.
   const [matches, setMatches] = useState<SwipeRec[]>([]);
+  // The most recently passed (left-swiped) card, while it's still
+  // within its undo window -- see UNDO_WINDOW_MS. Deliberately only
+  // ever tracks one card, not a stack: this is a quick "oops" catch for
+  // the swipe that just happened, not a full history browser.
+  const [lastPass, setLastPass] = useState<{ id: string; name: string } | null>(null);
+  const lastPassTimeoutRef = useRef<number | null>(null);
   const pointerRef = useRef<{ startX: number; startY: number; active: boolean }>({
     startX: 0,
     startY: 0,
@@ -103,6 +117,10 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
   function decide(direction: "left" | "right") {
     if (!current || exitDirection) return;
     setExitDirection(direction);
+    // Captured now, used once the exit timer below fires -- see the
+    // comment on lastPass's setState inside that timeout for why this
+    // waits instead of firing immediately.
+    const passed = direction === "left" ? current : null;
     if (direction === "left") {
       void dismissRecommendation(current.id);
     } else {
@@ -118,7 +136,42 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
       setExitDirection(null);
       setDragOffset({ x: 0, y: 0 });
       setJustSwapped(true);
+      // Offering (or clearing) the undo affordance is deliberately
+      // deferred to here, after `index` has actually advanced, rather
+      // than done synchronously up in the branch above. undoLastPass
+      // works by stepping `index` back by one, so the offer can only be
+      // safe to show once the card it refers to is truly the previous
+      // one -- doing this earlier (while the exit animation is still
+      // playing and `index` hasn't moved yet) would let a fast double
+      // tap undo the wrong card. A right swipe always clears any
+      // pending offer from an earlier pass: once you've moved on by
+      // saving something, the last "oops" is stale.
+      if (passed) {
+        setLastPass({ id: passed.id, name: passed.name });
+        if (lastPassTimeoutRef.current) window.clearTimeout(lastPassTimeoutRef.current);
+        lastPassTimeoutRef.current = window.setTimeout(() => setLastPass(null), UNDO_WINDOW_MS);
+      } else {
+        setLastPass(null);
+      }
     }, EXIT_DURATION_MS);
+  }
+
+  // undoDismissRecommendation already existed in dismissals.ts (added
+  // alongside dismissRecommendation itself) but was never wired to any
+  // UI -- this is that wiring. Deleting the title_dismissals row is
+  // enough on its own: the deck's local state never removed the passed
+  // card from `deck`, it only ever advanced `index` past it, so
+  // stepping `index` back by one is all it takes to bring the same card
+  // (same object, same position) right back as `current`.
+  function undoLastPass() {
+    if (!lastPass) return;
+    void undoDismissRecommendation(lastPass.id);
+    if (lastPassTimeoutRef.current) {
+      window.clearTimeout(lastPassTimeoutRef.current);
+      lastPassTimeoutRef.current = null;
+    }
+    setLastPass(null);
+    setIndex((i) => Math.max(0, i - 1));
   }
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
@@ -560,9 +613,24 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
 
   return (
     <div>
-      <div className="mb-3 flex items-baseline justify-between">
+      <div className="mb-3 flex items-baseline justify-between gap-2">
         <p className="font-display text-lg">More like this</p>
-        <p className="text-[11px] text-foreground-muted">Tap to view &middot; drag to pass or save</p>
+        {lastPass ? (
+          // Replaces the usual hint text for a few seconds after a pass
+          // -- same slot, so it doesn't add height or shift anything
+          // else in the header, and it goes away on its own (or on tap)
+          // without needing to be dismissed.
+          <button
+            type="button"
+            onClick={undoLastPass}
+            className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-gold-foil"
+          >
+            <RotateCcw size={11} />
+            Undo pass
+          </button>
+        ) : (
+          <p className="text-[11px] text-foreground-muted">Tap to view &middot; drag to pass or save</p>
+        )}
       </div>
       <div className="mx-auto w-full max-w-[220px]">
         {alignmentMeter}
