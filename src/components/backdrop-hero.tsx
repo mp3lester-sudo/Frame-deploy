@@ -34,6 +34,43 @@ export function BackdropHero({
   // fallback timeout further down) -- see the fallback timeout's own
   // comment for what this actually tracks.
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  // Guards forcePlay() below so it only fires once per trailer -- YouTube
+  // posts frequent "infoDelivery" messages (playback time updates, etc.)
+  // once the player is alive, and this listens for the FIRST one only as
+  // the trigger, not every single one.
+  const forcedPlayRef = useRef(false);
+
+  // Explicitly commands the embed to play, instead of relying solely on
+  // the autoplay=1 URL param. On the ordinary website that param is
+  // enough on its own (that's what shipped in #275/#620), but inside the
+  // native iOS app's WKWebView, a cross-origin iframe's own autoplay
+  // permission doesn't reliably inherit the host app's -- the outer
+  // iframe document loads fine and YouTube's player JS initializes fine
+  // (both onLoad and the postMessage channel below fire normally), but
+  // playback itself silently never starts, leaving YouTube's own
+  // red-button "click to play" thumbnail frozen on screen instead --
+  // exactly the bug this is fixing. Sent a few times on a short delay
+  // (not just once) since a command dispatched the instant the player
+  // signals "alive" can still arrive a beat before the player is
+  // actually ready to accept it; each of these is a no-op if the video
+  // is already playing, so repeating them is harmless.
+  function forcePlay() {
+    if (forcedPlayRef.current) return;
+    forcedPlayRef.current = true;
+    const send = () => {
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "mute", args: [] }),
+        "*"
+      );
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+        "*"
+      );
+    };
+    send();
+    window.setTimeout(send, 300);
+    window.setTimeout(send, 1000);
+  }
 
   // enablejsapi=1 in the iframe src (below) makes YouTube's player post
   // status messages back to this window -- listening for onError here
@@ -70,6 +107,7 @@ export function BackdropHero({
       // as an earlier/more reliable "it's working" signal avoids the
       // fallback firing on a trailer that's actually fine.
       setIframeLoaded(true);
+      forcePlay();
       if (data && typeof data === "object" && "event" in data && (data as { event: unknown }).event === "onError") {
         setPlaying(false);
       }
@@ -168,7 +206,16 @@ export function BackdropHero({
             src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1&controls=0&disablekb=1&fs=0&iv_load_policy=3`}
             title={`${title} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            onLoad={() => setIframeLoaded(true)}
+            onLoad={() => {
+              setIframeLoaded(true);
+              // Fires forcePlay() from this path too, not just the message
+              // listener above -- if YouTube's own player JS never gets
+              // around to posting a message at all (the specific failure
+              // this is guarding against also intermittently suppresses
+              // that), the outer iframe's own load event still reliably
+              // fires and this is the only other hook available to try.
+              forcePlay();
+            }}
           />
           {/* Bottom fade so the hard edge at the base of the hero (very
               visible on high-contrast trailer intros -- rating cards,
