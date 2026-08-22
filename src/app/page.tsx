@@ -361,9 +361,13 @@ export default async function HomePage({
         dangerouslySetInnerHTML={{
           __html: `try {
   var tz = document.getElementById('cinematic-intro-tapzone');
+  function dismissIntro() {
+    if (document.documentElement.classList.contains('cinematic-intro-dismissed')) return;
+    document.documentElement.classList.add('cinematic-intro-dismissed');
+  }
   if (tz) {
     tz.addEventListener('click', function (e) {
-      document.documentElement.classList.add('cinematic-intro-dismissed');
+      dismissIntro();
       // The tapzone is a full-screen fixed layer (z-60) sitting on top of
       // the entire page -- including things like the home hero's "tap for
       // tonight's pick" button, which can be visible and painted well
@@ -387,6 +391,22 @@ export default async function HomePage({
         target.click();
       }
     }, { once: true });
+    // Safety net for the DEFAULT path (nobody taps -- the clip just plays
+    // out, per task #626 "let the video play out the whole video"). The
+    // CSS-only fade (globals.css) only ever animates the two INNER layers'
+    // opacity to 0; nothing ever disabled this OUTER tapzone once that
+    // animation ends, so letting the intro play out naturally (the
+    // documented default) left an invisible, full-viewport,
+    // pointer-events:auto div sitting at z-60 forever afterward --
+    // silently eating every click on the entire app (the hero's
+    // tap-to-reveal, nav links, everything) until a reload happened to
+    // land outside the 30-minute replay window. This timer is the actual
+    // fix: it force-dismisses the tapzone (same class the click handler
+    // above uses) once the video (16100ms) + title (15900ms delay +
+    // 1500ms) sequence is guaranteed finished, so the common case --
+    // let it play, tap nothing -- is no longer the one path with zero
+    // cleanup.
+    window.setTimeout(dismissIntro, 17600);
   }
   if (window.__introWillPlay) {
     var v = document.getElementById('cinematic-intro-video-el');
