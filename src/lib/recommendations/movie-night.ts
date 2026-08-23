@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { withTimeout } from "@/lib/with-timeout";
 import type { Database } from "@/lib/supabase/types";
 import {
   rankGroupCandidates,
@@ -210,17 +211,31 @@ export async function getCandidatesForUserGroup({
   // independent of everyone else's, so there's nothing to wait on.
   const candidateIds = new Set<string>();
   let anyoneHasMatches = false;
+  // Same unbounded-worst-case RPC as the main engine (see engine.ts's
+  // MATCH_TITLES_TIMEOUT_MS comment), and it's worse here specifically:
+  // running it concurrently across participants protects against N
+  // sequential round trips, but a single slow/cold ANN index still makes
+  // EVERY participant's seed take that long at once, so the group as a
+  // whole waits on the slowest one instead of just one person's. Each
+  // participant is timed out independently -- one slow seed degrades to
+  // "this person contributed no candidates" (already a handled case
+  // below via anyoneHasMatches) rather than holding up the entire
+  // Movie Night page for every participant waiting on it.
   const seedResults = await Promise.all(
-    userIds.map((userId) =>
-      supabase
-        .rpc("match_titles_for_user", {
+    userIds.map((userId) => {
+      const matchTitlesPromise = Promise.resolve(
+        supabase.rpc("match_titles_for_user", {
           p_user_id: userId,
           p_match_count: PER_PARTICIPANT_SEED_COUNT,
           p_exclude_watched: true,
           p_media_type: mediaType,
         })
-        .then((r) => ({ userId, ...r }))
-    )
+      );
+      return withTimeout(matchTitlesPromise, 4000, {
+        data: [] as Awaited<typeof matchTitlesPromise>["data"],
+        error: null,
+      } as Awaited<typeof matchTitlesPromise>).then((r) => ({ userId, ...r }));
+    })
   );
   // An RPC error here used to be silently indistinguishable from "this
   // participant genuinely has no taste vector yet" -- both just left

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { withTimeout } from "@/lib/with-timeout";
 import type { Database } from "@/lib/supabase/types";
 import { contextMultiplier } from "./context-weighting";
 import { weatherTimeMultiplier, weatherTimeNote, type WeatherTimeSignal } from "./weather-time-weighting";
@@ -70,6 +71,18 @@ export const CONTENT_MATCH_THRESHOLD = 0.5;
 // with the same query once post-fix volume builds up -- this is still a
 // reasoned step, not a fully calibrated number.
 const MIN_CONTENT_SIMILARITY = 0.3;
+
+// Caps how long the page will wait on match_titles_for_user specifically
+// -- this is the one call in the Promise.all below with no upper bound of
+// its own, and a slow/cold ANN index (or one running without migration
+// 0077's fix -- see that migration's comment for the full story) can make
+// it take several seconds under load instead of the usual <100ms. Since
+// nothing downstream can start scoring candidates until this resolves, an
+// unbounded slow call here used to block the *entire* page's
+// server-rendered response, not just this section. 4s is generous for a
+// healthy query but still well short of making a visitor sit through a
+// query that's already run long past the point of being worth waiting for.
+const MATCH_TITLES_TIMEOUT_MS = 4000;
 
 /**
  * Content-based recommendation: scores every title purely on cosine
@@ -178,17 +191,25 @@ export async function getRecommendationsForUser(
   // exist, so widening the raw net upstream is the actual fix rather
   // than anything in diversify.ts itself.
   const CANDIDATE_POOL_MULTIPLIER = 8;
+  const matchTitlesPromise = Promise.resolve(supabase.rpc("match_titles_for_user", {
+    p_user_id: userId,
+    p_match_count: limit * CANDIDATE_POOL_MULTIPLIER,
+    p_min_similarity: MIN_CONTENT_SIMILARITY,
+    p_media_type: mediaType,
+  }));
   const [{ data: contentMatches }, { data: userRatings }, { data: dismissals }] = await Promise.all([
     // The only candidate/scoring source: cosine similarity between this
     // user's own taste vector and every title's embedding. See the
     // function doc comment above for why the two collaborative-filtering
-    // RPCs that used to sit alongside this were removed.
-    supabase.rpc("match_titles_for_user", {
-      p_user_id: userId,
-      p_match_count: limit * CANDIDATE_POOL_MULTIPLIER,
-      p_min_similarity: MIN_CONTENT_SIMILARITY,
-      p_media_type: mediaType,
-    }),
+    // RPCs that used to sit alongside this were removed. Timed out
+    // separately (see MATCH_TITLES_TIMEOUT_MS above) -- past the cap this
+    // resolves to an empty match list, same shape as "no candidates
+    // found," which correctly routes through the existing cold-start
+    // fallback below instead of hanging the whole page.
+    withTimeout(matchTitlesPromise, MATCH_TITLES_TIMEOUT_MS, {
+      data: [] as Awaited<typeof matchTitlesPromise>["data"],
+      error: null,
+    } as Awaited<typeof matchTitlesPromise>),
     // Feeds genre-level negative signal (below) — deliberately a plain
     // ratings query, not the RPC above, since this needs the user's own
     // raw scores + genres, not a similarity metric.

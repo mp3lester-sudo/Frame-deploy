@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { withTimeout } from "@/lib/with-timeout";
 import type { Database } from "@/lib/supabase/types";
 import { buildReasonDetail, type ExplainableTitle, type ReasonDetail } from "@/lib/recommendations/explain";
 import type { MediaType } from "@/lib/context/media-type-cookie";
@@ -107,8 +108,20 @@ export async function computeSignaturePick(userId: string, mediaType: MediaType)
 export async function computeSignaturePicks(userId: string, count: number, mediaType: MediaType): Promise<SignaturePick[]> {
   const supabase = await createClient();
 
+  // Same unbounded-worst-case RPC as the main engine (see engine.ts's
+  // MATCH_TITLES_TIMEOUT_MS comment) -- capped the same way so a
+  // slow/cold ANN index degrades this profile-page panel to "no
+  // signature pick this load" instead of holding up the whole page.
+  const matchTitlesPromise = Promise.resolve(supabase.rpc("match_titles_for_user", {
+    p_user_id: userId,
+    p_match_count: CANDIDATE_POOL,
+    p_media_type: mediaType,
+  }));
   const [{ data: matches }, { data: userRatings }] = await Promise.all([
-    supabase.rpc("match_titles_for_user", { p_user_id: userId, p_match_count: CANDIDATE_POOL, p_media_type: mediaType }),
+    withTimeout(matchTitlesPromise, 4000, {
+      data: [] as Awaited<typeof matchTitlesPromise>["data"],
+      error: null,
+    } as Awaited<typeof matchTitlesPromise>),
     supabase.from("ratings").select("title_id, titles!inner(type)").eq("user_id", userId).eq("titles.type", mediaType),
   ]);
 

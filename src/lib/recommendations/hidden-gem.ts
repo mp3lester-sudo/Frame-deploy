@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { withTimeout } from "@/lib/with-timeout";
 import type { Database } from "@/lib/supabase/types";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { CONTENT_MATCH_THRESHOLD } from "./engine";
@@ -48,11 +49,20 @@ export async function getHiddenGemForUser(
     .maybeSingle();
   if (!tasteVector) return null;
 
-  const { data: contentMatches } = await supabase.rpc("match_titles_for_user", {
+  // Same unbounded-worst-case RPC as the main engine (see engine.ts's
+  // MATCH_TITLES_TIMEOUT_MS comment) -- this card is a nice-to-have
+  // addition below the home page's hero pick, not something worth making
+  // a visitor wait several extra seconds for, so it degrades to "no
+  // hidden gem this load" past the cap rather than blocking the page.
+  const contentMatchesPromise = Promise.resolve(supabase.rpc("match_titles_for_user", {
     p_user_id: userId,
     p_match_count: CANDIDATE_POOL_SIZE,
     p_media_type: mediaType,
-  });
+  }));
+  const { data: contentMatches } = await withTimeout(contentMatchesPromise, 4000, {
+    data: [] as Awaited<typeof contentMatchesPromise>["data"],
+    error: null,
+  } as Awaited<typeof contentMatchesPromise>);
   if (!contentMatches?.length) return null;
 
   const excluded = new Set(excludeIds);
