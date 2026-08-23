@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { siteOrigin, SITE_NAME, SITE_DESCRIPTION } from "@/lib/seo/site";
-import { Geist, Geist_Mono, Instrument_Serif, Bebas_Neue, Cinzel, Big_Shoulders, IBM_Plex_Sans, Syne } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif, Bebas_Neue, Cinzel, Syne } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/layout/nav-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -59,33 +59,12 @@ const cinzel = Cinzel({
   subsets: ["latin"],
 });
 
-// Bold condensed poster-title sans + a clean editorial-grotesque body --
-// reserved for the header/small-text pair on the seven section pages
-// (Discover, Slate DNA, Wrapped, Ask Slate, Social/Feed, Movie Night,
-// Clubs), via --font-section-heading / --font-section-body in globals.css.
-// Deliberately distinct from --font-display (Instrument Serif) so those
-// pages read as a related but separate typographic register, not a copy
-// of the home page's treatment.
-const bigShouldersDisplay = Big_Shoulders({
-  variable: "--font-big-shoulders-display",
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  // Google's "Big Shoulders" ships as a single variable font with named
-  // instances (Display/Text/Inline/Stencil) for what used to be separate
-  // families -- next/font's automatic fallback-metrics lookup keys off
-  // those instance names and can't resolve the bare family, so it already
-  // silently skips generating a fallback font. This just says so
-  // explicitly instead of leaving a "Failed to find font override values"
-  // warning on every build for a no-op. See
-  // https://github.com/vercel/next.js/issues/47115.
-  adjustFontFallback: false,
-});
-
-const ibmPlexSans = IBM_Plex_Sans({
-  variable: "--font-ibm-plex-sans",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-});
+// Big Shoulders + IBM Plex Sans used to be loaded here for
+// --font-section-heading / --font-section-body (the seven section
+// pages' own typographic register). Full design-system rollout folded
+// those tokens onto --font-display / --font-sans instead (see
+// globals.css) so this pair is no longer referenced anywhere -- removed
+// rather than left as dead weight on every page load.
 
 // Bold, minimal geometric display -- the home page greeting's first name,
 // replacing the Monoton "marquee bulbs" treatment as the default look when
@@ -207,7 +186,7 @@ export default async function RootLayout({
     <html
       lang="en"
       data-media={mediaType}
-      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${cinzel.variable} ${bigShouldersDisplay.variable} ${ibmPlexSans.variable} ${syne.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${bebasNeue.variable} ${cinzel.variable} ${syne.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {/* Synchronous, runs during HTML parsing before React hydrates --

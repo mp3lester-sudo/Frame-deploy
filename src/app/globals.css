@@ -25,8 +25,12 @@
   --surface: #171512;
   --surface-raised: #221f19;
   --spotlight: #2b2216;
-  --border: rgba(217, 184, 118, 0.18);
-  --border-strong: rgba(217, 184, 118, 0.34);
+  /* Full design-system rollout: quieter hairlines -- structure
+     should read as a barely-there seam, not a visible gold outline
+     around every card. --border-strong stays proportionally the
+     stronger of the two for active/hover states. */
+  --border: rgba(217, 184, 118, 0.1);
+  --border-strong: rgba(217, 184, 118, 0.22);
   --foreground: #f2e9df;
   --foreground-muted: #ab949a;
 
@@ -79,10 +83,17 @@
   --glass-border: rgba(255, 255, 255, 0.09);
   --glass-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.65);
 
+  /* Full design-system rollout: enlarged toward the mockup's softer,
+     more generous rounding -- sm stays tight (chips/badges still read
+     as small controls), md/lg/xl each step up so cards, tiles, and
+     hero panels read as noticeably softer than the old scale without
+     going full "bubbly." Cascades automatically to every component
+     already written as rounded-[var(--radius-*)] (300+ call sites) --
+     no per-component edits needed for this part of the pass. */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
   --radius-full: 999px;
 }
 
@@ -107,8 +118,8 @@
   --surface: #151c22;
   --surface-raised: #1c2731;
   --spotlight: #1a2530;
-  --border: rgba(207, 224, 236, 0.16);
-  --border-strong: rgba(207, 224, 236, 0.30);
+  --border: rgba(207, 224, 236, 0.09);
+  --border-strong: rgba(207, 224, 236, 0.2);
   --foreground: #f0f4f8;
   --foreground-muted: #93a0ac;
 
@@ -187,12 +198,20 @@ html.media-switching main {
      (see lib/poster-font) whenever their most recently reviewed/watched
      title has one on file; this is just the fallback everyone starts on. */
   --font-greeting: var(--font-syne);
-  /* Header + smaller-text pair reserved for the seven section pages
-     (Discover, Slate DNA, Wrapped, Ask Slate, Social, Movie Night,
-     Clubs) — see layout.tsx. Copy on those pages is unchanged; only the
-     font applied to the existing heading/subtext elements. */
-  --font-section-heading: var(--font-big-shoulders-display);
-  --font-section-body: var(--font-ibm-plex-sans);
+  /* Full design-system rollout: section-page headers/body text now
+     ride the SAME governed serif+sans pair as everything else
+     (--font-display / --font-sans) instead of a third and fourth
+     competing family (Big Shoulders + IBM Plex Sans). The distinct
+     pairing used to be a deliberate choice to give these pages their
+     own register -- in practice it read as un-unified rather than
+     "related but separate," which was one of the redesign audit's
+     core findings. font-section-heading/font-section-body class names
+     stay unchanged (used across Discover, Slate DNA, Wrapped, Ask
+     Slate, Social, Movie Night, Clubs, Daily, Terms, Privacy, and the
+     RT badge) so no component needs touching -- only what they
+     resolve to. */
+  --font-section-heading: var(--font-display);
+  --font-section-body: var(--font-sans);
 }
 
 /* App-wide smoothness pass. None of this is a single dramatic fix -- it's
