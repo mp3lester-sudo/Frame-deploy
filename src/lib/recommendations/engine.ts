@@ -275,13 +275,32 @@ export async function getRecommendationsForUser(
     // above). The negative counterpart to the "because you loved X"
     // citation logic below (CONTENT_MATCH_THRESHOLD). See
     // dislike-penalty.ts and migrations 0052/0068.
-    supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds, p_media_type: mediaType }),
+    // Bounded (candidateIds is at most limit * CANDIDATE_POOL_MULTIPLIER
+    // ids), but still a cosine-distance computation across every one of
+    // this user's disliked/dismissed titles times every candidate -- for
+    // an account with a long rating history that's real work, and it's
+    // one of seven queries in this same Promise.all, so a slow one here
+    // holds up the other six just as much as match_titles_for_user did.
+    // Same 3s cap-and-degrade treatment: past it, this signal just
+    // contributes nothing rather than blocking the page.
+    (() => {
+      const p = Promise.resolve(
+        supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds, p_media_type: mediaType })
+      );
+      return withTimeout(p, 3000, { data: [] as Awaited<typeof p>["data"], error: null } as Awaited<typeof p>);
+    })(),
     // Implicit signals: how close each candidate is to something on the
     // user's watchlist (deliberate intent) vs. something they watched but
     // never rated (ambiguous) -- kept as two separate columns since
     // migration 0060 so they can be weighted differently. See
-    // implicit-affinity.ts.
-    supabase.rpc("similarity_to_implicit_positive_titles", { p_user_id: userId, p_title_ids: candidateIds, p_media_type: mediaType }),
+    // implicit-affinity.ts. Same bounded-but-still-real-work shape and
+    // same 3s cap as the dislike-similarity query above.
+    (() => {
+      const p = Promise.resolve(
+        supabase.rpc("similarity_to_implicit_positive_titles", { p_user_id: userId, p_title_ids: candidateIds, p_media_type: mediaType })
+      );
+      return withTimeout(p, 3000, { data: [] as Awaited<typeof p>["data"], error: null } as Awaited<typeof p>);
+    })(),
     // Director, for diversify.ts's same-director check below (person_id)
     // and for the Recommendation.director display field (person's name,
     // joined in the same query rather than a separate round trip -- see
