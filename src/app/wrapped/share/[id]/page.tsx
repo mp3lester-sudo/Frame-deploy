@@ -6,15 +6,27 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { WrappedResult } from "@/lib/taste-dna/wrapped";
 import type { Metadata } from "next";
+import { cache } from "react";
+
+// Wrapped in React's cache() so generateMetadata and the page component
+// below -- which both need this same wrapped_shares row -- share one
+// Supabase round trip per request instead of two. Selects the fuller
+// (year, stats, profiles) shape the page needs; generateMetadata just
+// reads year/profiles off the same row rather than re-querying a
+// metadata-only slim column set.
+const getShareById = cache(async (id: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("wrapped_shares")
+    .select("year, stats, profiles(username, display_name)")
+    .eq("id", id)
+    .maybeSingle();
+  return data;
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: share } = await supabase
-    .from("wrapped_shares")
-    .select("year, profiles(username, display_name)")
-    .eq("id", id)
-    .maybeSingle();
+  const share = await getShareById(id);
   if (!share) return { title: "Wrapped not found" };
 
   const owner = (share as unknown as { profiles: { username: string; display_name: string | null } | null }).profiles;
@@ -40,13 +52,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
  */
 export default async function WrappedSharePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  const { data: share } = await supabase
-    .from("wrapped_shares")
-    .select("year, stats, profiles(username, display_name)")
-    .eq("id", id)
-    .maybeSingle();
+  const share = await getShareById(id);
   if (!share) notFound();
 
   const owner = (share as unknown as { profiles: { username: string; display_name: string | null } | null }).profiles;

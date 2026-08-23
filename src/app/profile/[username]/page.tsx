@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { cache } from "react";
 import { Settings, Bookmark, ListChecks } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -94,6 +95,28 @@ function RoseFlourish() {
   );
 }
 
+// Wrapped in React's cache() so generateMetadata (below) and the page
+// component further down -- which both need this same profile row --
+// share one Supabase round trip per request instead of two. Full
+// select("*") rather than a metadata-only slim column set: the page
+// component needs every column anyway, and generateMetadata only reads
+// a handful of fields off the same row.
+const getProfileByUsername = cache(async (username: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("profiles").select("*").eq("username", username).maybeSingle();
+  return data;
+});
+
+// Separate cache key from getProfileByUsername above -- the "/profile/me"
+// alias resolves by the viewer's own id instead of a username (see
+// resolvedUsername below), a genuinely different lookup, not a dedupe
+// target with the username-keyed fetch.
+const getProfileById = cache(async (id: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+  return data;
+});
+
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
   // The "/profile/me" alias is viewer-relative and not a stable, shareable
@@ -101,12 +124,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
   // metadata for whoever happens to be logged in when a crawler hits it.
   if (username === "me") return { robots: { index: false, follow: false } };
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, display_name, bio, avatar_url")
-    .eq("username", username)
-    .maybeSingle();
+  const profile = await getProfileByUsername(username);
   if (!profile) return { title: "Profile not found" };
 
   const name = profile.display_name ?? profile.username;
@@ -136,9 +154,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
 
   const resolvedUsername = username === "me" && viewer ? null : username;
 
-  const { data: profile } = resolvedUsername
-    ? await supabase.from("profiles").select("*").eq("username", resolvedUsername).maybeSingle()
-    : await supabase.from("profiles").select("*").eq("id", viewer?.id ?? "").maybeSingle();
+  const profile = resolvedUsername
+    ? await getProfileByUsername(resolvedUsername)
+    : await getProfileById(viewer?.id ?? "");
 
   if (!profile) notFound();
 

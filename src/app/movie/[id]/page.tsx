@@ -26,15 +26,24 @@ import { isAuteurActive } from "@/lib/premium/tier";
 import { getMySeasonRatings } from "@/lib/actions/season-ratings";
 import { SeasonRatings } from "@/components/season-ratings";
 import type { Metadata } from "next";
+import { cache } from "react";
+
+// Wrapped in React's cache() so generateMetadata (above) and the page
+// component below -- which both need this exact row -- share one
+// Supabase round trip per request instead of two. Full select("*")
+// rather than a metadata-only slim column set: the page component needs
+// every column anyway, and generateMetadata only reads a handful of
+// fields off the same row, so there's no cost to fetching the wider
+// shape once and sharing it.
+const getTitleById = cache(async (id: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("titles").select("*").eq("id", id).maybeSingle();
+  return data;
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: title } = await supabase
-    .from("titles")
-    .select("name, overview, poster_url, release_date")
-    .eq("id", id)
-    .maybeSingle();
+  const title = await getTitleById(id);
 
   if (!title) return { title: "Title not found" };
 
@@ -66,7 +75,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
   const viewer = await getVerifiedUser();
 
   const [
-    { data: title },
+    title,
     { data: reviews },
     { data: userRating },
     { data: credits },
@@ -77,7 +86,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
     mySeasonRatings,
   ] =
     await Promise.all([
-      supabase.from("titles").select("*").eq("id", id).single(),
+      getTitleById(id),
       supabase
         .from("reviews")
         // No FK links reviews to ratings directly (they're sibling tables,
