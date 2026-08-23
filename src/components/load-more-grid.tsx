@@ -1,12 +1,9 @@
 "use client";
 
 import { useTransition } from "react";
-import { TitleCard } from "@/components/title-card";
+import { TitleCard, type GridTitle } from "@/components/title-card";
 import { Button } from "@/components/ui/button";
 import { usePersistedPagination } from "@/lib/hooks/use-persisted-pagination";
-import type { Database } from "@/lib/supabase/types";
-
-type Title = Database["public"]["Tables"]["titles"]["Row"];
 
 export function LoadMoreGrid({
   storageKey,
@@ -16,9 +13,9 @@ export function LoadMoreGrid({
 }: {
   /** Unique per filter/query combo so a fresh search doesn't inherit a stale one's loaded state. */
   storageKey: string;
-  initialTitles: Title[];
+  initialTitles: GridTitle[];
   initialHasMore: boolean;
-  loadMore: (page: number) => Promise<{ titles: Title[]; hasMore: boolean }>;
+  loadMore: (page: number) => Promise<{ titles: GridTitle[]; hasMore: boolean }>;
 }) {
   const { items: titles, hasMore, page, appendPage } = usePersistedPagination(storageKey, initialTitles, initialHasMore);
   const [isPending, startTransition] = useTransition();

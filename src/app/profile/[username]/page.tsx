@@ -34,6 +34,16 @@ import { SignaturePickCard } from "@/components/taste-dna/signature-pick-card";
 import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
 import { HideOnNative } from "@/components/native/hide-on-native";
 import { ShowOnNative } from "@/components/native/show-on-native";
+import type { Database } from "@/lib/supabase/types";
+
+// TitleCard's own prop type (GridTitle, see title-card.tsx) is
+// deliberately narrower than a full titles row now -- these two spots
+// below read fields off favorite/recently-watched titles (backdrop_url
+// for the banner collage, and everything WatchedTitleCard needs) beyond
+// what TitleCard itself renders, so they need the real full-row type
+// rather than piggybacking on TitleCard's prop type the way this file
+// used to.
+type FullTitleRow = Database["public"]["Tables"]["titles"]["Row"];
 
 /** Auteur subscribers get the fuller evolution read (more rising/fading
  *  archetype insights per direction) on this page too, matching the
@@ -279,8 +289,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   ]);
 
   const favorites = (favoriteRows ?? [])
-    .map((r) => (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] | null }).titles)
-    .filter((t): t is Parameters<typeof TitleCard>[0]["title"] => !!t);
+    .map((r) => (r as unknown as { titles: FullTitleRow | null }).titles)
+    .filter((t): t is FullTitleRow => !!t);
 
   // Profile theme: a hand-designed palette/type/motif preset keyed to this
   // person's #1 all-time favorite -- see resolveProfileTheme for why this
@@ -1046,7 +1056,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       </div>
       <Reveal className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
         {recentRatings?.map((r, i) => {
-          const title = (r as unknown as { titles: Parameters<typeof TitleCard>[0]["title"] }).titles;
+          const title = (r as unknown as { titles: FullTitleRow }).titles;
           return title ? (
             <WatchedTitleCard
               key={title.id}

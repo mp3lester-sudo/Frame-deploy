@@ -3,7 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isPremiumActive } from "@/lib/premium/is-premium";
-import { DISCOVER_PAGE_SIZE, SEARCH_PAGE_SIZE } from "@/lib/constants/catalogue";
+import { DISCOVER_PAGE_SIZE, SEARCH_PAGE_SIZE, GRID_TITLE_COLUMNS } from "@/lib/constants/catalogue";
+import type { GridTitle } from "@/components/title-card";
 import { ERA_DECADES, type AdvancedDiscoverFilters } from "@/lib/constants/discover-filters";
 import { tokenizeSearchQuery } from "@/lib/search/tokenize";
 import { getActiveMediaType } from "@/lib/context/media-type";
@@ -43,7 +44,7 @@ export async function loadMoreDiscoverTitles(
 
   let query = supabase
     .from("titles")
-    .select("*")
+    .select(GRID_TITLE_COLUMNS)
     .eq("type", mediaType)
     .order("weighted_rating", { ascending: false, nullsFirst: false });
   if (genre) query = query.contains("genres", [genre]);
@@ -67,7 +68,7 @@ export async function loadMoreDiscoverTitles(
   const to = from + DISCOVER_PAGE_SIZE - 1;
   const { data } = await query.range(from, to);
 
-  return { titles: data ?? [], hasMore: (data?.length ?? 0) === DISCOVER_PAGE_SIZE };
+  return { titles: (data ?? []) as GridTitle[], hasMore: (data?.length ?? 0) === DISCOVER_PAGE_SIZE };
 }
 
 export async function loadMoreSearchTitles(q: string, page: number) {
@@ -80,11 +81,11 @@ export async function loadMoreSearchTitles(q: string, page: number) {
   // phrase verbatim -- "dark knight batman" should still find "The Dark
   // Knight" even though that's not a literal substring of the title.
   // Chained .ilike() calls AND together, same as multiple chained filters.
-  let builder = supabase.from("titles").select("*").eq("type", mediaType);
+  let builder = supabase.from("titles").select(GRID_TITLE_COLUMNS).eq("type", mediaType);
   for (const word of tokenizeSearchQuery(q)) {
     builder = builder.ilike("name", `%${word}%`);
   }
   const { data } = await builder.order("weighted_rating", { ascending: false, nullsFirst: false }).range(from, to);
 
-  return { titles: data ?? [], hasMore: (data?.length ?? 0) === SEARCH_PAGE_SIZE };
+  return { titles: (data ?? []) as GridTitle[], hasMore: (data?.length ?? 0) === SEARCH_PAGE_SIZE };
 }

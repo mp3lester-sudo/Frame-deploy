@@ -9,7 +9,7 @@ import { LoadMoreGrid } from "@/components/load-more-grid";
 import { loadMoreDiscoverTitles } from "@/lib/actions/catalogue";
 import { getMyDiscoverPresets } from "@/lib/actions/discover-presets";
 import { SavedFilterPresets } from "@/components/discover/saved-filter-presets";
-import { DISCOVER_PAGE_SIZE } from "@/lib/constants/catalogue";
+import { DISCOVER_PAGE_SIZE, GRID_TITLE_COLUMNS } from "@/lib/constants/catalogue";
 import { ERA_DECADES, PACING_OPTIONS, TONE_OPTIONS, MOOD_OPTIONS } from "@/lib/constants/discover-filters";
 import { PremiumUpsell } from "@/components/premium-upsell";
 import { SwipeRecsCard } from "@/components/discover/swipe-recs-card";
@@ -178,7 +178,7 @@ export default async function DiscoverPage({
   const mediaType = await getActiveMediaType();
   let query = supabase
     .from("titles")
-    .select("*")
+    .select(GRID_TITLE_COLUMNS)
     .eq("type", mediaType)
     .order("weighted_rating", { ascending: false, nullsFirst: false })
     .range(0, DISCOVER_PAGE_SIZE - 1);

@@ -3,7 +3,16 @@ import Link from "next/link";
 import type { Database } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
-type Title = Database["public"]["Tables"]["titles"]["Row"];
+// Deliberately narrower than the full titles Row -- this card only ever
+// renders these five fields (see the JSX below), and every caller across
+// the app already has at least this much whether it fetched select("*")
+// or a trimmed query (see GRID_TITLE_COLUMNS in lib/constants/catalogue.ts),
+// so narrowing this prop type costs nothing at any existing call site
+// while letting Discover/Search stop over-fetching entirely.
+export type GridTitle = Pick<
+  Database["public"]["Tables"]["titles"]["Row"],
+  "id" | "name" | "poster_url" | "type" | "in_production"
+>;
 
 export function TitleCard({
   title,
@@ -11,7 +20,7 @@ export function TitleCard({
   highlight,
   index = 0,
 }: {
-  title: Title;
+  title: GridTitle;
   reason?: string;
   /** Gold rim + soft glow for a single "this is the one" tile — e.g. the
       #1 spot on the favorites podium. Not meant for routine use. */

@@ -10,15 +10,18 @@ import { LoadMoreCastCrew } from "@/components/load-more-cast-crew";
 import { loadMoreSearchTitles } from "@/lib/actions/catalogue";
 import { searchUsers, loadMoreUserSearch } from "@/lib/actions/users";
 import { searchCastCrew, loadMoreCastCrew } from "@/lib/actions/cast-crew";
-import { SEARCH_PAGE_SIZE } from "@/lib/constants/catalogue";
+import { SEARCH_PAGE_SIZE, GRID_TITLE_COLUMNS } from "@/lib/constants/catalogue";
 import { findCompanyMatch } from "@/lib/search/company-search";
 import { getTmdbIdsForCompany, orderByTmdbIdSequence } from "@/lib/search/company-titles";
 import { tokenizeSearchQuery } from "@/lib/search/tokenize";
 import { cn } from "@/lib/utils";
-import type { Database } from "@/lib/supabase/types";
+import type { GridTitle } from "@/components/title-card";
 import { getActiveMediaType } from "@/lib/context/media-type";
 
-type Title = Database["public"]["Tables"]["titles"]["Row"];
+// orderByTmdbIdSequence (company-match branch below) needs tmdb_id to
+// re-sort by TMDB popularity order -- not something TitleCard renders,
+// but it has to survive the select() long enough to sort by it.
+type Title = GridTitle & { tmdb_id: number | null };
 
 const TABS = [
   { value: "titles", label: "Titles" },
@@ -50,7 +53,11 @@ export default async function SearchPage({
     if (companyMatch) {
       const tmdbIds = await getTmdbIdsForCompany(companyMatch.id);
       if (tmdbIds.length > 0) {
-        const { data } = await supabase.from("titles").select("*").eq("type", mediaType).in("tmdb_id", tmdbIds);
+        const { data } = await supabase
+          .from("titles")
+          .select(`${GRID_TITLE_COLUMNS}, tmdb_id`)
+          .eq("type", mediaType)
+          .in("tmdb_id", tmdbIds);
         titles = orderByTmdbIdSequence(data ?? [], tmdbIds);
       }
       // No "load more" for studio results yet -- this is a recognition
@@ -61,7 +68,7 @@ export default async function SearchPage({
       // Match every word in the query somewhere in the title rather than
       // requiring the whole phrase verbatim in that exact order -- see
       // loadMoreSearchTitles (same approach, kept in sync deliberately).
-      let titleBuilder = supabase.from("titles").select("*").eq("type", mediaType);
+      let titleBuilder = supabase.from("titles").select(`${GRID_TITLE_COLUMNS}, tmdb_id`).eq("type", mediaType);
       for (const word of tokenizeSearchQuery(q)) {
         titleBuilder = titleBuilder.ilike("name", `%${word}%`);
       }
