@@ -6,15 +6,83 @@ import Image from "@/components/ui/fade-image";
 import { BackButton } from "@/components/ui/back-button";
 import { siteOrigin } from "@/lib/seo/site";
 
-// YouTube's IFrame API validates postMessage-based remote-control calls
-// (forcePlay()'s mute/playVideo commands below) against this origin, or
-// falls back to the request's Referer header when it's absent. WKWebView
+// Passed to YouTube as the player's origin (see loadYouTubeIframeApi below)
+// so its postMessage-based remote-control validates reliably. WKWebView
 // (the native iOS app's embedded browser) doesn't always send a reliable
-// Referer for iframe loads, which can make YouTube silently ignore our
-// postMessage commands there even though the identical code works fine
-// in ordinary mobile/desktop Safari -- passing origin explicitly closes
-// that gap.
+// Referer header on iframe loads, which is what YouTube falls back to for
+// origin validation when this isn't set explicitly.
 const PRODUCTION_ORIGIN = siteOrigin();
+
+// Minimal typing for the subset of the YouTube IFrame Player API this file
+// actually uses -- there's no @types package for it, and pulling in the
+// full API surface isn't worth it for four methods and one enum.
+interface YTPlayer {
+  playVideo: () => void;
+  mute: () => void;
+  unMute: () => void;
+  destroy: () => void;
+}
+interface YTPlayerEvent {
+  target: YTPlayer;
+  data?: number;
+}
+interface YTNamespace {
+  Player: new (
+    element: HTMLElement,
+    config: {
+      width?: string | number;
+      height?: string | number;
+      videoId: string;
+      playerVars?: Record<string, string | number>;
+      events?: {
+        onReady?: (event: YTPlayerEvent) => void;
+        onStateChange?: (event: YTPlayerEvent) => void;
+        onError?: (event: YTPlayerEvent) => void;
+      };
+    }
+  ) => YTPlayer;
+  PlayerState: { PLAYING: number; ENDED: number; PAUSED: number };
+}
+declare global {
+  interface Window {
+    YT?: YTNamespace;
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
+// Loads YouTube's IFrame Player API script once and resolves with the
+// resulting window.YT namespace -- shared across every BackdropHero
+// instance/remount rather than injecting a fresh <script> tag per movie
+// page visit. This replaces an earlier version of this file that built a
+// bare <iframe src="...?enablejsapi=1"> by hand and drove it with raw,
+// untyped postMessage() calls (a manual mute/playVideo "forcePlay()"
+// retried on a timer). That approach worked in ordinary desktop/mobile
+// Safari but proved unreliable specifically inside the native iOS app's
+// WKWebView -- the iframe loaded and YouTube's player initialized fine,
+// but the hand-rolled postMessage commands were silently dropped, leaving
+// YouTube's own red "click to play" button frozen on screen. YT.Player is
+// the officially documented way to control an embed: it manages the
+// postMessage handshake itself (an undocumented, unreliable protocol if
+// done by hand) and exposes real methods (playVideo(), mute()) instead of
+// guessing at raw command messages.
+let youtubeApiPromise: Promise<YTNamespace> | null = null;
+function loadYouTubeIframeApi(): Promise<YTNamespace> {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (youtubeApiPromise) return youtubeApiPromise;
+  youtubeApiPromise = new Promise((resolve) => {
+    const previous = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previous?.();
+      resolve(window.YT as YTNamespace);
+    };
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const script = document.createElement("script");
+      script.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(script);
+    }
+  });
+  return youtubeApiPromise;
+}
 
 /**
  * The movie detail page's full-bleed backdrop, trailer-aware. With a
@@ -40,141 +108,100 @@ export function BackdropHero({
 }) {
   const [playing, setPlaying] = useState(Boolean(trailerKey));
   const [muted, setMuted] = useState(true);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  // Declared up front (used by both the message listener below and the
-  // fallback timeout further down) -- see the fallback timeout's own
-  // comment for what this actually tracks.
-  const [iframeLoaded, setIframeLoaded] = useState(false);
-  // Guards forcePlay() below so it only fires once per trailer -- YouTube
-  // posts frequent "infoDelivery" messages (playback time updates, etc.)
-  // once the player is alive, and this listens for the FIRST one only as
-  // the trigger, not every single one.
-  const forcedPlayRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<YTPlayer | null>(null);
+  // Set once the player actually confirms it's alive (onReady or a
+  // PLAYING state change) -- used below to cancel the "stuck" fallback
+  // timer once there's real signal the embed is working.
+  const [playerStarted, setPlayerStarted] = useState(false);
 
-  // Explicitly commands the embed to play, instead of relying solely on
-  // the autoplay=1 URL param. On the ordinary website that param is
-  // enough on its own (that's what shipped in #275/#620), but inside the
-  // native iOS app's WKWebView, a cross-origin iframe's own autoplay
-  // permission doesn't reliably inherit the host app's -- the outer
-  // iframe document loads fine and YouTube's player JS initializes fine
-  // (both onLoad and the postMessage channel below fire normally), but
-  // playback itself silently never starts, leaving YouTube's own
-  // red-button "click to play" thumbnail frozen on screen instead --
-  // exactly the bug this is fixing. Sent a few times on a short delay
-  // (not just once) since a command dispatched the instant the player
-  // signals "alive" can still arrive a beat before the player is
-  // actually ready to accept it; each of these is a no-op if the video
-  // is already playing, so repeating them is harmless.
-  function forcePlay() {
-    if (forcedPlayRef.current) return;
-    forcedPlayRef.current = true;
-    const send = () => {
-      iframeRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event: "command", func: "mute", args: [] }),
-        "*"
-      );
-      iframeRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event: "command", func: "playVideo", args: [] }),
-        "*"
-      );
-    };
-    send();
-    window.setTimeout(send, 300);
-    window.setTimeout(send, 1000);
-  }
-
-  // enablejsapi=1 in the iframe src (below) makes YouTube's player post
-  // status messages back to this window -- listening for onError here
-  // catches the cases no embed parameter can prevent: embedding disabled
-  // by the uploader, age-restricted content, region blocks, or a video
-  // pulled after TMDB indexed it. Every one of those makes YouTube render
-  // its own "watch on YouTube" card with the red play button instead of
-  // actually autoplaying, which is exactly the broken state this is
-  // meant to catch -- falling back to the plain backdrop image means
-  // that red button is never visible, only ever a clean still if a
-  // trailer can't play. Scoped to messages from YouTube specifically
-  // (event.origin check) since postMessage is a shared, unauthenticated
-  // channel any other script on the page could also post to.
+  // Creates the real YT.Player instance against the container div below,
+  // instead of hand-building an iframe src string -- see the comment on
+  // loadYouTubeIframeApi for why. autoplay/mute/playsinline are passed as
+  // playerVars (the API's own config surface) rather than URL params; the
+  // library builds the actual embed URL itself. Re-runs per trailerKey,
+  // matching the rest of this component (BackdropHero remounts fresh per
+  // movie, so there's no stale player to reuse across titles).
   useEffect(() => {
     if (!trailerKey) return;
-    function handleMessage(event: MessageEvent) {
-      if (event.origin !== "https://www.youtube.com") return;
-      let data: unknown;
-      try {
-        data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-      } catch {
-        return;
-      }
-      // Any message at all from the embed's own origin means the player
-      // is alive and talking back to us -- not just the outer iframe
-      // document loading (see iframeLoaded below), but YouTube's own JS
-      // inside it having actually initialized. Treat that as "working"
-      // before even checking what kind of message it is, so the fallback
-      // timer below gets cancelled the moment there's real signal,
-      // regardless of which specific event fires first. This matters on
-      // iOS: WKWebView's cross-origin iframe `load` event can fire much
-      // later relative to when the embedded player is actually up and
-      // playing than it does in a desktop browser, so treating messages
-      // as an earlier/more reliable "it's working" signal avoids the
-      // fallback firing on a trailer that's actually fine.
-      setIframeLoaded(true);
-      forcePlay();
-      if (data && typeof data === "object" && "event" in data && (data as { event: unknown }).event === "onError") {
-        setPlaying(false);
-      }
-    }
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+    let cancelled = false;
+    loadYouTubeIframeApi().then((YT) => {
+      if (cancelled || !containerRef.current) return;
+      playerRef.current = new YT.Player(containerRef.current, {
+        width: "100%",
+        height: "100%",
+        videoId: trailerKey,
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          rel: 0,
+          playsinline: 1,
+          modestbranding: 1,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          iv_load_policy: 3,
+          origin: PRODUCTION_ORIGIN,
+        },
+        events: {
+          onReady: (event) => {
+            setPlayerStarted(true);
+            // Belt and suspenders: autoplay=1 in playerVars should be
+            // enough on its own, but explicitly calling these through the
+            // API's real methods (not postMessage guesswork) costs
+            // nothing and catches any platform where the URL param alone
+            // doesn't take.
+            event.target.mute();
+            event.target.playVideo();
+          },
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.PLAYING) setPlayerStarted(true);
+          },
+          // Covers YouTube's own explicit rejections: embedding disabled
+          // by the uploader, age-restricted content, region blocks, or a
+          // video pulled after TMDB indexed it. Falling back to the plain
+          // backdrop image means YouTube's red "watch on YouTube" card is
+          // never visible, only ever a clean still if a trailer can't
+          // play.
+          onError: () => setPlaying(false),
+        },
+      });
+    });
+    return () => {
+      cancelled = true;
+      playerRef.current?.destroy();
+      playerRef.current = null;
+    };
   }, [trailerKey]);
 
-  // Safety net for a trailer that never actually starts: the onError
-  // listener above only fires for YouTube's *own* explicit rejections
-  // (embedding disabled, age-gated, region-blocked, video pulled) --
-  // posted from inside the iframe's own document. If something outside
-  // that channel keeps the iframe from ever loading in the first place
-  // (an ad/privacy-blocking browser extension, a flaky connection, a
-  // captive network), no postMessage ever arrives and this hero is left
-  // showing a plain black box indefinitely, with no still image, no
-  // error state, nothing -- worse than just not attempting a trailer at
-  // all. `iframeLoaded` tracks the iframe's own document `load` event,
-  // which requires nothing from YouTube's player JS and fires even when
-  // the video itself is blocked, so it's a reliable enough signal that
-  // the request at least reached the network. If that hasn't happened
-  // within a generous window, fall back to the plain backdrop still --
-  // exactly the same fallback path onError already uses, just reached
-  // from "silently stuck" instead of "explicitly rejected".
+  // Safety net for a trailer that never actually starts: onError above
+  // only fires for YouTube's own explicit rejections. If something else
+  // keeps the player from ever coming up (an ad/privacy-blocking browser
+  // extension, a flaky connection, a captive network), no onReady/onError
+  // ever fires and this hero would be left showing a black box
+  // indefinitely -- worse than not attempting a trailer at all. 15s
+  // (rather than a shorter window) gives native/slower conditions
+  // realistic room -- on iOS the gap between the request landing and the
+  // embedded player actually being up is measurably longer than on
+  // desktop -- while still catching a trailer that's genuinely never
+  // going to load.
   useEffect(() => {
     if (!playing || !trailerKey) return;
-    // 15s, not 6s: this was originally tuned against a desktop browser
-    // where an iframe that's ever going to load does so almost
-    // immediately, so 6s comfortably separated "genuinely stuck" from
-    // "loading normally." On iOS (native WKWebView), the gap between the
-    // network request landing and the embedded player actually being up
-    // is measurably longer, and 6s was firing on trailers that were
-    // fine, just not fast -- silently killing autoplay that used to
-    // work. 15s keeps the same safety net (a trailer that's truly never
-    // going to load still gets caught) while giving slower/native
-    // conditions realistic room, and the message listener above now
-    // clears this the moment ANY signal comes back from the embed,
-    // typically well under a second once it's actually alive.
     const timer = window.setTimeout(() => {
-      if (!iframeLoaded) setPlaying(false);
+      if (!playerStarted) setPlaying(false);
     }, 15000);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on trailerKey (fresh timer per title), iframeLoaded intentionally read fresh via closure rather than restarting the timer on every load-state flip
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on trailerKey (fresh timer per title), playerStarted intentionally read fresh via closure rather than restarting the timer on every state flip
   }, [trailerKey, playing]);
 
   function toggleMute() {
     const next = !muted;
     setMuted(next);
-    // Every YouTube embed listens for these postMessage commands as long
-    // as enablejsapi=1 is in its src, even without loading the separate
-    // IFrame Player API script -- so we can flip mute state in place
-    // instead of reloading the iframe (which would restart the video).
-    iframeRef.current?.contentWindow?.postMessage(
-      JSON.stringify({ event: "command", func: next ? "mute" : "unMute", args: [] }),
-      "*"
-    );
+    if (next) {
+      playerRef.current?.mute();
+    } else {
+      playerRef.current?.unMute();
+    }
   }
 
   return (
@@ -194,39 +221,33 @@ export function BackdropHero({
           {/* The hero box is deliberately much wider than it is tall (up to
               ~5.7:1 on a wide monitor) -- nothing like a video's native
               16:9, the same "wrong fit" problem the backdrop still image
-              had before object-cover. Sizing the iframe to 100vw wide by
+              had before object-cover. Sizing this box to 100vw wide by
               its true 16:9 height (56.25vw) and centering it always
-              yields a height taller than this box, so the parent's
-              overflow-hidden crops the vertical excess -- the iframe
+              yields a height taller than the hero, so the parent's
+              overflow-hidden crops the vertical excess -- the video
               equivalent of object-fit: cover.
 
               scale-125 on top of that crops a further, equal slice off
               every edge (a pure geometric zoom, not a covering layer) --
               specifically to push YouTube's own title/channel header
-              row, which is pinned to the iframe's own top edge and can't
+              row, which is pinned to the player's own top edge and can't
               be disabled via any embed parameter, up above the visible
               bounds regardless of screen size. controls=0 already means
               nothing meaningful sits at the very bottom either, so the
               equal slice cropped there is harmless. pointer-events-none
               means the video (including YouTube's own center play icon)
               is never directly tappable -- the mute/close buttons below
-              are the only interactive controls layered on top. */}
-          <iframe
-            ref={iframeRef}
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] origin-center scale-125 -translate-x-1/2 -translate-y-1/2 border-0"
-            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&origin=${encodeURIComponent(PRODUCTION_ORIGIN)}`}
-            title={`${title} trailer`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            onLoad={() => {
-              setIframeLoaded(true);
-              // Fires forcePlay() from this path too, not just the message
-              // listener above -- if YouTube's own player JS never gets
-              // around to posting a message at all (the specific failure
-              // this is guarding against also intermittently suppresses
-              // that), the outer iframe's own load event still reliably
-              // fires and this is the only other hook available to try.
-              forcePlay();
-            }}
+              are the only interactive controls layered on top.
+
+              YT.Player injects its own iframe into this div (see the
+              effect above) sized to width/height: "100%" -- the arbitrary
+              child selector below forces that injected iframe to actually
+              fill the container regardless of what attributes the library
+              sets on it directly. */}
+          <div
+            ref={containerRef}
+            aria-label={`${title} trailer`}
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] origin-center scale-125 -translate-x-1/2 -translate-y-1/2 [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full [&>iframe]:border-0"
           />
           {/* Bottom fade so the hard edge at the base of the hero (very
               visible on high-contrast trailer intros -- rating cards,
