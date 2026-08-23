@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { signUp } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,12 @@ import { ANON_SWIPES_STORAGE_KEY } from "@/components/landing/taste-teaser";
 export function SignUpForm() {
   const [state, formAction, pending] = useActionState(signUp, null);
   const [anonymousSwipes, setAnonymousSwipes] = useState<string>("");
+  // UX audit finding #5: signup has no confirm-password field, so a
+  // typo here is only ever caught by a failed login afterward -- a
+  // show/hide toggle (rather than a second field, which adds its own
+  // friction) lets someone check what they actually typed before
+  // submitting, same tradeoff most modern signup forms make.
+  const [showPassword, setShowPassword] = useState(false);
   // Referral link (see src/components/settings/referral-card.tsx), e.g.
   // /signup?ref=abc1234 -- read via an effect off window.location rather
   // than next/navigation's useSearchParams(), which would force this
@@ -75,7 +82,24 @@ export function SignUpForm() {
         <input type="hidden" name="mn" value={movieNightToken} />
         <Input name="username" placeholder="Username" required autoComplete="username" />
         <Input name="email" type="email" placeholder="Email" required autoComplete="email" />
-        <Input name="password" type="password" placeholder="Password (8+ characters)" required autoComplete="new-password" />
+        <div className="relative">
+          <Input
+            name="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="Password (8+ characters)"
+            required
+            autoComplete="new-password"
+            className="pr-10"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted transition-colors hover:text-foreground"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+          </button>
+        </div>
         {state?.error && <p className="text-sm text-danger">{state.error}</p>}
         <Button type="submit" isLoading={pending} className="mt-2 w-full">
           Create account

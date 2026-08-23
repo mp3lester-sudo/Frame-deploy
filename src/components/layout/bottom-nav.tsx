@@ -14,12 +14,23 @@ import { movieNightLabel } from "@/lib/copy/movie-night-copy";
 // the desktop-only top nav or a home-page card that only appeared once
 // you already had a session going. Social (the Feed) is still one tap
 // away from Home's "Your circle" rail, just no longer a dedicated tab.
+//
+// UX audit finding #4: this tab used to be labeled "AI" -- fine once
+// you're already on the page (which opens with a clear "Ask Slate"
+// header and "Describe the feeling, not the genre" subhead), but every
+// other tab here communicates what it does from its icon+label alone
+// (Home, a compass for Discover, a clapperboard for Movie Night, your
+// own face for Profile), and a bare "AI" + sparkles glyph doesn't tell a
+// first-time visitor this is a plain-language recommendation search --
+// it reads as easily as "AI settings" or an image generator. "Ask" pairs
+// with the sparkles icon the same way "Discover" pairs with the compass:
+// a verb that describes the action, not the underlying tech.
 function getTabs(mediaType: MediaType) {
   return [
     { href: "/", label: "Home", icon: Home },
     { href: "/discover", label: "Discover", icon: Compass },
     { href: "/movie-night", label: movieNightLabel(mediaType), icon: Clapperboard },
-    { href: "/ai", label: "AI", icon: Sparkles },
+    { href: "/ai", label: "Ask", icon: Sparkles },
     { href: "/profile/me", label: "Profile", icon: User },
   ];
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { signIn } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,11 @@ import { Input } from "@/components/ui/input";
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(signIn, null);
   const searchParams = useSearchParams();
+  // Same show/hide affordance as the signup form (see signup-form.tsx)
+  // -- kept here too for consistency, since a login typo is just as
+  // silent (generic "invalid credentials", no hint whether it was the
+  // email or a mistyped password).
+  const [showPassword, setShowPassword] = useState(false);
   const justReset = searchParams.get("reset") === "success";
   const accountDeleted = searchParams.get("accountDeleted") === "true";
 
@@ -32,7 +38,24 @@ export function LoginForm() {
 
       <form action={formAction} className="flex flex-col gap-3">
         <Input name="email" type="email" placeholder="Email" required autoComplete="email" />
-        <Input name="password" type="password" placeholder="Password" required autoComplete="current-password" />
+        <div className="relative">
+          <Input
+            name="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            required
+            autoComplete="current-password"
+            className="pr-10"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted transition-colors hover:text-foreground"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+          </button>
+        </div>
         {state?.error && <p className="text-sm text-danger">{state.error}</p>}
         <div className="flex justify-end">
           <Link href="/forgot-password" className="text-xs text-foreground-muted hover:text-accent">

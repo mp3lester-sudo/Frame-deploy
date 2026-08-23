@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { Sparkles } from "lucide-react";
 import Image from "@/components/ui/fade-image";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
@@ -480,17 +481,34 @@ export default async function HomePage({
           having personalized picks below it, pure filler taking up a full
           line under an already-busy header (ContextCards + greeting +
           ContextPicker all stacked above it). The ratedCount-false branch
-          stays -- unlike the other one, it's a real, actionable nudge (a
-          link to Taste Training) for someone who hasn't rated enough yet,
-          not just restating what's already visible. */}
+          stays -- unlike the other one, it's a real, actionable nudge for
+          someone who hasn't rated enough yet, not just restating what's
+          already visible.
+
+          UX audit finding #3: this used to be one small muted-gray line
+          of text sandwiched between the greeting and the context picker
+          -- on a phone screen, competing with the hero reveal and MoodRow
+          right below it, it was easy to scroll straight past without
+          reading. Recommendations ARE the app's entire value
+          proposition, so a first-time visitor whose picks are still
+          generic deserves an actual card explaining why, not a footnote.
+          Upgraded to a bordered/accent-tinted card (Sparkles glyph +
+          two-line copy) and points straight at /onboarding -- the real
+          swipe deck -- instead of /taste-dna, which for a sub-threshold
+          account just immediately shows its own "rate a few more" card
+          with a second link to /onboarding anyway (see taste-dna/page.tsx)
+          -- skipping that extra hop. */}
       {!ratedCount && (
-        <p className="mt-1.5 text-center text-sm text-foreground-muted">
-          Rate a few titles in{" "}
-          <Link href="/taste-dna" className="text-accent hover:underline">
-            Taste Training
-          </Link>{" "}
-          to sharpen these picks.
-        </p>
+        <Link
+          href="/onboarding"
+          className="mx-auto mt-4 flex max-w-md items-center gap-3 rounded-[var(--radius-md)] border border-accent/30 bg-accent/10 px-4 py-3 text-left transition-colors hover:border-accent/50 hover:bg-accent/15"
+        >
+          <Sparkles className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
+          <span className="flex-1">
+            <span className="block text-sm font-medium text-foreground">These picks are still a guess</span>
+            <span className="block text-xs text-foreground-muted">Rate a few titles to sharpen them — takes under a minute</span>
+          </span>
+        </Link>
       )}
 
       <div className="mt-5">

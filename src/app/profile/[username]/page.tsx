@@ -868,6 +868,37 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           own border/background stretches to match the DNA panel's row
           height instead of ending early and leaving bare page background
           in the gap -- see the grid container comment above. */}
+      {/* Own-profile-only empty state: without this, a brand-new
+          account (zero favorites, not enough ratings for DNA either)
+          landed on this three-panel grid and saw only the right-hand
+          rail -- a wide swath of bare page background where the
+          Pyramid/DNA centerpiece would normally be, with no indication
+          that anything was missing or how to fill it in. Visitors
+          looking at someone ELSE'S empty profile still just see
+          nothing here (that's the correct read for them -- this
+          person hasn't picked favorites, full stop), so this is
+          scoped to isOwnProfile only. Links straight to the favorites
+          picker (#favorites anchor, see settings/page.tsx) rather than
+          just "Settings", since that's the one action that unblocks
+          this exact panel. */}
+      {favorites.length === 0 && isOwnProfile && (
+        <div className="order-1 mt-0 h-full xl:order-none">
+          <div className="flex h-full flex-col items-center justify-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-glass-border bg-glass px-8 py-14 text-center backdrop-blur-sm">
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Official selection</p>
+            <h2 className="font-section-heading text-xl">Build your Personal Pyramid</h2>
+            <p className="max-w-xs font-section-body text-sm text-foreground-muted">
+              Pick your top 6 all-time favorites and they&apos;ll take center stage on your profile here.
+            </p>
+            <Link
+              href="/settings#favorites"
+              className="bg-gold-foil text-accent-foreground mt-2 inline-flex h-10 items-center rounded-[var(--radius-md)] px-5 text-sm font-medium shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] hover:brightness-110"
+            >
+              Choose your favorites
+            </Link>
+          </div>
+        </div>
+      )}
+
       {favorites.length > 0 && (
         // See the order-2/xl:order-none comment on the DNA panel above --
         // this is its counterpart, order-1 so the Pyramid renders first

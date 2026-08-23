@@ -84,7 +84,7 @@ export default async function SettingsPage() {
         <NotificationPreferences />
       </section>
 
-      <section className="mb-6 bento-card p-4">
+      <section id="favorites" className="mb-6 scroll-mt-20 bento-card p-4">
         <SectionLabel>Favorite films</SectionLabel>
         <FavoriteTitlesEditor key={mediaType} initialFavorites={favorites} mediaType={mediaType} />
       </section>

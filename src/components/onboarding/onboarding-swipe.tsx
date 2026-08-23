@@ -286,12 +286,21 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
           style={{ background: "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.85) 100%)" }}
         />
         <div className="onboarding-intro-grain absolute inset-0" />
+        {/* UX audit finding #2: the old bottom-right label (text-white/50,
+            no border, no fill) was easy to miss entirely against a busy
+            b&w video, leaving a first-time user sitting through most of
+            a 16s clip before noticing an exit existed at all -- the whole
+            overlay has always been click-anywhere-to-skip, but nothing
+            communicated that either. A real bordered pill, higher
+            contrast, and present from the very first frame (this phase
+            has no fade-in) fixes the "no visible way out" read without
+            touching the video/timing itself. */}
         <button
           type="button"
           onClick={skipIntro}
-          className="absolute bottom-6 right-6 font-sans text-xs tracking-wide text-white/50 transition-colors hover:text-white/85"
+          className="absolute bottom-6 right-6 z-10 rounded-full border border-white/60 bg-black/40 px-4 py-2 font-sans text-xs font-medium tracking-wide text-white/90 backdrop-blur-sm transition-colors hover:border-white hover:bg-black/60 hover:text-white"
         >
-          Tap to skip
+          Skip intro
         </button>
       </div>
     );
@@ -314,9 +323,9 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
         <button
           type="button"
           onClick={skipIntro}
-          className="absolute bottom-6 right-6 font-sans text-xs tracking-wide text-white/40 transition-colors hover:text-white/70"
+          className="absolute bottom-6 right-6 z-10 rounded-full border border-white/60 bg-black/40 px-4 py-2 font-sans text-xs font-medium tracking-wide text-white/90 backdrop-blur-sm transition-colors hover:border-white hover:bg-black/60 hover:text-white"
         >
-          Tap to skip
+          Skip intro
         </button>
       </div>
     );
