@@ -1,5 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { withTimeout } from "@/lib/with-timeout";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 import type { Database } from "@/lib/supabase/types";
 import { contextMultiplier } from "./context-weighting";
 import { weatherTimeMultiplier, weatherTimeNote, type WeatherTimeSignal } from "./weather-time-weighting";
@@ -8,7 +9,8 @@ import { computeGenreAffinity, genreAffinityMultiplier } from "./genre-affinity"
 import { computeCurationConfidence, computeAdjustmentBand } from "./curation-confidence";
 import { calibrateMatchPercents } from "./match-percent";
 import { diversifyRecommendations, type DiversifiableCandidate } from "./diversify";
-import { buildReasonDetail, buildColdStartDetail, type ReasonDetail } from "./explain";
+import { buildReasonDetail, buildColdStartDetail, buildExplorationDetail, type ReasonDetail } from "./explain";
+import { computeDominantGenres, pickExplorationCandidate, type ExplorationCandidate } from "./exploration";
 import { logRecommendationImpressions } from "./log-impressions";
 import { dislikePenaltyMultiplier } from "./dislike-penalty";
 import { implicitAffinityMultiplier } from "./implicit-affinity";
@@ -36,6 +38,15 @@ export interface Recommendation {
    *  page.tsx before this field existed); now it's just here. Null when
    *  no director credit is on file. */
   director: string | null;
+  /** Recommendation intelligence audit finding #2: true for the one slot
+   *  (if any) deliberately picked outside this user's usual genres rather
+   *  than for being the single best taste match -- see exploration.ts.
+   *  Undefined/false for every ordinary exploit pick and for cold start,
+   *  which has no "usual genres" to diverge from yet. Callers that don't
+   *  care can ignore this field entirely; it exists so a UI that wants to
+   *  honestly badge this pick as different (rather than silently blending
+   *  it in as another top match) has a real signal to key off of. */
+  isExploration?: boolean;
 }
 
 // Bar a real cited title has to clear (see most_similar_liked_title,
@@ -83,6 +94,23 @@ const MIN_CONTENT_SIMILARITY = 0.3;
 // healthy query but still well short of making a visitor sit through a
 // query that's already run long past the point of being worth waiting for.
 const MATCH_TITLES_TIMEOUT_MS = 4000;
+
+// Recommendation intelligence audit finding #4: recommendations were
+// completely static between visits -- the same DB state always produces
+// the exact same top-N, so a user checking back five minutes (or a day)
+// later saw an identical slate with zero variation, and
+// recommendation_impressions (migration 0051) was purely write-only --
+// nothing ever read it back to notice or correct for that (see finding
+// #5's doc comment in the `finish` closure below for the same blind-spot
+// pattern). This closes that loop: a mild, self-clearing penalty for a
+// title that appeared in this user's last few visits to this same
+// surface. Soft, not a hard exclude -- a title can genuinely still be the
+// single best match and the user just hasn't acted on it yet -- but it's
+// real enough that a title naturally rotates out of the top slots after a
+// few repeat visits and rotates back in once it ages out of the lookback
+// window, instead of sitting frozen at #1 forever.
+const RECENT_IMPRESSION_LOOKBACK_VISITS = 3;
+const RECENT_IMPRESSION_PENALTY_MULTIPLIER = 0.85;
 
 /**
  * Content-based recommendation: scores every title purely on cosine
@@ -147,12 +175,39 @@ export async function getRecommendationsForUser(
 ): Promise<RecommendationResult> {
   const supabase = await createClient();
 
+  // Recommendation intelligence audit finding #5: match_titles_for_user,
+  // similarity_to_disliked_titles, similarity_to_implicit_positive_titles,
+  // and most_similar_liked_titles_batch below all silently degrade to an
+  // empty-result fallback past their timeout -- correct behavior for never
+  // blocking a page render, but until migration 0079 there was no record
+  // ANYWHERE that a degradation happened, only that a request completed.
+  // That blind spot is exactly how finding #1's live bug (a 500+-rating
+  // account silently getting served cold-start picks) went unnoticed:
+  // nothing distinguished "this signal degraded" from "this signal
+  // genuinely found nothing." Each withTimeout call below is passed a
+  // markDegraded callback that appends here instead of failing silently;
+  // whatever accumulates gets written to
+  // recommendation_impressions.degraded_signals (see log-impressions.ts)
+  // so it's queryable after the fact, and a real error (as opposed to a
+  // plain timeout) also gets a Sentry breadcrumb via captureServerError.
+  const degradedSignals: string[] = [];
+  const markDegraded = (signal: string) => (reason: "timeout" | "error", error?: unknown) => {
+    degradedSignals.push(signal);
+    if (reason === "error") {
+      captureServerError(error, { userId, mediaType, source, signal, stage: "recommendation-signal-degraded" });
+    }
+  };
+
   // Fires recommendation_impressions logging (migration 0051) on every
   // exit path below -- see log-impressions.ts for why this matters and
   // why it's deliberately not awaited (a logging failure/slowness must
   // never affect what the caller gets back).
   const finish = (result: RecommendationResult) => {
-    void logRecommendationImpressions(userId, result.recommendations, { isColdStart: result.isColdStart, source });
+    void logRecommendationImpressions(userId, result.recommendations, {
+      isColdStart: result.isColdStart,
+      source,
+      degradedSignals: degradedSignals.length ? degradedSignals : undefined,
+    });
     return result;
   };
 
@@ -167,12 +222,69 @@ export async function getRecommendationsForUser(
   // (Home, Discover's swipe deck, MoodRow) into the cold-start
   // popularity fallback for that user regardless of how many ratings
   // they actually had.
-  const { data: tasteVector } = await supabase
+  let { data: tasteVector } = await supabase
     .from("taste_vectors")
     .select("user_id")
     .eq("user_id", userId)
     .eq("media_type", mediaType)
     .maybeSingle();
+
+  if (!tasteVector) {
+    // Recommendation intelligence audit finding #1: a missing taste_vectors
+    // row was unconditionally treated as "genuinely new user, no signal
+    // yet" and routed straight to the cold-start popularity fallback. But
+    // the row can go missing for a user who has plenty of qualifying
+    // signal too -- a Letterboxd import writing ratings through a path
+    // that doesn't trigger a recompute, a migration-era account, any write
+    // path that skips upsert_taste_vector_from_rating. A 500+-rating
+    // account silently getting served "Popular right now" picks (the bug
+    // this finding is named for) is exactly that: not a cold-start user,
+    // a stale/missing vector for a warm one.
+    //
+    // Self-heal once before accepting cold start: if the user has any
+    // qualifying signal for this media type, recompute synchronously --
+    // recompute_taste_vector_for_user_for_type is a fast DB-only function
+    // (no OpenAI round trip), the same call the Pyramid-reorder path in
+    // profile.ts already makes on every edit -- and re-read. Only fall
+    // through to true cold start below if recompute still leaves no row,
+    // meaning the user genuinely has no signal yet.
+    const [{ count: ratingCount }, { count: favoriteCount }, { count: reviewCount }] = await Promise.all([
+      supabase
+        .from("ratings")
+        .select("title_id, titles!inner(type)", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("titles.type", mediaType),
+      supabase
+        .from("favorite_titles")
+        .select("title_id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("media_type", mediaType),
+      supabase
+        .from("reviews")
+        .select("title_id, titles!inner(type)", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("titles.type", mediaType)
+        .not("inferred_score", "is", null),
+    ]);
+
+    if ((ratingCount ?? 0) > 0 || (favoriteCount ?? 0) > 0 || (reviewCount ?? 0) > 0) {
+      const { error: recomputeError } = await supabase.rpc("recompute_taste_vector_for_user_for_type", {
+        p_user_id: userId,
+        p_media_type: mediaType,
+      });
+      if (recomputeError) {
+        markDegraded("taste-vector-self-heal")("error", recomputeError);
+      } else {
+        const { data: healedVector } = await supabase
+          .from("taste_vectors")
+          .select("user_id")
+          .eq("user_id", userId)
+          .eq("media_type", mediaType)
+          .maybeSingle();
+        tasteVector = healedVector;
+      }
+    }
+  }
 
   if (!tasteVector) {
     return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType), isColdStart: true });
@@ -214,10 +326,12 @@ export async function getRecommendationsForUser(
     // resolves to an empty match list, same shape as "no candidates
     // found," which correctly routes through the existing cold-start
     // fallback below instead of hanging the whole page.
-    withTimeout(matchTitlesPromise, MATCH_TITLES_TIMEOUT_MS, {
-      data: [] as Awaited<typeof matchTitlesPromise>["data"],
-      error: null,
-    } as Awaited<typeof matchTitlesPromise>),
+    withTimeout(
+      matchTitlesPromise,
+      MATCH_TITLES_TIMEOUT_MS,
+      { data: [] as Awaited<typeof matchTitlesPromise>["data"], error: null } as Awaited<typeof matchTitlesPromise>,
+      markDegraded("match_titles_for_user")
+    ),
     // Feeds genre-level negative signal (below) — deliberately a plain
     // ratings query, not the RPC above, since this needs the user's own
     // raw scores + genres, not a similarity metric.
@@ -262,6 +376,7 @@ export async function getRecommendationsForUser(
     { data: directorCredits },
     { data: favoriteTitlesForAffinity },
     { data: reviewedTitlesForAffinity },
+    { data: recentImpressions },
   ] = await Promise.all([
     ratedTitleIds.length
       ? supabase.from("titles").select("id, genres").in("id", ratedTitleIds)
@@ -287,7 +402,12 @@ export async function getRecommendationsForUser(
       const p = Promise.resolve(
         supabase.rpc("similarity_to_disliked_titles", { p_user_id: userId, p_title_ids: candidateIds, p_media_type: mediaType })
       );
-      return withTimeout(p, 3000, { data: [] as Awaited<typeof p>["data"], error: null } as Awaited<typeof p>);
+      return withTimeout(
+        p,
+        3000,
+        { data: [] as Awaited<typeof p>["data"], error: null } as Awaited<typeof p>,
+        markDegraded("similarity_to_disliked_titles")
+      );
     })(),
     // Implicit signals: how close each candidate is to something on the
     // user's watchlist (deliberate intent) vs. something they watched but
@@ -299,7 +419,12 @@ export async function getRecommendationsForUser(
       const p = Promise.resolve(
         supabase.rpc("similarity_to_implicit_positive_titles", { p_user_id: userId, p_title_ids: candidateIds, p_media_type: mediaType })
       );
-      return withTimeout(p, 3000, { data: [] as Awaited<typeof p>["data"], error: null } as Awaited<typeof p>);
+      return withTimeout(
+        p,
+        3000,
+        { data: [] as Awaited<typeof p>["data"], error: null } as Awaited<typeof p>,
+        markDegraded("similarity_to_implicit_positive_titles")
+      );
     })(),
     // Director, for diversify.ts's same-director check below (person_id)
     // and for the Recommendation.director display field (person's name,
@@ -329,7 +454,39 @@ export async function getRecommendationsForUser(
       .eq("user_id", userId)
       .eq("titles.type", mediaType)
       .not("inferred_score", "is", null),
+    // Recommendation intelligence audit finding #4 (see
+    // RECENT_IMPRESSION_LOOKBACK_VISITS above): the last few visits' worth
+    // of served titles on this same surface, read back from
+    // recommendation_impressions to drive the freshness penalty below.
+    // That table is RLS-locked to the service-role client only (migration
+    // 0051), same as its own write path in log-impressions.ts, so this
+    // can't go through the regular per-request `supabase` client above --
+    // and since it's a soft ranking nudge, not correctness-critical, a
+    // missing SUPABASE_SERVICE_ROLE_KEY or a slow/failed read just means
+    // no freshness penalty this request rather than blocking the page.
+    (() => {
+      if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return Promise.resolve({ data: [] as { title_id: string }[] | null, error: null });
+      }
+      const p = Promise.resolve(
+        createServiceRoleClient()
+          .from("recommendation_impressions")
+          .select("title_id")
+          .eq("user_id", userId)
+          .eq("source", source)
+          .order("served_at", { ascending: false })
+          .limit(limit * RECENT_IMPRESSION_LOOKBACK_VISITS)
+      );
+      return withTimeout(
+        p,
+        2000,
+        { data: [] as Awaited<typeof p>["data"], error: null } as Awaited<typeof p>,
+        markDegraded("recent-impressions-freshness")
+      );
+    })(),
   ]);
+
+  const recentlyShownTitleIds = new Set((recentImpressions ?? []).map((r) => r.title_id));
 
   const genresByRatedTitleId = new Map((ratedTitleGenres ?? []).map((t) => [t.id, t.genres]));
   const ratedTitleIdSet = new Set(ratedTitleIds);
@@ -422,7 +579,12 @@ export async function getRecommendationsForUser(
     // comment: a strong enough taste-fit (e.g. Death Wish 2018's 0.785
     // content similarity) could previously outrun even a 0.6x quality
     // multiplier and still surface. This can't happen anymore.
-    if (!passesQualityFloor(title.weighted_rating, title.rt_critic_score)) continue;
+    // Recommendation intelligence audit finding #3: pass this user's own
+    // curation confidence through so a deeply-curated account gets a
+    // little real room in genuinely niche-but-legible-taste territory
+    // (see quality-weighting.ts's computeQualityFloor doc comment) instead
+    // of the exact same unconditional 7.0 bar as a brand-new signup.
+    if (!passesQualityFloor(title.weighted_rating, title.rt_critic_score, confidence)) continue;
     // Weather/time is a soft nudge layered on top of the (also soft, except
     // for something_short) context multiplier — see weather-time-weighting.ts
     // for why this is never a hard exclusion.
@@ -436,8 +598,11 @@ export async function getRecommendationsForUser(
       CONTENT_MATCH_THRESHOLD,
       confidence
     );
+    // Recommendation intelligence audit finding #4 -- see
+    // RECENT_IMPRESSION_LOOKBACK_VISITS's doc comment above.
+    const freshnessMult = recentlyShownTitleIds.has(id) ? RECENT_IMPRESSION_PENALTY_MULTIPLIER : 1;
     const nonContextDelta =
-      (weatherMult - 1) + (qualityMult - 1) + (genreMult - 1) + (dislikeMult - 1) + (implicitMult - 1);
+      (weatherMult - 1) + (qualityMult - 1) + (genreMult - 1) + (dislikeMult - 1) + (implicitMult - 1) + (freshnessMult - 1);
     const nonContextAdjustment = Math.max(MIN_TOTAL_ADJUSTMENT, Math.min(MAX_TOTAL_ADJUSTMENT, 1 + nonContextDelta));
     const totalAdjustment = nonContextAdjustment * contextMult;
     adjusted.push({ id, score: score * totalAdjustment });
@@ -459,6 +624,30 @@ export async function getRecommendationsForUser(
 
   if (rankedIds.length === 0) {
     return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType), isColdStart: true });
+  }
+
+  // Recommendation intelligence audit finding #2: swap the weakest-scoring
+  // diversified slot for something genuinely outside this user's usual
+  // genres, if one exists in the candidate pool (see exploration.ts).
+  // Skipped for slates too short to have a principled "weakest" slot to
+  // give up -- a single-pick surface (the widget's daily pick) should
+  // always be the best exploit match, not a deliberately different one.
+  let explorationTitleId: string | null = null;
+  let explorationUsualGenres: string[] = [];
+  if (rankedIds.length >= 3) {
+    const ratedGenreLists = (userRatings ?? []).map((r) => genresByRatedTitleId.get(r.title_id) ?? null);
+    const dominantGenres = computeDominantGenres(ratedGenreLists);
+    const explorationCandidates: ExplorationCandidate[] = sortedAdjusted.map((a) => ({
+      id: a.id,
+      score: a.score,
+      genres: byId.get(a.id)?.genres ?? null,
+    }));
+    const exploration = pickExplorationCandidate(explorationCandidates, dominantGenres, new Set(rankedIds));
+    if (exploration) {
+      rankedIds[rankedIds.length - 1] = exploration.id;
+      explorationTitleId = exploration.id;
+      explorationUsualGenres = [...dominantGenres];
+    }
   }
 
   // Citations ("Because you loved X") only make sense for the final,
@@ -513,10 +702,12 @@ export async function getRecommendationsForUser(
         p_media_type: mediaType,
       })
     );
-    const { data: citationRows } = await withTimeout(citationPromise, 3000, {
-      data: [] as Awaited<typeof citationPromise>["data"],
-      error: null,
-    } as Awaited<typeof citationPromise>);
+    const { data: citationRows } = await withTimeout(
+      citationPromise,
+      3000,
+      { data: [] as Awaited<typeof citationPromise>["data"], error: null } as Awaited<typeof citationPromise>,
+      markDegraded("most_similar_liked_titles_batch")
+    );
     const citedIdsByRecId = new Map<string, string[]>();
     for (const row of citationRows ?? []) {
       if (!row.cited_title_id) continue;
@@ -558,15 +749,22 @@ export async function getRecommendationsForUser(
 
   const recommendations = finalIds.map((id, i) => {
     const title = byId.get(id)!;
-    const flags = matchFlags.get(id) ?? { hasStrongContentMatch: false };
-    const weatherNote = resolvedWeather ? weatherTimeNote(title, resolvedWeather) : null;
-    const detail = buildReasonDetail({
-      title,
-      hasStrongContentMatch: flags.hasStrongContentMatch,
-      citedTitles: citedTitleNamesByRecId.get(id) ?? [],
-      context,
-      weatherNote,
-    });
+    const isExploration = id === explorationTitleId;
+    // Recommendation intelligence audit finding #2: the exploration slot
+    // gets its own honest explanation builder instead of buildReasonDetail
+    // -- it was deliberately picked for NOT matching this user's usual
+    // pattern, so running it through the normal "why this matches you"
+    // copy would either produce a weak/generic headline or, worse, quietly
+    // overstate how well it fits. See buildExplorationDetail in explain.ts.
+    const detail = isExploration
+      ? buildExplorationDetail(title, explorationUsualGenres)
+      : buildReasonDetail({
+          title,
+          hasStrongContentMatch: (matchFlags.get(id) ?? { hasStrongContentMatch: false }).hasStrongContentMatch,
+          citedTitles: citedTitleNamesByRecId.get(id) ?? [],
+          context,
+          weatherNote: resolvedWeather ? weatherTimeNote(title, resolvedWeather) : null,
+        });
     return {
       title,
       score: adjustedScoreById.get(id) ?? 0,
@@ -574,6 +772,7 @@ export async function getRecommendationsForUser(
       detail,
       matchPercent: matchPercents[i],
       director: directorNameByTitle.get(id) ?? null,
+      isExploration,
     };
   });
 

@@ -25,7 +25,19 @@ import type { Recommendation } from "./engine";
 export async function logRecommendationImpressions(
   userId: string,
   recommendations: Recommendation[],
-  { isColdStart = false, source = "home" }: { isColdStart?: boolean; source?: string } = {}
+  {
+    isColdStart = false,
+    source = "home",
+    // Recommendation intelligence audit finding #5 (migration 0079): which
+    // upstream signals (match_titles_for_user, similarity_to_disliked_titles,
+    // similarity_to_implicit_positive_titles, most_similar_liked_titles_batch,
+    // or the finding #1 self-heal recompute) silently degraded past their
+    // timeout for this batch, if any. Written alongside is_cold_start/reason
+    // so "genuinely no taste vector" and "vector exists but something
+    // upstream degraded" are queryable as two different things instead of
+    // both just looking like "a request completed."
+    degradedSignals,
+  }: { isColdStart?: boolean; source?: string; degradedSignals?: string[] } = {}
 ) {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
   if (recommendations.length === 0) return;
@@ -40,6 +52,7 @@ export async function logRecommendationImpressions(
           is_cold_start: isColdStart,
           reason: r.reason,
           source,
+          degraded_signals: degradedSignals && degradedSignals.length ? degradedSignals : null,
         }))
       );
   } catch {

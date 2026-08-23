@@ -379,6 +379,7 @@ export interface Database {
           reason: string | null;
           source: string;
           served_at: string;
+          degraded_signals: string[] | null;
         };
         Insert: {
           user_id: string;
@@ -387,12 +388,14 @@ export interface Database {
           is_cold_start?: boolean;
           reason?: string | null;
           source?: string;
+          degraded_signals?: string[] | null;
         };
         Update: Partial<{
           match_percent: number | null;
           is_cold_start: boolean;
           reason: string | null;
           source: string;
+          degraded_signals: string[] | null;
         }>;
         Relationships: [];
       };

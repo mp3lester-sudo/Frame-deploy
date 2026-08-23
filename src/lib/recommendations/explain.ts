@@ -9,6 +9,10 @@ export type ExplainableTitle = ContextualTitle & {
   tone: string[] | null;
   mood_tags: string[] | null;
   ending_type: string | null;
+  // Only needed by buildExplorationDetail below (to name what's actually
+  // different about an exploration pick) -- every real caller already
+  // passes a full `titles` row, which has this, so this is additive.
+  genres?: string[] | null;
 };
 
 export interface ReasonDetail {
@@ -191,6 +195,54 @@ export function buildColdStartDetail(title: ExplainableTitle): ReasonDetail {
     .join(" ");
   return {
     headline: "Popular right now — rate a few titles to personalize this.",
+    longReason,
+    themes,
+    tone,
+    moodTags: title.mood_tags ?? [],
+    pacing: title.pacing ?? null,
+    endingType: title.ending_type ?? null,
+    citedTitles: [],
+  };
+}
+
+/**
+ * Recommendation intelligence audit finding #2: the honest-labeling half
+ * of the exploration slot (see exploration.ts for the selection side).
+ * This is the one place in the engine that deliberately says "this is
+ * NOT your usual thing" instead of building a case for why it matches --
+ * an exploration pick earns its slot by genuinely differing from a user's
+ * proven pattern, so pretending otherwise here would be exactly the kind
+ * of dishonest, over-claimed personalization the audit's explanation-
+ * quality standard rules out. `usualGenres` are this user's own dominant
+ * genres (see computeDominantGenres) -- named specifically, not "your
+ * interests," so the claim is checkable against their own rating history
+ * rather than a vague gesture.
+ */
+export function buildExplorationDetail(title: ExplainableTitle, usualGenres: string[]): ReasonDetail {
+  const themes = title.themes ?? [];
+  const tone = title.tone ?? [];
+  const themeText = themes.length ? joinList(themes.slice(0, 3)) : null;
+  const toneText = tone.length ? joinList(tone.slice(0, 2)) : null;
+  const usualText = usualGenres.length ? joinList(usualGenres.slice(0, 2)) : null;
+  const titleGenres = (title.genres ?? []).slice(0, 2);
+  const genreText = titleGenres.length ? joinList(titleGenres) : "something outside your usual genres";
+
+  const headline = usualText
+    ? `Something different: your ratings lean toward ${usualText}, but this well-reviewed ${genreText.toLowerCase()} pick is worth a look.`
+    : `Something different: a well-reviewed pick outside your usual genres.`;
+
+  const longReason = [
+    usualText
+      ? `Most of your ratings cluster around ${usualText}, so this is a deliberate change of pace rather than another close match to what you already watch.`
+      : "This is a deliberate change of pace rather than another close match to what you already watch.",
+    themeText ? `It's built around ${themeText}${toneText ? `, carried with a ${toneText} tone` : ""}.` : null,
+    "Still clears the same quality bar as everything else on your slate — this isn't a lower-effort pick, just a different one.",
+  ]
+    .filter((s): s is string => !!s)
+    .join(" ");
+
+  return {
+    headline,
     longReason,
     themes,
     tone,

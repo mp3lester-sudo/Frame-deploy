@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReasonDetail, type ExplainableTitle } from "../explain";
+import { buildReasonDetail, buildExplorationDetail, type ExplainableTitle } from "../explain";
 
 function title(overrides: Partial<ExplainableTitle> = {}): ExplainableTitle {
   return {
@@ -117,5 +117,41 @@ describe("buildReasonDetail", () => {
     expect(detail.moodTags).toEqual(["gritty", "suspenseful"]);
     expect(detail.pacing).toBe("moderate");
     expect(detail.endingType).toBe("bittersweet");
+  });
+});
+
+// Recommendation intelligence audit finding #2: the labeling half of the
+// exploration slot -- this must never read like a normal top match.
+describe("buildExplorationDetail", () => {
+  it("headline names the user's usual genres and does not claim a taste match", () => {
+    const detail = buildExplorationDetail(title({ genres: ["Comedy"] }), ["Drama", "Thriller"]);
+    expect(detail.headline).toContain("Something different");
+    expect(detail.headline).toContain("Drama");
+    expect(detail.headline).not.toContain("Because you loved");
+    expect(detail.headline).not.toContain("Matches your taste");
+  });
+
+  it("longReason explicitly frames this as a change of pace, not a match", () => {
+    const detail = buildExplorationDetail(title({ genres: ["Comedy"] }), ["Drama"]);
+    expect(detail.longReason).toContain("change of pace");
+    expect(detail.longReason).toContain("Drama");
+  });
+
+  it("still surfaces the title's real themes/tone/mood/pacing detail", () => {
+    const detail = buildExplorationDetail(title({ genres: ["Comedy"] }), ["Drama"]);
+    expect(detail.themes).toEqual(["betrayal", "redemption"]);
+    expect(detail.tone).toEqual(["dark", "tense"]);
+    expect(detail.pacing).toBe("moderate");
+  });
+
+  it("never fabricates a citation -- exploration picks are not close matches by definition", () => {
+    const detail = buildExplorationDetail(title({ genres: ["Comedy"] }), ["Drama"]);
+    expect(detail.citedTitles).toEqual([]);
+  });
+
+  it("still produces an honest headline even with no known usual genres", () => {
+    const detail = buildExplorationDetail(title({ genres: ["Comedy"] }), []);
+    expect(detail.headline).toContain("Something different");
+    expect(detail.headline).not.toContain("undefined");
   });
 });

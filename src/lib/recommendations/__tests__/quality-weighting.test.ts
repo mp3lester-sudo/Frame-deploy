@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   qualityMultiplier,
   passesQualityFloor,
+  computeQualityFloor,
   MIN_RECOMMENDABLE_RATING,
 } from "@/lib/recommendations/quality-weighting";
 
@@ -115,5 +116,50 @@ describe("passesQualityFloor", () => {
 
   it("a genuinely well-reviewed title passes with a strong RT score too", () => {
     expect(passesQualityFloor(7.5, 85)).toBe(true);
+  });
+
+  // Recommendation intelligence audit finding #3: the floor used to be
+  // identical for a brand-new signup and a 500-rating power user. These
+  // cover the confidence-scaled relief added to close that gap.
+  describe("confidence-scaled floor (finding #3)", () => {
+    it("defaults to the full, unrelieved floor when confidence is omitted", () => {
+      expect(computeQualityFloor()).toBeCloseTo(MIN_RECOMMENDABLE_RATING);
+      expect(passesQualityFloor(6.5)).toBe(false);
+    });
+
+    it("gives zero relief at confidence 0, same as omitting it entirely", () => {
+      expect(computeQualityFloor(0)).toBeCloseTo(MIN_RECOMMENDABLE_RATING);
+      expect(passesQualityFloor(6.5, null, 0)).toBe(false);
+    });
+
+    it("lowers the floor by at most 1.0 point at full confidence", () => {
+      expect(computeQualityFloor(1)).toBeCloseTo(MIN_RECOMMENDABLE_RATING - 1.0);
+    });
+
+    it("scales linearly between confidence 0 and 1", () => {
+      expect(computeQualityFloor(0.5)).toBeCloseTo(MIN_RECOMMENDABLE_RATING - 0.5);
+    });
+
+    it("clamps out-of-range confidence instead of over- or under-relieving", () => {
+      expect(computeQualityFloor(-1)).toBeCloseTo(MIN_RECOMMENDABLE_RATING);
+      expect(computeQualityFloor(2)).toBeCloseTo(MIN_RECOMMENDABLE_RATING - 1.0);
+    });
+
+    it("lets a high-confidence user's title through a gap a new user's identical title would fail", () => {
+      // 6.5 clears the relieved floor at full confidence (6.0) but not the
+      // unconditional one (7.0) a brand-new signup still gets.
+      expect(passesQualityFloor(6.5, null, 0)).toBe(false);
+      expect(passesQualityFloor(6.5, null, 1)).toBe(true);
+    });
+
+    it("still rejects a genuine bomb even at full confidence", () => {
+      // A title well below even the relieved floor should still fail no
+      // matter how much curation trust the user has earned.
+      expect(passesQualityFloor(4.5, null, 1)).toBe(false);
+    });
+
+    it("still rejects titles with no rating data regardless of confidence", () => {
+      expect(passesQualityFloor(null, null, 1)).toBe(false);
+    });
   });
 });
