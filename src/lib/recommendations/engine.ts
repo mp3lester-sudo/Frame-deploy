@@ -140,6 +140,67 @@ export interface RecommendationResult {
   isColdStart: boolean;
 }
 
+/**
+ * Recommendation intelligence audit finding #1: "does this user have real
+ * signal we should be recommending from" used to only ever be checked
+ * implicitly, by whether a taste_vectors row happened to exist -- which
+ * conflates "genuinely new user" with "has signal but the vector never
+ * got (re)computed." This makes the check explicit and reusable so both
+ * self-heal sites below (missing row, and a row that exists but produced
+ * zero content matches) can share it instead of diverging.
+ */
+async function hasQualifyingRecommendationSignal(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  mediaType: MediaType
+): Promise<boolean> {
+  const [{ count: ratingCount }, { count: favoriteCount }, { count: reviewCount }] = await Promise.all([
+    supabase
+      .from("ratings")
+      .select("title_id, titles!inner(type)", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("titles.type", mediaType),
+    supabase
+      .from("favorite_titles")
+      .select("title_id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("media_type", mediaType),
+    supabase
+      .from("reviews")
+      .select("title_id, titles!inner(type)", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("titles.type", mediaType)
+      .not("inferred_score", "is", null),
+  ]);
+  return (ratingCount ?? 0) > 0 || (favoriteCount ?? 0) > 0 || (reviewCount ?? 0) > 0;
+}
+
+/** Shared by the initial fetch and the finding #1 self-heal retry below,
+ *  so a recompute-and-retry doesn't have to duplicate the RPC call shape. */
+async function fetchContentMatches(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  mediaType: MediaType,
+  matchCount: number,
+  onDegraded: (reason: "timeout" | "error", error?: unknown) => void
+) {
+  const p = Promise.resolve(
+    supabase.rpc("match_titles_for_user", {
+      p_user_id: userId,
+      p_match_count: matchCount,
+      p_min_similarity: MIN_CONTENT_SIMILARITY,
+      p_media_type: mediaType,
+    })
+  );
+  const { data } = await withTimeout(
+    p,
+    MATCH_TITLES_TIMEOUT_MS,
+    { data: [] as Awaited<typeof p>["data"], error: null } as Awaited<typeof p>,
+    onDegraded
+  );
+  return data;
+}
+
 export async function getRecommendationsForUser(
   userId: string,
   {
@@ -229,17 +290,24 @@ export async function getRecommendationsForUser(
     .eq("media_type", mediaType)
     .maybeSingle();
 
+  // Recommendation intelligence audit finding #1: tracks whether a
+  // recompute has already been attempted this request, so the second
+  // self-heal site below (a taste vector that exists but produced zero
+  // content matches) doesn't redundantly recompute right after the first
+  // one already just ran.
+  let selfHealed = false;
+
   if (!tasteVector) {
-    // Recommendation intelligence audit finding #1: a missing taste_vectors
-    // row was unconditionally treated as "genuinely new user, no signal
-    // yet" and routed straight to the cold-start popularity fallback. But
-    // the row can go missing for a user who has plenty of qualifying
-    // signal too -- a Letterboxd import writing ratings through a path
-    // that doesn't trigger a recompute, a migration-era account, any write
-    // path that skips upsert_taste_vector_from_rating. A 500+-rating
-    // account silently getting served "Popular right now" picks (the bug
-    // this finding is named for) is exactly that: not a cold-start user,
-    // a stale/missing vector for a warm one.
+    // A missing taste_vectors row was unconditionally treated as
+    // "genuinely new user, no signal yet" and routed straight to the
+    // cold-start popularity fallback. But the row can go missing for a
+    // user who has plenty of qualifying signal too -- a Letterboxd import
+    // writing ratings through a path that doesn't trigger a recompute, a
+    // migration-era account, any write path that skips
+    // upsert_taste_vector_from_rating. A 500+-rating account silently
+    // getting served "Popular right now" picks (the bug this finding is
+    // named for) is exactly that: not a cold-start user, a stale/missing
+    // vector for a warm one.
     //
     // Self-heal once before accepting cold start: if the user has any
     // qualifying signal for this media type, recompute synchronously --
@@ -248,26 +316,7 @@ export async function getRecommendationsForUser(
     // profile.ts already makes on every edit -- and re-read. Only fall
     // through to true cold start below if recompute still leaves no row,
     // meaning the user genuinely has no signal yet.
-    const [{ count: ratingCount }, { count: favoriteCount }, { count: reviewCount }] = await Promise.all([
-      supabase
-        .from("ratings")
-        .select("title_id, titles!inner(type)", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("titles.type", mediaType),
-      supabase
-        .from("favorite_titles")
-        .select("title_id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("media_type", mediaType),
-      supabase
-        .from("reviews")
-        .select("title_id, titles!inner(type)", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("titles.type", mediaType)
-        .not("inferred_score", "is", null),
-    ]);
-
-    if ((ratingCount ?? 0) > 0 || (favoriteCount ?? 0) > 0 || (reviewCount ?? 0) > 0) {
+    if (await hasQualifyingRecommendationSignal(supabase, userId, mediaType)) {
       const { error: recomputeError } = await supabase.rpc("recompute_taste_vector_for_user_for_type", {
         p_user_id: userId,
         p_media_type: mediaType,
@@ -275,6 +324,7 @@ export async function getRecommendationsForUser(
       if (recomputeError) {
         markDegraded("taste-vector-self-heal")("error", recomputeError);
       } else {
+        selfHealed = true;
         const { data: healedVector } = await supabase
           .from("taste_vectors")
           .select("user_id")
@@ -311,13 +361,7 @@ export async function getRecommendationsForUser(
   // exist, so widening the raw net upstream is the actual fix rather
   // than anything in diversify.ts itself.
   const CANDIDATE_POOL_MULTIPLIER = 8;
-  const matchTitlesPromise = Promise.resolve(supabase.rpc("match_titles_for_user", {
-    p_user_id: userId,
-    p_match_count: limit * CANDIDATE_POOL_MULTIPLIER,
-    p_min_similarity: MIN_CONTENT_SIMILARITY,
-    p_media_type: mediaType,
-  }));
-  const [{ data: contentMatches }, { data: userRatings }, { data: dismissals }] = await Promise.all([
+  const [contentMatchesResult, { data: userRatings }, { data: dismissals }] = await Promise.all([
     // The only candidate/scoring source: cosine similarity between this
     // user's own taste vector and every title's embedding. See the
     // function doc comment above for why the two collaborative-filtering
@@ -326,10 +370,11 @@ export async function getRecommendationsForUser(
     // resolves to an empty match list, same shape as "no candidates
     // found," which correctly routes through the existing cold-start
     // fallback below instead of hanging the whole page.
-    withTimeout(
-      matchTitlesPromise,
-      MATCH_TITLES_TIMEOUT_MS,
-      { data: [] as Awaited<typeof matchTitlesPromise>["data"], error: null } as Awaited<typeof matchTitlesPromise>,
+    fetchContentMatches(
+      supabase,
+      userId,
+      mediaType,
+      limit * CANDIDATE_POOL_MULTIPLIER,
       markDegraded("match_titles_for_user")
     ),
     // Feeds genre-level negative signal (below) — deliberately a plain
@@ -344,6 +389,7 @@ export async function getRecommendationsForUser(
     // which only a full exclusion actually honors.
     supabase.from("title_dismissals").select("title_id").eq("user_id", userId),
   ]);
+  let contentMatches = contentMatchesResult;
 
   const ratedTitleIds = [...new Set((userRatings ?? []).map((r) => r.title_id))];
   const dismissedTitleIds = new Set((dismissals ?? []).map((d) => d.title_id));
@@ -352,6 +398,42 @@ export async function getRecommendationsForUser(
   for (const m of contentMatches ?? []) {
     if (dismissedTitleIds.has(m.title_id)) continue;
     blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity);
+  }
+
+  if (blended.size === 0 && !selfHealed) {
+    // Second self-heal site for finding #1: a taste_vectors row existing
+    // is necessary but not sufficient -- if it was computed once and never
+    // refreshed (no rating since has ever triggered a recompute, or the
+    // row predates an embedding backfill), match_titles_for_user can
+    // legitimately return zero candidates even though the user has real,
+    // current signal. This is the failure mode the first self-heal site
+    // above (missing row) doesn't cover, and live verification after
+    // shipping that fix showed it's the one actually hit by the account
+    // this finding was originally reported against -- the row existed,
+    // content matches still came back empty. Same recompute-and-retry
+    // shape, once, gated by the same qualifying-signal check.
+    if (await hasQualifyingRecommendationSignal(supabase, userId, mediaType)) {
+      const { error: recomputeError } = await supabase.rpc("recompute_taste_vector_for_user_for_type", {
+        p_user_id: userId,
+        p_media_type: mediaType,
+      });
+      if (recomputeError) {
+        markDegraded("taste-vector-self-heal")("error", recomputeError);
+      } else {
+        selfHealed = true;
+        contentMatches = await fetchContentMatches(
+          supabase,
+          userId,
+          mediaType,
+          limit * CANDIDATE_POOL_MULTIPLIER,
+          markDegraded("match_titles_for_user")
+        );
+        for (const m of contentMatches ?? []) {
+          if (dismissedTitleIds.has(m.title_id)) continue;
+          blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity);
+        }
+      }
+    }
   }
 
   if (blended.size === 0) {
