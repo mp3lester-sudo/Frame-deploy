@@ -136,6 +136,20 @@ function ProviderRow({
     <div>
       <p className="mb-2 text-xs text-foreground-muted">{label}</p>
       <div className="flex flex-wrap gap-2.5">
+        {/* Redesign pass: logos default to a quiet grayscale treatment
+            and only pick up their real brand color on hover -- a full
+            row of six-plus saturated app icons (Netflix red, Disney+
+            blue, Max purple...) reads as a generic app-store grid, at
+            odds with the muted, editorial palette the rest of the page
+            uses. Desaturating them by default lets the row sit quietly
+            until someone's actually scanning it, same idea as a
+            magazine's small monochrome "also available from" credit
+            line rather than a row of app icons competing for attention
+            with the poster above it. Border softened from a visible
+            border/border-accent split to the shared glass-border token
+            (with a faint accent wash on the highlighted subscription
+            row) so this matches the rest of the page's hairline
+            language instead of its own separate treatment. */}
         {providers.map((p) => (
           <a
             key={p.provider}
@@ -144,12 +158,18 @@ function ProviderRow({
             rel="noopener noreferrer"
             title={p.provider}
             className={cn(
-              "relative block h-11 w-11 shrink-0 overflow-hidden rounded-[var(--radius-md)] border bg-surface-raised transition-transform hover:scale-105 hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.5)]",
-              highlight ? "border-accent/50" : "border-border"
+              "group relative block h-11 w-11 shrink-0 overflow-hidden rounded-[var(--radius-md)] border border-[var(--glass-border)] bg-[var(--glass-bg)] transition-transform hover:scale-105 hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.5)]",
+              highlight && "bg-accent/5"
             )}
           >
             {p.logoUrl ? (
-              <Image src={p.logoUrl} alt={p.provider} fill sizes="44px" />
+              <Image
+                src={p.logoUrl}
+                alt={p.provider}
+                fill
+                sizes="44px"
+                className="grayscale transition-[filter] duration-200 group-hover:grayscale-0"
+              />
             ) : (
               <span className="flex h-full items-center justify-center px-1 text-center text-[8px] leading-tight text-foreground-muted">
                 {p.provider}

@@ -235,22 +235,31 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
           <WhereToWatch offers={watchProviders} />
 
-          <div className="mt-6">
-            <p className="mb-1 text-xs uppercase tracking-wide text-foreground-muted">Your rating</p>
+          {/* Redesign pass: rating stars now sit inline with the
+              watchlist/add-to-list row instead of stacking above it in
+              their own labeled block -- three separate actions (rate,
+              save, organize) read as one governed CTA row this way
+              rather than two visually disconnected sections. Dropped the
+              "Your rating" caption that used to sit above the stars --
+              RatingStars is self-explanatory next to a Watchlist button
+              with its own icon+label, and the row reads cleaner without
+              a third piece of label text competing with the other two. */}
+          <div className="mt-6 flex flex-wrap items-center gap-3">
             <RateControl titleId={title.id} initialScore={userRating?.score ?? 0} />
-            {viewer && title.type === "tv" && !!title.number_of_seasons && (
+            {viewer && (
+              <>
+                <WatchlistButton titleId={title.id} initiallyOnWatchlist={!!watchlistRow} />
+                <AddToListMenu titleId={title.id} lists={addToListMenuLists} />
+              </>
+            )}
+          </div>
+          {viewer && title.type === "tv" && !!title.number_of_seasons && (
+            <div className="mt-3">
               <SeasonRatings
                 titleId={title.id}
                 numberOfSeasons={title.number_of_seasons}
                 initialRatings={mySeasonRatings as Record<number, number>}
               />
-            )}
-          </div>
-
-          {viewer && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <WatchlistButton titleId={title.id} initiallyOnWatchlist={!!watchlistRow} />
-              <AddToListMenu titleId={title.id} lists={addToListMenuLists} />
             </div>
           )}
 
