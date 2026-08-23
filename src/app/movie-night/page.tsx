@@ -124,6 +124,7 @@ export default async function MovieNightListPage() {
                 hostLabel={host?.id === user.id ? "You're hosting" : `Hosted by ${host?.display_name ?? host?.username ?? "someone"}`}
                 participants={participants}
                 votedCount={votedCount}
+                isHost={host?.id === user.id}
               />
             );
           })}
