@@ -90,7 +90,15 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
                     image language as the backdrop hero above it. Corner
                     radius stays --radius-sm, matching that same
                     flattened-chrome modernization pass. */}
-                <div className="relative aspect-video overflow-hidden rounded-[var(--radius-sm)] border border-border bg-surface transition-colors group-hover:border-border-strong">
+                {/* Radius matched to the hero card above (--radius-lg,
+                    part of the same redesign pass) so the rail's cards and
+                    the hero read as one governed shape language instead of
+                    two different corner cuts on the same page. Border
+                    stays -- unlike the hero, these are dense small tiles
+                    sitting on plain background, not a full-bleed image;
+                    the hairline is what separates one card from the next
+                    at a glance in the scroll rail. */}
+                <div className="relative aspect-video overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface transition-colors group-hover:border-border-strong">
                   {image && (
                     <Image
                       src={image}

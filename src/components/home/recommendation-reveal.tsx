@@ -179,7 +179,16 @@ export function RecommendationReveal({
   const badgeText = hasMatch ? `${displayPercent}%` : "NEW";
 
   return (
-    <div className="relative h-[480px] overflow-hidden rounded-[var(--radius-sm)] border border-border bg-surface-raised sm:h-[600px] lg:h-[680px]">
+    // Redesign pass: dropped the hairline border + flat surface-raised
+    // background that used to box this hero in like an ordinary card --
+    // with a full backdrop image and gradient already filling every pixel,
+    // that border read as a seam between "this app's chrome" and "the
+    // photo," undercutting the cinematic full-bleed treatment the movie
+    // detail page already does well (see movie/[id]/page.tsx's hero).
+    // Bumped the corner radius up from --radius-sm to --radius-lg to match
+    // -- a tight 6px cut felt like a UI element; 14px reads closer to a
+    // poster card's own rounded corner.
+    <div className="relative h-[480px] overflow-hidden rounded-[var(--radius-lg)] sm:h-[600px] lg:h-[680px]">
       {backdropImage && (
         <Link
           href={href}
