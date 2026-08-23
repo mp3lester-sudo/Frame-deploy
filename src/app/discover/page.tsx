@@ -225,7 +225,7 @@ export default async function DiscoverPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="font-section-heading mb-4 text-2xl">Discover</h1>
+      <h1 className="text-gold-foil font-section-heading mb-4 text-3xl">Discover</h1>
 
       {viewer && (
         <Suspense fallback={<SwipeDeckSkeleton />}>

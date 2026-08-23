@@ -90,7 +90,7 @@ export default async function MovieNightListPage() {
   return (
     <section className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-section-heading text-2xl">{movieNightLabel(mediaType)}</h1>
+        <h1 className="text-gold-foil font-section-heading text-3xl">{movieNightLabel(mediaType)}</h1>
         <form action={createMovieNight}>
           <Button type="submit" size="sm">
             Start a {movieNightLabelLower(mediaType)}

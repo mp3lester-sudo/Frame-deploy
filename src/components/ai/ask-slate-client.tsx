@@ -186,7 +186,7 @@ export function AskSlateClient({ posters }: { posters: string[] }) {
             instead of piling more chrome onto the header itself. */}
         <div className="flex flex-col items-center text-center">
           <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-accent">AI Concierge</span>
-          <h1 className="font-section-heading mt-2 text-3xl text-accent">Ask Slate</h1>
+          <h1 className="text-gold-foil font-section-heading mt-2 text-4xl">Ask Slate</h1>
           <div className="mt-4 h-px w-24 bg-gradient-to-r from-transparent via-accent-deep to-transparent" />
           <p className="font-section-body mt-4 text-sm text-foreground-muted">
             Describe the feeling, not the genre.

@@ -78,10 +78,20 @@
      different flat color. Kept intentionally neutral (not accent-
      tinted) so it layers under accent-gold content without competing
      with the single-accent rule above. */
-  --glass-bg: rgba(255, 255, 255, 0.045);
-  --glass-bg-hover: rgba(255, 255, 255, 0.07);
+  /* Full design-system rollout, round 2: the quieter --border pass
+     above (0.18->0.10) made non-glass elements read as flatter rather
+     than more designed, since nothing compensated for the lost
+     definition. Raised here instead -- --glass-bg brighter so panels
+     visibly separate from the near-black page background rather than
+     nearly matching it, and --glass-shadow now pairs an inset top
+     highlight (the same "catches light on its top edge" trick already
+     used on primary buttons/CTAs) with a deeper drop shadow, so bento
+     cards read as physically lifted panels instead of a barely-there
+     black-shadow-on-black-background that was effectively invisible. */
+  --glass-bg: rgba(255, 255, 255, 0.07);
+  --glass-bg-hover: rgba(255, 255, 255, 0.1);
   --glass-border: rgba(255, 255, 255, 0.09);
-  --glass-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.65);
+  --glass-shadow: 0 1px 0 rgba(255, 255, 255, 0.07) inset, 0 16px 40px -18px rgba(0, 0, 0, 0.75);
 
   /* Full design-system rollout: enlarged toward the mockup's softer,
      more generous rounding -- sm stays tight (chips/badges still read

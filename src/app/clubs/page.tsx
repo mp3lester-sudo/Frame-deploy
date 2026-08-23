@@ -48,7 +48,7 @@ export default async function ClubsPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-section-heading text-2xl">Clubs</h1>
+        <h1 className="text-gold-foil font-section-heading text-3xl">Clubs</h1>
         {viewer && <CreateClubForm />}
       </div>
 

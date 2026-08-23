@@ -157,7 +157,7 @@ export default async function FeedPage() {
   return (
     <div className="mx-auto max-w-2xl pb-12">
       <div className="sticky top-0 z-10 bg-background/90 backdrop-blur">
-        <h1 className="font-section-heading px-4 pt-4 text-2xl sm:px-5">Social</h1>
+        <h1 className="text-gold-foil font-section-heading px-4 pt-4 text-3xl sm:px-5">Social</h1>
         <SocialTabs />
       </div>
 

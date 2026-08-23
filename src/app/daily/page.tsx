@@ -59,7 +59,7 @@ export default async function DailyPage() {
 
   return (
     <section className="mx-auto max-w-4xl px-4 py-10">
-      <h1 className="font-section-heading text-3xl">Daily</h1>
+      <h1 className="text-gold-foil font-section-heading text-4xl">Daily</h1>
       <p className="font-section-body mt-2 text-sm text-foreground-muted">
         A new pick every day — trivia, a bit of film history, and what&apos;s happening in the industry.
       </p>
