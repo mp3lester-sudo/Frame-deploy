@@ -337,7 +337,7 @@ export async function getRecommendationsForUser(
   }
 
   if (!tasteVector) {
-    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType, "no-taste-vector"), isColdStart: true });
+    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType), isColdStart: true });
   }
 
   // Over-fetch candidates well beyond `limit` — context weighting (below)
@@ -437,7 +437,7 @@ export async function getRecommendationsForUser(
   }
 
   if (blended.size === 0) {
-    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType, "empty-content-matches"), isColdStart: true });
+    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType), isColdStart: true });
   }
 
   // Context weighting needs each candidate's taste metadata (runtime,
@@ -705,7 +705,7 @@ export async function getRecommendationsForUser(
   const rankedIds = diversifyRecommendations(diversifyCandidates, limit).map((r) => r.id);
 
   if (rankedIds.length === 0) {
-    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType, "zero-ranked-after-filters"), isColdStart: true });
+    return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType), isColdStart: true });
   }
 
   // Recommendation intelligence audit finding #2: swap the weakest-scoring
@@ -865,16 +865,7 @@ async function getColdStartRecommendations(
   userId: string,
   limit: number,
   context: CircumstantialContext | undefined,
-  mediaType: MediaType,
-  // TEMPORARY diagnostic for the live cold-start bug (recommendation-
-  // intelligence-audit.md finding #1): all three fallback sites that call
-  // this function produce an identical UI message, which made it
-  // impossible to tell -- without direct DB access -- which one an
-  // affected account was actually hitting even after two rounds of
-  // self-heal fixes. This tags the visible longReason so the answer is
-  // readable straight off the live page. Remove once the live symptom is
-  // confirmed resolved.
-  debugBranch?: string
+  mediaType: MediaType
 ): Promise<Recommendation[]> {
   const supabase = await createClient();
 
@@ -937,9 +928,6 @@ async function getColdStartRecommendations(
 
   return picks.map((title) => {
     const detail = buildColdStartDetail(title);
-    if (debugBranch) {
-      detail.longReason = `${detail.longReason} [debug:${debugBranch}]`;
-    }
     return {
       title,
       score: 0,
