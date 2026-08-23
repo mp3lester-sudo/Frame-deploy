@@ -93,7 +93,7 @@ const MIN_CONTENT_SIMILARITY = 0.3;
 // server-rendered response, not just this section. 4s is generous for a
 // healthy query but still well short of making a visitor sit through a
 // query that's already run long past the point of being worth waiting for.
-const MATCH_TITLES_TIMEOUT_MS = 4000;
+const MATCH_TITLES_TIMEOUT_MS = 6000;
 
 // Recommendation intelligence audit finding #4: recommendations were
 // completely static between visits -- the same DB state always produces
@@ -433,6 +433,38 @@ export async function getRecommendationsForUser(
           blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity);
         }
       }
+    }
+  }
+
+  if (blended.size === 0 && selfHealed) {
+    // Third layer for finding #1: the recompute-based self-heal above
+    // already ran (the taste vector was confirmed present and fresh) but
+    // content matches still came back empty. At this point the most
+    // likely explanation left is a transient slow/timed-out call to
+    // match_titles_for_user itself -- a connection-pool cold start, a
+    // brief load spike -- not a genuine "nothing matches" result, since a
+    // freshly-recomputed vector for a qualifying account should never
+    // legitimately match zero titles in a ~36k-title catalogue. Live
+    // verification after the first two self-heal fixes shipped showed
+    // exactly this: the same account, same code, same request shape,
+    // flipping between a real personalized slate and this empty result
+    // across otherwise-identical page loads -- the signature of a
+    // borderline-timing issue, not a data issue. One more bare retry, no
+    // recompute needed this time, is cheap insurance against that
+    // flakiness. (The underlying fix is migration 0077, which corrects a
+    // query-plan bug that kept this RPC from using its vector index at
+    // all -- this retry is a safety net on top of that, not a
+    // replacement for it.)
+    contentMatches = await fetchContentMatches(
+      supabase,
+      userId,
+      mediaType,
+      limit * CANDIDATE_POOL_MULTIPLIER,
+      markDegraded("match_titles_for_user-retry")
+    );
+    for (const m of contentMatches ?? []) {
+      if (dismissedTitleIds.has(m.title_id)) continue;
+      blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity);
     }
   }
 
