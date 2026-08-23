@@ -129,32 +129,71 @@ export function NavBar({ isAuthed, mediaType }: { isAuthed: boolean; mediaType: 
           ))}
         </nav>
 
+        {/* Mobile audit finding #7: these five icons used to be bare
+            18px glyphs with only gap-3 (12px) between them -- a real tap
+            target of roughly 18-20px, well under Apple's 44pt guidance,
+            and this cluster is NOT hidden on mobile (only the middle
+            text-link row is md:only). Each Link below gets a "hit-slop"
+            expansion instead of a visual resize: p-2.5 grows its own box
+            by 10px on every side, and the matching -m-2.5 cancels that
+            growth's effect on the surrounding flex layout, so the icons
+            stay visually exactly where they were (same size, same
+            apparent gap) while the actual tappable region grows to
+            ~38x38px, with adjacent icons' hit areas now touching/
+            slightly overlapping instead of leaving dead space between
+            them. Notifications/Messages wrap their icon in its own
+            `relative` span so the unread badge still anchors to the
+            icon itself, not to the now-larger padded Link box. */}
         <div className="flex items-center gap-3">
-          <Link href="/search" aria-label="Search" className="text-foreground-muted hover:text-foreground">
+          <Link
+            href="/search"
+            aria-label="Search"
+            className="-m-2.5 flex items-center justify-center p-2.5 text-foreground-muted hover:text-foreground"
+          >
             <Search size={18} />
           </Link>
           {isAuthed ? (
             <>
-              <Link href="/notifications" aria-label="Notifications" className="relative text-foreground-muted hover:text-foreground">
-                <Bell size={18} />
-                {unreadNotificationCount > 0 && (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[9px] font-medium text-accent-foreground">
-                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
-                  </span>
-                )}
+              <Link
+                href="/notifications"
+                aria-label="Notifications"
+                className="-m-2.5 flex items-center justify-center p-2.5 text-foreground-muted hover:text-foreground"
+              >
+                <span className="relative">
+                  <Bell size={18} />
+                  {unreadNotificationCount > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[9px] font-medium text-accent-foreground">
+                      {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                    </span>
+                  )}
+                </span>
               </Link>
-              <Link href="/messages" aria-label="Messages" className="relative text-foreground-muted hover:text-foreground">
-                <Mail size={18} />
-                {unreadMessageCount > 0 && (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[9px] font-medium text-accent-foreground">
-                    {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
-                  </span>
-                )}
+              <Link
+                href="/messages"
+                aria-label="Messages"
+                className="-m-2.5 flex items-center justify-center p-2.5 text-foreground-muted hover:text-foreground"
+              >
+                <span className="relative">
+                  <Mail size={18} />
+                  {unreadMessageCount > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[9px] font-medium text-accent-foreground">
+                      {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
+                    </span>
+                  )}
+                </span>
               </Link>
-              <Link href="/settings" aria-label="Settings" className="text-foreground-muted hover:text-foreground">
+              <Link
+                href="/settings"
+                aria-label="Settings"
+                className="-m-2.5 flex items-center justify-center p-2.5 text-foreground-muted hover:text-foreground"
+              >
                 <Settings size={18} />
               </Link>
-              <Link href="/profile/me" aria-label="Profile" className="text-foreground-muted hover:text-foreground">
+              <Link
+                href="/profile/me"
+                aria-label="Profile"
+                className="-m-2.5 flex items-center justify-center p-2.5 text-foreground-muted hover:text-foreground"
+              >
                 <User size={18} />
               </Link>
             </>

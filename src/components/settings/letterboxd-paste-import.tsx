@@ -173,7 +173,7 @@ export function LetterboxdPasteImport() {
             onChange={(e) => setHtml(e.target.value)}
             placeholder="Paste Diary page source here..."
             rows={6}
-            className="w-full resize-y rounded-[var(--radius-sm)] border border-border bg-surface-raised p-2 text-xs text-foreground-muted placeholder:text-foreground-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full resize-y rounded-[var(--radius-sm)] border border-border bg-surface-raised p-2 text-base sm:text-xs text-foreground-muted placeholder:text-foreground-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
           />
           <div>
             <Button type="submit" size="sm" variant="secondary" isLoading={isPending} disabled={!html.trim()}>

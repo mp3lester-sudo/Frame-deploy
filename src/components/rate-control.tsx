@@ -36,7 +36,7 @@ export function RateControl({ titleId, initialScore = 0 }: { titleId: string; in
 
   return (
     <div className="flex items-center gap-2">
-      <RatingStars value={score} onChange={handleChange} size={24} />
+      <RatingStars value={score} onChange={handleChange} size={32} />
       {isPending && <span className="text-xs text-foreground-muted">Saving…</span>}
       {!isPending && score > 0 && (
         <button

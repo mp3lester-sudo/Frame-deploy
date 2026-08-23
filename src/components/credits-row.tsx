@@ -37,12 +37,12 @@ export function CreditsSection({ credits }: { credits: Credit[] }) {
       {cast.length > 0 && (
         <div>
           <p className="mb-2 text-xs uppercase tracking-wide text-foreground-muted">Cast</p>
-          <div className="flex gap-4 overflow-x-auto pb-1">
+          <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1">
             {cast.map((c, i) => (
               <Link
                 href={`/person/${c.people!.id}`}
                 key={i}
-                className="flex w-20 shrink-0 flex-col items-center gap-1.5 text-center"
+                className="flex w-20 shrink-0 snap-start flex-col items-center gap-1.5 text-center"
               >
                 <Avatar name={c.people!.name} src={c.people!.photo_url} size={56} />
                 <p className="line-clamp-2 text-xs leading-tight hover:underline">{c.people!.name}</p>

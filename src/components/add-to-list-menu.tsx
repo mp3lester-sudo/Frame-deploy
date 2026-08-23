@@ -82,7 +82,31 @@ export function AddToListMenu({ titleId, lists }: { titleId: string; lists: AddT
       </Button>
 
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-2 w-64 rounded-[var(--radius-md)] border border-border bg-surface-raised p-2 shadow-lg">
+        <>
+          {/* Mobile audit finding #6: this panel used to be a plain
+              `absolute left-0 top-full w-64` dropdown -- on a 375-390px
+              iPhone that 256px-wide panel can run past the right edge of
+              the screen depending on where the trigger button happens to
+              sit in the movie page's action row, and it read exactly like
+              a desktop context menu that happened to render on a phone
+              (closes on a `mousedown` document listener, no backdrop, no
+              native affordance). Below md:, it's now a real bottom sheet
+              -- fixed to the viewport bottom, full width, safe-area-aware,
+              with a dimming backdrop -- the same treatment a native app
+              would give a multi-select list picker. md: reverts to the
+              original anchored dropdown, since desktop has no equivalent
+              "off-screen" risk and the dropdown is the more efficient
+              pattern there. */}
+          <div
+            className="fixed inset-0 z-40 bg-black/50 md:hidden"
+            aria-hidden="true"
+            onClick={() => {
+              setOpen(false);
+              setCreating(false);
+              setError(null);
+            }}
+          />
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-[var(--radius-lg)] border-t border-border bg-surface-raised p-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lg md:absolute md:inset-x-auto md:inset-y-auto md:bottom-auto md:left-0 md:top-full md:z-20 md:mt-2 md:max-h-none md:w-64 md:rounded-t-[var(--radius-md)] md:border md:p-2 md:pb-2">
           {items.length === 0 && !creating && (
             <p className="px-2 py-1.5 text-xs text-foreground-muted">You don&apos;t have any lists yet.</p>
           )}
@@ -129,7 +153,8 @@ export function AddToListMenu({ titleId, lists }: { titleId: string; lists: AddT
               </button>
             )}
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

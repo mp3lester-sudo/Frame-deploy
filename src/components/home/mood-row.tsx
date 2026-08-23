@@ -57,7 +57,7 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
           stays a hard cut since it's flush with the page's own left
           margin -- nothing to hint at past the start of the row. */}
       <div
-        className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1"
+        className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1"
         style={{
           maskImage: "linear-gradient(to right, black 92%, transparent 100%)",
           WebkitMaskImage: "linear-gradient(to right, black 92%, transparent 100%)",
@@ -68,7 +68,7 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
           return (
             <div
               key={title.id}
-              className="stagger-card group relative w-56 shrink-0 transition-transform duration-200 hover:-translate-y-1 sm:w-64"
+              className="stagger-card group relative w-56 shrink-0 snap-start transition-transform duration-200 hover:-translate-y-1 sm:w-64"
               style={{ animationDelay: `${(i % 12) * 40}ms` }}
             >
               <button
@@ -79,7 +79,14 @@ export function MoodRow({ picks, isColdStart }: { picks: Recommendation[]; isCol
                   handleDismiss(title.id);
                 }}
                 aria-label={`Not interested in ${title.name}`}
-                className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-background/70 text-foreground-muted opacity-0 backdrop-blur-sm transition-opacity duration-150 hover:bg-background/90 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                // Mobile audit finding #4: opacity-0-until-hover meant this
+                // control (a real, shipped feature -- inline negative
+                // feedback on a recommendation) was completely invisible
+                // and undiscoverable on touch, since there's no hover state
+                // on a phone. md:opacity-0 confines the hover-reveal
+                // behavior to devices that plausibly have a mouse; touch
+                // gets a permanently-visible (if quiet) button instead.
+                className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-background/70 text-foreground-muted opacity-70 backdrop-blur-sm transition-opacity duration-150 hover:bg-background/90 hover:text-foreground focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
               >
                 <X size={14} />
               </button>

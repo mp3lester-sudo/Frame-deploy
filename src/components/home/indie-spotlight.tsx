@@ -67,9 +67,9 @@ function IndieSpotlight({ releases, news }: { releases: IndieRelease[]; news: In
       </div>
 
       {releases.length > 0 && (
-        <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2">
+        <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2">
           {releases.map((r) => (
-            <div key={r.tmdbId} className="w-[112px] shrink-0 sm:w-[128px]">
+            <div key={r.tmdbId} className="w-[112px] shrink-0 snap-start sm:w-[128px]">
               <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface-raised">
                 {r.posterUrl && <Image src={r.posterUrl} alt={r.title} fill sizes="128px" className="object-cover" />}
                 <span

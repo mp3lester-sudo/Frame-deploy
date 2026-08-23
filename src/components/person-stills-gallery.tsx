@@ -13,11 +13,11 @@ export function PersonStillsGallery({ images }: { images: string[] }) {
   return (
     <section className="mt-8">
       <h2 className="mb-3 text-lg font-semibold">Photos</h2>
-      <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+      <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1">
         {images.map((src, i) => (
           <div
             key={src}
-            className="stagger-card relative aspect-[2/3] w-28 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-raised transition-transform duration-200 hover:-translate-y-1 sm:w-32"
+            className="stagger-card relative aspect-[2/3] w-28 shrink-0 snap-start overflow-hidden rounded-[var(--radius-md)] bg-surface-raised transition-transform duration-200 hover:-translate-y-1 sm:w-32"
             style={{ animationDelay: `${(i % 12) * 40}ms` }}
           >
             <Image src={src} alt="" fill sizes="128px" className="object-cover" />

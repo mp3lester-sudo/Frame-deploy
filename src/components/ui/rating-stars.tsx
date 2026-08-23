@@ -63,14 +63,16 @@ export function RatingStars({
                 <button
                   type="button"
                   aria-label={`Rate ${i + 0.5}`}
-                  className="absolute inset-y-0 left-0 w-1/2"
+                  className="absolute left-0 w-1/2"
+                  style={{ top: -6, bottom: -6 }}
                   onMouseEnter={() => setHover(i + 0.5)}
                   onClick={() => onChange!(i + 0.5)}
                 />
                 <button
                   type="button"
                   aria-label={`Rate ${i + 1}`}
-                  className="absolute inset-y-0 right-0 w-1/2"
+                  className="absolute right-0 w-1/2"
+                  style={{ top: -6, bottom: -6 }}
                   onMouseEnter={() => setHover(i + 1)}
                   onClick={() => onChange!(i + 1)}
                 />

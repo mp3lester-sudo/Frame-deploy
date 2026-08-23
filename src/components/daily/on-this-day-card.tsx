@@ -13,9 +13,9 @@ export function OnThisDayCard({ titles }: { titles: OnThisDayTitle[] }) {
   return (
     <div className="rounded-[var(--radius-lg)] border border-border bg-surface p-5">
       <p className="text-[10px] font-medium uppercase tracking-wider text-accent">On this day — {today}</p>
-      <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+      <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
         {titles.map((t) => (
-          <Link key={t.id} href={`/movie/${t.id}`} className="group w-[96px] shrink-0">
+          <Link key={t.id} href={`/movie/${t.id}`} className="group w-[96px] shrink-0 snap-start">
             <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface-raised">
               {t.posterUrl && (
                 <Image

@@ -62,7 +62,7 @@ export function ClubFeed({
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Share something with the club…"
             rows={2}
-            className="flex-1 resize-y rounded-[var(--radius-md)] border border-border bg-surface-raised px-3 py-2 text-sm placeholder:text-foreground-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+            className="flex-1 resize-y rounded-[var(--radius-md)] border border-border bg-surface-raised px-3 py-2 text-base sm:text-sm placeholder:text-foreground-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
           />
           <Button type="submit" size="sm" variant="secondary" isLoading={isPending} disabled={!draft.trim()}>
             Post

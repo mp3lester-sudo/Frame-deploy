@@ -26,12 +26,12 @@ export function PersonIconicRoles({ roles }: { roles: IconicRole[] }) {
   return (
     <section className="mt-8">
       <h2 className="mb-3 text-lg font-semibold">Iconic roles</h2>
-      <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+      <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1">
         {roles.map((role, i) => (
           <Link
             key={`${role.titleId}-${role.characterName}`}
             href={`/movie/${role.titleId}`}
-            className="stagger-card group w-28 shrink-0 transition-transform duration-200 hover:-translate-y-1 sm:w-32"
+            className="stagger-card group w-28 shrink-0 snap-start transition-transform duration-200 hover:-translate-y-1 sm:w-32"
             style={{ animationDelay: `${(i % 12) * 40}ms` }}
           >
             <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-md)] bg-surface-raised">

@@ -62,7 +62,7 @@ export function SeasonRatings({
           return (
             <div key={seasonNumber} className="flex items-center gap-2">
               <span className="w-16 shrink-0 text-xs text-foreground-muted">Season {seasonNumber}</span>
-              <RatingStars value={score} onChange={(next) => handleChange(seasonNumber, next)} size={15} />
+              <RatingStars value={score} onChange={(next) => handleChange(seasonNumber, next)} size={20} />
               {!isPending && score > 0 && (
                 <button
                   type="button"

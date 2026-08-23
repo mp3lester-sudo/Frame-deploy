@@ -39,9 +39,9 @@ export function IndieBuzzStrip({ releases, news }: { releases: IndieRelease[]; n
         <span className="text-[10px] uppercase tracking-wider text-accent-soft">Indie Buzz</span>
 
         {releases.length > 0 && (
-          <div className="-mx-1 mt-2.5 flex gap-3 overflow-x-auto px-1 pb-1">
+          <div className="-mx-1 mt-2.5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1">
             {releases.slice(0, 8).map((r) => (
-              <div key={r.tmdbId} className="w-16 shrink-0">
+              <div key={r.tmdbId} className="w-16 shrink-0 snap-start">
                 <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-sm)] border border-border bg-surface-raised">
                   {r.posterUrl && <Image src={r.posterUrl} alt={r.title} fill sizes="64px" className="object-cover" />}
                 </div>
@@ -52,14 +52,14 @@ export function IndieBuzzStrip({ releases, news }: { releases: IndieRelease[]; n
         )}
 
         {news.length > 0 && (
-          <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1">
+          <div className="-mx-1 mt-3 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
             {news.slice(0, 6).map((item, i) => (
               <a
                 key={i}
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 whitespace-nowrap rounded-full border border-border bg-surface-raised px-3 py-1.5 text-xs text-foreground hover:border-accent/50 hover:text-accent"
+                className="shrink-0 snap-start whitespace-nowrap rounded-full border border-border bg-surface-raised px-3 py-1.5 text-xs text-foreground hover:border-accent/50 hover:text-accent"
               >
                 {item.title.length > 60 ? `${item.title.slice(0, 57)}…` : item.title}
               </a>

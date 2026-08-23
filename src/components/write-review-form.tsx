@@ -66,7 +66,7 @@ export function WriteReviewForm({ titleId }: { titleId: string }) {
           rows={4}
           autoFocus
           disabled={isPending}
-          className="w-full resize-none border-0 bg-surface p-4 text-sm text-foreground placeholder:text-foreground-muted focus:outline-none disabled:opacity-50"
+          className="w-full resize-none border-0 bg-surface p-4 text-base sm:text-sm text-foreground placeholder:text-foreground-muted focus:outline-none disabled:opacity-50"
         />
         <div className="flex items-center justify-between border-t border-dashed border-border-strong bg-surface-raised px-4 py-3">
           <label className="flex items-center gap-2 text-xs text-foreground-muted">

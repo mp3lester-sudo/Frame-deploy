@@ -53,7 +53,7 @@ export function ProfileForm({
           maxLength={500}
           rows={4}
           placeholder="A few words about your taste in film…"
-          className="w-full resize-none rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-foreground-muted focus:border-accent/50 focus:outline-none"
+          className="w-full resize-none rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-base sm:text-sm text-foreground placeholder:text-foreground-muted focus:border-accent/50 focus:outline-none"
         />
         <p className="mt-1 text-right text-[11px] text-foreground-muted">{bio.length}/500</p>
       </div>

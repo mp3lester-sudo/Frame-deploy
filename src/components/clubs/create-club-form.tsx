@@ -43,7 +43,7 @@ export function CreateClubForm() {
         onChange={(e) => setDescription(e.target.value)}
         placeholder="What's this club about? (optional)"
         rows={2}
-        className="w-full resize-y rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-sm placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-accent/50"
+        className="w-full resize-y rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-base sm:text-sm placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-accent/50"
       />
       {error && <p className="text-xs text-danger">{error}</p>}
       <div className="flex gap-2">

@@ -20,11 +20,11 @@ export function TmdbReviewsSection({ reviews }: { reviews: TmdbReview[] }) {
         <h2 className="text-lg font-semibold">Critic &amp; Community Reviews</h2>
         <span className="text-xs text-foreground-muted">via TMDB</span>
       </div>
-      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {reviews.slice(0, 8).map((r) => (
           <div
             key={r.id}
-            className="flex w-60 shrink-0 flex-col rounded-[var(--radius-md)] border border-border bg-surface-raised p-4"
+            className="flex w-60 shrink-0 snap-start flex-col rounded-[var(--radius-md)] border border-border bg-surface-raised p-4"
           >
             <div className="mb-2 flex items-center gap-2">
               <Avatar name={r.author} src={r.avatarUrl} size={24} />
