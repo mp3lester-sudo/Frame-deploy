@@ -132,7 +132,15 @@ export async function getRecommendationsForUser(
   }: {
     limit?: number;
     context?: CircumstantialContext;
-    weather?: WeatherTimeSignal;
+    // Accepts either an already-resolved signal or a still-in-flight
+    // Promise -- callers (see page.tsx's HomeRecommendationsSection) kick
+    // off the weather fetch and this function's own initial DB work at
+    // the same time rather than awaiting weather first and paying for
+    // both sequentially, since weather isn't actually needed until deep
+    // inside the scoring loop below. Awaiting a non-Promise value here is
+    // a no-op (per the language spec), so passing an already-resolved
+    // value still works unchanged for every other/older caller.
+    weather?: WeatherTimeSignal | Promise<WeatherTimeSignal | null> | null;
     source?: string;
     mediaType: MediaType;
   }
@@ -380,6 +388,9 @@ export async function getRecommendationsForUser(
   // context-weighting.ts), so applying it on its own is safe and doesn't
   // reintroduce the "several multipliers compounding to near-zero"
   // problem the shared band exists to prevent.
+  // Resolved as late as possible -- see the `weather` param's doc comment
+  // above for why this can be a still-in-flight Promise at this point.
+  const resolvedWeather = weather ? await weather : null;
   const { min: MIN_TOTAL_ADJUSTMENT, max: MAX_TOTAL_ADJUSTMENT } = computeAdjustmentBand(confidence);
   const adjusted: { id: string; score: number }[] = [];
   for (const [id, score] of blended.entries()) {
@@ -396,7 +407,7 @@ export async function getRecommendationsForUser(
     // Weather/time is a soft nudge layered on top of the (also soft, except
     // for something_short) context multiplier — see weather-time-weighting.ts
     // for why this is never a hard exclusion.
-    const weatherMult = weather ? weatherTimeMultiplier(title, weather) : 1;
+    const weatherMult = resolvedWeather ? weatherTimeMultiplier(title, resolvedWeather) : 1;
     const qualityMult = qualityMultiplier(title.weighted_rating, title.rt_critic_score);
     const genreMult = genreAffinityMultiplier(title.genres, genreAffinity);
     const dislikeMult = dislikePenaltyMultiplier(dislikeSimilarityById.get(id) ?? 0, CONTENT_MATCH_THRESHOLD);
@@ -513,7 +524,7 @@ export async function getRecommendationsForUser(
   const recommendations = finalIds.map((id, i) => {
     const title = byId.get(id)!;
     const flags = matchFlags.get(id) ?? { hasStrongContentMatch: false };
-    const weatherNote = weather ? weatherTimeNote(title, weather) : null;
+    const weatherNote = resolvedWeather ? weatherTimeNote(title, resolvedWeather) : null;
     const detail = buildReasonDetail({
       title,
       hasStrongContentMatch: flags.hasStrongContentMatch,

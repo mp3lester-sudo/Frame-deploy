@@ -72,8 +72,17 @@ async function HomeRecommendationsSection({
   hour: number;
   mediaType: MediaType;
 }) {
-  const weather =
-    geo?.latitude != null && geo?.longitude != null ? await getCurrentWeather(geo.latitude, geo.longitude) : null;
+  // Not awaited here -- kicked off alongside the recommendation engine's
+  // own independent DB work instead of blocking on it first, since
+  // engine.ts doesn't actually need the resolved weather value until deep
+  // inside its scoring loop (see getRecommendationsForUser's `weather`
+  // param). These two used to run sequentially (weather's up-to-2s cap
+  // fully paid, then the engine's own several-second worst case on top),
+  // which meant a visitor with slow weather AND a slow candidate query
+  // waited for both back-to-back for no reason -- they don't depend on
+  // each other at all.
+  const weatherPromise: Promise<Awaited<ReturnType<typeof getCurrentWeather>>> =
+    geo?.latitude != null && geo?.longitude != null ? getCurrentWeather(geo.latitude, geo.longitude) : Promise.resolve(null);
 
   const { recommendations, isColdStart } = await getRecommendationsForUser(userId, {
     // 1 hero + 6 for MoodRow ("More picks for you") + 2 held in reserve
@@ -83,7 +92,7 @@ async function HomeRecommendationsSection({
     // already visible in the rail below it.
     limit: 9,
     context: activeContext,
-    weather: { weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour },
+    weather: weatherPromise.then((weather) => ({ weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour })),
     mediaType,
   });
 
