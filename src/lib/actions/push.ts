@@ -64,10 +64,11 @@ export async function unsubscribeFromPush(input: z.infer<typeof unsubscribeSchem
 export async function getNotificationPreferences(): Promise<Record<TogglableNotificationType, boolean>> {
   const { supabase, user } = await requireUser();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("notification_preferences")
     .select("type, push_enabled")
     .eq("user_id", user.id);
+  if (error) console.error("[getNotificationPreferences] lookup", error.message);
 
   const byType = new Map((data ?? []).map((row) => [row.type, row.push_enabled]));
   const result = {} as Record<TogglableNotificationType, boolean>;

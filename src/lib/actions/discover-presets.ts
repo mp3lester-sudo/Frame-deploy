@@ -23,11 +23,12 @@ export async function getMyDiscoverPresets(): Promise<DiscoverFilterPreset[]> {
   if (!user) return [];
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("discover_filter_presets")
     .select("*")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
+  if (error) console.error("[getDiscoverPresets] lookup", error.message);
   return data ?? [];
 }
 
@@ -46,11 +47,12 @@ export async function saveDiscoverPreset(input: z.infer<typeof saveSchema>): Pro
   if (!user) throw new Error("Not authenticated");
 
   const supabase = await createClient();
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("is_premium, premium_tier")
     .eq("id", user.id)
     .maybeSingle();
+  if (profileError) console.error("[saveDiscoverPreset] profile lookup", profileError.message);
   if (!isAuteurActive(profile)) {
     throw new Error("Saved filter presets are a Slate Auteur perk. Upgrade at /premium to save this search.");
   }

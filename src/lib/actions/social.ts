@@ -152,12 +152,13 @@ export async function writeReview(input: z.infer<typeof reviewSchema>) {
     if (review?.id) {
       void (async () => {
         try {
-          const { data: existingRating } = await supabase
+          const { data: existingRating, error: existingRatingError } = await supabase
             .from("ratings")
             .select("title_id")
             .eq("user_id", user.id)
             .eq("title_id", titleId)
             .maybeSingle();
+          if (existingRatingError) console.error("[writeReview] existing rating lookup", existingRatingError.message);
           if (existingRating) return;
 
           const score = await inferReviewSentimentScore(body);
@@ -188,12 +189,13 @@ export async function deleteReview(reviewId: string) {
   const { reviewId: id } = schema.parse({ reviewId });
   const { supabase, user } = await requireUser();
 
-  const { data: review } = await supabase
+  const { data: review, error: reviewError } = await supabase
     .from("reviews")
     .select("title_id")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
+  if (reviewError) console.error("[deleteReview] review lookup", reviewError.message);
   if (!review) throw new Error("Review not found");
 
   // RLS ("users delete own reviews") already scopes this to the owner, but
@@ -220,12 +222,13 @@ export async function toggleFollow(followeeId: string) {
   const { supabase, user } = await requireUser();
   if (user.id === followeeId) throw new Error("Cannot follow yourself");
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("follows")
     .select("*")
     .eq("follower_id", user.id)
     .eq("followee_id", followeeId)
     .maybeSingle();
+  if (existingError) console.error("[toggleFollow] existing lookup", existingError.message);
 
   if (existing) {
     await supabase.from("follows").delete().eq("follower_id", user.id).eq("followee_id", followeeId);
@@ -272,12 +275,13 @@ export async function createList(input: z.infer<typeof createListSchema>) {
 
 export async function addToList(listId: string, titleId: string) {
   const { supabase } = await requireUser();
-  const { data: existingItems } = await supabase
+  const { data: existingItems, error: existingItemsError } = await supabase
     .from("list_items")
     .select("position")
     .eq("list_id", listId)
     .order("position", { ascending: false })
     .limit(1);
+  if (existingItemsError) console.error("[addItemToNewList] existing items lookup", existingItemsError.message);
 
   const position = (existingItems?.[0]?.position ?? -1) + 1;
   await supabase.from("list_items").insert({ list_id: listId, title_id: titleId, position });

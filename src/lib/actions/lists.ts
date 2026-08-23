@@ -91,10 +91,11 @@ export async function createList(input: z.input<typeof createListSchema>) {
   const descriptionResult = validateListDescription(description);
   if (!descriptionResult.ok) throw new Error(descriptionResult.error);
 
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("lists")
     .select("*", { count: "exact", head: true })
     .eq("user_id", user.id);
+  if (countError) console.error("[createList] count lookup", countError.message);
   if ((count ?? 0) >= MAX_LISTS_PER_USER) {
     throw new Error(`You've hit the limit of ${MAX_LISTS_PER_USER} lists`);
   }
@@ -178,13 +179,15 @@ export async function addTitleToList(input: z.input<typeof listItemSchema>) {
   // Ownership check — list_items' own RLS policy already enforces this, but
   // checking here first gives a clean "Not authenticated"-style Error
   // instead of a silent no-op insert that fails the RLS check.
-  const { data: list } = await supabase.from("lists").select("user_id").eq("id", listId).maybeSingle();
+  const { data: list, error: listError } = await supabase.from("lists").select("user_id").eq("id", listId).maybeSingle();
+  if (listError) console.error("[addTitleToList] list lookup", listError.message);
   if (!list || list.user_id !== user.id) throw new Error("List not found");
 
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("list_items")
     .select("*", { count: "exact", head: true })
     .eq("list_id", listId);
+  if (countError) console.error("[addTitleToList] item count", countError.message);
 
   const { error } = await supabase.from("list_items").upsert({
     list_id: listId,
@@ -204,7 +207,8 @@ export async function removeTitleFromList(input: { listId: string; titleId: stri
     .parse(input);
   const { supabase, user } = await requireUser();
 
-  const { data: list } = await supabase.from("lists").select("user_id").eq("id", listId).maybeSingle();
+  const { data: list, error: listError } = await supabase.from("lists").select("user_id").eq("id", listId).maybeSingle();
+  if (listError) console.error("[removeTitleFromList] list lookup", listError.message);
   if (!list || list.user_id !== user.id) throw new Error("List not found");
 
   const { error } = await supabase

@@ -75,11 +75,12 @@ export async function inviteToMovieNight(input: z.infer<typeof inviteSchema>) {
   const { movieNightId, username } = inviteSchema.parse(input);
   const { supabase, user } = await requireUser();
 
-  const { data: night } = await supabase
+  const { data: night, error: nightError } = await supabase
     .from("movie_nights")
     .select("host_id, status")
     .eq("id", movieNightId)
     .maybeSingle();
+  if (nightError) console.error("[inviteToMovieNight] night lookup", nightError.message);
   if (!night) throw new Error("Movie night not found");
   if (night.host_id !== user.id) throw new Error("Only the host can invite people");
   if (night.status !== "collecting") throw new Error("This movie night is no longer collecting");
@@ -102,11 +103,12 @@ export async function inviteToMovieNight(input: z.infer<typeof inviteSchema>) {
     );
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id")
     .eq("username", username)
     .maybeSingle();
+  if (profileError) console.error("[inviteToMovieNight] profile lookup", profileError.message);
   if (!profile) throw new Error(`No user found with username "${username}"`);
 
   const { error } = await supabase.from("movie_night_participants").insert({
@@ -147,7 +149,8 @@ export async function joinMovieNightByToken(input: z.infer<typeof joinByTokenSch
   const { token } = joinByTokenSchema.parse(input);
   const { supabase, user } = await requireUser();
 
-  const { data: rows } = await supabase.rpc("resolve_movie_night_token", { p_token: token });
+  const { data: rows, error: rowsError } = await supabase.rpc("resolve_movie_night_token", { p_token: token });
+  if (rowsError) console.error("[joinMovieNightViaToken] token resolve", rowsError.message);
   const night = rows?.[0];
   if (!night) throw new Error("This invite link isn't valid, or that movie night is no longer open");
 
@@ -157,15 +160,17 @@ export async function joinMovieNightByToken(input: z.infer<typeof joinByTokenSch
   // backdoor around the same limit. Skipped entirely for someone
   // rejoining a session they're already in (see the 23505 handling
   // below) -- that path doesn't grow the group at all.
-  const { data: hostProfile } = await supabase
+  const { data: hostProfile, error: hostProfileError } = await supabase
     .from("profiles")
     .select("is_premium, premium_tier")
     .eq("id", night.host_id)
     .maybeSingle();
-  const { count: participantCount } = await supabase
+  if (hostProfileError) console.error("[joinMovieNightViaToken] host profile lookup", hostProfileError.message);
+  const { count: participantCount, error: participantCountError } = await supabase
     .from("movie_night_participants")
     .select("*", { count: "exact", head: true })
     .eq("movie_night_id", night.id);
+  if (participantCountError) console.error("[joinMovieNightViaToken] participant count", participantCountError.message);
   const maxParticipants = movieNightMaxParticipants(hostProfile);
   const alreadyIn = (
     await supabase
@@ -271,7 +276,8 @@ export interface TitleBasic {
  */
 export async function getTitleBasic(titleId: string): Promise<TitleBasic | null> {
   const { supabase } = await requireUser();
-  const { data } = await supabase.from("titles").select("id, name, poster_url").eq("id", titleId).maybeSingle();
+  const { data, error } = await supabase.from("titles").select("id, name, poster_url").eq("id", titleId).maybeSingle();
+  if (error) console.error("[getTitleForCard] lookup", error.message);
   return data;
 }
 
@@ -344,7 +350,8 @@ async function finalizeDecision(
     // 0039 -- and Postgres RLS makes a blocked UPDATE look identical to a
     // lost race: zero rows, no error). Only the second case is a real bug,
     // so check which one actually happened before staying quiet about it.
-    const { data: current } = await supabase.from("movie_nights").select("status").eq("id", movieNightId).maybeSingle();
+    const { data: current, error: currentError } = await supabase.from("movie_nights").select("status").eq("id", movieNightId).maybeSingle();
+    if (currentError) console.error("[finalizeDecision] status re-check", currentError.message);
     if (current?.status === "collecting") {
       await captureServerError(
         new Error("finalizeDecision: update matched zero rows while night is still 'collecting' -- likely blocked by RLS (missing/misapplied migration 0039), not a legitimate race"),
@@ -354,10 +361,11 @@ async function finalizeDecision(
     return false;
   }
 
-  const { data: participants } = await supabase
+  const { data: participants, error: participantsError } = await supabase
     .from("movie_night_participants")
     .select("user_id")
     .eq("movie_night_id", movieNightId);
+  if (participantsError) console.error("[finalizeDecision] participants lookup", participantsError.message);
   // Parallelized -- was a sequential for-await loop, each notify() doing an
   // insert plus a couple more queries and a push send, so a large group all
   // waited on each other's notification round trips one at a time.
@@ -391,10 +399,11 @@ export async function getMovieNightMatches(movieNightId: string): Promise<MovieN
   const matches = computeMatches(participantIds, votes);
   if (matches.length === 0) return [];
 
-  const { data: titles } = await supabase
+  const { data: titles, error: titlesError } = await supabase
     .from("titles")
     .select("*")
     .in("id", matches.map((m) => m.titleId));
+  if (titlesError) console.error("[hydrateMatches] titles lookup", titlesError.message);
   const byId = new Map((titles ?? []).map((t) => [t.id, t]));
 
   return matches
@@ -414,10 +423,11 @@ export async function getMovieNightFallbackRanking(movieNightId: string): Promis
   const ranked = rankByLikeCount(votes).slice(0, 10);
   if (ranked.length === 0) return [];
 
-  const { data: titles } = await supabase
+  const { data: titles, error: titlesError } = await supabase
     .from("titles")
     .select("*")
     .in("id", ranked.map((r) => r.titleId));
+  if (titlesError) console.error("[hydrateRanked] titles lookup", titlesError.message);
   const byId = new Map((titles ?? []).map((t) => [t.id, t]));
 
   return ranked
@@ -427,10 +437,11 @@ export async function getMovieNightFallbackRanking(movieNightId: string): Promis
 
 export async function getMovieNightParticipants(movieNightId: string): Promise<MovieNightParticipantRow[]> {
   const { supabase } = await requireUser();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("movie_night_participants")
     .select("user_id, mood, excluded_genres, profiles(username, display_name, avatar_url)")
     .eq("movie_night_id", movieNightId);
+  if (error) console.error("[getMovieNightParticipants] lookup", error.message);
   return (data ?? []) as unknown as MovieNightParticipantRow[];
 }
 
@@ -505,11 +516,12 @@ export async function getMovieNightDecisionStatus(
   movieNightId: string
 ): Promise<{ status: string; decidedTitleId: string | null }> {
   const { supabase } = await requireUser();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("movie_nights")
     .select("status, decided_title_id")
     .eq("id", movieNightId)
     .maybeSingle();
+  if (error) console.error("[getMovieNightStatus] lookup", error.message);
   return { status: data?.status ?? "collecting", decidedTitleId: data?.decided_title_id ?? null };
 }
 
@@ -526,12 +538,13 @@ export async function decideMovieNight(
   const { movieNightId, titleId } = decideSchema.parse(input);
   const { supabase, user } = await requireUser();
 
-  const { data: participant } = await supabase
+  const { data: participant, error: participantError } = await supabase
     .from("movie_night_participants")
     .select("user_id")
     .eq("movie_night_id", movieNightId)
     .eq("user_id", user.id)
     .maybeSingle();
+  if (participantError) console.error("[decideMovieNight] participant lookup", participantError.message);
   if (!participant) throw new Error("Only people in this movie night can decide");
 
   // decided reflects whether THIS call was the one that actually flipped
@@ -556,11 +569,12 @@ export async function decideMovieNight(
 
 export async function reopenMovieNight(movieNightId: string) {
   const { supabase, user } = await requireUser();
-  const { data: night } = await supabase
+  const { data: night, error: nightError } = await supabase
     .from("movie_nights")
     .select("host_id")
     .eq("id", movieNightId)
     .maybeSingle();
+  if (nightError) console.error("[reopenMovieNight] night lookup", nightError.message);
   if (!night) throw new Error("Movie night not found");
   if (night.host_id !== user.id) throw new Error("Only the host can reopen");
 
@@ -575,11 +589,12 @@ export async function reopenMovieNight(movieNightId: string) {
 
 export async function cancelMovieNight(movieNightId: string) {
   const { supabase, user } = await requireUser();
-  const { data: night } = await supabase
+  const { data: night, error: nightError } = await supabase
     .from("movie_nights")
     .select("host_id")
     .eq("id", movieNightId)
     .maybeSingle();
+  if (nightError) console.error("[cancelMovieNight] night lookup", nightError.message);
   if (!night) throw new Error("Movie night not found");
   if (night.host_id !== user.id) throw new Error("Only the host can cancel");
 

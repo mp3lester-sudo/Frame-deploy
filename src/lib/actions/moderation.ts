@@ -77,11 +77,12 @@ export async function unblockUser(blockedId: string) {
 
 export async function getBlockStatus(otherUserId: string): Promise<{ blocked: boolean }> {
   const { supabase, user } = await requireUser();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("user_blocks")
     .select("blocker_id")
     .eq("blocker_id", user.id)
     .eq("blocked_id", otherUserId)
     .maybeSingle();
+  if (error) console.error("[isBlocked] lookup", error.message);
   return { blocked: !!data };
 }

@@ -120,13 +120,14 @@ export async function uploadAvatar(formData: FormData) {
 export async function searchTitlesForPicker(query: string, mediaType: MediaType) {
   if (!query.trim()) return [];
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("titles")
     .select("id, name, release_date, poster_url")
     .eq("type", mediaType)
     .ilike("name", `%${query.trim()}%`)
     .order("weighted_rating", { ascending: false, nullsFirst: false })
     .limit(8);
+  if (error) console.error("[searchTitlesForPicker] lookup", error.message);
   return data ?? [];
 }
 

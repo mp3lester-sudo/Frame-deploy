@@ -36,12 +36,13 @@ export async function submitDailyTriviaAnswer(selectedIndex: number): Promise<Su
     // Most likely cause: already answered today (primary key conflict on
     // user_id + date_key) -- don't let a second submit flip their recorded
     // answer, just return what's actually on file.
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from("daily_trivia_responses")
       .select("selected_index, is_correct")
       .eq("user_id", user.id)
       .eq("date_key", trivia.dateKey)
       .maybeSingle();
+    if (existingError) console.error("[submitTriviaAnswer] existing lookup", existingError.message);
     if (existing) return { isCorrect: existing.is_correct, correctIndex: trivia.correctIndex };
     return { error: "submit_failed" };
   }

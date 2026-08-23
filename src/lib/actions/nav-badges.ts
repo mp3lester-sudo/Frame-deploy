@@ -34,12 +34,13 @@ export async function getNavBadgeCounts(): Promise<{
   const conversationIds = (conversations ?? []).map((c) => c.id);
   let unreadMessageCount = 0;
   if (conversationIds.length) {
-    const { count } = await supabase
+    const { count, error: countError } = await supabase
       .from("messages")
       .select("*", { count: "exact", head: true })
       .in("conversation_id", conversationIds)
       .neq("sender_id", user.id)
       .is("read_at", null);
+    if (countError) console.error("[navBadges] unread count", countError.message);
     unreadMessageCount = count ?? 0;
   }
 

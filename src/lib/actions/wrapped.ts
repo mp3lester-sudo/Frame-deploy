@@ -47,11 +47,12 @@ export async function getMyRecentWrapped(): Promise<RecentWrappedState> {
   if (!user) return { isPremium: false, cadence: "month", result: null };
 
   const supabase = await createClient();
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("is_premium, premium_tier, bonus_premium_until")
     .eq("id", user.id)
     .maybeSingle();
+  if (profileError) console.error("[wrapped] profile lookup", profileError.message);
   const isPremium = isPremiumActive(profile);
   if (!isPremium) return { isPremium: false, cadence: "month", result: null };
 

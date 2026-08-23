@@ -21,12 +21,13 @@ export async function getMyTitleImageOverride(titleId: string): Promise<TitleIma
   if (!user) return null;
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("title_image_overrides")
     .select("*")
     .eq("user_id", user.id)
     .eq("title_id", titleId)
     .maybeSingle();
+  if (error) console.error("[getTitleImageOverride] lookup", error.message);
   return data;
 }
 
@@ -52,11 +53,12 @@ export async function setTitleImageOverride(input: z.infer<typeof setSchema>): P
   if (!user) throw new Error("Not authenticated");
 
   const supabase = await createClient();
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("is_premium, premium_tier")
     .eq("id", user.id)
     .maybeSingle();
+  if (profileError) console.error("[setTitleImageOverride] profile lookup", profileError.message);
   if (!isAuteurActive(profile)) {
     throw new Error("Custom posters are a Slate Auteur perk. Upgrade at /premium to customize this title.");
   }

@@ -116,11 +116,12 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
 
   const supabase = await createClient();
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("profiles")
     .select("id")
     .eq("username", username)
     .maybeSingle();
+  if (existingError) console.error("[signUp] username lookup", existingError.message);
   if (existing) {
     return { error: "That username is taken" };
   }
@@ -142,7 +143,8 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
     // uniqueness check works pre-insert regardless of auth state.
     let referralCode = generateReferralCode();
     for (let attempt = 0; attempt < 5; attempt++) {
-      const { data: clash } = await supabase.from("profiles").select("id").eq("referral_code", referralCode).maybeSingle();
+      const { data: clash, error: clashError } = await supabase.from("profiles").select("id").eq("referral_code", referralCode).maybeSingle();
+      if (clashError) console.error("[signUp] referral code clash lookup", clashError.message);
       if (!clash) break;
       referralCode = generateReferralCode();
     }
@@ -153,7 +155,8 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
     const refCode = (formData.get("ref") as string | null)?.trim();
     let referredByProfileId: string | null = null;
     if (refCode) {
-      const { data: referrer } = await supabase.from("profiles").select("id").eq("referral_code", refCode).maybeSingle();
+      const { data: referrer, error: referrerError } = await supabase.from("profiles").select("id").eq("referral_code", refCode).maybeSingle();
+      if (referrerError) console.error("[signUp] referrer lookup", referrerError.message);
       referredByProfileId = referrer?.id ?? null;
     }
 
@@ -203,7 +206,8 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
     // isn't a participant of anything yet.
     const mnToken = (formData.get("mn") as string | null)?.trim();
     if (mnToken) {
-      const { data: rows } = await supabase.rpc("resolve_movie_night_token", { p_token: mnToken });
+      const { data: rows, error: rowsError } = await supabase.rpc("resolve_movie_night_token", { p_token: mnToken });
+      if (rowsError) console.error("[signUp] movie night token resolve", rowsError.message);
       const night = rows?.[0];
       if (night) {
         const { error: joinError } = await supabase

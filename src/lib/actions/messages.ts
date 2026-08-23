@@ -32,12 +32,13 @@ export async function getOrCreateConversation(otherUserId: string): Promise<stri
   const { supabase, user } = await requireUser();
   const [userA, userB] = orderPair(user.id, otherUserId);
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("conversations")
     .select("id")
     .eq("user_a", userA)
     .eq("user_b", userB)
     .maybeSingle();
+  if (existingError) console.error("[getOrCreateConversation] existing lookup", existingError.message);
   // The MessageButton on a profile calls this every time someone clicks
   // "Message," including to re-open a conversation that already exists --
   // so an existing thread is returned unconditionally, block or no block.
@@ -47,13 +48,21 @@ export async function getOrCreateConversation(otherUserId: string): Promise<stri
   // Blocking is directional but checked both ways here: neither side
   // should be able to force a brand-new conversation into existence with
   // the other once either has blocked, even though only one of them chose
-  // to block.
-  const { data: blockRows } = await supabase
+  // to block. Fails CLOSED on a lookup error (throws rather than treating
+  // an unreadable block list as "no blocks") -- unlike the read-only
+  // lookups elsewhere in this file, silently proceeding here would let a
+  // transient DB error bypass an active block, which is a moderation-
+  // safety regression, not just a missed "not found" vs "error" distinction.
+  const { data: blockRows, error: blockError } = await supabase
     .from("user_blocks")
     .select("blocker_id, blocked_id")
     .or(
       `and(blocker_id.eq.${user.id},blocked_id.eq.${otherUserId}),and(blocker_id.eq.${otherUserId},blocked_id.eq.${user.id})`
     );
+  if (blockError) {
+    console.error("[getOrCreateConversation] block lookup", blockError.message);
+    throw new Error("Couldn't start that conversation -- try again");
+  }
   if (blockRows && blockRows.length > 0) {
     throw new Error("You can't start a conversation with this user");
   }
@@ -66,12 +75,13 @@ export async function getOrCreateConversation(otherUserId: string): Promise<stri
 
   if (error) {
     // Conflict from a concurrent insert of the same pair — fetch what won.
-    const { data: winner } = await supabase
+    const { data: winner, error: winnerError } = await supabase
       .from("conversations")
       .select("id")
       .eq("user_a", userA)
       .eq("user_b", userB)
       .maybeSingle();
+    if (winnerError) console.error("[getOrCreateConversation] winner lookup", winnerError.message);
     if (winner) return winner.id;
     throw new Error(error.message);
   }

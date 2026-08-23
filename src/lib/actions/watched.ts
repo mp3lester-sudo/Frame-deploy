@@ -30,7 +30,8 @@ export async function loadMoreWatchedTitles(
 ): Promise<{ rows: WatchedRow[]; hasMore: boolean }> {
   const supabase = await createClient();
 
-  const { data: profile } = await supabase.from("profiles").select("id").eq("username", username).maybeSingle();
+  const { data: profile, error: profileError } = await supabase.from("profiles").select("id").eq("username", username).maybeSingle();
+  if (profileError) console.error("[getWatchedPage] profile lookup", profileError.message);
   if (!profile) return { rows: [], hasMore: false };
 
   const from = (page - 1) * WATCHED_PAGE_SIZE;
@@ -43,7 +44,7 @@ export async function loadMoreWatchedTitles(
   // scopes this to the active Movies/Shows toggle -- see watched/page.tsx's
   // doc comment for why this was a real gap, not just this action's own
   // pagination but the page's own first-load query too.
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("ratings")
     .select("score, titles!inner(*)")
     .eq("user_id", profile.id)
@@ -51,6 +52,7 @@ export async function loadMoreWatchedTitles(
     .order("created_at", { ascending: false })
     .order("id", { ascending: true })
     .range(from, to);
+  if (error) console.error("[getWatchedPage] ratings lookup", error.message);
 
   const rows = (data ?? [])
     .map((r) => {

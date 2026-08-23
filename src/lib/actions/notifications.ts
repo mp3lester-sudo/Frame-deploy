@@ -143,7 +143,7 @@ export async function notify(
 
     let pushEnabled = true;
     if (TOGGLABLE_TYPES.has(params.type)) {
-      const { data: pref } = await supabase
+      const { data: pref, error: prefError } = await supabase
         .from("notification_preferences")
         .select("push_enabled")
         .eq("user_id", params.recipientId)
@@ -152,6 +152,7 @@ export async function notify(
           params.type as "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided"
         )
         .maybeSingle();
+      if (prefError) console.error("[notify] push preference lookup", prefError.message);
       pushEnabled = pref?.push_enabled !== false;
     }
 
@@ -171,11 +172,12 @@ export async function getUnreadNotificationCount(): Promise<number> {
   const user = await getVerifiedUser();
   if (!user) return 0;
 
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("notifications")
     .select("*", { count: "exact", head: true })
     .eq("recipient_id", user.id)
     .is("read_at", null);
+  if (error) console.error("[getUnreadNotificationCount] count lookup", error.message);
 
   return count ?? 0;
 }

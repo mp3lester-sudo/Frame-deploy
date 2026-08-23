@@ -73,11 +73,12 @@ export async function getMySeasonRatings(titleId: string): Promise<Record<number
   if (!user) return {};
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("season_ratings")
     .select("season_number, score")
     .eq("user_id", user.id)
     .eq("title_id", titleId);
+  if (error) console.error("[getSeasonRatings] lookup", error.message);
 
   const byseason: Record<number, number> = {};
   for (const row of data ?? []) byseason[row.season_number] = Number(row.score);

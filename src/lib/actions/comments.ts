@@ -50,9 +50,11 @@ export async function addComment(reviewId: string, rawBody: string): Promise<New
       .single();
     if (error || !comment) throw new Error(error?.message ?? "Failed to add comment");
 
-    const { data: profile } = await supabase.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle();
+    const { data: profile, error: profileError } = await supabase.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle();
+    if (profileError) console.error("[addComment] profile lookup", profileError.message);
 
-    const { data: review } = await supabase.from("reviews").select("title_id, user_id").eq("id", reviewId).maybeSingle();
+    const { data: review, error: reviewError } = await supabase.from("reviews").select("title_id, user_id").eq("id", reviewId).maybeSingle();
+    if (reviewError) console.error("[addComment] review lookup", reviewError.message);
     if (review?.title_id) revalidatePath(`/movie/${review.title_id}`);
     if (review?.user_id) {
       // Fire-and-forget -- notify() is fully best-effort internally (see
@@ -78,11 +80,13 @@ export async function addComment(reviewId: string, rawBody: string): Promise<New
 export async function deleteComment(commentId: string) {
   const { supabase, user } = await requireUser();
 
-  const { data: comment } = await supabase.from("review_comments").select("review_id").eq("id", commentId).maybeSingle();
+  const { data: comment, error: commentError } = await supabase.from("review_comments").select("review_id").eq("id", commentId).maybeSingle();
+  if (commentError) console.error("[deleteComment] comment lookup", commentError.message);
   await supabase.from("review_comments").delete().eq("id", commentId).eq("user_id", user.id);
 
   if (comment?.review_id) {
-    const { data: review } = await supabase.from("reviews").select("title_id").eq("id", comment.review_id).maybeSingle();
+    const { data: review, error: reviewError } = await supabase.from("reviews").select("title_id").eq("id", comment.review_id).maybeSingle();
+    if (reviewError) console.error("[deleteComment] review lookup", reviewError.message);
     if (review?.title_id) revalidatePath(`/movie/${review.title_id}`);
   }
 }

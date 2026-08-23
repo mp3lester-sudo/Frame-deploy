@@ -33,7 +33,8 @@ export async function getTasteTeaser(rawSwipes: AnonSwipe[]): Promise<TeaserPick
   const supabase = await createClient();
 
   const swipedIds = swipes.map((s) => s.titleId);
-  const { data: swipedTitles } = await supabase.from("titles").select("id, genres").in("id", swipedIds);
+  const { data: swipedTitles, error: swipedTitlesError } = await supabase.from("titles").select("id, genres").in("id", swipedIds);
+  if (swipedTitlesError) console.error("[landing-teaser] swiped titles lookup", swipedTitlesError.message);
 
   const genreAffinity = buildGenreAffinity(
     swipes,
@@ -44,12 +45,13 @@ export async function getTasteTeaser(rawSwipes: AnonSwipe[]): Promise<TeaserPick
   // to show, let the caller fall back to its own generic copy instead.
   if ([...genreAffinity.values()].every((w) => w <= 0)) return [];
 
-  const { data: candidates } = await supabase
+  const { data: candidates, error: candidatesError } = await supabase
     .from("titles")
     .select("id, name, poster_url, genres, weighted_rating")
     .not("id", "in", `(${swipedIds.join(",")})`)
     .order("tmdb_vote_count", { ascending: false })
     .limit(CANDIDATE_POOL_SIZE);
+  if (candidatesError) console.error("[landing-teaser] candidates lookup", candidatesError.message);
 
   const ranked = rankTeaserCandidates(
     (candidates ?? []).map((c) => ({ id: c.id, genres: c.genres ?? [], weightedRating: c.weighted_rating })),

@@ -49,12 +49,13 @@ export async function hasAnyRatingsForType(mediaType: MediaType): Promise<boolea
   if (!user) return true; // logged out -- toggle just refreshes, no redirect
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("ratings")
     .select("title_id, titles!inner(type)")
     .eq("user_id", user.id)
     .eq("titles.type", mediaType)
     .limit(1);
+  if (error) console.error("[onboarding] ratings lookup", error.message);
 
   return (data?.length ?? 0) > 0;
 }

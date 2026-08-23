@@ -18,11 +18,12 @@ export async function ensureProfile(
   supabase: Awaited<ReturnType<typeof createClient>>,
   user: VerifiedUser
 ): Promise<void> {
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("profiles")
     .select("id")
     .eq("id", user.id)
     .maybeSingle();
+  if (existingError) console.error("[ensureProfile] existing lookup", existingError.message);
   if (existing) return;
 
   await createMissingProfile(supabase, user);

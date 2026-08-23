@@ -35,7 +35,8 @@ export async function loadMoreDiscoverTitles(
   if (era || pacing || tone || mood) {
     const viewer = await getVerifiedUser();
     if (viewer) {
-      const { data: profile } = await supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", viewer.id).maybeSingle();
+      const { data: profile, error: profileError } = await supabase.from("profiles").select("is_premium, bonus_premium_until").eq("id", viewer.id).maybeSingle();
+      if (profileError) console.error("[catalogue] profile lookup", profileError.message);
       isPremium = isPremiumActive(profile);
     }
   }

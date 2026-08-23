@@ -22,7 +22,8 @@ export async function getOrCreateWidgetToken(): Promise<string> {
   const user = await getVerifiedUser();
   if (!user) throw new Error("Not authenticated");
 
-  const { data } = await supabase.from("profiles").select("widget_token").eq("id", user.id).maybeSingle();
+  const { data, error: lookupError } = await supabase.from("profiles").select("widget_token").eq("id", user.id).maybeSingle();
+  if (lookupError) console.error("[getOrCreateWidgetToken] lookup", lookupError.message);
   if (data?.widget_token) return data.widget_token;
 
   // 32 hex chars (128 bits) -- this travels in a URL query string to an

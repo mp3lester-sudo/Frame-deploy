@@ -35,7 +35,8 @@ export async function setReviewReaction(reviewId: string, reaction: ReviewReacti
     await supabase.from("review_reactions").upsert({ review_id: reviewId, user_id: user.id, reaction });
   }
 
-  const { data: review } = await supabase.from("reviews").select("title_id, user_id").eq("id", reviewId).maybeSingle();
+  const { data: review, error: reviewError } = await supabase.from("reviews").select("title_id, user_id").eq("id", reviewId).maybeSingle();
+  if (reviewError) console.error("[setReaction] review lookup", reviewError.message);
   if (review?.title_id) revalidatePath(`/movie/${review.title_id}`);
   // Only notify on setting a reaction, not clearing one — nobody needs to
   // hear "so-and-so un-reacted to your review."
