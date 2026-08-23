@@ -115,19 +115,36 @@ export function BackdropHero({
   // timer once there's real signal the embed is working.
   const [playerStarted, setPlayerStarted] = useState(false);
 
-  // Creates the real YT.Player instance against the container div below,
-  // instead of hand-building an iframe src string -- see the comment on
-  // loadYouTubeIframeApi for why. autoplay/mute/playsinline are passed as
-  // playerVars (the API's own config surface) rather than URL params; the
-  // library builds the actual embed URL itself. Re-runs per trailerKey,
-  // matching the rest of this component (BackdropHero remounts fresh per
-  // movie, so there's no stale player to reuse across titles).
+  // Creates the real YT.Player instance, instead of hand-building an
+  // iframe src string -- see the comment on loadYouTubeIframeApi for why.
+  // autoplay/mute/playsinline are passed as playerVars (the API's own
+  // config surface) rather than URL params; the library builds the
+  // actual embed URL itself. Re-runs per trailerKey, matching the rest
+  // of this component (BackdropHero remounts fresh per movie, so
+  // there's no stale player to reuse across titles).
+  //
+  // Deliberately NOT handed containerRef.current itself: YT.Player takes
+  // direct DOM ownership of whatever element it's given (it clears it
+  // and injects its own iframe, bypassing React entirely). Handing it
+  // React's own ref'd element caused a real crash the first time this
+  // shipped -- React's reconciler still expects to own that node's
+  // children, and the next re-render (or unmount, navigating to another
+  // movie) throws `NotFoundError: Failed to execute 'removeChild'`
+  // because the child it expects to remove was already ripped out from
+  // under it. Instead, a plain DOM node is created and appended here,
+  // outside anything React ever renders children into -- React's
+  // container div stays permanently empty from React's own perspective,
+  // so its reconciler never touches (or fights over) whatever YT.Player
+  // does inside it. The mount node is removed by hand in this effect's
+  // own cleanup, not left for React to find.
   useEffect(() => {
-    if (!trailerKey) return;
+    if (!trailerKey || !containerRef.current) return;
     let cancelled = false;
+    const mountNode = document.createElement("div");
+    containerRef.current.appendChild(mountNode);
     loadYouTubeIframeApi().then((YT) => {
-      if (cancelled || !containerRef.current) return;
-      playerRef.current = new YT.Player(containerRef.current, {
+      if (cancelled) return;
+      playerRef.current = new YT.Player(mountNode, {
         width: "100%",
         height: "100%",
         videoId: trailerKey,
@@ -171,6 +188,7 @@ export function BackdropHero({
       cancelled = true;
       playerRef.current?.destroy();
       playerRef.current = null;
+      mountNode.remove();
     };
   }, [trailerKey]);
 
