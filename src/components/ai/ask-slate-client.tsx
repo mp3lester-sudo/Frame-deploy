@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "@/components/ui/fade-image";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,23 @@ type YearWindow = { minYear: number; maxYear: number };
 // staring at a blank box. Clicking one fills the input; it doesn't
 // auto-submit, so there's still a chance to tweak it first.
 const EXAMPLE_PROMPTS = ["Something that feels lonely", "Turn my brain off tonight", "A twist I won't see coming"];
+
+// The concierge call is a single non-streaming round trip that regularly
+// takes 10-15+ seconds (a full OpenAI completion plus the catalogue
+// lookup behind it) -- a static spinner for that long reads as stalled
+// long before it actually is. Cycling through what's "happening" gives
+// the wait a sense of motion without needing real token-level streaming
+// from the API, which would mean re-architecting how topPicks/
+// recommendations get parsed out of the model's structured response.
+// Durations are deliberately front-loaded (each stage a little slower
+// than the last) since most of the real latency is in the final "curating"
+// step waiting on the model, not the earlier ones.
+const LOADING_STAGES = [
+  "Reading the mood...",
+  "Weighing it against your taste...",
+  "Scanning the catalogue...",
+  "Curating your picks...",
+];
 
 // One round of the exchange -- the request that was actually sent to the
 // concierge (which, for a reply, is the original ask plus every prior
@@ -108,15 +125,33 @@ export function AskSlateClient({ posters }: { posters: string[] }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upgradeUrl, setUpgradeUrl] = useState<string | null>(null);
+  const [loadingStage, setLoadingStage] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const replyRef = useRef<HTMLInputElement>(null);
 
   const latest = history[history.length - 1] ?? null;
   const awaitingReply = latest ? needsReply(latest) : false;
 
+  // Advances LOADING_STAGES on a timer while a request is in flight. Stops
+  // itself (clears the interval) the moment loading flips false -- either
+  // because the response arrived or ask() reset it for a fresh request.
+  // The reset back to stage 0 happens in ask() itself, right where loading
+  // flips true, rather than as a synchronous setState here -- an effect
+  // reacting to its own dependency changing and immediately calling
+  // setState again is exactly the cascading-render pattern React (and
+  // this repo's lint config) flags.
+  useEffect(() => {
+    if (!loading) return;
+    const interval = setInterval(() => {
+      setLoadingStage((stage) => Math.min(stage + 1, LOADING_STAGES.length - 1));
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [loading]);
+
   async function ask(sentMessage: string) {
     if (!sentMessage.trim()) return;
     setLoading(true);
+    setLoadingStage(0);
     setError(null);
     setUpgradeUrl(null);
     try {
@@ -274,7 +309,14 @@ export function AskSlateClient({ posters }: { posters: string[] }) {
 
         {loading && (
           <div className="mt-10">
-            <div className="skeleton mx-auto h-4 w-2/3 max-w-md rounded-[var(--radius-sm)]" />
+            <p
+              key={loadingStage}
+              className="stagger-card text-center text-sm text-foreground-muted"
+              role="status"
+              aria-live="polite"
+            >
+              {LOADING_STAGES[loadingStage]}
+            </p>
             <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6">
               {[0, 1, 2].map((i) => (
                 <div key={i}>

@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { TitleCard } from "@/components/title-card";
 import { LoadMoreGrid } from "@/components/load-more-grid";
 import { LoadMorePeople } from "@/components/load-more-people";
@@ -86,9 +88,21 @@ export default async function SearchPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <form className="mb-4">
+      {/* Plain GET form -- no client JS, no live-search debounce -- so it
+          relied entirely on the browser's native "submit on Enter"
+          behavior with nothing in the UI signaling that. A search box
+          with no visible way to search reads as broken (typing and
+          getting silence, with zero loading/empty feedback until the
+          user happens to guess to press Enter). The button below is a
+          real type="submit" -- no onClick needed, the browser handles
+          it identically to pressing Enter since there's still no
+          action/onSubmit override here. */}
+      <form className="mb-4 flex max-w-md gap-2">
         <input type="hidden" name="type" value={mode} />
-        <Input name="q" defaultValue={q} placeholder={placeholder} className="max-w-md" />
+        <Input name="q" defaultValue={q} placeholder={placeholder} className="flex-1" />
+        <Button type="submit" variant="secondary" size="md" aria-label="Search" className="shrink-0 px-3">
+          <Search size={16} />
+        </Button>
       </form>
 
       <div className="mb-6 flex gap-1 border-b border-border">

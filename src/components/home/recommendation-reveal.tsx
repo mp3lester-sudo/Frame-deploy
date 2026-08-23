@@ -196,6 +196,18 @@ export function RecommendationReveal({
           tabIndex={revealed ? undefined : -1}
           aria-hidden={!revealed}
         >
+          {/* FadeImage below starts at opacity-0 until the backdrop
+              actually decodes, which -- on a cold image-optimization
+              cache or a slow connection -- can take several seconds. With
+              nothing painted underneath, that read as a near-solid-black
+              hero (this dark theme's own background showing through),
+              easy to mistake for broken even though the tap-to-reveal
+              button above is live the whole time. This shimmer sits
+              behind it at the same inset-0/fill footprint so there's
+              always something visibly "loading" rather than visibly
+              nothing -- it's naturally covered the instant the image
+              fades in on top of it. */}
+          <div className="skeleton absolute inset-0" aria-hidden />
           {/* Same duotone recipe as the profile banner's avatar backdrop
               (see lib/design/duotone.ts) -- every real photo across the
               app now runs through one shared recipe, so a five-color

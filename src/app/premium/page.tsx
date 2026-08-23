@@ -17,7 +17,11 @@ export default async function PremiumPage() {
 
   const supabase = await createClient();
   const [{ data: profile }, { data: sub }] = await Promise.all([
-    supabase.from("profiles").select("is_premium, premium_tier").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("is_premium, premium_tier, auteur_waitlist_requested_at")
+      .eq("id", user.id)
+      .maybeSingle(),
     supabase.from("subscriptions").select("current_period_end").eq("user_id", user.id).maybeSingle(),
   ]);
 
@@ -25,5 +29,10 @@ export default async function PremiumPage() {
     return <PremiumManageCard currentPeriodEnd={sub?.current_period_end ?? null} tier={profile.premium_tier} />;
   }
 
-  return <PremiumUpgradeCard auteurAvailable={auteurAvailable} />;
+  return (
+    <PremiumUpgradeCard
+      auteurAvailable={auteurAvailable}
+      auteurWaitlistJoined={!!profile?.auteur_waitlist_requested_at}
+    />
+  );
 }

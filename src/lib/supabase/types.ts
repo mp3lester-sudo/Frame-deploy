@@ -21,6 +21,7 @@ export interface Database {
           referral_code: string;
           referred_by: string | null;
           bonus_premium_until: string | null;
+          auteur_waitlist_requested_at: string | null;
           deleted_at: string | null;
           widget_token: string | null;
           created_at: string;

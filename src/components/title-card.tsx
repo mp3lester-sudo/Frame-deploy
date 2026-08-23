@@ -54,7 +54,14 @@ export function TitleCard({
           </span>
         )}
       </div>
-      <p className="mt-2 line-clamp-1 text-sm font-medium">{title.name}</p>
+      {/* line-clamp-1 used to cut long titles mid-word ("The Godfather" ->
+          "The...", "Apocalypse Now" -> "Apocalypse..."), which reads as
+          broken rather than intentional -- especially in narrower grids
+          like the profile page's Personal Pyramid podium. Two lines gives
+          enough room for the vast majority of titles to render in full,
+          and the rare title that still overflows now truncates after a
+          whole word/line instead of mid-word. */}
+      <p className="mt-2 line-clamp-2 text-sm font-medium leading-tight">{title.name}</p>
       {reason && <p className="line-clamp-2 text-xs text-foreground-muted">{reason}</p>}
     </Link>
   );

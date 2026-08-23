@@ -62,3 +62,41 @@ export async function loadMoreUserSearch(query: string, page: number) {
   const to = from + PEOPLE_SEARCH_PAGE_SIZE - 1;
   return searchUsersPage(query, from, to);
 }
+
+/**
+ * Auteur tier (see isAuteurActive in lib/premium/tier.ts) is fully built --
+ * 13 files already gate real features behind it -- but stays unpurchasable
+ * until STRIPE_AUTEUR_PRICE_ID is configured (see premium/page.tsx). Until
+ * that's set, PremiumUpgradeCard offers this instead of a dead disabled
+ * button, so interested users leave a trail instead of just bouncing at
+ * the exact moment they showed purchase intent. Idempotent: calling it
+ * again after already joining is a harmless no-op, not an error, so the
+ * client doesn't need to track "already joined" state across reloads --
+ * it just re-derives it from the returned timestamp.
+ */
+export async function joinAuteurWaitlist(): Promise<{ requestedAt: string } | { error: string }> {
+  const user = await getVerifiedUser();
+  if (!user) return { error: "You need to be signed in to join the waitlist." };
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("auteur_waitlist_requested_at")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (existing?.auteur_waitlist_requested_at) {
+    return { requestedAt: existing.auteur_waitlist_requested_at };
+  }
+
+  const requestedAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ auteur_waitlist_requested_at: requestedAt })
+    .eq("id", user.id);
+
+  if (error) {
+    await captureServerError(error, { action: "joinAuteurWaitlist", userId: user.id });
+    return { error: "Something went wrong -- try again in a moment." };
+  }
+  return { requestedAt };
+}

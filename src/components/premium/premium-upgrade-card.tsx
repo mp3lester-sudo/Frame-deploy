@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { posthog } from "@/lib/analytics/posthog-client";
 import { isNativeApp } from "@/lib/native/is-native";
 import { siteOrigin } from "@/lib/seo/site";
+import { joinAuteurWaitlist } from "@/lib/actions/users";
 
 const PREMIUM_FEATURES = [
   "Unlimited AI concierge conversations",
@@ -15,11 +16,14 @@ const PREMIUM_FEATURES = [
 
 // Everything below "Everything in Premium" is the Auteur-exclusive set --
 // see src/lib/premium/tier.ts (isAuteurActive) for the gating helper each
-// of these will check once it's actually built. As of this pricing page,
-// only the tier/billing plumbing exists; these perks are the roadmap, not
-// yet functional. See AUTEUR_PRICE_ID in lib/stripe.ts -- the buy button
-// below stays disabled until that's set, specifically so nobody can pay
-// for this before there's real Auteur-exclusive value behind it.
+// of these actually checks (13 call sites: custom poster overrides, saved
+// Discover presets, priority concierge, weekly Wrapped, extended Taste
+// DNA, the profile badge, and more). The perks are built and shipped. The
+// only missing piece is STRIPE_AUTEUR_PRICE_ID in lib/stripe.ts -- the buy
+// button below stays disabled until that's set, so nobody can pay before
+// checkout actually works. Until then it offers a waitlist instead (see
+// joinAuteurWaitlist in lib/actions/users.ts) so purchase intent isn't
+// just discarded.
 const AUTEUR_FEATURES = [
   "Everything in Premium",
   "Custom poster & backdrop for any title",
@@ -102,10 +106,35 @@ function TicketCard({
   );
 }
 
-export function PremiumUpgradeCard({ auteurAvailable = false }: { auteurAvailable?: boolean }) {
+export function PremiumUpgradeCard({
+  auteurAvailable = false,
+  auteurWaitlistJoined = false,
+}: {
+  auteurAvailable?: boolean;
+  auteurWaitlistJoined?: boolean;
+}) {
   const [loadingTier, setLoadingTier] = useState<"premium" | "auteur" | null>(null);
+  const [waitlistJoined, setWaitlistJoined] = useState(auteurWaitlistJoined);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
 
   const native = isNativeApp();
+
+  async function handleJoinWaitlist() {
+    setWaitlistLoading(true);
+    setWaitlistError(null);
+    posthog.capture("auteur_waitlist_joined");
+    try {
+      const result = await joinAuteurWaitlist();
+      if ("error" in result) {
+        setWaitlistError(result.error);
+        return;
+      }
+      setWaitlistJoined(true);
+    } finally {
+      setWaitlistLoading(false);
+    }
+  }
 
   // Only ever called from the non-native branches below (the native
   // branch renders no button at all -- see the JSX comment further down
@@ -171,10 +200,24 @@ export function PremiumUpgradeCard({ auteurAvailable = false }: { auteurAvailabl
             >
               Upgrade to Auteur
             </Button>
+          ) : waitlistJoined ? (
+            <p className="mt-6 text-center text-sm text-foreground-muted">
+              You&rsquo;re on the list -- we&rsquo;ll email you when Auteur is ready to buy.
+            </p>
           ) : (
-            <Button className="mt-6 w-full" disabled variant="secondary">
-              Coming soon
-            </Button>
+            <div className="mt-6">
+              <Button
+                className="w-full"
+                variant="secondary"
+                isLoading={waitlistLoading}
+                onClick={handleJoinWaitlist}
+              >
+                Notify me when it&rsquo;s ready
+              </Button>
+              {waitlistError && (
+                <p className="mt-2 text-center text-xs text-danger">{waitlistError}</p>
+              )}
+            </div>
           )}
         </TicketCard>
       </div>
