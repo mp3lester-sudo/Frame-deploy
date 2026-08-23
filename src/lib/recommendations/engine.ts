@@ -5,7 +5,8 @@ import type { Database } from "@/lib/supabase/types";
 import { contextMultiplier } from "./context-weighting";
 import { weatherTimeMultiplier, weatherTimeNote, type WeatherTimeSignal } from "./weather-time-weighting";
 import { qualityMultiplier, passesQualityFloor, MIN_RECOMMENDABLE_RATING } from "./quality-weighting";
-import { computeGenreAffinity, genreAffinityMultiplier } from "./genre-affinity";
+import { computeGenreAffinity, genreAffinityMultiplier, genreAffinityNote } from "./genre-affinity";
+import { computeDecadeAffinity, decadeAffinityMultiplier, decadeAffinityNote } from "./decade-affinity";
 import { computeCurationConfidence, computeAdjustmentBand } from "./curation-confidence";
 import { calibrateMatchPercents } from "./match-percent";
 import { diversifyRecommendations, type DiversifiableCandidate } from "./diversify";
@@ -493,8 +494,8 @@ export async function getRecommendationsForUser(
     { data: recentImpressions },
   ] = await Promise.all([
     ratedTitleIds.length
-      ? supabase.from("titles").select("id, genres").in("id", ratedTitleIds)
-      : Promise.resolve({ data: [] as { id: string; genres: string[] | null }[] }),
+      ? supabase.from("titles").select("id, genres, release_date").in("id", ratedTitleIds)
+      : Promise.resolve({ data: [] as { id: string; genres: string[] | null; release_date: string | null }[] }),
     supabase.from("titles").select("*").in("id", candidateIds),
     // Title-level negative feedback: how close each candidate is to the
     // user's single most similar disliked title -- "disliked" meaning
@@ -557,14 +558,14 @@ export async function getRecommendationsForUser(
     // 4.0 (#6), same synthetic-score convention as the SQL side.
     supabase
       .from("favorite_titles")
-      .select("title_id, position, titles!inner(genres)")
+      .select("title_id, position, titles!inner(genres, release_date)")
       .eq("user_id", userId)
       .eq("media_type", mediaType),
     // Reviews already AI-scored at write time (writeReview, social.ts) --
     // same signal genre-affinity was missing entirely before.
     supabase
       .from("reviews")
-      .select("title_id, inferred_score, titles!inner(type, genres)")
+      .select("title_id, inferred_score, titles!inner(type, genres, release_date)")
       .eq("user_id", userId)
       .eq("titles.type", mediaType)
       .not("inferred_score", "is", null),
@@ -603,6 +604,7 @@ export async function getRecommendationsForUser(
   const recentlyShownTitleIds = new Set((recentImpressions ?? []).map((r) => r.title_id));
 
   const genresByRatedTitleId = new Map((ratedTitleGenres ?? []).map((t) => [t.id, t.genres]));
+  const releaseDateByRatedTitleId = new Map((ratedTitleGenres ?? []).map((t) => [t.id, t.release_date]));
   const ratedTitleIdSet = new Set(ratedTitleIds);
   // Same "only when this title has no explicit rating" rule the SQL side
   // uses (migration 0075's `favorited`/`reviewed` CTEs) -- a title the
@@ -613,18 +615,38 @@ export async function getRecommendationsForUser(
     .filter((f) => !ratedTitleIdSet.has(f.title_id))
     .map((f) => ({
       score: 5.0 - ((f.position as number) - 1) * 0.2,
-      genres: (f.titles as unknown as { genres: string[] | null } | null)?.genres ?? null,
+      genres: (f.titles as unknown as { genres: string[] | null; release_date: string | null } | null)?.genres ?? null,
+      releaseDate:
+        (f.titles as unknown as { genres: string[] | null; release_date: string | null } | null)?.release_date ?? null,
     }));
   const reviewedGenreInputs = (reviewedTitlesForAffinity ?? [])
     .filter((rv) => !ratedTitleIdSet.has(rv.title_id) && rv.inferred_score != null)
     .map((rv) => ({
       score: rv.inferred_score as number,
-      genres: (rv.titles as unknown as { genres: string[] | null } | null)?.genres ?? null,
+      genres: (rv.titles as unknown as { genres: string[] | null; release_date: string | null } | null)?.genres ?? null,
+      releaseDate:
+        (rv.titles as unknown as { genres: string[] | null; release_date: string | null } | null)?.release_date ?? null,
     }));
   const genreAffinity = computeGenreAffinity([
     ...(userRatings ?? []).map((r) => ({ score: r.score, genres: genresByRatedTitleId.get(r.title_id) ?? null })),
     ...favoriteGenreInputs,
     ...reviewedGenreInputs,
+  ]);
+  // Recommendation intelligence audit follow-up: "decades" was a checklist
+  // signal with zero code path into scoring (see
+  // recommendation-signal-and-problem-audit.md) despite release_date
+  // existing on every title already fetched here. Deliberately reuses the
+  // exact same three input sources (ratings/favorites/reviews) as
+  // genre-affinity above -- same "what counts as this user's taste"
+  // definition, just bucketed by decade instead of genre. See
+  // decade-affinity.ts for why this is capped much lighter than genre.
+  const decadeAffinity = computeDecadeAffinity([
+    ...(userRatings ?? []).map((r) => ({
+      score: r.score,
+      releaseDate: releaseDateByRatedTitleId.get(r.title_id) ?? null,
+    })),
+    ...favoriteGenreInputs.map((f) => ({ score: f.score, releaseDate: f.releaseDate })),
+    ...reviewedGenreInputs.map((rv) => ({ score: rv.score, releaseDate: rv.releaseDate })),
   ]);
 
   // "User curation is the key": how much room generic signals (context/
@@ -705,6 +727,7 @@ export async function getRecommendationsForUser(
     const weatherMult = resolvedWeather ? weatherTimeMultiplier(title, resolvedWeather) : 1;
     const qualityMult = qualityMultiplier(title.weighted_rating, title.rt_critic_score);
     const genreMult = genreAffinityMultiplier(title.genres, genreAffinity);
+    const decadeMult = decadeAffinityMultiplier(title.release_date, decadeAffinity);
     const dislikeMult = dislikePenaltyMultiplier(dislikeSimilarityById.get(id) ?? 0, CONTENT_MATCH_THRESHOLD);
     const implicitMult = implicitAffinityMultiplier(
       implicitWatchlistSimilarityById.get(id) ?? 0,
@@ -716,7 +739,13 @@ export async function getRecommendationsForUser(
     // RECENT_IMPRESSION_LOOKBACK_VISITS's doc comment above.
     const freshnessMult = recentlyShownTitleIds.has(id) ? RECENT_IMPRESSION_PENALTY_MULTIPLIER : 1;
     const nonContextDelta =
-      (weatherMult - 1) + (qualityMult - 1) + (genreMult - 1) + (dislikeMult - 1) + (implicitMult - 1) + (freshnessMult - 1);
+      (weatherMult - 1) +
+      (qualityMult - 1) +
+      (genreMult - 1) +
+      (decadeMult - 1) +
+      (dislikeMult - 1) +
+      (implicitMult - 1) +
+      (freshnessMult - 1);
     const nonContextAdjustment = Math.max(MIN_TOTAL_ADJUSTMENT, Math.min(MAX_TOTAL_ADJUSTMENT, 1 + nonContextDelta));
     const totalAdjustment = nonContextAdjustment * contextMult;
     adjusted.push({ id, score: score * totalAdjustment });
@@ -878,6 +907,18 @@ export async function getRecommendationsForUser(
           citedTitles: citedTitleNamesByRecId.get(id) ?? [],
           context,
           weatherNote: resolvedWeather ? weatherTimeNote(title, resolvedWeather) : null,
+          // Specific, better explanations: name the actual affinity signals
+          // that were true for this pick instead of only ever citing a
+          // specific title or falling back to a generic "Taste Graph"
+          // line. Both reuse data already computed above -- no new
+          // queries, and both are additive-only (a note this candidate
+          // doesn't clear the threshold for is simply omitted, never
+          // invented). Skipped for the exploration slot on purpose --
+          // that pick was deliberately chosen for NOT matching genre
+          // affinity, so a genre note there would contradict its own
+          // honest framing (see buildExplorationDetail).
+          genreNote: genreAffinityNote(title.genres, genreAffinity),
+          decadeNote: decadeAffinityNote(title.release_date, decadeAffinity),
         });
     return {
       title,

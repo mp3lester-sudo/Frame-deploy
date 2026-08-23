@@ -106,3 +106,22 @@ export function genreAffinityMultiplier(titleGenres: string[] | null, affinity: 
 
   return perGenreMultipliers.reduce((sum, m) => sum + m, 0) / perGenreMultipliers.length;
 }
+
+
+/** A genre only gets named in a user-facing explanation once affinity
+ *  clears this bar -- stricter than the multiplier's own floor, since this
+ *  is now user-facing copy ("you consistently rate X highly"), not just a
+ *  scoring nudge. Picks the single strongest-affinity genre the candidate
+ *  actually has, so the note names one real, specific fact rather than
+ *  listing every genre with any positive lean. */
+const NOTE_AFFINITY_THRESHOLD = 0.4;
+
+export function genreAffinityNote(titleGenres: string[] | null, affinity: Map<string, GenreAffinityEntry>): string | null {
+  const known = (titleGenres ?? [])
+    .map((g) => affinity.get(g))
+    .filter((a): a is GenreAffinityEntry => a != null && a.affinity >= NOTE_AFFINITY_THRESHOLD);
+  if (known.length === 0) return null;
+  const strongest = known.reduce((best, a) => (a.affinity > best.affinity ? a : best));
+  const genreName = (titleGenres ?? []).find((g) => affinity.get(g) === strongest);
+  return genreName ? `you consistently rate ${genreName} highly` : null;
+}

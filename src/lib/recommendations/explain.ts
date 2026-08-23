@@ -52,8 +52,18 @@ export function buildReasonDetail(params: {
    *  signal object here so explain.ts doesn't need to know about weather
    *  codes or hours, just the sentence fragment to fold in. */
   weatherNote?: string | null;
+  /** Ready-made fragment from genre-affinity.ts's genreAffinityNote --
+   *  e.g. "you consistently rate Horror highly" -- when this pick's
+   *  genre affinity is strong enough to be worth naming explicitly,
+   *  beyond what the theme/tone detail already conveys. Null when no
+   *  genre clears that bar; never fabricated. */
+  genreNote?: string | null;
+  /** Ready-made fragment from decade-affinity.ts's decadeAffinityNote --
+   *  e.g. "you tend to love films from the 1990s". Same "only when real"
+   *  rule as genreNote. */
+  decadeNote?: string | null;
 }): ReasonDetail {
-  const { title, hasStrongContentMatch, citedTitles, context, weatherNote } = params;
+  const { title, hasStrongContentMatch, citedTitles, context, weatherNote, genreNote, decadeNote } = params;
   const themes = title.themes ?? [];
   const tone = title.tone ?? [];
   const moodTags = title.mood_tags ?? [];
@@ -81,6 +91,17 @@ export function buildReasonDetail(params: {
     headline = `Matches your taste closely — similar tone and pacing to what you love.${suffix}`;
   } else if (matchKind === "mood") {
     headline = `Fits your recent mood: ${moodTags.slice(0, 2).join(", ")}.${suffix}`;
+  } else if (genreNote) {
+    // The weakest branch before this fix: no strong content citation, no
+    // mood tags, so the headline had nothing real to point to and fell
+    // back to a generic "Taste Graph" line. genreNote is real, evidenced
+    // signal (see genre-affinity.ts's NOTE_AFFINITY_THRESHOLD) that was
+    // already being computed for the scoring multiplier -- surfacing it
+    // here costs nothing and gives this branch an actual reason instead
+    // of a placeholder one.
+    headline = `Picked because ${genreNote}.${suffix}`;
+  } else if (decadeNote) {
+    headline = `Picked because ${decadeNote}.${suffix}`;
   } else {
     headline = `Picked for you based on your Taste Graph.${suffix}`;
   }
@@ -94,6 +115,8 @@ export function buildReasonDetail(params: {
     citedTitles,
     contextSuffixNote,
     weatherNote: weatherNote ?? null,
+    genreNote: genreNote ?? null,
+    decadeNote: decadeNote ?? null,
   });
 
   return {
@@ -135,8 +158,11 @@ function buildLongReason(params: {
   citedTitles: string[];
   contextSuffixNote: string | null;
   weatherNote: string | null;
+  genreNote: string | null;
+  decadeNote: string | null;
 }): string {
-  const { matchKind, title, themes, tone, moodTags, citedTitles, contextSuffixNote, weatherNote } = params;
+  const { matchKind, title, themes, tone, moodTags, citedTitles, contextSuffixNote, weatherNote, genreNote, decadeNote } =
+    params;
 
   const themeText = themes.length ? joinList(themes.slice(0, 3)) : null;
   const toneText = tone.length ? joinList(tone.slice(0, 2)) : null;
@@ -160,9 +186,29 @@ function buildLongReason(params: {
   } else if (matchKind === "mood" && moodTags.length) {
     sentences.push(`This fits where your recent activity has been leaning: ${joinList(moodTags.slice(0, 3))}.`);
     if (themeText) sentences.push(`It's built around ${themeText}${toneText ? ` with a ${toneText} tone` : ""}.`);
+  } else if (genreNote || decadeNote) {
+    // Same weak-branch fix as the headline above, applied to the fuller
+    // explanation -- naming the real genre/decade evidence instead of
+    // only ever saying "we don't have a strong signal."
+    const evidence = [genreNote, decadeNote].filter((n): n is string => !!n);
+    sentences.push(
+      `We don't have a specific title-to-title match for this one, but ${joinList(evidence)} — a real pattern from your own ratings, not a generic category guess.`
+    );
+    if (themeText) sentences.push(`It's centered on ${themeText}${toneText ? ` with a ${toneText} tone` : ""}.`);
   } else {
     sentences.push("We don't have a strong direct signal for this one yet, so it's leaning on your broader Taste Graph rather than a specific citation.");
     if (themeText) sentences.push(`It's centered on ${themeText}${toneText ? ` with a ${toneText} tone` : ""}.`);
+  }
+
+  // Additive detail folded into every branch above (content, mood, or the
+  // genre/decade-evidenced fallback) when it's a real, additional fact
+  // this pick didn't already lead with -- e.g. a content-match pick cited
+  // by title can *also* happen to be from a favorite decade. Never
+  // duplicated into the branch that already used it as the headline
+  // reason (genreNote/decadeNote-led fallback above already said this).
+  if (matchKind !== "generic" || (!genreNote && !decadeNote)) {
+    if (genreNote) sentences.push(`On top of that, ${genreNote}.`);
+    if (decadeNote) sentences.push(`Plus, ${decadeNote}.`);
   }
 
   if (pacing || endingType) {

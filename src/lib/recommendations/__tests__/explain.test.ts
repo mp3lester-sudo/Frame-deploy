@@ -118,6 +118,72 @@ describe("buildReasonDetail", () => {
     expect(detail.pacing).toBe("moderate");
     expect(detail.endingType).toBe("bittersweet");
   });
+
+  it("uses genreNote to give the generic fallback a real, specific headline instead of a placeholder", () => {
+    const detail = buildReasonDetail({
+      title: title({ mood_tags: [] }),
+      hasStrongContentMatch: false,
+      citedTitles: [],
+      genreNote: "you consistently rate Horror highly",
+    });
+    expect(detail.headline).toBe("Picked because you consistently rate Horror highly.");
+    expect(detail.headline).not.toContain("Taste Graph");
+  });
+
+  it("uses decadeNote for the generic fallback when there's no genreNote", () => {
+    const detail = buildReasonDetail({
+      title: title({ mood_tags: [] }),
+      hasStrongContentMatch: false,
+      citedTitles: [],
+      decadeNote: "you tend to love films from the 1990s",
+    });
+    expect(detail.headline).toBe("Picked because you tend to love films from the 1990s.");
+  });
+
+  it("prefers genreNote over decadeNote when both are present for the generic fallback", () => {
+    const detail = buildReasonDetail({
+      title: title({ mood_tags: [] }),
+      hasStrongContentMatch: false,
+      citedTitles: [],
+      genreNote: "you consistently rate Horror highly",
+      decadeNote: "you tend to love films from the 1990s",
+    });
+    expect(detail.headline).toContain("Horror");
+  });
+
+  it("still falls back to the Taste Graph line when neither note is available", () => {
+    const detail = buildReasonDetail({
+      title: title({ mood_tags: [] }),
+      hasStrongContentMatch: false,
+      citedTitles: [],
+    });
+    expect(detail.headline).toContain("Taste Graph");
+  });
+
+  it("folds genreNote/decadeNote into the longReason as real, additional evidence", () => {
+    const detail = buildReasonDetail({
+      title: title({ mood_tags: [] }),
+      hasStrongContentMatch: false,
+      citedTitles: [],
+      genreNote: "you consistently rate Horror highly",
+      decadeNote: "you tend to love films from the 1990s",
+    });
+    expect(detail.longReason).toContain("you consistently rate Horror highly");
+    expect(detail.longReason).toContain("you tend to love films from the 1990s");
+  });
+
+  it("also surfaces genreNote/decadeNote on a strong content-match pick, as supplementary detail", () => {
+    const detail = buildReasonDetail({
+      title: title(),
+      hasStrongContentMatch: true,
+      citedTitles: ["Se7en"],
+      genreNote: "you consistently rate Drama highly",
+      decadeNote: "you tend to love films from the 1990s",
+    });
+    expect(detail.headline).toContain("Se7en");
+    expect(detail.longReason).toContain("you consistently rate Drama highly");
+    expect(detail.longReason).toContain("you tend to love films from the 1990s");
+  });
 });
 
 // Recommendation intelligence audit finding #2: the labeling half of the

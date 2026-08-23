@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeGenreAffinity, genreAffinityMultiplier, type GenreAffinityEntry } from "@/lib/recommendations/genre-affinity";
+import { computeGenreAffinity, genreAffinityMultiplier, genreAffinityNote, type GenreAffinityEntry } from "@/lib/recommendations/genre-affinity";
 
 describe("computeGenreAffinity", () => {
   it("returns nothing for genres seen fewer than 2 times", () => {
@@ -113,5 +113,39 @@ describe("genreAffinityMultiplier", () => {
     ]);
     const mult = genreAffinityMultiplier(["Horror", "Slasher"], affinity);
     expect(mult).toBeCloseTo(0.7, 5);
+  });
+});
+
+
+describe("genreAffinityNote", () => {
+  const entry = (affinity: number, count: number): GenreAffinityEntry => ({ affinity, count });
+
+  it("returns null when no genre clears the note threshold", () => {
+    const affinity = new Map([["Drama", entry(0.2, 10)]]);
+    expect(genreAffinityNote(["Drama"], affinity)).toBeNull();
+  });
+
+  it("returns null for a title with no known genres", () => {
+    const affinity = new Map([["Drama", entry(0.8, 10)]]);
+    expect(genreAffinityNote(null, affinity)).toBeNull();
+    expect(genreAffinityNote(["Crime"], affinity)).toBeNull();
+  });
+
+  it("names the genre once affinity clears the threshold", () => {
+    const affinity = new Map([["Drama", entry(0.6, 10)]]);
+    expect(genreAffinityNote(["Drama"], affinity)).toBe("you consistently rate Drama highly");
+  });
+
+  it("picks the single strongest-affinity genre among several qualifying ones", () => {
+    const affinity = new Map([
+      ["Drama", entry(0.5, 10)],
+      ["Crime", entry(0.9, 10)],
+    ]);
+    expect(genreAffinityNote(["Drama", "Crime"], affinity)).toBe("you consistently rate Crime highly");
+  });
+
+  it("never names a genre with negative affinity", () => {
+    const affinity = new Map([["Horror", entry(-0.9, 10)]]);
+    expect(genreAffinityNote(["Horror"], affinity)).toBeNull();
   });
 });
