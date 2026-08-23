@@ -488,19 +488,35 @@ export async function getRecommendationsForUser(
     // per target (up to `limit` times) on top of whatever else the home
     // page is already fetching. See that migration's comment for why the
     // per-candidate query cost is unchanged -- only the round-trip count is.
-    const { data: citationRows } = await supabase.rpc("most_similar_liked_titles_batch", {
-      p_user_id: userId,
-      p_title_ids: citationTargets,
-      // most_similar_liked_title (migration 0016) defaults its own
-      // internal p_min_similarity to 0.78 -- a separate, stricter bar
-      // than CONTENT_MATCH_THRESHOLD above. Without overriding it here,
-      // lowering the outer gate did nothing: more titles would attempt
-      // a citation lookup, but the lookup itself kept rejecting all of
-      // them under the old default. Passing the same threshold through
-      // keeps both checks in sync.
-      p_min_similarity: CONTENT_MATCH_THRESHOLD,
-      p_media_type: mediaType,
-    });
+    //
+    // This was the last unbounded embedding-similarity RPC left on the home
+    // page's critical path -- unlike the others above, it runs sequentially
+    // AFTER both Promise.all batches (it needs rankedIds, which needs
+    // everything before it), so a slow response here couldn't hide behind
+    // anything else running concurrently -- it was pure added latency on
+    // top of whatever match_titles_for_user/similarity_to_* already cost.
+    // Same cap-and-degrade treatment: past 3s this just contributes no
+    // citations ("Because you loved X") rather than blocking the page --
+    // recommendation-reveal.tsx already treats citations as optional.
+    const citationPromise = Promise.resolve(
+      supabase.rpc("most_similar_liked_titles_batch", {
+        p_user_id: userId,
+        p_title_ids: citationTargets,
+        // most_similar_liked_title (migration 0016) defaults its own
+        // internal p_min_similarity to 0.78 -- a separate, stricter bar
+        // than CONTENT_MATCH_THRESHOLD above. Without overriding it here,
+        // lowering the outer gate did nothing: more titles would attempt
+        // a citation lookup, but the lookup itself kept rejecting all of
+        // them under the old default. Passing the same threshold through
+        // keeps both checks in sync.
+        p_min_similarity: CONTENT_MATCH_THRESHOLD,
+        p_media_type: mediaType,
+      })
+    );
+    const { data: citationRows } = await withTimeout(citationPromise, 3000, {
+      data: [] as Awaited<typeof citationPromise>["data"],
+      error: null,
+    } as Awaited<typeof citationPromise>);
     const citedIdsByRecId = new Map<string, string[]>();
     for (const row of citationRows ?? []) {
       if (!row.cited_title_id) continue;
