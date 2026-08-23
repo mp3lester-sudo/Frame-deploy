@@ -7,6 +7,12 @@ import Image from "@/components/ui/fade-image";
 import { rateTitle } from "@/lib/actions/social";
 import { getOnboardingCompletionPicks, type OnboardingCompletionPick } from "@/lib/actions/onboarding";
 import { formatRuntime } from "@/lib/utils";
+import { siteOrigin } from "@/lib/seo/site";
+
+// See backdrop-hero.tsx for why this is needed: an explicit origin
+// param makes YouTube's autoplay/remote-control origin validation
+// reliable inside the native iOS app's WKWebView.
+const PRODUCTION_ORIGIN = siteOrigin();
 
 export interface SwipeTitle {
   id: string;
@@ -439,7 +445,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
         {current.trailerKey ? (
           <iframe
             className="pointer-events-none absolute left-1/2 top-1/2 h-full w-auto min-w-full aspect-video -translate-x-1/2 -translate-y-1/2 border-0"
-            src={`https://www.youtube.com/embed/${current.trailerKey}?autoplay=1&mute=1&loop=1&playlist=${current.trailerKey}&controls=0&rel=0&playsinline=1&modestbranding=1&disablekb=1&fs=0&iv_load_policy=3`}
+            src={`https://www.youtube.com/embed/${current.trailerKey}?autoplay=1&mute=1&loop=1&playlist=${current.trailerKey}&controls=0&rel=0&playsinline=1&modestbranding=1&disablekb=1&fs=0&iv_load_policy=3&origin=${encodeURIComponent(PRODUCTION_ORIGIN)}`}
             title={`${current.name} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
           />

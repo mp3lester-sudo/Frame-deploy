@@ -4,6 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX, X } from "lucide-react";
 import Image from "@/components/ui/fade-image";
 import { BackButton } from "@/components/ui/back-button";
+import { siteOrigin } from "@/lib/seo/site";
+
+// YouTube's IFrame API validates postMessage-based remote-control calls
+// (forcePlay()'s mute/playVideo commands below) against this origin, or
+// falls back to the request's Referer header when it's absent. WKWebView
+// (the native iOS app's embedded browser) doesn't always send a reliable
+// Referer for iframe loads, which can make YouTube silently ignore our
+// postMessage commands there even though the identical code works fine
+// in ordinary mobile/desktop Safari -- passing origin explicitly closes
+// that gap.
+const PRODUCTION_ORIGIN = siteOrigin();
 
 /**
  * The movie detail page's full-bleed backdrop, trailer-aware. With a
@@ -203,7 +214,7 @@ export function BackdropHero({
           <iframe
             ref={iframeRef}
             className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] origin-center scale-125 -translate-x-1/2 -translate-y-1/2 border-0"
-            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1&controls=0&disablekb=1&fs=0&iv_load_policy=3`}
+            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&origin=${encodeURIComponent(PRODUCTION_ORIGIN)}`}
             title={`${title} trailer`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             onLoad={() => {
