@@ -27,6 +27,8 @@ import { isAuteurActive } from "@/lib/premium/tier";
 import { getMySeasonRatings } from "@/lib/actions/season-ratings";
 import { SeasonRatings } from "@/components/season-ratings";
 import { MoreLikeThis } from "@/components/more-like-this";
+import { getFriendLovedThis } from "@/lib/social/friend-loved-this";
+import { FriendLovedThisCard } from "@/components/movie/friend-loved-this-card";
 import type { Metadata } from "next";
 import { cache } from "react";
 
@@ -86,6 +88,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
     { data: viewerProfile },
     imageOverride,
     mySeasonRatings,
+    friendLovedThis,
   ] =
     await Promise.all([
       getTitleById(id),
@@ -130,6 +133,13 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
       // for movies and logged-out visitors, cheap to fetch unconditionally
       // here since getMySeasonRatings itself no-ops without a viewer.
       viewer ? getMySeasonRatings(id) : Promise.resolve({}),
+      // "X loved this too" (magic-moments audit, task #755) -- reuses the
+      // follows graph + ratings/reviews tables the reviews section above
+      // already queries elsewhere on this same page, just scoped to
+      // people the viewer follows instead of everyone. No-ops entirely
+      // for logged-out visitors and unconditionally cheap otherwise (one
+      // follows lookup, one ratings lookup, both indexed).
+      viewer ? getFriendLovedThis(viewer.id, id) : Promise.resolve(null),
     ]);
 
   if (!title) notFound();
@@ -252,6 +262,12 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
           <CreditsSection credits={(credits ?? []) as unknown as Credit[]} />
 
           <WhereToWatch offers={watchProviders} />
+
+          {friendLovedThis && (
+            <div className="mt-4">
+              <FriendLovedThisCard friend={friendLovedThis} />
+            </div>
+          )}
 
           {/* Redesign pass: rating stars now sit inline with the
               watchlist/add-to-list row instead of stacking above it in
