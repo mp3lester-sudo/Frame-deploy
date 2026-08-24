@@ -17,6 +17,7 @@ import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { captureServerError } from "@/lib/monitoring/sentry-server";
 import { getActiveMediaType } from "@/lib/context/media-type";
 import { movieNightLabel, movieNightLabelLower, movieNightsLabelLower } from "@/lib/copy/movie-night-copy";
+import { ReferralNudge } from "@/components/growth/referral-nudge";
 
 type ParticipantRow = MovieNightParticipantRow;
 
@@ -27,9 +28,10 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
   const mediaType = await getActiveMediaType();
   if (!user) redirect(`/login?next=/movie-night/${id}`);
 
-  // night and participantRows both only depend on the route's `id`, so
-  // they run in parallel instead of two sequential round trips.
-  const [{ data: night }, { data: participantRows }] = await Promise.all([
+  // night, participantRows, and the viewer's own referral code (for the
+  // post-decision invite nudge below) are all independent of each other,
+  // so they run in parallel instead of sequential round trips.
+  const [{ data: night }, { data: participantRows }, { data: viewerProfile }] = await Promise.all([
     supabase
       .from("movie_nights")
       .select("id, host_id, status, decided_title_id, invite_token, created_at")
@@ -39,6 +41,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
       .from("movie_night_participants")
       .select("user_id, mood, excluded_genres, profiles(username, display_name, avatar_url)")
       .eq("movie_night_id", id),
+    supabase.from("profiles").select("referral_code").eq("id", user.id).maybeSingle(),
   ]);
   // RLS already restricts this to hosts/participants, so a null result here
   // means either it doesn't exist or you're not part of it — same UX either way.
@@ -177,6 +180,22 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
                   Cancel
                 </Button>
               </form>
+            </div>
+          )}
+
+          {/* Growth audit: the referral link previously only lived in
+              Settings -- surfaced here instead, right after the group
+              actually got a pick everyone's happy with, since "who else
+              would like this" is the thought a satisfied participant is
+              already having. Shown to every participant, not just the
+              host -- anyone in the session might want to bring the next
+              person in. */}
+          {viewerProfile?.referral_code && (
+            <div className="mt-6">
+              <ReferralNudge
+                referralLink={`${siteOrigin()}/signup?ref=${viewerProfile.referral_code}`}
+                prompt={`Good pick? Start your next ${movieNightLabelLower(mediaType)} with a friend.`}
+              />
             </div>
           )}
         </div>

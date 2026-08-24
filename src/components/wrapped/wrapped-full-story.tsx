@@ -21,10 +21,14 @@ export function WrappedFullStory({
   result,
   headline,
   shareYear,
+  referralLink,
 }: {
   result: WrappedResult;
   headline: string;
   shareYear: number;
+  /** Threaded down to the finale slide's referral nudge -- see
+   *  ReferralNudge and migration 0084 (mutual referral bonus). */
+  referralLink?: string;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -37,6 +41,7 @@ export function WrappedFullStory({
       result={result}
       headline={headline}
       shareYear={shareYear}
+      referralLink={referralLink}
       variant="full"
       onClose={() => setOpen(false)}
     />

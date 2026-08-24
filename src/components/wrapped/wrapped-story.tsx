@@ -5,6 +5,7 @@ import Image from "@/components/ui/fade-image";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { Button } from "@/components/ui/button";
 import { ShareWrappedButton } from "@/components/wrapped/share-button";
+import { ReferralNudge } from "@/components/growth/referral-nudge";
 import { buildWrappedSlides, formatHoursAsDaysAndHours, type WrappedSlide } from "@/lib/wrapped/build-slides";
 import { getPosterGlow } from "@/lib/wrapped/poster-glow";
 import type { WrappedResult, WrappedTitleRef } from "@/lib/taste-dna/wrapped";
@@ -43,6 +44,7 @@ export function WrappedStory({
   result,
   headline,
   shareYear,
+  referralLink,
   variant = "full",
   onClose,
 }: {
@@ -53,6 +55,12 @@ export function WrappedStory({
    *  the finale slide skips the Share button entirely rather than
    *  offering a broken one. */
   shareYear?: number;
+  /** Growth audit: the finale slide is the actual "that was satisfying"
+   *  moment for the whole Wrapped experience, so the referral nudge
+   *  lives here rather than only in Settings. Same full-variant-only
+   *  gating as shareYear -- the compact weekly/monthly recap doesn't
+   *  get either. */
+  referralLink?: string;
   variant?: "full" | "compact";
   /** Full-screen takeover close control (see WrappedFullStory) -- only
    *  ever passed for variant="full", the only variant that renders as a
@@ -202,6 +210,7 @@ export function WrappedStory({
           slide={current}
           variant={variant}
           shareYear={shareYear}
+          referralLink={referralLink}
           onRestart={handleRestart}
         />
       </div>
@@ -253,11 +262,13 @@ function SlideContent({
   slide,
   variant,
   shareYear,
+  referralLink,
   onRestart,
 }: {
   slide: WrappedSlide;
   variant: "full" | "compact";
   shareYear?: number;
+  referralLink?: string;
   onRestart: () => void;
 }) {
   switch (slide.type) {
@@ -287,6 +298,7 @@ function SlideContent({
           summary={slide.summary}
           result={slide.result}
           shareYear={variant === "full" ? shareYear : undefined}
+          referralLink={variant === "full" ? referralLink : undefined}
           onRestart={onRestart}
         />
       );
@@ -418,12 +430,14 @@ function FinaleSlide({
   summary,
   result,
   shareYear,
+  referralLink,
   onRestart,
 }: {
   headline: string;
   summary: string;
   result: WrappedResult;
   shareYear?: number;
+  referralLink?: string;
   onRestart: () => void;
 }) {
   return (
@@ -448,6 +462,10 @@ function FinaleSlide({
             Watch again
           </Button>
         </div>
+
+        {referralLink && (
+          <ReferralNudge referralLink={referralLink} prompt="Enjoyed your Wrapped? Get a friend on Slate." />
+        )}
       </div>
     </FrostedPanel>
   );

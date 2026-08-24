@@ -7,6 +7,8 @@ import { WrappedFullStory } from "@/components/wrapped/wrapped-full-story";
 import { Button } from "@/components/ui/button";
 import { PremiumUpsell } from "@/components/premium-upsell";
 import { MIN_RATINGS_FOR_WRAPPED, getMonthRange, getWeekRange } from "@/lib/taste-dna/wrapped";
+import { createClient } from "@/lib/supabase/server";
+import { siteOrigin } from "@/lib/seo/site";
 
 export default async function WrappedPage({
   searchParams,
@@ -25,8 +27,16 @@ export default async function WrappedPage({
   // getMyRecentWrapped is independent of the year param above -- always
   // "the current week/month" (week for Auteur, month for Premium -- see
   // getMyRecentWrapped), gated inside the action itself -- so it doesn't
-  // need to wait on getMyWrapped(year) or vice versa.
-  const [result, recent] = await Promise.all([getMyWrapped(year), getMyRecentWrapped()]);
+  // need to wait on getMyWrapped(year) or vice versa. The referral code
+  // lookup (for the finale slide's inline invite nudge, growth audit) is
+  // likewise independent of both.
+  const supabase = await createClient();
+  const [result, recent, { data: viewerProfile }] = await Promise.all([
+    getMyWrapped(year),
+    getMyRecentWrapped(),
+    supabase.from("profiles").select("referral_code").eq("id", user.id).maybeSingle(),
+  ]);
+  const referralLink = viewerProfile?.referral_code ? `${siteOrigin()}/signup?ref=${viewerProfile.referral_code}` : undefined;
   const recentLabel = recent.cadence === "week" ? getWeekRange(now).label : getMonthRange(now).label;
   const recentHeadline = recent.cadence === "week" ? `Your week of ${recentLabel}` : `Your ${recentLabel}`;
 
@@ -88,6 +98,7 @@ export default async function WrappedPage({
           result={result}
           headline={`Your ${isCurrentYear ? `${year} So Far` : `${year} Wrapped`}`}
           shareYear={year}
+          referralLink={referralLink}
         />
       )}
     </section>

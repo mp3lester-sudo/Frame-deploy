@@ -36,7 +36,7 @@ export function ReferralCard({
       try {
         await navigator.share({
           title: "Join me on Slate",
-          text: `Get ${REFERRAL_BONUS_DAYS} days of Premium free when you sign up with my link.`,
+          text: `Sign up with my link and we both get ${REFERRAL_BONUS_DAYS} days of Premium free.`,
           url: referralLink,
         });
         return;
@@ -53,7 +53,7 @@ export function ReferralCard({
     <div>
       <h2 className="mb-1 text-sm font-medium">Invite friends</h2>
       <p className="mb-3 text-xs text-foreground-muted">
-        Share your link — every friend who signs up earns you {REFERRAL_BONUS_DAYS} days of Premium, free.
+        Share your link — you and every friend who signs up each get {REFERRAL_BONUS_DAYS} days of Premium, free.
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
