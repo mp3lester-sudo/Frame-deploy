@@ -14,6 +14,7 @@ import { LiveCandidateVotingLazy } from "@/components/movie-night/live-candidate
 import { LiveParticipants } from "@/components/movie-night/live-participants";
 import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
+import { buildAgreementForecast } from "@/lib/recommendations/agreement-forecast";
 import { captureServerError } from "@/lib/monitoring/sentry-server";
 import { getActiveMediaType } from "@/lib/context/media-type";
 import { movieNightLabel, movieNightLabelLower, movieNightsLabelLower } from "@/lib/copy/movie-night-copy";
@@ -111,6 +112,16 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
   const comparisons = comparisonsRaw.filter((c): c is NonNullable<typeof c> => c !== null);
   const decidedTitle = decidedTitleResult.data;
   const initialVotes = voteRowsResult.data ?? [];
+
+  // Agreement forecast (magic-moments audit) -- reads straight off the
+  // same `comparisons` this page already computed for the "Taste
+  // comparison" cards below, no new query. Only worth showing before a
+  // vote has happened; once the group has already voted or decided, the
+  // actual result is more useful than a forecast of it.
+  const agreementForecast =
+    night.status === "collecting"
+      ? buildAgreementForecast(comparisons.map((c) => ({ name: c.name, compatibility: c.compatibility })))
+      : [];
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-8">
@@ -225,6 +236,17 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
                 </p>
                 <InviteForm movieNightId={night.id} />
               </div>
+            </div>
+          )}
+
+          {agreementForecast.length > 0 && (
+            <div className="bento-card mt-8 p-3">
+              <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">Before you vote</p>
+              {agreementForecast.map((line) => (
+                <p key={line} className="text-sm text-foreground-muted">
+                  {line}
+                </p>
+              ))}
             </div>
           )}
 
