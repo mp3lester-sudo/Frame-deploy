@@ -316,7 +316,7 @@ export interface Database {
           id: string;
           recipient_id: string;
           actor_id: string | null;
-          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided" | "payment_failed";
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided" | "payment_failed" | "new_from_favorite_director";
           title_id: string | null;
           ref_id: string | null;
           read_at: string | null;
@@ -325,7 +325,7 @@ export interface Database {
         Insert: {
           recipient_id: string;
           actor_id?: string | null;
-          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided" | "payment_failed";
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided" | "payment_failed" | "new_from_favorite_director";
           title_id?: string | null;
           ref_id?: string | null;
           read_at?: string | null;
@@ -426,13 +426,13 @@ export interface Database {
       notification_preferences: {
         Row: {
           user_id: string;
-          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided" | "new_from_favorite_director";
           push_enabled: boolean;
           updated_at: string;
         };
         Insert: {
           user_id: string;
-          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided";
+          type: "follow" | "comment" | "reaction" | "movie_night_invite" | "movie_night_decided" | "new_from_favorite_director";
           push_enabled?: boolean;
         };
         Update: Partial<{ push_enabled: boolean }>;

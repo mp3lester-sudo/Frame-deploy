@@ -10,7 +10,8 @@
 // the digest-only production error gave no hint this was the cause.
 //
 /** The subset of NotificationType a user can actually toggle -- keep this
- *  in sync with migration 0043's check constraint. "payment_failed" is
+ *  in sync with migration 0043's check constraint (widened by migration
+ *  0085 to add "new_from_favorite_director"). "payment_failed" is
  *  deliberately excluded everywhere (see that migration's comment). */
 export const TOGGLABLE_NOTIFICATION_TYPES = [
   "follow",
@@ -18,5 +19,6 @@ export const TOGGLABLE_NOTIFICATION_TYPES = [
   "reaction",
   "movie_night_invite",
   "movie_night_decided",
+  "new_from_favorite_director",
 ] as const;
 export type TogglableNotificationType = (typeof TOGGLABLE_NOTIFICATION_TYPES)[number];

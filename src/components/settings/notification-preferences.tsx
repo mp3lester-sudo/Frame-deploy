@@ -10,6 +10,7 @@ const LABELS: Record<TogglableNotificationType, string> = {
   reaction: "Reactions to your reviews",
   movie_night_invite: "Movie Night invites",
   movie_night_decided: "Movie Night decisions",
+  new_from_favorite_director: "New releases from directors you love",
 };
 
 /**

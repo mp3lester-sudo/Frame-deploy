@@ -32,6 +32,8 @@ function describe(
       return `${movieNightLabel(mediaType)} picked ${titleName ?? "a title"}.`;
     case "payment_failed":
       return "We couldn't process your Premium payment — update your card to keep your subscription.";
+    case "new_from_favorite_director":
+      return titleName ? `New from a director you love: ${titleName}.` : "New from a director you love.";
   }
 }
 
@@ -47,6 +49,8 @@ function linkFor(type: NotificationType, actorUsername: string | null, titleId: 
       return refId ? `/movie-night/${refId}` : "/movie-night";
     case "payment_failed":
       return "/premium";
+    case "new_from_favorite_director":
+      return titleId ? `/movie/${titleId}` : "/notifications";
   }
 }
 
@@ -104,7 +108,8 @@ export default async function NotificationsPage() {
 
       {notifications.length === 0 ? (
         <p className="text-sm text-foreground-muted">
-          Nothing yet. Follows, comments, reactions, and {movieNightLabel(activeMediaType)} invites will show up here.
+          Nothing yet. Follows, comments, reactions, {movieNightLabel(activeMediaType)} invites, and new titles from
+          directors you love will show up here.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">

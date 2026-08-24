@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runReengagementCampaign } from "@/lib/reengagement/campaign";
+import { runFavoriteDirectorAlerts } from "@/lib/notifications/favorite-director-alerts";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 /**
@@ -35,5 +36,18 @@ export async function GET(request: Request) {
     console.error("[cron] prune_rate_limit_buckets failed:", pruneError.message);
   }
 
-  return NextResponse.json(summary);
+  // Also piggybacked onto this same daily tick, same reasoning as the
+  // pruning call above -- "new from a director you love" only needs to
+  // run roughly daily and has no reason to be its own separate Vercel
+  // Cron entry. Isolated in its own try/catch so a failure here can never
+  // take down the reengagement emails or bucket pruning that already
+  // succeeded above.
+  let directorAlertSummary;
+  try {
+    directorAlertSummary = await runFavoriteDirectorAlerts();
+  } catch (err) {
+    console.error("[cron] runFavoriteDirectorAlerts failed:", err);
+  }
+
+  return NextResponse.json({ ...summary, directorAlerts: directorAlertSummary });
 }

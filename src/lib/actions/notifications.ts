@@ -18,7 +18,15 @@ export type NotificationType =
   // which inserts this type directly (not via notify() below, since
   // notify() always expects an actorId and treats actorId === recipientId
   // as a self-notification no-op).
-  | "payment_failed";
+  | "payment_failed"
+  // Also system-generated, no human actor -- inserted directly by
+  // src/lib/notifications/favorite-director-alerts.ts (a daily cron job,
+  // see api/cron/reengagement/route.ts), same reasoning as payment_failed
+  // above. Unlike payment_failed, this one IS user-togglable (see
+  // TOGGLABLE_NOTIFICATION_TYPES / migration 0085) -- going quiet on this
+  // one has no financial consequence, so it gets the same opt-out control
+  // as follow/comment/reaction/movie_night_invite/movie_night_decided.
+  | "new_from_favorite_director";
 
 /**
  * Shared helper called from the other action files right after the write
@@ -133,6 +141,13 @@ export async function notify(
     // constraint at all) -- TOGGLABLE_TYPES narrows params.type before the
     // query so that stays true at the type level too, not just by
     // convention.
+    // Types notify() itself sends push copy for via the switch above --
+    // "new_from_favorite_director" is deliberately NOT listed here even
+    // though it IS togglable (see TOGGLABLE_NOTIFICATION_TYPES) because
+    // it never goes through notify() at all (system-generated, no actor
+    // -- see favorite-director-alerts.ts, which does its own preference
+    // check + push send directly, same as the Stripe webhook route does
+    // for payment_failed).
     const TOGGLABLE_TYPES = new Set<NotificationType>([
       "follow",
       "comment",
