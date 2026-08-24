@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TitleCard } from "@/components/title-card";
@@ -10,13 +11,14 @@ import { LoadMoreCastCrew } from "@/components/load-more-cast-crew";
 import { loadMoreSearchTitles } from "@/lib/actions/catalogue";
 import { searchUsers, loadMoreUserSearch } from "@/lib/actions/users";
 import { searchCastCrew, loadMoreCastCrew } from "@/lib/actions/cast-crew";
-import { SEARCH_PAGE_SIZE, GRID_TITLE_COLUMNS } from "@/lib/constants/catalogue";
+import { SEARCH_PAGE_SIZE, GRID_TITLE_COLUMNS, GRID_TITLE_COLUMNS_WITH_RATING } from "@/lib/constants/catalogue";
 import { findCompanyMatch } from "@/lib/search/company-search";
 import { getTmdbIdsForCompany, orderByTmdbIdSequence } from "@/lib/search/company-titles";
 import { tokenizeSearchQuery } from "@/lib/search/tokenize";
 import { cn } from "@/lib/utils";
 import type { GridTitle } from "@/components/title-card";
 import { getActiveMediaType } from "@/lib/context/media-type";
+import { SEARCH_CANDIDATE_POOL_SIZE, personalizeDiscoverPool, type PersonalizableTitle } from "@/lib/discover/personalize";
 
 // orderByTmdbIdSequence (company-match branch below) needs tmdb_id to
 // re-sort by TMDB popularity order -- not something TitleCard renders,
@@ -38,6 +40,7 @@ export default async function SearchPage({
   const { q, type } = await searchParams;
   const mode: Mode = type === "people" ? "people" : type === "cast" ? "cast" : "titles";
   const supabase = await createClient();
+  const viewer = await getVerifiedUser();
   const mediaType = await getActiveMediaType();
 
   // Recognizes a studio name (see lib/search/company-search.ts) before
@@ -68,15 +71,23 @@ export default async function SearchPage({
       // Match every word in the query somewhere in the title rather than
       // requiring the whole phrase verbatim in that exact order -- see
       // loadMoreSearchTitles (same approach, kept in sync deliberately).
-      let titleBuilder = supabase.from("titles").select(`${GRID_TITLE_COLUMNS}, tmdb_id`).eq("type", mediaType);
+      // Personalization audit finding: this only ever sorted the matched
+      // set by weighted_rating -- a search for a common word or an actor
+      // with a large filmography returned the same order for every
+      // viewer. Same fix as Discover's grid (src/lib/discover/
+      // personalize.ts): over-fetch a bounded pool of query-matching
+      // titles in weighted_rating order, then re-rank it by blending in
+      // this viewer's taste similarity before slicing out the first page.
+      let titleBuilder = supabase.from("titles").select(`${GRID_TITLE_COLUMNS_WITH_RATING}, tmdb_id`).eq("type", mediaType);
       for (const word of tokenizeSearchQuery(q)) {
         titleBuilder = titleBuilder.ilike("name", `%${word}%`);
       }
-      const { data } = await titleBuilder
+      const { data: pool } = await titleBuilder
         .order("weighted_rating", { ascending: false, nullsFirst: false })
-        .range(0, SEARCH_PAGE_SIZE - 1);
-      titles = data ?? [];
-      titlesHaveMore = titles.length === SEARCH_PAGE_SIZE;
+        .range(0, SEARCH_CANDIDATE_POOL_SIZE - 1);
+      const rankedPool = await personalizeDiscoverPool(supabase, (pool ?? []) as unknown as (PersonalizableTitle & { tmdb_id: number | null })[], viewer?.id, mediaType);
+      titles = rankedPool.slice(0, SEARCH_PAGE_SIZE) as Title[];
+      titlesHaveMore = rankedPool.length > SEARCH_PAGE_SIZE;
     }
   }
 

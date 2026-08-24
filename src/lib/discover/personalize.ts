@@ -1,16 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GridTitle } from "@/components/title-card";
-import { DISCOVER_PAGE_SIZE } from "@/lib/constants/catalogue";
+import { DISCOVER_PAGE_SIZE, SEARCH_PAGE_SIZE } from "@/lib/constants/catalogue";
 
 /**
- * Personalization audit finding: Discover's browse grid sorted strictly by
+ * Personalization audit finding: Discover's browse grid AND title search
+ * both sorted strictly by
  * weighted_rating (public.titles) -- the same order for every user
  * regardless of taste, despite the taste-vector embedding infrastructure
  * already existing and working well on the home page rail. The fix
  * reuses that infrastructure rather than inventing new signal: blend
  * each candidate's taste-vector similarity (title_similarity_for_user,
  * migration 0071) with its weighted_rating, weighted toward taste per the
- * audit's Tier 1/2-dominant / Tier 5-floor signal hierarchy.
+ * audit's Tier 1/2-dominant / Tier 5-floor signal hierarchy. Despite the
+ * filename, everything in this module is generic to "a bounded,
+ * already-filtered pool of titles" -- Discover's filter and Search's
+ * query-word match are just two different ways of producing that pool,
+ * so both reuse the exact same blend/rank/lookup functions rather than
+ * each growing their own copy.
  *
  * Discover/Search's grid has no server-side session state to persist a
  * previously-computed order across "Load more" requests, so every caller
@@ -28,6 +34,16 @@ import { DISCOVER_PAGE_SIZE } from "@/lib/constants/catalogue";
 // in loadMoreDiscoverTitles, which continues in plain weighted_rating
 // order past this boundary.
 export const DISCOVER_CANDIDATE_POOL_SIZE = DISCOVER_PAGE_SIZE * 8;
+
+// Same reasoning, same 8x multiplier, applied to title search (see
+// loadMoreSearchTitles in src/lib/actions/catalogue.ts and
+// src/app/search/page.tsx): search's text-match filter already narrows
+// the catalogue down to "contains every query word," so this is the same
+// "bounded pool re-ranked by taste, not a full scan" shape as Discover,
+// just against a query-matched candidate set instead of a filter-matched
+// one. 24 * 8 = 192, still evenly divisible by SEARCH_PAGE_SIZE so no
+// page straddles the pool boundary.
+export const SEARCH_CANDIDATE_POOL_SIZE = SEARCH_PAGE_SIZE * 8;
 
 const TASTE_WEIGHT = 0.6;
 const QUALITY_WEIGHT = 0.4;
