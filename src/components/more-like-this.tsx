@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { TitleCard, type GridTitle } from "@/components/title-card";
 import type { MediaType } from "@/lib/context/media-type-cookie";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 /**
  * "More like this" rail on the movie/show detail page -- discovery-depth-
@@ -19,21 +20,34 @@ import type { MediaType } from "@/lib/context/media-type-cookie";
  */
 export async function MoreLikeThis({ titleId, mediaType }: { titleId: string; mediaType: MediaType }) {
   const supabase = await createClient();
-  const { data } = await supabase.rpc("similar_titles", {
+  const { data, error } = await supabase.rpc("similar_titles", {
     p_title_id: titleId,
     p_match_count: 10,
     p_media_type: mediaType,
   });
 
+  if (error) {
+    // Genuine RPC failure (missing function, bad grant, etc.) -- distinct
+    // from the legitimate "no embedding yet" case below, which returns an
+    // empty array rather than an error.
+    await captureServerError(error, { titleId, mediaType, rpc: "similar_titles" });
+    return null;
+  }
+
   if (!data || data.length === 0) return null;
 
-  const { data: titles } = await supabase
+  const { data: titles, error: titlesError } = await supabase
     .from("titles")
     .select("id, name, poster_url, type, in_production")
     .in(
       "id",
       data.map((d) => d.title_id)
     );
+
+  if (titlesError) {
+    await captureServerError(titlesError, { titleId, mediaType, step: "fetch-titles" });
+    return null;
+  }
 
   if (!titles || titles.length === 0) return null;
 
