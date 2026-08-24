@@ -1042,6 +1042,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           <TasteCompatibilityCard
             compatibility={compatibility}
             otherName={profile.display_name ?? profile.username}
+            otherUserId={profile.id}
           />
         </Reveal>
       )}

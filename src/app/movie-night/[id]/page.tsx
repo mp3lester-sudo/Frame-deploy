@@ -130,7 +130,12 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
         <div className="mt-6 space-y-3">
           <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Taste comparison</p>
           {comparisons.map((c) => (
-            <TasteCompatibilityCard key={c.userId} compatibility={c.compatibility} otherName={c.name} />
+            <TasteCompatibilityCard
+              key={c.userId}
+              compatibility={c.compatibility}
+              otherName={c.name}
+              otherUserId={c.userId}
+            />
           ))}
         </div>
       )}

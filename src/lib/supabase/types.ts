@@ -647,6 +647,32 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      compatibility_shares: {
+        Row: {
+          id: string;
+          viewer_id: string;
+          other_id: string;
+          viewer_name: string;
+          other_name: string;
+          percent: number;
+          shared_genres: string[];
+          shared_directors: string[];
+          disagreement_genre: string | null;
+          created_at: string;
+        };
+        Insert: {
+          viewer_id: string;
+          other_id: string;
+          viewer_name: string;
+          other_name: string;
+          percent: number;
+          shared_genres?: string[];
+          shared_directors?: string[];
+          disagreement_genre?: string | null;
+        };
+        Update: never;
+        Relationships: [];
+      };
       daily_trivia: {
         Row: {
           date_key: string;

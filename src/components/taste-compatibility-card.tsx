@@ -1,17 +1,25 @@
 import type { CompatibilityWithNames } from "@/lib/matchmaking/compute";
 import { Card } from "@/components/ui/card";
+import { CompatibilityShareButton } from "@/components/compatibility-share-button";
 
 /**
  * Shared rendering for computeCompatibilityForUsers' output — originally
  * inline on the profile page, extracted so Movie Night can show the same
  * "how do our tastes compare" card for each pairing in a session.
+ *
+ * otherUserId is optional so any call site that hasn't been updated yet
+ * still compiles -- but without it the share button (a two-person score
+ * naming the viewer's counterpart is a stronger share hook than a generic
+ * app link, see migration 0083) is omitted.
  */
 export function TasteCompatibilityCard({
   compatibility,
   otherName,
+  otherUserId,
 }: {
   compatibility: CompatibilityWithNames;
   otherName: string;
+  otherUserId?: string;
 }) {
   if (!compatibility.hasEnoughData) {
     return (
@@ -42,6 +50,7 @@ export function TasteCompatibilityCard({
           Your biggest disagreement: {compatibility.biggestDisagreementGenre}
         </p>
       )}
+      {otherUserId && <CompatibilityShareButton otherUserId={otherUserId} otherName={otherName} />}
     </Card>
   );
 }
