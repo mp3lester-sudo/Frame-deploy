@@ -8,6 +8,7 @@ import { notify } from "@/lib/actions/notifications";
 import { isRateLimited } from "@/lib/rate-limit";
 import { captureServerError } from "@/lib/monitoring/sentry-server";
 import { inferReviewSentimentScore } from "@/lib/reviews/sentiment";
+import { detectTasteBreakthrough, type TasteBreakthrough } from "@/lib/recommendations/taste-breakthrough";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -30,9 +31,39 @@ async function requireUser() {
  */
 const rateSchema = z.object({ titleId: z.string().uuid(), score: z.number().min(0.5).max(5) });
 
-export async function rateTitle(input: z.infer<typeof rateSchema>) {
+export async function rateTitle(
+  input: z.infer<typeof rateSchema>
+): Promise<{ breakthrough: TasteBreakthrough | null }> {
   const { titleId, score } = rateSchema.parse(input);
   const { supabase, user } = await requireUser();
+
+  // Taste-breakthrough detection (magic-moments audit) needs "what we knew
+  // before this rating landed," so this has to run before the upsert below
+  // -- prior ratings' genres plus the new title's own genres, fetched in
+  // parallel with each other (not with the upsert itself, which needs to
+  // happen serially since it's the write of record). Best-effort: a
+  // failure here should never block the rating from saving, so errors are
+  // swallowed and just mean no breakthrough toast fires this time.
+  let breakthrough: TasteBreakthrough | null = null;
+  try {
+    const [{ data: priorRatings }, { data: newTitle }] = await Promise.all([
+      supabase
+        .from("ratings")
+        .select("score, titles(genres)")
+        .eq("user_id", user.id)
+        .neq("title_id", titleId),
+      supabase.from("titles").select("genres").eq("id", titleId).maybeSingle(),
+    ]);
+    breakthrough = detectTasteBreakthrough(
+      (priorRatings ?? []).map((r) => ({
+        score: r.score,
+        genres: (r as unknown as { titles: { genres: string[] | null } | null }).titles?.genres ?? null,
+      })),
+      { score, genres: newTitle?.genres ?? null }
+    );
+  } catch (err) {
+    await captureServerError(err, { action: "detectTasteBreakthrough", userId: user.id, titleId });
+  }
 
   // Without an explicit onConflict target, PostgREST resolves upsert
   // conflicts against the table's primary key (id) -- a fresh insert
@@ -76,6 +107,8 @@ export async function rateTitle(input: z.infer<typeof rateSchema>) {
   // path; this was the missing half.
   revalidatePath("/taste-dna");
   revalidatePath("/profile/me");
+
+  return { breakthrough };
 }
 
 /**
@@ -286,4 +319,20 @@ export async function addToList(listId: string, titleId: string) {
   const position = (existingItems?.[0]?.position ?? -1) + 1;
   await supabase.from("list_items").insert({ list_id: listId, title_id: titleId, position });
   revalidatePath(`/lists/${listId}`);
+}
+
+/**
+ * Taste Twin opt-in toggle (magic-moments audit, task #754). Off by
+ * default -- this is the only thing that turns Taste Twin's compatibility
+ * computation and display on for this account at all (see
+ * src/lib/social/taste-twin.ts, which also requires the *other* person in
+ * any candidate pair to have opted in separately before anything is
+ * computed about them).
+ */
+export async function setTasteTwinOptIn(optIn: boolean) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("profiles").update({ taste_twin_opt_in: optIn }).eq("id", user.id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/profile");
 }

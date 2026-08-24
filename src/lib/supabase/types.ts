@@ -24,6 +24,7 @@ export interface Database {
           auteur_waitlist_requested_at: string | null;
           deleted_at: string | null;
           widget_token: string | null;
+          taste_twin_opt_in: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -155,6 +156,29 @@ export interface Database {
         Row: { follower_id: string; followee_id: string; created_at: string };
         Insert: { follower_id: string; followee_id: string };
         Update: never;
+        Relationships: [];
+      };
+      taste_twin_cache: {
+        Row: {
+          user_id: string;
+          twin_user_id: string | null;
+          percent: number | null;
+          shared_favorite_genres: string[];
+          computed_at: string;
+        };
+        Insert: {
+          user_id: string;
+          twin_user_id?: string | null;
+          percent?: number | null;
+          shared_favorite_genres?: string[];
+          computed_at?: string;
+        };
+        Update: Partial<{
+          twin_user_id: string | null;
+          percent: number | null;
+          shared_favorite_genres: string[];
+          computed_at: string;
+        }>;
         Relationships: [];
       };
       taste_vectors: {

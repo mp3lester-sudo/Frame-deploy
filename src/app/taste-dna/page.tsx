@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { ArchetypeBar } from "@/components/taste-dna/archetype-bar";
 import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
 import { isAuteurActive } from "@/lib/premium/tier";
+import { getTasteTwin } from "@/lib/social/taste-twin";
+import { TasteTwinCard } from "@/components/taste-dna/taste-twin-card";
 
 /** Free/Premium get the single headline signature pick and the original
  *  2-insight-per-direction evolution read; Auteur gets several signature
@@ -42,13 +44,18 @@ export default async function TasteDnaPage() {
   // fetch) must never hold up the rest of the page forever. Racing it
   // against a timeout and falling back to [] (silently hiding the section)
   // guarantees this page always resolves.
-  const [dna, signaturePicks] = await Promise.all([
+  const [dna, signaturePicks, tasteTwin] = await Promise.all([
     computeTasteDna(user.id, mediaType, isAuteur ? AUTEUR_MAX_ARCHETYPE_INSIGHTS : undefined),
     withTimeout(
       computeSignaturePicks(user.id, isAuteur ? AUTEUR_SIGNATURE_PICK_COUNT : STANDARD_SIGNATURE_PICK_COUNT, mediaType),
       10000,
       []
     ),
+    // Same "never hold up the page" treatment as signaturePicks above --
+    // getTasteTwin's cache-miss path does several pairwise compute.ts
+    // calls (bounded, but still real DB round trips), and this section is
+    // a nice-to-have, not core to the page.
+    withTimeout(getTasteTwin(user.id), 10000, null),
   ]);
 
   if (dna.sampleSize < MIN_SAMPLE_SIZE) {
@@ -106,6 +113,8 @@ export default async function TasteDnaPage() {
           ))}
         </div>
       )}
+
+      {tasteTwin && <TasteTwinCard twin={tasteTwin} />}
 
       <div className="mt-8 flex flex-col gap-4">
         {topArchetypes.map((a, i) => (

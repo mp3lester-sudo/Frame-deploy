@@ -18,6 +18,7 @@ import { LetterboxdRssImport } from "@/components/settings/letterboxd-rss-import
 import { ReferralCard } from "@/components/settings/referral-card";
 import { siteOrigin } from "@/lib/seo/site";
 import { LogoutButtons } from "@/components/settings/logout-buttons";
+import { TasteTwinToggle } from "@/components/settings/taste-twin-toggle";
 
 /**
  * Small uppercase label above each bento-card group -- the page is a long
@@ -82,6 +83,11 @@ export default async function SettingsPage() {
         <SectionLabel>Notifications</SectionLabel>
         <PushToggle />
         <NotificationPreferences />
+      </section>
+
+      <section className="mb-6 bento-card p-4">
+        <SectionLabel>Privacy</SectionLabel>
+        <TasteTwinToggle initialOptIn={profile?.taste_twin_opt_in ?? false} />
       </section>
 
       <section id="favorites" className="mb-6 scroll-mt-20 bento-card p-4">
