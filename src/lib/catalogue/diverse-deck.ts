@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { MediaType } from "@/lib/context/media-type-cookie";
+import { getTmdbTrailer } from "@/lib/external/tmdb-videos";
 
 /**
  * Shared genre-diverse swipe deck builder — used by both the pre-signup
@@ -59,14 +60,30 @@ export async function buildDiverseDeck(
     limit = ANCHOR_GENRES.length,
     excludeIds = [] as string[],
     mediaType,
-  }: { limit?: number; excludeIds?: string[]; mediaType: MediaType }
+    genres = ANCHOR_GENRES as readonly string[],
+    avoidGenres = [] as string[],
+  }: {
+    limit?: number;
+    excludeIds?: string[];
+    mediaType: MediaType;
+    /** Which anchor genres to round-robin through — defaults to the full
+     *  14-genre list. The adaptive onboarding batch (see
+     *  src/lib/catalogue/adaptive-onboarding.ts) narrows this to a user's
+     *  own early-favored genres instead of the fixed default set. */
+    genres?: readonly string[];
+    /** Genres to exclude candidates for entirely (Postgres array-overlap,
+     *  not per-genre-pool) — the adaptive batch's negative-signal half.
+     *  Left empty by every caller except the adaptive batch. */
+    avoidGenres?: string[];
+  }
 ): Promise<DeckTitle[]> {
   const excluded = new Set(excludeIds);
 
-  // Fetch each anchor genre's candidate pool once regardless of `limit` —
-  // the round-robin below decides how many of each pool actually get used.
+  // Fetch each requested genre's candidate pool once regardless of `limit`
+  // — the round-robin below decides how many of each pool actually get
+  // used.
   const results = await Promise.all(
-    ANCHOR_GENRES.map((genre) => {
+    genres.map((genre) => {
       let query = supabase
         .from("titles")
         .select("id, name, overview, poster_url, release_date, runtime_minutes, genres, tmdb_id, type")
@@ -76,11 +93,16 @@ export async function buildDiverseDeck(
         .order("weighted_rating", { ascending: false, nullsFirst: false })
         .limit(CANDIDATES_PER_GENRE);
       if (excludeIds.length) query = query.not("id", "in", `(${excludeIds.join(",")})`);
+      // .not(col, "ov", value) doesn't auto-format arrays the way
+      // .overlaps() does (verified against the actual query string it
+      // produces) — build the Postgrest array-literal string by hand so
+      // "not overlapping any avoided genre" round-trips correctly.
+      if (avoidGenres.length) query = query.not("genres", "ov", `{${avoidGenres.join(",")}}`);
       return query;
     })
   );
 
-  const pools = ANCHOR_GENRES.map((genre, i) => ({
+  const pools = genres.map((genre, i) => ({
     genre,
     candidates: (results[i].data ?? []).filter((t) => !excluded.has(t.id)),
     cursor: 0,
@@ -121,4 +143,64 @@ export async function buildDiverseDeck(
     }
   }
   return deck;
+}
+
+
+export interface EnrichedDeckTitle {
+  id: string;
+  name: string;
+  overview: string | null;
+  posterUrl: string | null;
+  year: string | null;
+  director: string | null;
+  runtimeMinutes: number | null;
+  genres: string[];
+  trailerKey: string | null;
+}
+
+/**
+ * Shared director+trailer enrichment for a deck of titles — extracted
+ * from onboarding/page.tsx so the adaptive mid-session batch (fetched via
+ * a server action, not a page render) can produce cards in exactly the
+ * same shape without duplicating this logic. Structurally identical to
+ * onboarding-swipe.tsx's SwipeTitle; kept as a local interface here
+ * rather than importing that type from a client component.
+ */
+export async function enrichDeckTitles(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  deck: DeckTitle[]
+): Promise<EnrichedDeckTitle[]> {
+  if (!deck.length) return [];
+
+  const titleIds = deck.map((t) => t.id);
+  const { data: directorCredits } = await supabase
+    .from("title_credits")
+    .select("title_id, people(name)")
+    .eq("credit_type", "director")
+    .in("title_id", titleIds);
+
+  const directorByTitle = new Map<string, string>();
+  for (const c of directorCredits ?? []) {
+    const name = (c as unknown as { people: { name: string } | null }).people?.name;
+    if (name && !directorByTitle.has(c.title_id)) directorByTitle.set(c.title_id, name);
+  }
+
+  // Fetched in parallel and cached 24h server-side (see getTmdbTrailer) --
+  // cheap even for a full deck, since it only pulls the YouTube video id
+  // per title, not the video itself.
+  const trailers = await Promise.all(
+    deck.map((t) => (t.tmdbId ? getTmdbTrailer(t.tmdbId, t.type) : Promise.resolve(null)))
+  );
+
+  return deck.map((t, i) => ({
+    id: t.id,
+    name: t.name,
+    overview: t.overview,
+    posterUrl: t.posterUrl,
+    year: t.year,
+    director: directorByTitle.get(t.id) ?? null,
+    runtimeMinutes: t.runtimeMinutes,
+    genres: t.genres,
+    trailerKey: trailers[i]?.key ?? null,
+  }));
 }

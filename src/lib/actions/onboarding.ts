@@ -5,6 +5,8 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getRecommendationsForUser } from "@/lib/recommendations/engine";
 import { getActiveMediaType } from "@/lib/context/media-type";
 import type { MediaType } from "@/lib/context/media-type-cookie";
+import { buildDiverseDeck, enrichDeckTitles, ANCHOR_GENRES, type EnrichedDeckTitle } from "@/lib/catalogue/diverse-deck";
+import { pickAdaptiveGenres, type SwipeSignal } from "@/lib/catalogue/adaptive-onboarding";
 
 /**
  * Completion-reveal picks for the post-signup /onboarding quiz — real
@@ -58,4 +60,64 @@ export async function hasAnyRatingsForType(mediaType: MediaType): Promise<boolea
   if (error) console.error("[onboarding] ratings lookup", error.message);
 
   return (data?.length ?? 0) > 0;
+}
+
+
+/**
+ * Adaptive onboarding deck (personalization audit #7) — the mid-session
+ * branch point. onboarding-swipe.tsx calls this once, at a checkpoint
+ * partway through the original fixed deck, passing every swipe made so
+ * far. The genre bias derived from those swipes (see
+ * pickAdaptiveGenres) replaces the untouched remainder of the deck with
+ * a batch that favors genres the user has already shown a real lean
+ * toward and avoids ones they've already passed on repeatedly — same
+ * buildDiverseDeck round-robin machinery the fixed deck itself uses,
+ * just pointed at a narrower, personal genre list instead of the fixed
+ * 14-anchor default.
+ *
+ * Cold-start-safe by construction: pickAdaptiveGenres returns an empty
+ * favorGenres list until real signal clears its evidence threshold, and
+ * buildDiverseDeck falls back to the full ANCHOR_GENRES list whenever
+ * `genres` comes back empty — so a checkpoint with no clear lean yet
+ * just continues serving the plain diverse deck, never a fabricated
+ * bias. avoidGenres can still apply on its own even without a favor
+ * signal (a few decisive "not for me" swipes are as real a signal as a
+ * few "love it" swipes).
+ */
+export async function getAdaptiveOnboardingBatch(
+  swipes: SwipeSignal[],
+  excludeIds: string[],
+  limit: number
+): Promise<EnrichedDeckTitle[]> {
+  const user = await getVerifiedUser();
+  if (!user || limit <= 0) return [];
+
+  const supabase = await createClient();
+  const mediaType = await getActiveMediaType();
+  const { favorGenres, avoidGenres } = pickAdaptiveGenres(swipes);
+
+  const deck = await buildDiverseDeck(supabase, {
+    limit,
+    excludeIds,
+    mediaType,
+    genres: favorGenres.length ? favorGenres : ANCHOR_GENRES,
+    avoidGenres,
+  });
+
+  // A narrowed genre list can come up short if excludeIds has already
+  // eaten most of a thin genre's catalogue depth — rather than strand
+  // the user with a visibly shorter deck, fall back to the plain
+  // diverse default for whatever's still missing.
+  if (deck.length < limit && favorGenres.length) {
+    const alreadyPicked = deck.map((t) => t.id);
+    const fallback = await buildDiverseDeck(supabase, {
+      limit: limit - deck.length,
+      excludeIds: [...excludeIds, ...alreadyPicked],
+      mediaType,
+      avoidGenres,
+    });
+    deck.push(...fallback);
+  }
+
+  return enrichDeckTitles(supabase, deck);
 }

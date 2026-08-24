@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { Heart, Minus, X } from "lucide-react";
 import Image from "@/components/ui/fade-image";
 import { rateTitle } from "@/lib/actions/social";
-import { getOnboardingCompletionPicks, type OnboardingCompletionPick } from "@/lib/actions/onboarding";
+import {
+  getOnboardingCompletionPicks,
+  getAdaptiveOnboardingBatch,
+  type OnboardingCompletionPick,
+} from "@/lib/actions/onboarding";
+import type { SwipeSignal } from "@/lib/catalogue/adaptive-onboarding";
 import { formatRuntime } from "@/lib/utils";
 import { siteOrigin } from "@/lib/seo/site";
 
@@ -80,8 +85,33 @@ const INTRO_TITLE_MS = 1400;
 const SWIPE_THRESHOLD = 110;
 const EXIT_DURATION_MS = 260;
 
-export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
+// Adaptive onboarding deck (personalization audit #7): once this many
+// cards have been swiped, the untouched remainder of the deck gets
+// replaced with a batch biased toward genres the user has already shown
+// a real lean toward. Roughly the halfway point of the default 14-title
+// deck -- early enough that the back half still feels adaptive, late
+// enough that the genre signal behind it isn't just 1-2 noisy swipes.
+const ADAPTIVE_BRANCH_CHECKPOINT = 6;
+
+export function OnboardingSwipe({
+  titles,
+  excludeIds = [],
+}: {
+  titles: SwipeTitle[];
+  /** Already-watched title ids (see onboarding/page.tsx) -- combined
+   *  with the deck's own ids before the adaptive mid-session fetch so
+   *  the replacement batch can't reintroduce a title the user has
+   *  already rated or already seen earlier in this same deck. */
+  excludeIds?: string[];
+}) {
   const [index, setIndex] = useState(0);
+  // The deck starts as the fixed server-built list but becomes mutable
+  // once the adaptive checkpoint fires and replaces its untouched
+  // remainder (see handleRate below) -- everything already swiped stays
+  // exactly as shown, only the not-yet-reached tail ever changes.
+  const [deck, setDeck] = useState(titles);
+  const swipeHistoryRef = useRef<SwipeSignal[]>([]);
+  const hasBranchedRef = useRef(false);
   // Starts `null` rather than guessing a phase, because whether to show
   // the intro depends on localStorage + prefers-reduced-motion, both
   // only knowable client-side -- guessing here would either flash the
@@ -104,8 +134,8 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
     active: false,
   });
 
-  const current = titles[index];
-  const progress = ((index + 1) / titles.length) * 100;
+  const current = deck[index];
+  const progress = ((index + 1) / deck.length) * 100;
 
   useEffect(() => {
     if (phase !== null) return;
@@ -182,7 +212,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
   }
 
   function advance() {
-    if (index + 1 >= titles.length) {
+    if (index + 1 >= deck.length) {
       finish();
     } else {
       setIndex((i) => i + 1);
@@ -190,15 +220,46 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
   }
 
   function handleRate(score: number | null) {
+    const swiped = current;
+    const justCompleted = index + 1;
     startTransition(async () => {
       if (score !== null) {
         try {
-          await rateTitle({ titleId: current.id, score });
+          await rateTitle({ titleId: swiped.id, score });
         } catch {
           // Non-fatal for onboarding — still advance so a single failed
           // write doesn't strand the user mid-flow.
         }
+        // "Haven't seen it" (score === null) contributes no genre
+        // signal — a skip says nothing about taste one way or the
+        // other, so it's deliberately left out of the adaptive batch's
+        // input the same way it's left out of rateTitle above.
+        swipeHistoryRef.current.push({ score, genres: swiped.genres });
       }
+
+      // Fires exactly once per session, right as the checkpoint-th card
+      // clears — replaces the untouched remainder of the deck with a
+      // genre-biased batch (see getAdaptiveOnboardingBatch). Guarded by
+      // deck.length so a short deck (fewer titles left in the catalogue
+      // than the fixed default) never tries to branch into a remainder
+      // that doesn't exist.
+      if (!hasBranchedRef.current && justCompleted === ADAPTIVE_BRANCH_CHECKPOINT && deck.length > ADAPTIVE_BRANCH_CHECKPOINT) {
+        hasBranchedRef.current = true;
+        try {
+          const remaining = deck.length - justCompleted;
+          const combinedExcludeIds = [...excludeIds, ...deck.map((t) => t.id)];
+          const batch = await getAdaptiveOnboardingBatch(swipeHistoryRef.current, combinedExcludeIds, remaining);
+          if (batch.length) {
+            setDeck((d) => [...d.slice(0, justCompleted), ...batch]);
+          }
+          // An empty batch (catalogue exhausted, or the fetch simply
+          // found nothing new) just leaves the original fixed remainder
+          // in place — never strands the user with a shorter deck.
+        } catch {
+          // Best-effort — the untouched original remainder keeps playing.
+        }
+      }
+
       advance();
     });
   }
@@ -487,7 +548,7 @@ export function OnboardingSwipe({ titles }: { titles: SwipeTitle[] }) {
             </span>
             <div className="pointer-events-auto flex items-center gap-3">
               <span className="font-sans text-[10px] text-white/60">
-                {index + 1} / {titles.length}
+                {index + 1} / {deck.length}
               </span>
               <button
                 type="button"
