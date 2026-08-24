@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
@@ -15,13 +17,42 @@ import { Button } from "@/components/ui/button";
  * gives someone no reason to bother signing up; showing them exactly what
  * they'd be joining does.
  */
+
+// Shared with generateMetadata below and opengraph-image.tsx's own fetch
+// (Next renders metadata files as a fully separate request, so this
+// cache() only dedupes within *this* file's two call sites -- the OG
+// image still pays its own round trip, same as wrapped/share/[id]).
+const getPreview = cache(async (token: string) => {
+  const supabase = await createClient();
+  const { data: rows } = await supabase.rpc("movie_night_preview", { p_token: token });
+  return rows?.[0] ?? null;
+});
+
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const preview = await getPreview(token);
+
+  if (!preview) return { title: "Invite not found" };
+
+  const hostName = preview.host_display_name ?? preview.host_username;
+  const title = `${hostName} wants your pick`;
+  const description =
+    preview.participant_count > 0
+      ? `${preview.participant_count} ${preview.participant_count === 1 ? "person is" : "people are"} deciding what to watch tonight on Slate. Join in and vote.`
+      : "Help pick something everyone's taste agrees on -- no account needed to see what's up for a vote.";
+
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
+
 export default async function MovieNightJoinPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const supabase = await createClient();
   const viewer = await getVerifiedUser();
-
-  const { data: rows } = await supabase.rpc("movie_night_preview", { p_token: token });
-  const preview = rows?.[0];
+  const preview = await getPreview(token);
 
   if (!preview) {
     return (

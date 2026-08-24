@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Share2 } from "lucide-react";
 import Link from "next/link";
 import Image from "@/components/ui/fade-image";
 import { formatRuntime } from "@/lib/utils";
-import { getTasteTeaser, type TeaserPick } from "@/lib/actions/landing-teaser";
+import { getTasteTeaser, shareTeaserResult, type TeaserPick } from "@/lib/actions/landing-teaser";
 import { MIN_SWIPES_FOR_TEASER, type AnonSwipe } from "@/lib/recommendations/teaser";
 import type { DeckTitle } from "@/lib/catalogue/diverse-deck";
+import { useToast } from "@/components/ui/toast";
 
 /**
  * Pre-signup "taste teaser": an anonymous visitor swipes on a handful of
@@ -42,6 +44,35 @@ export function TasteTeaser({ deck }: { deck: DeckTitle[] }) {
   const [phase, setPhase] = useState<Phase>("swiping");
   const [picks, setPicks] = useState<TeaserPick[]>([]);
   const [isPending, startTransition] = useTransition();
+  // Growth audit: the results screen below previously had no share
+  // affordance at all -- see shareTeaserResult() and /t/[id] for the rest
+  // of this loop. isSharing/shareLink are local to this results view only.
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  function handleShareTeaser() {
+    setIsSharing(true);
+    startTransition(async () => {
+      const result = await shareTeaserResult(picks);
+      setIsSharing(false);
+      if ("error" in result) {
+        showToast(result.error);
+        return;
+      }
+      const url = `${window.location.origin}/t/${result.id}`;
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        try {
+          await navigator.share({ title: "My Slate taste teaser picks", url });
+          return;
+        } catch {
+          // Backed out of the share sheet -- fall through to showing the
+          // copy-link row below instead of treating this as an error.
+        }
+      }
+      setShareLink(url);
+    });
+  }
 
   const current = deck[index];
 
@@ -115,6 +146,46 @@ export function TasteTeaser({ deck }: { deck: DeckTitle[] }) {
         >
           Create an account to save this
         </Link>
+
+        {picks.length > 0 && (
+          <div className="mt-3">
+            {shareLink ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  readOnly
+                  value={shareLink}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="h-10 min-w-0 flex-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 text-xs text-foreground-muted"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(shareLink);
+                      showToast("Copied to clipboard");
+                    } catch {
+                      // Clipboard API blocked -- the link is still shown as
+                      // selectable text above, so this is non-fatal.
+                    }
+                  }}
+                  className="text-xs text-foreground-muted hover:text-accent"
+                >
+                  Copy
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={isSharing}
+                onClick={handleShareTeaser}
+                className="inline-flex items-center gap-1.5 text-xs text-foreground-muted hover:text-accent disabled:opacity-50"
+              >
+                <Share2 size={13} />
+                {isSharing ? "Preparing..." : "Share your picks with a friend"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }

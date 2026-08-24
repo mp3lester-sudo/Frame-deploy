@@ -641,6 +641,12 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      teaser_shares: {
+        Row: { id: string; picks: Record<string, unknown>; created_at: string };
+        Insert: { picks: Record<string, unknown> };
+        Update: never;
+        Relationships: [];
+      };
       daily_trivia: {
         Row: {
           date_key: string;

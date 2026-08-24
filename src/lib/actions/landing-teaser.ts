@@ -1,10 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { buildGenreAffinity, rankTeaserCandidates, buildTeaserWhy, type AnonSwipe } from "@/lib/recommendations/teaser";
 import { buildDiverseDeck, type DeckTitle } from "@/lib/catalogue/diverse-deck";
 import { getActiveMediaType } from "@/lib/context/media-type";
+import { isRateLimited } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/auth/client-ip";
 
 /**
  * Anonymous pre-signup taste teaser (see teaser.ts for the scoring logic).
@@ -83,4 +85,42 @@ export async function getLandingSwipeDeck(): Promise<DeckTitle[]> {
   const supabase = await createClient();
   const mediaType = await getActiveMediaType();
   return buildDiverseDeck(supabase, { limit: LANDING_DECK_SIZE, mediaType });
+}
+
+/**
+ * Growth audit finding: the teaser's results screen ("Here's what Slate
+ * would show you") had zero share affordance, despite being the single
+ * highest-intent unauthenticated moment in the app -- a real, personalized
+ * result a visitor might actually want to send a friend, framed as "look
+ * what it picked for me" rather than an ad. This freezes that result into
+ * a public row (mirrors wrapped_shares, migration 0028) so it survives
+ * past the visitor's own session/localStorage and gets a real link + OG
+ * card (see teaser/[id]/opengraph-image.tsx) instead of just a raw app URL.
+ *
+ * Written via the service-role client rather than an open anon-insert RLS
+ * policy (see migration 0082) -- same reasoning as the IP rate limit
+ * below: this endpoint is deliberately reachable with no auth at all, so
+ * it needs its own abuse guard rather than relying on auth.uid() checks
+ * that a logged-out caller can never satisfy anyway.
+ */
+export async function shareTeaserResult(picks: TeaserPick[]): Promise<{ id: string } | { error: string }> {
+  if (picks.length === 0) return { error: "Nothing to share yet" };
+
+  if (await isRateLimited(`teaser-share:${await getClientIp()}`, { maxRequests: 20, windowSeconds: 3600 })) {
+    return { error: "Too many shares from this network -- try again in a bit" };
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("teaser_shares")
+    .insert({ picks: picks as unknown as Record<string, unknown> })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    console.error("[shareTeaserResult] insert failed:", error?.message);
+    return { error: "Couldn't create a share link -- try again" };
+  }
+
+  return { id: data.id };
 }
