@@ -4,18 +4,23 @@ import { useState, useTransition } from "react";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { rateTitle, unrateTitle } from "@/lib/actions/social";
 import { posthog } from "@/lib/analytics/posthog-client";
+import { useToast } from "@/components/ui/toast";
 
 export function RateControl({ titleId, initialScore = 0 }: { titleId: string; initialScore?: number }) {
   const [score, setScore] = useState(initialScore);
   const [isPending, startTransition] = useTransition();
+  const { showToast } = useToast();
 
   function handleChange(next: number) {
     const previous = score;
     setScore(next);
     startTransition(async () => {
       try {
-        await rateTitle({ titleId, score: next });
+        const { breakthrough } = await rateTitle({ titleId, score: next });
         posthog.capture("title_rated", { title_id: titleId, score: next });
+        if (breakthrough) {
+          showToast(`Your first love for ${breakthrough.genre} — your taste just expanded`);
+        }
       } catch {
         setScore(previous);
       }
