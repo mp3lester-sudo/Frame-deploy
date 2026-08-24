@@ -13,6 +13,7 @@ import {
 import type { SwipeSignal } from "@/lib/catalogue/adaptive-onboarding";
 import { formatRuntime } from "@/lib/utils";
 import { siteOrigin } from "@/lib/seo/site";
+import { buildInstantTasteRead } from "@/lib/onboarding/instant-taste-read";
 
 // See backdrop-hero.tsx for why this is needed: an explicit origin
 // param makes YouTube's autoplay/remote-control origin validation
@@ -118,6 +119,10 @@ export function OnboardingSwipe({
   // intro before swapping it out, or mismatch what the server rendered.
   const [phase, setPhase] = useState<Phase | null>(null);
   const [picks, setPicks] = useState<OnboardingCompletionPick[]>([]);
+  // Instant taste read (magic-moments audit, task #757) -- computed once,
+  // right at completion, straight from this session's own swipeHistoryRef
+  // (see finish() below). No DB round trip.
+  const [tasteRead, setTasteRead] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -201,6 +206,7 @@ export function OnboardingSwipe({
 
   function finish() {
     setPhase("loading");
+    setTasteRead(buildInstantTasteRead(swipeHistoryRef.current));
     startTransition(async () => {
       try {
         setPicks(await getOnboardingCompletionPicks());
@@ -430,6 +436,7 @@ export function OnboardingSwipe({
         <p className="text-gold-foil font-sans text-xs font-medium uppercase tracking-[0.2em]">
           Your reel is ready
         </p>
+        {tasteRead && <p className="mt-3 text-sm text-foreground-muted">{tasteRead} already</p>}
         {picks.length > 0 ? (
           <>
             <h1 className="font-display mt-2 text-2xl italic">Now showing, for you</h1>
