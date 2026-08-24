@@ -32,8 +32,13 @@ export interface ReasonDetail {
   /** "Because you loved X" or "Because you loved X and Y" — up to two
    *  titles from the user's own rating history that are the closest match
    *  to this pick (see most_similar_liked_title, migrations 0016/0032).
-   *  Empty when nothing was a close enough match. Never fabricated. */
-  citedTitles: string[];
+   *  Empty when nothing was a close enough match. Never fabricated.
+   *  Carries id alongside name (discovery-depth audit rendition #2) so
+   *  WhyThisPick can link each cited title's name, inline in the prose,
+   *  back to its own movie page — the id used to get dropped after the
+   *  name lookup, which meant the UI could show "Because you loved X"
+   *  but never let you follow X. */
+  citedTitles: { id: string; name: string }[];
 }
 
 function determineMatchKind(hasStrongContentMatch: boolean, hasMoodTags: boolean): MatchKind {
@@ -45,7 +50,7 @@ function determineMatchKind(hasStrongContentMatch: boolean, hasMoodTags: boolean
 export function buildReasonDetail(params: {
   title: ExplainableTitle;
   hasStrongContentMatch: boolean;
-  citedTitles: string[];
+  citedTitles: { id: string; name: string }[];
   context?: CircumstantialContext;
   /** Set by the engine when weather/time materially nudged this pick (see
    *  weather-time-weighting.ts) — kept as a plain string rather than a
@@ -64,6 +69,10 @@ export function buildReasonDetail(params: {
   decadeNote?: string | null;
 }): ReasonDetail {
   const { title, hasStrongContentMatch, citedTitles, context, weatherNote, genreNote, decadeNote } = params;
+  // Prose-building below only ever needs the names -- citedTitles itself
+  // (with ids) is threaded straight through to the returned ReasonDetail
+  // unchanged, at the bottom of this function.
+  const citedTitleNames = citedTitles.map((c) => c.name);
   const themes = title.themes ?? [];
   const tone = title.tone ?? [];
   const moodTags = title.mood_tags ?? [];
@@ -75,17 +84,17 @@ export function buildReasonDetail(params: {
   const suffix = notes.length ? ` (${notes.join("; ")})` : "";
 
   let headline: string;
-  if (matchKind === "content" && citedTitles.length > 0) {
-    if (citedTitles.length === 1) {
+  if (matchKind === "content" && citedTitleNames.length > 0) {
+    if (citedTitleNames.length === 1) {
       // A single citation still gets a bit of extra texture from the
       // pick's own themes/tone — with two citations that reads as
       // clutter, so the two-title branch below keeps it to just the names.
       const traits = [themes[0], tone[0]].filter(Boolean).join(", ");
       headline = traits
-        ? `Because you loved ${citedTitles[0]} — similar ${traits}.${suffix}`
-        : `Because you loved ${citedTitles[0]}.${suffix}`;
+        ? `Because you loved ${citedTitleNames[0]} — similar ${traits}.${suffix}`
+        : `Because you loved ${citedTitleNames[0]}.${suffix}`;
     } else {
-      headline = `Because you loved ${citedTitles[0]} and ${citedTitles[1]}.${suffix}`;
+      headline = `Because you loved ${citedTitleNames[0]} and ${citedTitleNames[1]}.${suffix}`;
     }
   } else if (matchKind === "content") {
     headline = `Matches your taste closely — similar tone and pacing to what you love.${suffix}`;
@@ -112,7 +121,7 @@ export function buildReasonDetail(params: {
     themes,
     tone,
     moodTags,
-    citedTitles,
+    citedTitleNames,
     contextSuffixNote,
     weatherNote: weatherNote ?? null,
     genreNote: genreNote ?? null,
@@ -155,14 +164,24 @@ function buildLongReason(params: {
   themes: string[];
   tone: string[];
   moodTags: string[];
-  citedTitles: string[];
+  citedTitleNames: string[];
   contextSuffixNote: string | null;
   weatherNote: string | null;
   genreNote: string | null;
   decadeNote: string | null;
 }): string {
-  const { matchKind, title, themes, tone, moodTags, citedTitles, contextSuffixNote, weatherNote, genreNote, decadeNote } =
-    params;
+  const {
+    matchKind,
+    title,
+    themes,
+    tone,
+    moodTags,
+    citedTitleNames,
+    contextSuffixNote,
+    weatherNote,
+    genreNote,
+    decadeNote,
+  } = params;
 
   const themeText = themes.length ? joinList(themes.slice(0, 3)) : null;
   const toneText = tone.length ? joinList(tone.slice(0, 2)) : null;
@@ -171,10 +190,10 @@ function buildLongReason(params: {
 
   const sentences: string[] = [];
 
-  if (matchKind === "content" && citedTitles.length > 0) {
-    const citedText = joinList(citedTitles);
+  if (matchKind === "content" && citedTitleNames.length > 0) {
+    const citedText = joinList(citedTitleNames);
     sentences.push(
-      citedTitles.length === 1
+      citedTitleNames.length === 1
         ? `We matched this to ${citedText} specifically — of everything in your rated history, it's the closest thing to this pick in our taste model, not just a genre-level guess.`
         : `We matched this to ${citedText} specifically — both sit closest to this pick in your taste model, which is a stronger signal than either alone.`
     );

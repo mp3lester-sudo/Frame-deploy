@@ -811,7 +811,7 @@ export async function getRecommendationsForUser(
   // of just 1, so a pick that's genuinely close to two different things a
   // user loved can say so ("Because you loved X and Y") instead of
   // arbitrarily picking just one.
-  const citedTitleNamesByRecId = new Map<string, string[]>();
+  const citedTitlesByRecId = new Map<string, { id: string; name: string }[]>();
   if (citationTargets.length) {
     // Single batched round trip (most_similar_liked_titles_batch, migration
     // 0065) instead of one RPC call per citation target -- this used to be
@@ -865,9 +865,17 @@ export async function getRecommendationsForUser(
       const citedNameByTitleId = new Map((citedTitleRows ?? []).map((t) => [t.id, t.name]));
       for (const [recId, citedIds] of citedIdsByRecId) {
         // Drop any id whose name lookup failed rather than citing a blank —
-        // still preserves the closest-first order from the RPC.
-        const names = citedIds.map((cid) => citedNameByTitleId.get(cid)).filter((n): n is string => !!n);
-        if (names.length) citedTitleNamesByRecId.set(recId, names);
+        // still preserves the closest-first order from the RPC. Keeping the
+        // id alongside the name (discovery-depth-audit rendition #2) is what
+        // lets WhyThisPick turn these mentions into links to the cited
+        // title's own page instead of just naming it in prose.
+        const cited = citedIds
+          .map((cid) => {
+            const name = citedNameByTitleId.get(cid);
+            return name ? { id: cid, name } : null;
+          })
+          .filter((c): c is { id: string; name: string } => c != null);
+        if (cited.length) citedTitlesByRecId.set(recId, cited);
       }
     }
   }
@@ -904,7 +912,7 @@ export async function getRecommendationsForUser(
       : buildReasonDetail({
           title,
           hasStrongContentMatch: (matchFlags.get(id) ?? { hasStrongContentMatch: false }).hasStrongContentMatch,
-          citedTitles: citedTitleNamesByRecId.get(id) ?? [],
+          citedTitles: citedTitlesByRecId.get(id) ?? [],
           context,
           weatherNote: resolvedWeather ? weatherTimeNote(title, resolvedWeather) : null,
           // Specific, better explanations: name the actual affinity signals

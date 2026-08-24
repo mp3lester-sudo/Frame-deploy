@@ -166,11 +166,18 @@ async function buildSignaturePick(
 
   const citedIds = (citationRows ?? []).map((r) => r.title_id).filter((id): id is string => !!id);
 
-  let citedTitles: string[] = [];
+  // {id,name} pairs, not just names (discovery-depth-audit rendition #2) --
+  // WhyThisPick needs the id to link a cited title to its own page.
+  let citedTitles: { id: string; name: string }[] = [];
   if (citedIds.length) {
     const { data: citedRows } = await supabase.from("titles").select("id, name").in("id", citedIds);
     const nameById = new Map((citedRows ?? []).map((t) => [t.id, t.name]));
-    citedTitles = citedIds.map((id) => nameById.get(id)).filter((n): n is string => !!n);
+    citedTitles = citedIds
+      .map((id) => {
+        const name = nameById.get(id);
+        return name ? { id, name } : null;
+      })
+      .filter((c): c is { id: string; name: string } => c != null);
   }
 
   const detail = buildReasonDetail({

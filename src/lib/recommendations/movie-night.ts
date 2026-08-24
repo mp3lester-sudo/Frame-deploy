@@ -480,17 +480,31 @@ export async function getCandidatesForUserGroup({
   }
 
   const citationsByTitleId = new Map<string, ParticipantCitation[]>();
+  // Separate, deduped-by-id {id,name}[] accumulation for detail.citedTitles
+  // (discovery-depth-audit rendition #2) -- kept apart from the
+  // ParticipantCitation.citedTitles: string[] built below, which stays a
+  // plain name list since group-fairness.ts's headline/longReason builders
+  // only ever interpolate names into prose and have no need for ids.
+  const citedIdsByTitleId = new Map<string, Set<string>>();
   for (const { titleId, userId, citedIds } of citationResults) {
     const citedTitles = citedIds.map((cid) => citedNameById.get(cid)).filter((n): n is string => !!n);
     const list = citationsByTitleId.get(titleId) ?? [];
     list.push({ userId, citedTitles });
     citationsByTitleId.set(titleId, list);
+
+    const idSet = citedIdsByTitleId.get(titleId) ?? new Set<string>();
+    for (const cid of citedIds) if (citedNameById.has(cid)) idSet.add(cid);
+    citedIdsByTitleId.set(titleId, idSet);
   }
 
   return topCandidates.map((r) => {
     const citations = citationsByTitleId.get(r.title.id) ?? [];
     const note = buildGroupConsensusHeadline(r, namesByUserId, citations);
     const allCited = [...new Set(citations.flatMap((c) => c.citedTitles))];
+    const citedTitlesWithIds = [...(citedIdsByTitleId.get(r.title.id) ?? [])].map((id) => ({
+      id,
+      name: citedNameById.get(id)!,
+    }));
     return {
       title: r.title,
       score: r.averageNormalized,
@@ -503,7 +517,7 @@ export async function getCandidatesForUserGroup({
         moodTags: r.title.mood_tags ?? [],
         pacing: r.title.pacing ?? null,
         endingType: r.title.ending_type ?? null,
-        citedTitles: allCited,
+        citedTitles: citedTitlesWithIds,
       },
     };
   });

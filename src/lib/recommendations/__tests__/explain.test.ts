@@ -22,23 +22,29 @@ describe("buildReasonDetail", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
-      citedTitles: ["Se7en"],
+      citedTitles: [{ id: "t-se7en", name: "Se7en" }],
     });
     expect(detail.headline).toContain("Se7en");
     expect(detail.headline).toContain("betrayal");
-    expect(detail.citedTitles).toEqual(["Se7en"]);
+    expect(detail.citedTitles).toEqual([{ id: "t-se7en", name: "Se7en" }]);
   });
 
   it("cites both titles, without trait clutter, when there are two citations", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
-      citedTitles: ["Se7en", "Zodiac"],
+      citedTitles: [
+        { id: "t-se7en", name: "Se7en" },
+        { id: "t-zodiac", name: "Zodiac" },
+      ],
     });
     expect(detail.headline).toContain("Se7en");
     expect(detail.headline).toContain("Zodiac");
     expect(detail.headline).toContain("and");
-    expect(detail.citedTitles).toEqual(["Se7en", "Zodiac"]);
+    expect(detail.citedTitles).toEqual([
+      { id: "t-se7en", name: "Se7en" },
+      { id: "t-zodiac", name: "Zodiac" },
+    ]);
   });
 
   it("falls back to a generic content-match line when there's no citation", () => {
@@ -99,7 +105,7 @@ describe("buildReasonDetail", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
-      citedTitles: ["Se7en"],
+      citedTitles: [{ id: "t-se7en", name: "Se7en" }],
     });
     expect(detail.longReason).toContain("Se7en");
     expect(detail.longReason).toContain("betrayal");
@@ -110,7 +116,7 @@ describe("buildReasonDetail", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
-      citedTitles: ["Se7en"],
+      citedTitles: [{ id: "t-se7en", name: "Se7en" }],
     });
     expect(detail.themes).toEqual(["betrayal", "redemption"]);
     expect(detail.tone).toEqual(["dark", "tense"]);
@@ -176,7 +182,7 @@ describe("buildReasonDetail", () => {
     const detail = buildReasonDetail({
       title: title(),
       hasStrongContentMatch: true,
-      citedTitles: ["Se7en"],
+      citedTitles: [{ id: "t-se7en", name: "Se7en" }],
       genreNote: "you consistently rate Drama highly",
       decadeNote: "you tend to love films from the 1990s",
     });
