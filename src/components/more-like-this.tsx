@@ -30,11 +30,17 @@ export async function MoreLikeThis({ titleId, mediaType }: { titleId: string; me
     // Genuine RPC failure (missing function, bad grant, etc.) -- distinct
     // from the legitimate "no embedding yet" case below, which returns an
     // empty array rather than an error.
+    console.error("[more-like-this] similar_titles RPC error", { titleId, mediaType, error });
     await captureServerError(error, { titleId, mediaType, rpc: "similar_titles" });
     return null;
   }
 
-  if (!data || data.length === 0) return null;
+  if (!data || data.length === 0) {
+    // TEMP diagnostic (task #746) -- distinguishing "legit no embedding"
+    // from a real bug while live-verifying the rail. Remove once confirmed.
+    console.log("[more-like-this] similar_titles returned no rows", { titleId, mediaType, rowCount: data?.length ?? null });
+    return null;
+  }
 
   const { data: titles, error: titlesError } = await supabase
     .from("titles")
