@@ -1,5 +1,6 @@
 "use client";
 
+import { Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { REFERRAL_BONUS_DAYS } from "@/lib/referrals/constants";
 import { isBonusWindowActive } from "@/lib/premium/is-premium";
@@ -26,6 +27,26 @@ export function ReferralCard({
     }
   }
 
+  // Same navigator.share-with-clipboard-fallback pattern already used by
+  // Movie Night's InviteLink and Wrapped's ShareWrappedButton -- one tap
+  // into Messages/WhatsApp/etc. instead of copy-then-switch-app-then-paste,
+  // where the browser supports it.
+  async function handleShare() {
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: "Join me on Slate",
+          text: `Get ${REFERRAL_BONUS_DAYS} days of Premium free when you sign up with my link.`,
+          url: referralLink,
+        });
+        return;
+      } catch {
+        // Backed out of the share sheet -- fall through to copy.
+      }
+    }
+    handleCopy();
+  }
+
   const bonusActive = isBonusWindowActive(bonusPremiumUntil);
 
   return (
@@ -42,8 +63,9 @@ export function ReferralCard({
           onFocus={(e) => e.currentTarget.select()}
           className="h-10 min-w-0 flex-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 text-xs text-foreground-muted"
         />
-        <Button type="button" size="sm" variant="secondary" onClick={handleCopy}>
-          Copy link
+        <Button type="button" size="sm" variant="secondary" onClick={handleShare}>
+          <Share2 size={14} />
+          Share
         </Button>
       </div>
 
