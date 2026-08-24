@@ -37,6 +37,11 @@ export function HiddenGemCard({ title, matchPercent }: { title: Title; matchPerc
         </div>
         <p className="mt-1 truncate text-sm font-medium text-foreground">{title.name}</p>
         {meta && <p className="truncate text-[11px] uppercase tracking-wider text-foreground-muted">{meta}</p>}
+        {typeof title.tmdb_vote_count === "number" && (
+          <p className="mt-0.5 truncate text-[11px] text-foreground-muted">
+            A close match, but only {title.tmdb_vote_count.toLocaleString()} ratings on record
+          </p>
+        )}
       </div>
     </Link>
   );
