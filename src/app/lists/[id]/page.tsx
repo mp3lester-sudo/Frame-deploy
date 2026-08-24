@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -5,6 +7,36 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { TitleCard } from "@/components/title-card";
 import { RemoveFromListButton } from "@/components/lists/remove-from-list-button";
 import { DeleteListButton } from "@/components/lists/delete-list-button";
+import { ListShareButton } from "@/components/lists/list-share-button";
+
+// Shared with generateMetadata so the list row is only fetched once per
+// request (mirrors the pattern used for every other public share surface
+// -- see wrapped/share/[id], t/[id], compatibility/[id]). RLS already
+// scopes this to public lists or the owner's own, so a null result here
+// means "doesn't exist or the viewer can't see it" either way.
+const getList = cache(async (id: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("lists").select("*").eq("id", id).maybeSingle();
+  return data;
+});
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const list = await getList(id);
+  if (!list || !list.is_public) return { title: "List not found" };
+
+  const title = `${list.title} — a Slate list`;
+  const description = list.description || "A curated list of movies and shows on Slate.";
+
+  return {
+    title,
+    description,
+    // opengraph-image.tsx in this route renders a per-list preview from
+    // this same list's poster art.
+    openGraph: { title, description },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 export default async function ListDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,8 +46,8 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
 
   // list and itemRows both only depend on the route's `id`, so they run
   // in parallel; the notFound() check happens once both have resolved.
-  const [{ data: list }, { data: itemRows }] = await Promise.all([
-    supabase.from("lists").select("*").eq("id", id).maybeSingle(),
+  const [list, { data: itemRows }] = await Promise.all([
+    getList(id),
     supabase
       .from("list_items")
       .select("note, titles(*)")
@@ -51,11 +83,10 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
           </p>
           {list.description && <p className="mt-2 text-sm text-foreground-muted">{list.description}</p>}
         </div>
-        {isOwner && (
-          <div className="flex shrink-0 items-center gap-2">
-            <DeleteListButton listId={list.id} />
-          </div>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          <ListShareButton listId={list.id} isPublic={list.is_public} isOwner={isOwner} title={list.title} />
+          {isOwner && <DeleteListButton listId={list.id} />}
+        </div>
       </div>
 
       {items.length === 0 ? (
