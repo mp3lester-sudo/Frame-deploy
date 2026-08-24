@@ -16,3 +16,12 @@ export const WATCHED_PAGE_SIZE = 30;
 // catalogue.ts/discover/search) so the grid's actual field needs and the
 // query's select() list can't quietly drift apart.
 export const GRID_TITLE_COLUMNS = "id, name, poster_url, type, in_production" as const;
+
+// Same fields as GRID_TITLE_COLUMNS plus weighted_rating -- used only by
+// server-side candidate-pool fetches that feed the personalized-ranking
+// blend in src/lib/discover/personalize.ts (Discover's grid). TitleCard/
+// GridTitle never renders the number itself, only the relative order it
+// produces once blended with taste similarity, so this stays a separate,
+// narrower-scoped constant rather than widening GRID_TITLE_COLUMNS (and
+// therefore GridTitle) for every consumer.
+export const GRID_TITLE_COLUMNS_WITH_RATING = `${GRID_TITLE_COLUMNS}, weighted_rating` as const;

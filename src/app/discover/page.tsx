@@ -9,12 +9,14 @@ import { LoadMoreGrid } from "@/components/load-more-grid";
 import { loadMoreDiscoverTitles } from "@/lib/actions/catalogue";
 import { getMyDiscoverPresets } from "@/lib/actions/discover-presets";
 import { SavedFilterPresets } from "@/components/discover/saved-filter-presets";
-import { DISCOVER_PAGE_SIZE, GRID_TITLE_COLUMNS } from "@/lib/constants/catalogue";
+import { DISCOVER_PAGE_SIZE, GRID_TITLE_COLUMNS_WITH_RATING } from "@/lib/constants/catalogue";
 import { ERA_DECADES, PACING_OPTIONS, TONE_OPTIONS, MOOD_OPTIONS } from "@/lib/constants/discover-filters";
 import { PremiumUpsell } from "@/components/premium-upsell";
 import { SwipeRecsCard } from "@/components/discover/swipe-recs-card";
 import { getSwipeDeck } from "@/lib/actions/swipe-recs";
 import { getActiveMediaType } from "@/lib/context/media-type";
+import { DISCOVER_CANDIDATE_POOL_SIZE, personalizeDiscoverPool, type PersonalizableTitle } from "@/lib/discover/personalize";
+import type { GridTitle } from "@/components/title-card";
 
 /**
  * `value` must match the genre string TMDB (and our `titles.genres` column)
@@ -176,12 +178,19 @@ export default async function DiscoverPage({
   const effectiveMood = isPremium ? mood : undefined;
 
   const mediaType = await getActiveMediaType();
+  // Fetch a bounded candidate pool in weighted_rating order (the
+  // pre-personalization behavior), then re-rank it by blending in taste
+  // similarity for this viewer before slicing out the first page -- see
+  // src/lib/discover/personalize.ts for why this shape (an over-fetched
+  // pool re-ranked in memory) rather than a fresh sorted query, and
+  // loadMoreDiscoverTitles below for how subsequent pages stay consistent
+  // with this one.
   let query = supabase
     .from("titles")
-    .select(GRID_TITLE_COLUMNS)
+    .select(GRID_TITLE_COLUMNS_WITH_RATING)
     .eq("type", mediaType)
     .order("weighted_rating", { ascending: false, nullsFirst: false })
-    .range(0, DISCOVER_PAGE_SIZE - 1);
+    .range(0, DISCOVER_CANDIDATE_POOL_SIZE - 1);
   if (genre) query = query.contains("genres", [genre]);
   // Airing is TV-only and always free (like genre) -- only ever applied
   // when mediaType is "tv", so it's a no-op (and never rendered as a
@@ -201,7 +210,10 @@ export default async function DiscoverPage({
       }
     }
   }
-  const { data: titles } = await query;
+  const { data: pool } = await query;
+  const rankedPool = await personalizeDiscoverPool(supabase, (pool ?? []) as PersonalizableTitle[], viewer?.id, mediaType);
+  const titles = rankedPool.slice(0, DISCOVER_PAGE_SIZE) as GridTitle[];
+  const hasMore = rankedPool.length > DISCOVER_PAGE_SIZE;
 
   const loadMore = loadMoreDiscoverTitles.bind(null, {
     genre,
@@ -340,8 +352,8 @@ export default async function DiscoverPage({
         // combo's progress, not some other combo's leftover state.
         key={`discover:${mediaType}|${genre ?? ""}|${activeAiring ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
         storageKey={`discover:${mediaType}|${genre ?? ""}|${activeAiring ?? ""}|${effectiveEra ?? ""}|${effectivePacing ?? ""}|${effectiveTone ?? ""}|${effectiveMood ?? ""}`}
-        initialTitles={titles ?? []}
-        initialHasMore={(titles?.length ?? 0) === DISCOVER_PAGE_SIZE}
+        initialTitles={titles}
+        initialHasMore={hasMore}
         loadMore={loadMore}
       />
     </div>
