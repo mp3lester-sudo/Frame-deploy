@@ -1,4 +1,5 @@
 import Image from "@/components/ui/fade-image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
@@ -25,6 +26,7 @@ import { getMyTitleImageOverride } from "@/lib/actions/title-image-overrides";
 import { isAuteurActive } from "@/lib/premium/tier";
 import { getMySeasonRatings } from "@/lib/actions/season-ratings";
 import { SeasonRatings } from "@/components/season-ratings";
+import { MoreLikeThis } from "@/components/more-like-this";
 import type { Metadata } from "next";
 import { cache } from "react";
 
@@ -233,8 +235,15 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {rtScore != null && <RtBadge score={rtScore} />}
+            {/* Genre badges link to Discover's own ?genre= filter
+                (discovery-depth-audit rendition #1) -- previously these
+                were static Badge text with no way to act on them, despite
+                Discover already supporting exactly this filter one click
+                away. */}
             {title.genres?.map((g) => (
-              <Badge key={g}>{g}</Badge>
+              <Link key={g} href={`/discover?genre=${encodeURIComponent(g)}`}>
+                <Badge className="transition-colors hover:border-accent hover:text-accent">{g}</Badge>
+              </Link>
             ))}
           </div>
 
@@ -284,6 +293,11 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
       </div>
+
+      {/* Discovery-depth-audit rendition #1 -- the movie page previously
+          had no path forward once you'd read everything about this one
+          title. See more-like-this.tsx for the RPC this is built on. */}
+      <MoreLikeThis titleId={title.id} mediaType={title.type as "movie" | "tv"} />
 
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-semibold">Reviews</h2>

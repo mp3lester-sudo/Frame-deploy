@@ -806,6 +806,10 @@ export interface Database {
         Args: { p_user_id: string; p_title_id: string; p_min_similarity?: number };
         Returns: { title_id: string; similarity: number }[];
       };
+      similar_titles: {
+        Args: { p_title_id: string; p_match_count?: number; p_media_type?: string };
+        Returns: { title_id: string; similarity: number }[];
+      };
       most_similar_liked_titles_batch: {
         Args: { p_user_id: string; p_title_ids: string[]; p_min_similarity?: number };
         Returns: { title_id: string; cited_title_id: string; similarity: number }[];

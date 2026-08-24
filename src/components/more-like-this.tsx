@@ -1,0 +1,60 @@
+import { createClient } from "@/lib/supabase/server";
+import { TitleCard, type GridTitle } from "@/components/title-card";
+import type { MediaType } from "@/lib/context/media-type-cookie";
+
+/**
+ * "More like this" rail on the movie/show detail page -- discovery-depth-
+ * audit rendition #1. The single biggest dead end the audit found: the
+ * highest-traffic page in the app had cast/crew links and trailers, but
+ * nothing that continued the session once you'd finished reading about
+ * this one title. Backed by the similar_titles RPC (migration 0086), a
+ * pure title-to-title embedding-similarity lookup with no user context
+ * needed -- so it works the same for a logged-out visitor as a signed-in
+ * one, unlike every other similarity RPC in this codebase which is
+ * anchored to a taste vector or rating history.
+ *
+ * Server component, not client -- one Supabase round trip alongside
+ * everything else the movie page already fetches, no separate loading
+ * state needed.
+ */
+export async function MoreLikeThis({ titleId, mediaType }: { titleId: string; mediaType: MediaType }) {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("similar_titles", {
+    p_title_id: titleId,
+    p_match_count: 10,
+    p_media_type: mediaType,
+  });
+
+  if (!data || data.length === 0) return null;
+
+  const { data: titles } = await supabase
+    .from("titles")
+    .select("id, name, poster_url, type, in_production")
+    .in(
+      "id",
+      data.map((d) => d.title_id)
+    );
+
+  if (!titles || titles.length === 0) return null;
+
+  // similar_titles already returns closest-first -- re-order the fetched
+  // rows to match rather than trusting whatever order .in() happens to
+  // return them in.
+  const byId = new Map(titles.map((t) => [t.id, t as GridTitle]));
+  const ordered = data.map((d) => byId.get(d.title_id)).filter((t): t is GridTitle => !!t);
+
+  if (ordered.length === 0) return null;
+
+  return (
+    <div className="mt-10">
+      <h2 className="mb-3 font-display text-lg">More like this</h2>
+      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+        {ordered.map((title, i) => (
+          <div key={title.id} className="w-32 shrink-0 snap-start sm:w-36">
+            <TitleCard title={title} index={i} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
