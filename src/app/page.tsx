@@ -18,6 +18,8 @@ import { isCircumstantialContext, type CircumstantialContext } from "@/lib/conte
 import { getActiveMediaType } from "@/lib/context/media-type";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { PreciseLocation } from "@/components/home/precise-location";
+import { getWelcomeBackData } from "@/lib/home/welcome-back";
+import { WelcomeBackHero } from "@/components/home/welcome-back-hero";
 
 
 // --- Streamed subtrees -----------------------------------------------------
@@ -216,9 +218,14 @@ export default async function HomePage({
   // and HomeRecommendationsSection below, each streamed behind its own
   // Suspense boundary, deduped via getCurrentWeather's cache() wrapper so
   // it's still only ever one real Open-Meteo request per page load.
-  const [{ data: profile }, { count: ratedCount }] = await Promise.all([
+  const [{ data: profile }, { count: ratedCount }, welcomeBack] = await Promise.all([
     supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).maybeSingle(),
     supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", user.id),
+    // Cheap for the vast majority of loads: getWelcomeBackData early-exits
+    // right after its one activity_events/profiles query for anyone active
+    // within the last 14 days, so this join costs one extra indexed query
+    // per Home load and nothing more unless someone's actually been gone.
+    getWelcomeBackData(user.id),
   ]);
 
   // Real time in the visitor's own timezone (from Vercel's edge geolocation).
@@ -475,6 +482,8 @@ export default async function HomePage({
         )}
         <span className="sr-only">{firstName}&apos;s home</span>
       </div>
+
+      {welcomeBack && <WelcomeBackHero data={welcomeBack} />}
       {/* Home header declutter pass: dropped the ratedCount-true branch
           ("Tonight's picks are tuned to your ratings") entirely -- it told
           the user nothing the page itself doesn't already show just by
