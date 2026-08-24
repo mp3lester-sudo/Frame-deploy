@@ -21,7 +21,7 @@ import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
 import { computeCinemaPoints, letterGradeForPoints, tierForPoints } from "@/lib/profile/cinema-score";
 import { computeGenreDistribution, buildFingerprintGradient, buildTasteQuote } from "@/lib/profile/taste-fingerprint";
-import { resolveProfileTheme } from "@/lib/profile/theme-preset";
+import { resolveTheme } from "@/lib/profile/theme-preset";
 import { isAuteurActive } from "@/lib/premium/tier";
 import { AnimatedCounter } from "@/components/profile/animated-counter";
 import { Reveal } from "@/components/profile/reveal";
@@ -292,10 +292,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     .map((r) => (r as unknown as { titles: FullTitleRow | null }).titles)
     .filter((t): t is FullTitleRow => !!t);
 
-  // Profile theme: a hand-designed palette/type/motif preset keyed to this
-  // person's #1 all-time favorite -- see resolveProfileTheme for why this
-  // is a narrow curated match rather than a general auto-theming engine.
-  const theme = resolveProfileTheme(favorites[0]?.name ?? null);
+  // Profile theme: an exact-title curated preset (e.g. a #1 favorite of
+  // "The Godfather") takes priority when present; otherwise the person's
+  // own dominant Taste DNA archetype (dna.archetypes, already computed
+  // above for the DNA panel -- no extra query) drives a general
+  // taste-based palette. See theme-preset.ts for the full two-tier
+  // resolution and why this stays a small curated set rather than a
+  // color-extraction engine.
+  const theme = resolveTheme({
+    topFavoriteName: favorites[0]?.name ?? null,
+    archetypes: dna.archetypes,
+    sampleSize: dna.sampleSize,
+  });
 
   // Most-watched genre across this profile's whole rating history, not
   // just the recent-ratings teaser -- a simple frequency count across

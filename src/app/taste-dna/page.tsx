@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
@@ -13,6 +14,7 @@ import { MIN_SAMPLE_SIZE, PACING_LABEL } from "@/lib/taste-dna/labels";
 import { isAuteurActive } from "@/lib/premium/tier";
 import { getTasteTwin } from "@/lib/social/taste-twin";
 import { TasteTwinCard } from "@/components/taste-dna/taste-twin-card";
+import { resolveTasteTheme } from "@/lib/profile/theme-preset";
 
 /** Free/Premium get the single headline signature pick and the original
  *  2-insight-per-direction evolution read; Auteur gets several signature
@@ -80,8 +82,16 @@ export default async function TasteDnaPage() {
   const topArchetypes = dna.archetypes.slice(0, 8);
   const hasEnrichedData = dna.enrichedSampleSize > 0;
 
+  // Same archetype-driven palette the profile page resolves (see
+  // theme-preset.ts) -- this page only has dna.archetypes/dna.sampleSize
+  // on hand (no favorite_titles fetch here), so it uses the archetype
+  // tier directly rather than the combined resolveTheme() the profile
+  // page uses. This is genuinely the page the theme should feel most at
+  // home on: it's the one place that explains *why* the palette shifted.
+  const theme = resolveTasteTheme(dna.archetypes, dna.sampleSize);
+
   return (
-    <section className="mx-auto max-w-2xl px-4 py-10">
+    <section className="mx-auto max-w-2xl px-4 py-10" style={theme.vars as CSSProperties}>
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-gold-foil font-section-heading text-4xl">Your Slate DNA</h1>
