@@ -5,6 +5,8 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { ReviewCard } from "@/components/review-card";
 import { aggregateReactions } from "@/lib/reactions/aggregate";
 import { rankByControversy } from "@/lib/reactions/rank";
+import { rankHotTakesForViewer } from "@/lib/reactions/personalize";
+import { computeGenreAffinity } from "@/lib/recommendations/genre-affinity";
 
 // How far back to look for candidate reviews — bounds the aggregation work
 // and keeps the feed feeling current rather than dredging up a years-old
@@ -24,7 +26,7 @@ export default async function HotTakesPage() {
     // reviews to ratings (they're sibling tables, both keyed on
     // user_id+title_id) — so each reviewer's rating is fetched separately
     // below and matched by that same (user_id, title_id) pair.
-    .select("id, user_id, title_id, body, contains_spoilers, created_at, profiles!reviews_user_id_fkey(username, avatar_url), titles(id, name, poster_url)")
+    .select("id, user_id, title_id, body, contains_spoilers, created_at, profiles!reviews_user_id_fkey(username, avatar_url), titles(id, name, poster_url, genres)")
     .order("created_at", { ascending: false })
     .limit(REVIEW_WINDOW);
 
@@ -32,19 +34,48 @@ export default async function HotTakesPage() {
   const reviewerIds = [...new Set((reviews ?? []).map((r) => r.user_id))];
   const reviewedTitleIds = [...new Set((reviews ?? []).map((r) => r.title_id))];
 
-  const [{ data: reactionRows }, { data: ratingRows }] = await Promise.all([
+  // Personalization audit finding: rankByControversy alone ranks
+  // identically for every viewer -- a passionate take about a movie
+  // someone loved is a far more compelling read than an equally
+  // controversial one about a movie they've never heard of, and nothing
+  // in the ranking used to account for that. viewer's own full rating
+  // history (needed for genre affinity, same computeGenreAffinity every
+  // other personalized surface uses) only fetched when there's a viewer
+  // to personalize for -- a fixed, small extra query batch, not scaled by
+  // REVIEW_WINDOW.
+  const [{ data: reactionRows }, { data: ratingRows }, { data: viewerRatings }] = await Promise.all([
     reviewIds.length
       ? supabase.from("review_reactions").select("review_id, reaction, user_id").in("review_id", reviewIds)
       : Promise.resolve({ data: [] }),
     reviewerIds.length && reviewedTitleIds.length
       ? supabase.from("ratings").select("user_id, title_id, score").in("user_id", reviewerIds).in("title_id", reviewedTitleIds)
       : Promise.resolve({ data: [] }),
+    viewer ? supabase.from("ratings").select("title_id, score").eq("user_id", viewer.id) : Promise.resolve({ data: [] }),
   ]);
 
-  const ranked = rankByControversy(reviewIds, reactionRows ?? []).slice(0, FEED_SIZE);
+  const controversyRanked = rankByControversy(reviewIds, reactionRows ?? []);
   const reviewById = new Map((reviews ?? []).map((r) => [r.id, r]));
   const reactionsByReview = aggregateReactions(reactionRows ?? [], viewer?.id ?? null);
   const ratingByReviewerAndTitle = new Map((ratingRows ?? []).map((r) => [`${r.user_id}|${r.title_id}`, r.score]));
+
+  let ranked = controversyRanked;
+  if (viewer && (viewerRatings?.length ?? 0) > 0) {
+    const viewerRatedTitleIds = [...new Set((viewerRatings ?? []).map((r) => r.title_id))];
+    const { data: viewerRatedTitleGenres } = await supabase.from("titles").select("id, genres").in("id", viewerRatedTitleIds);
+    const genresByRatedTitleId = new Map((viewerRatedTitleGenres ?? []).map((t) => [t.id, t.genres]));
+    const genreAffinity = computeGenreAffinity(
+      (viewerRatings ?? []).map((r) => ({ score: Number(r.score), genres: genresByRatedTitleId.get(r.title_id) ?? null }))
+    );
+    const viewerRatingByTitleId = new Map((viewerRatings ?? []).map((r) => [r.title_id, Number(r.score)]));
+    const candidates = controversyRanked.map((c) => {
+      const review = reviewById.get(c.reviewId);
+      const titleGenres = (review as unknown as { titles: { genres: string[] | null } | null } | undefined)?.titles?.genres ?? null;
+      const titleId = review?.title_id;
+      return { ...c, titleGenres, viewerRatingForTitle: titleId ? (viewerRatingByTitleId.get(titleId) ?? null) : null };
+    });
+    ranked = rankHotTakesForViewer(candidates, genreAffinity);
+  }
+  ranked = ranked.slice(0, FEED_SIZE);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
