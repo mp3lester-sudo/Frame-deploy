@@ -79,7 +79,7 @@ export async function POST(request: Request) {
 
   try {
     const mediaType = await getActiveMediaType();
-    const result = await askConcierge(parsed.data.message, { matchEra: parsed.data.matchEra, mediaType });
+    const result = await askConcierge(parsed.data.message, { matchEra: parsed.data.matchEra, mediaType, userId: user.id });
     return NextResponse.json(result);
   } catch (err) {
     console.error("[concierge]", err);
