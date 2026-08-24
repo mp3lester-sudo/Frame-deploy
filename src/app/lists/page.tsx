@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { CreateListForm } from "@/components/lists/create-list-form";
 import Image from "@/components/ui/fade-image";
+import { getActiveMediaType } from "@/lib/context/media-type";
+import { getAutoCollections } from "@/lib/collections/auto-collections";
+import { AutoCollectionRow } from "@/components/lists/auto-collection-row";
 
 // How many posters to show in each list's fan preview -- enough to read
 // as "a stack of films" without the row growing tall on long lists.
@@ -14,11 +17,20 @@ export default async function ListsPage() {
   const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/lists");
 
-  const { data: lists } = await supabase
-    .from("lists")
-    .select("id, title, description, is_public, list_items(count)")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const mediaType = await getActiveMediaType();
+
+  const [{ data: lists }, autoCollections] = await Promise.all([
+    supabase
+      .from("lists")
+      .select("id, title, description, is_public, list_items(count)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }),
+    // Auto-curated shelves (magic-moments audit, task #756) -- built
+    // entirely from ratings + genre-affinity.ts, already computed for
+    // recommendations elsewhere; this just re-groups the person's own
+    // rated titles by genre, no new heavy computation.
+    getAutoCollections(user.id, mediaType),
+  ]);
 
   const listIds = (lists ?? []).map((l) => l.id);
 
@@ -60,6 +72,14 @@ export default async function ListsPage() {
       <div className="mt-6">
         <CreateListForm />
       </div>
+
+      {autoCollections.length > 0 && (
+        <div className="mt-6 flex flex-col gap-3">
+          {autoCollections.map((collection) => (
+            <AutoCollectionRow key={collection.genre} collection={collection} />
+          ))}
+        </div>
+      )}
 
       <div className="mt-6 flex flex-col gap-3">
         {(lists ?? []).length === 0 ? (
