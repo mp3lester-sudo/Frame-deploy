@@ -7,6 +7,8 @@ import { tmdbImageAtSize } from "@/lib/external/tmdb-client";
 import { PersonHero } from "@/components/person-hero";
 import { PersonStillsGallery } from "@/components/person-stills-gallery";
 import { PersonIconicRoles, type IconicRole } from "@/components/person-iconic-roles";
+import { FrequentCollaborators } from "@/components/frequent-collaborators";
+import { computeFrequentCollaborators, type CollaboratorCredit } from "@/lib/people/collaborators";
 
 function formatBirthday(iso: string | null): string | null {
   if (!iso) return null;
@@ -54,6 +56,37 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   const filmography = ((credits ?? []) as unknown as FilmographyRow[])
     .filter((c) => c.titles)
     .sort((a, b) => (b.titles!.release_date ?? "").localeCompare(a.titles!.release_date ?? ""));
+
+  // Frequently works with (discovery-depth-audit rendition #3) -- every
+  // other credit row on any title this person worked on, joined back to
+  // the collaborator's own name/photo. Depends on filmography (needs the
+  // title ids), so it can't join the earlier Promise.all -- kept as its
+  // own targeted query rather than over-fetching title_credits for the
+  // whole catalogue.
+  const filmographyTitleIds = [...new Set(filmography.map((c) => c.titles!.id))];
+  const { data: coCredits } = filmographyTitleIds.length
+    ? await supabase
+        .from("title_credits")
+        .select("title_id, person_id, people(id, name, photo_url)")
+        .in("title_id", filmographyTitleIds)
+    : { data: [] as never[] };
+
+  type CoCreditRow = {
+    title_id: string;
+    person_id: string;
+    people: { id: string; name: string; photo_url: string | null } | null;
+  };
+
+  const collaboratorCredits: CollaboratorCredit[] = ((coCredits ?? []) as unknown as CoCreditRow[])
+    .filter((c) => c.people)
+    .map((c) => ({
+      titleId: c.title_id,
+      personId: c.person_id,
+      personName: c.people!.name,
+      photoUrl: c.people!.photo_url,
+    }));
+
+  const frequentCollaborators = computeFrequentCollaborators(collaboratorCredits, id);
 
   // "Iconic roles": a real photo of THIS person from a specific
   // production (TMDB tagged_images — see getTmdbTaggedImages), not that
@@ -106,6 +139,8 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
       ) : (
         <PersonStillsGallery images={stillImages} />
       )}
+
+      <FrequentCollaborators collaborators={frequentCollaborators} />
 
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-semibold">
