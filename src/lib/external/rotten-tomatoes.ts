@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/external/fetch-timeout";
 
 /**
  * Rotten Tomatoes has no public API. The standard workaround is OMDb, which
@@ -44,6 +45,11 @@ export async function getOrFetchRtCriticScore(title: RtLookupInput): Promise<num
       // RT scores barely change once released; a day's staleness is fine
       // and this keeps us well under the free-tier daily cap on re-renders.
       next: { revalidate: 86400 },
+      // OMDb has no SLA -- a stalled request here used to block the whole
+      // movie page behind it. Times out into the "network hiccup" catch
+      // below (no cache write, retried on the title's next view) instead
+      // of making a real visitor wait an unbounded amount of time.
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
     });
     const data = await res.json();
 

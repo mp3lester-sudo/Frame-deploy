@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { tmdbUrl } from "@/lib/external/tmdb-client";
+import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/external/fetch-timeout";
 
 /**
  * "Where to watch" — same lazy fetch-on-view caching pattern as RT scores
@@ -67,6 +68,9 @@ export async function getOrFetchWatchProviders(title: WatchProviderLookupInput):
       // Provider lineups shift occasionally but not daily — a day's
       // staleness is fine and keeps this well under any rate concerns.
       next: { revalidate: 86400 },
+      // See fetch-timeout.ts for why every external lookup on the movie
+      // page now carries a hard timeout.
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
     });
     if (res.ok) {
       const data = await res.json();

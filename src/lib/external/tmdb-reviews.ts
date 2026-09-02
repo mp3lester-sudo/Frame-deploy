@@ -1,4 +1,5 @@
 import { tmdbUrl } from "@/lib/external/tmdb-client";
+import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/external/fetch-timeout";
 
 /**
  * Critic/community reviews sourced from TMDB (distinct from Slate's own
@@ -19,7 +20,12 @@ export interface TmdbReview {
 
 export async function getTmdbReviews(tmdbId: number, type: "movie" | "tv"): Promise<TmdbReview[]> {
   try {
-    const res = await fetch(tmdbUrl(`/${type}/${tmdbId}/reviews`), { next: { revalidate: 86400 } });
+    const res = await fetch(tmdbUrl(`/${type}/${tmdbId}/reviews`), {
+      next: { revalidate: 86400 },
+      // See fetch-timeout.ts for why every external lookup on the movie
+      // page now carries a hard timeout.
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    });
     if (!res.ok) return [];
     const data = await res.json();
     const results: Array<{
