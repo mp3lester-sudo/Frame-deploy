@@ -41,6 +41,23 @@ export function AddToListMenu({ titleId, lists }: { titleId: string; lists: AddT
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  useEffect(() => {
+    // Accessibility pass: mousedown-outside closes this for mouse/touch
+    // users, but a keyboard user tabbed into the open menu has no
+    // equivalent way to back out short of tabbing all the way through
+    // every list item -- Escape is the standard, expected dismissal key
+    // for any transient menu/popover.
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        setCreating(false);
+        setError(null);
+      }
+    }
+    if (open) document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [open]);
+
   function toggleList(listId: string, currentlyHas: boolean) {
     setItems((prev) => prev.map((l) => (l.id === listId ? { ...l, hasTitle: !currentlyHas } : l)));
     startTransition(async () => {

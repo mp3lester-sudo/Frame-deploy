@@ -270,6 +270,38 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Accessibility baseline (P2 audit item): a visible, on-brand focus
+   ring for every interactive element by default. The audit found only
+   14 focus-visible/focus: matches across the whole component tree
+   against 46 files using a raw <button> -- signup/login forms, the
+   Discover swipe deck, onboarding, rate controls, moderation actions,
+   settings toggles, etc. all had ZERO focus styling of their own, so
+   keyboard users landing on them got only the browser's unstyled
+   default (or, on elements where a parent's own background/shadow
+   visually swallows a thin default outline, effectively nothing).
+   Rather than hand-edit every one of those files, this sets a sane
+   default centrally in @layer base, which Tailwind places before the
+   components/utilities layers -- so it always loses to a component's
+   own explicit focus-visible: utility (e.g. Button/Input below, which
+   already opt into a deliberate ring + outline-none) while still
+   reaching every other interactive element that opts into nothing. */
+@layer base {
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible,
+  [role="button"]:focus-visible,
+  [role="link"]:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="menuitem"]:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
 /* The literal "spelled out in marquee light bulbs" look (see the home
    page greeting's first name) -- a genuinely DOTTED texture, not a solid
    line/tube font. A single font can't render individual bulbs on its own,
