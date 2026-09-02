@@ -96,6 +96,20 @@ async function HomeRecommendationsSection({
   const weatherPromise: Promise<Awaited<ReturnType<typeof getCurrentWeather>>> =
     geo?.latitude != null && geo?.longitude != null ? getCurrentWeather(geo.latitude, geo.longitude) : Promise.resolve(null);
 
+  // Kicked off here, NOT after recommendations resolves below -- neither
+  // one actually reads anything out of the recommendation engine's result.
+  // signaturePick only needs userId/mediaType; continueWatching only needs
+  // mediaType. These used to be fetched together with hiddenGem/friendLoved
+  // in a Promise.all AFTER the `await getRecommendationsForUser` below,
+  // which meant their latency was paid serially on top of the engine's own
+  // (already the single most expensive call in the app) instead of
+  // overlapping it -- on a live-timed load this was adding multiple extra
+  // seconds of pure waiting for zero reason. hiddenGem and friendLoved
+  // still have to wait (they need allShownIds / hero.title.id, both only
+  // known once recommendations resolves), so those two stay below.
+  const signaturePickPromise = computeSignaturePick(userId, mediaType);
+  const continueWatchingPromise = getContinueWatching(mediaType);
+
   const { recommendations, isColdStart } = await getRecommendationsForUser(userId, {
     // 1 hero + 6 for MoodRow ("More picks for you") + 2 held in reserve
     // purely for RecommendationReveal's "Generate another pick" cycle --
@@ -142,11 +156,9 @@ async function HomeRecommendationsSection({
   const allShownIds = recommendations.map((r) => r.title.id);
   const [hiddenGem, signaturePick, friendLoved, continueWatching] = await Promise.all([
     getHiddenGemForUser(userId, mediaType, allShownIds),
-    computeSignaturePick(userId, mediaType),
+    signaturePickPromise,
     hero ? getFriendLovedThis(userId, hero.title.id) : Promise.resolve(null),
-    // Independent of the hero/MoodRow pool too -- a real in-progress
-    // watch_sessions row, or nothing at all (see getContinueWatching).
-    getContinueWatching(mediaType),
+    continueWatchingPromise,
   ]);
 
   // Director now comes straight off each Recommendation -- engine.ts
