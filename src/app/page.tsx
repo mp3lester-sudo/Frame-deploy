@@ -20,6 +20,13 @@ import type { MediaType } from "@/lib/context/media-type-cookie";
 import { PreciseLocation } from "@/components/home/precise-location";
 import { getWelcomeBackData } from "@/lib/home/welcome-back";
 import { WelcomeBackHero } from "@/components/home/welcome-back-hero";
+import { WatchPartyCard } from "@/components/home/watch-party-card";
+import { getHiddenGemForUser } from "@/lib/recommendations/hidden-gem";
+import { HiddenGemCard } from "@/components/home/hidden-gem-card";
+import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
+import { TasteDnaRow } from "@/components/home/taste-dna-row";
+import { getFriendLovedThis } from "@/lib/social/friend-loved-this";
+import { FriendLovedThisCard } from "@/components/movie/friend-loved-this-card";
 
 
 // --- Streamed subtrees -----------------------------------------------------
@@ -122,6 +129,21 @@ async function HomeRecommendationsSection({
     watchlistedIds = new Set((watchlistRows ?? []).map((row) => row.title_id));
   }
 
+  // Home page redesign (rendition D) "Tonight, curated" section -- a
+  // hidden gem, a taste-DNA signature pick, and (if a followed friend
+  // rated tonight's hero highly) a bit of social proof to close it out.
+  // All three are independent of the hero/MoodRow pool and of each
+  // other, so they're fetched together rather than one-after-another;
+  // each degrades to simply not rendering its row rather than a
+  // fallback/placeholder when there's nothing real to show (cold-start
+  // users, nobody followed yet, no match clearing the hidden-gem bar).
+  const allShownIds = recommendations.map((r) => r.title.id);
+  const [hiddenGem, signaturePick, friendLoved] = await Promise.all([
+    getHiddenGemForUser(userId, mediaType, allShownIds),
+    computeSignaturePick(userId, mediaType),
+    hero ? getFriendLovedThis(userId, hero.title.id) : Promise.resolve(null),
+  ]);
+
   // Director now comes straight off each Recommendation -- engine.ts
   // already fetches title_credits for its whole candidate pool (for
   // diversify.ts's same-director check) and now joins the person's name
@@ -150,6 +172,26 @@ async function HomeRecommendationsSection({
       {morePicks.length > 0 && (
         <div className="mt-8">
           <MoodRow picks={morePicks} isColdStart={isColdStart} />
+        </div>
+      )}
+
+      {/* Home page redesign (rendition D): a quiet Watch Party CTA sits
+          right below "also for tonight," styled to echo the hero's own
+          pill CTA so the page's two real actions -- watch, or start a
+          group session -- share one button language instead of this
+          reading as a lesser, passive link. */}
+      <div className="mt-8">
+        <WatchPartyCard mediaType={mediaType} />
+      </div>
+
+      {(hiddenGem || signaturePick || friendLoved) && (
+        <div className="mt-8">
+          <h3 className="font-display mb-3 text-lg">Tonight, curated</h3>
+          <div className="flex flex-col gap-3">
+            {hiddenGem && <HiddenGemCard title={hiddenGem.title} matchPercent={hiddenGem.matchPercent} />}
+            {signaturePick && <TasteDnaRow pick={signaturePick} />}
+            {friendLoved && <FriendLovedThisCard friend={friendLoved} />}
+          </div>
         </div>
       )}
     </>
