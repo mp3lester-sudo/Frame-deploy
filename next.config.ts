@@ -1,5 +1,46 @@
 import type { NextConfig } from "next";
 
+// Security headers, applied to every route via headers() below.
+//
+// script-src/style-src keep 'unsafe-inline' rather than switching to a
+// nonce-based CSP: layout.tsx and page.tsx each render a couple of small,
+// static, developer-authored inline <script> tags (see their own doc
+// comments -- intro-video session state, cookie-banner CSS-in-state) to
+// sidestep hydration mismatches, and Tailwind/inline `style={{...}}`
+// attributes are used throughout for per-poster dynamic colors. A
+// nonce-based CSP is the stricter option but needs per-request nonce
+// plumbing through the root layout that doesn't exist yet -- tracked as a
+// follow-up rather than done half-right here. 'unsafe-inline' still blocks
+// the far more common XSS vector (an attacker's injected <script src=...>
+// pointing at an external domain), just not an inline one.
+//
+// connect-src lists every origin the client actually talks to directly:
+// Supabase (REST + the Realtime websocket used by Movie Night's live
+// voting/participants and Watch Together), PostHog, and Sentry's ingest
+// hosts (wildcarded since the exact regional ingest subdomain varies by
+// DSN and isn't known at build time). TMDB/OMDB/OpenAI are server-only
+// fetches (see src/lib/external, src/lib/ai) and never called from the
+// browser, so they don't belong in a CSP that only governs browser-issued
+// requests. Stripe Checkout is a full top-level redirect to a URL Stripe
+// returns (see src/app/api/stripe/checkout/route.ts), not an embedded
+// frame or client-side script, so it needs no CSP entry either -- the
+// browser simply navigates away to checkout.stripe.com's own page, which
+// serves its own headers.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://www.youtube.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' https: data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://us.i.posthog.com https://*.posthog.com https://*.sentry.io",
+  "frame-src https://www.youtube.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
@@ -45,6 +86,30 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: CSP },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            // No feature on any page currently needs any of these --
+            // camera/mic/geolocation/payment/usb are all denied outright
+            // rather than left to browser defaults.
+            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+        ],
+      },
+    ];
   },
 };
 
