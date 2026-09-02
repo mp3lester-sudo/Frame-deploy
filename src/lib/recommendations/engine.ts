@@ -361,7 +361,23 @@ export async function getRecommendationsForUser(
   // Diversify never returns fewer than `limit` once enough candidates
   // exist, so widening the raw net upstream is the actual fix rather
   // than anything in diversify.ts itself.
-  const CANDIDATE_POOL_MULTIPLIER = 8;
+  //
+  // Swipe deck (task #809, user-escalated "takes a long time"): the 8x
+  // reasoning above is specifically about Home's hero+reserve pool (1 +
+  // 2 survivors needed out of `limit=9`). The swipe deck has no reserve
+  // slot to protect -- it just needs `limit` cards, and running out just
+  // means the next batch fetch runs a little sooner, not a broken UI
+  // (unlike Home's "Generate another pick" silently having nothing to
+  // cycle to). A smaller pool here doesn't touch match_titles_for_user's
+  // own dominant cost (its internal candidate pool has an 800-row floor
+  // regardless -- see migration 0081/0093's v_pool_size formula, this
+  // doesn't move that number), but it does shrink candidateIds below,
+  // which is a real, proportional cost multiplier on every other query in
+  // the second Promise.all below (full candidate title rows,
+  // similarity_to_disliked_titles, similarity_to_implicit_positive_titles,
+  // director credits) -- each of those does real per-candidate work, not
+  // just a bigger IN-list.
+  const CANDIDATE_POOL_MULTIPLIER = source === "swipe_deck" ? 5 : 8;
   const [contentMatchesResult, { data: userRatings }, { data: dismissals }] = await Promise.all([
     // The only candidate/scoring source: cosine similarity between this
     // user's own taste vector and every title's embedding. See the
