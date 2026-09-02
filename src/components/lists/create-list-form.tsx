@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createList } from "@/lib/actions/lists";
+import { posthog } from "@/lib/analytics/posthog-client";
 
 export function CreateListForm() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export function CreateListForm() {
     startTransition(async () => {
       try {
         const id = await createList({ title, description, isPublic });
+        posthog.capture("list_created", { is_public: isPublic });
         router.push(`/lists/${id}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to create list");

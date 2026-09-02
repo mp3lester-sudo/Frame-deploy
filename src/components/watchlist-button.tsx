@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { addToWatchlist, removeFromWatchlist } from "@/lib/actions/lists";
+import { posthog } from "@/lib/analytics/posthog-client";
 
 export function WatchlistButton({
   titleId,
@@ -18,6 +19,7 @@ export function WatchlistButton({
   function handleClick() {
     const next = !onWatchlist;
     setOnWatchlist(next);
+    if (next) posthog.capture("title_watchlisted", { title_id: titleId });
     startTransition(async () => {
       try {
         await (next ? addToWatchlist(titleId) : removeFromWatchlist(titleId));

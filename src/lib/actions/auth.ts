@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { z } from "zod";
 import { MIN_SWIPES_FOR_TEASER } from "@/lib/recommendations/teaser";
 import { sendWelcomeEmail } from "@/lib/email/resend";
@@ -14,6 +15,7 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { getClientIp } from "@/lib/auth/client-ip";
 import { isRateLimited } from "@/lib/rate-limit";
 import { captureServerError } from "@/lib/monitoring/sentry-server";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 const signUpSchema = z.object({
   email: z.string().email(),
@@ -229,6 +231,27 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
     }
   }
 
+  // Analytics fires via after() -- deferred to run once the redirect
+  // response below has already been sent, same pattern used for Sentry
+  // (see sentry-server.ts's own comment on why an awaited network call
+  // has no business sitting on this response's critical path). Signup is
+  // exactly the flow that can least afford extra latency: it's already
+  // doing a username-uniqueness check, an auth insert, a referral-code
+  // collision loop, and conditionally a Movie Night join -- tacking a
+  // blocking analytics round trip onto the end of that chain would be
+  // the same class of bug this file's captureServerError calls already
+  // learned not to repeat.
+  if (data.user) {
+    const userId = data.user.id;
+    after(() =>
+      captureServerEvent(userId, "user_signed_up", {
+        username,
+        seeded_swipes: seededSwipes,
+        via_movie_night_invite: Boolean(movieNightRedirectId),
+      })
+    );
+  }
+
   // Only skip the post-signup /onboarding quiz if the landing-page teaser
   // gave a real taste signal (same bar the teaser itself uses to decide
   // it has enough to show a reveal) — a couple of swipes before bailing
@@ -259,8 +282,15 @@ export async function signIn(_prev: AuthActionState, formData: FormData): Promis
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: error.message };
+
+  // Same after()-deferred pattern as signUp above -- never block the
+  // redirect on an analytics round trip.
+  if (data.user) {
+    const userId = data.user.id;
+    after(() => captureServerEvent(userId, "user_logged_in"));
+  }
 
   redirect("/");
 }

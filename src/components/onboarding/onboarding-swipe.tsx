@@ -14,6 +14,7 @@ import type { SwipeSignal } from "@/lib/catalogue/adaptive-onboarding";
 import { formatRuntime } from "@/lib/utils";
 import { siteOrigin } from "@/lib/seo/site";
 import { buildInstantTasteRead } from "@/lib/onboarding/instant-taste-read";
+import { posthog } from "@/lib/analytics/posthog-client";
 
 // See backdrop-hero.tsx for why this is needed: an explicit origin
 // param makes YouTube's autoplay/remote-control origin validation
@@ -207,6 +208,7 @@ export function OnboardingSwipe({
   function finish() {
     setPhase("loading");
     setTasteRead(buildInstantTasteRead(swipeHistoryRef.current));
+    posthog.capture("onboarding_completed", { swipes: swipeHistoryRef.current.length });
     startTransition(async () => {
       try {
         setPicks(await getOnboardingCompletionPicks());
