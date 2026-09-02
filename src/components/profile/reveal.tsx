@@ -37,6 +37,23 @@ export function Reveal({
     setMotionOk(true);
     const el = ref.current;
     if (!el) return;
+
+    // Defensive fallback (task #842): live testing found this section
+    // can render permanently at opacity:0 -- the content mounts and is
+    // scrolled well past, but no IntersectionObserver crossing event
+    // ever lands, so setVisible(true) never fires. Rather than chase the
+    // exact browser/timing trigger, just check the element's own
+    // position the moment the effect runs: if it's already at least
+    // partially on screen (e.g. a fast scroll landed past it before the
+    // observer was attached), reveal it immediately instead of waiting
+    // on a crossing event that may never come.
+    const rect = el.getBoundingClientRect();
+    const alreadyInView = rect.top < window.innerHeight && rect.bottom > 0;
+    if (alreadyInView) {
+      setVisible(true);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {

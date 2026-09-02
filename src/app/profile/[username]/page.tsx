@@ -875,14 +875,35 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
                   <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
                     Sensibility
                   </p>
-                  <ul className="flex flex-col gap-1 text-sm text-foreground-muted">
-                    {dna.pacingPreference && <li>{PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}</li>}
-                    {dna.violenceTolerance != null && <li>Violence tolerance: {dna.violenceTolerance}/5</li>}
-                    {dna.comedyTolerance != null && <li>Comedy tolerance: {dna.comedyTolerance}/5</li>}
-                    {dna.emotionalIntensityPreference != null && (
-                      <li>Emotional intensity: {dna.emotionalIntensityPreference}/5</li>
+                  {/* Was a plain bullet-less <ul>/<li> list -- the only
+                      unstyled thing in this panel, sitting directly under
+                      pill-badge Favorite directors above it (profile audit,
+                      task #841/#844). Same pill treatment as genres/
+                      languages/mood/directors just above, so the panel
+                      reads as one consistent design language instead of
+                      trailing off into plain text at the bottom. */}
+                  <div className="flex flex-wrap gap-2">
+                    {dna.pacingPreference && (
+                      <span className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs">
+                        {PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}
+                      </span>
                     )}
-                  </ul>
+                    {dna.violenceTolerance != null && (
+                      <span className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs">
+                        Violence tolerance {dna.violenceTolerance}/5
+                      </span>
+                    )}
+                    {dna.comedyTolerance != null && (
+                      <span className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs">
+                        Comedy tolerance {dna.comedyTolerance}/5
+                      </span>
+                    )}
+                    {dna.emotionalIntensityPreference != null && (
+                      <span className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs">
+                        Emotional intensity {dna.emotionalIntensityPreference}/5
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
