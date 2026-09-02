@@ -32,7 +32,7 @@ import { FriendLovedThisCard } from "@/components/movie/friend-loved-this-card";
 import { getActiveWatchSession } from "@/lib/watch-sessions/actions";
 import { PressPlayButton } from "@/components/watch-sessions/press-play-button";
 import type { Metadata } from "next";
-import { cache } from "react";
+import { cache, Suspense } from "react";
 
 // Wrapped in React's cache() so generateMetadata (above) and the page
 // component below -- which both need this exact row -- share one
@@ -72,6 +72,44 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       images: title.poster_url ? [title.poster_url] : undefined,
     },
   };
+}
+
+// Each of these wraps exactly one third-party API call (OMDb or TMDB) that
+// was previously awaited inline in the page's main Promise.all -- see the
+// removed rtScore/tmdbReviews/watchProviders/trailer destructuring above.
+// Splitting them into their own async components lets each stream in
+// independently via its own <Suspense> boundary below, instead of every
+// single one of them (plus the DB-only data everyone actually needs first
+// paint) blocking behind whichever external API is slowest. All four already
+// have their own try/catch + null-safe fallback in lib/external -- nothing
+// about their error handling changes, they just no longer gate the rest of
+// the page.
+
+async function RtScoreBadge({ title }: { title: Parameters<typeof getOrFetchRtCriticScore>[0] }) {
+  const rtScore = await getOrFetchRtCriticScore(title);
+  if (rtScore == null) return null;
+  return <RtBadge score={rtScore} />;
+}
+
+async function WatchProvidersSection({ title }: { title: Parameters<typeof getOrFetchWatchProviders>[0] }) {
+  const offers = await getOrFetchWatchProviders(title);
+  return <WhereToWatch offers={offers} />;
+}
+
+async function TmdbReviewsAsync({ title }: { title: { tmdb_id: number | null; type: "movie" | "tv" } }) {
+  const tmdbReviews = title.tmdb_id ? await getTmdbReviews(title.tmdb_id, title.type) : [];
+  return <TmdbReviewsSection reviews={tmdbReviews} />;
+}
+
+async function BackdropHeroWithTrailer({
+  title,
+  backdropUrl,
+}: {
+  title: { tmdb_id: number | null; type: "movie" | "tv"; name: string };
+  backdropUrl: string;
+}) {
+  const trailer = title.tmdb_id ? await getTmdbTrailer(title.tmdb_id, title.type) : null;
+  return <BackdropHero backdropUrl={backdropUrl} trailerKey={trailer?.key ?? null} title={title.name} />;
 }
 
 export default async function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -165,19 +203,11 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
   const reviewerIds = [...new Set((reviews ?? []).map((r) => r.user_id))];
 
   const [
-    rtScore,
-    tmdbReviews,
-    watchProviders,
-    trailer,
     { data: listItemsForThisTitle },
     { data: reviewerRatingRows },
     { data: reactionRows },
     { data: commentRows },
   ] = await Promise.all([
-    getOrFetchRtCriticScore(title),
-    title.tmdb_id ? getTmdbReviews(title.tmdb_id, title.type) : Promise.resolve([]),
-    getOrFetchWatchProviders(title),
-    title.tmdb_id ? getTmdbTrailer(title.tmdb_id, title.type) : Promise.resolve(null),
     myListIds.length
       ? supabase.from("list_items").select("list_id").eq("title_id", id).in("list_id", myListIds)
       : Promise.resolve({ data: [] }),
@@ -231,7 +261,9 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
   return (
     <div>
       {effectiveBackdropUrl && (
-        <BackdropHero backdropUrl={effectiveBackdropUrl} trailerKey={trailer?.key ?? null} title={title.name} />
+        <Suspense fallback={<BackdropHero backdropUrl={effectiveBackdropUrl} trailerKey={null} title={title.name} />}>
+          <BackdropHeroWithTrailer title={title} backdropUrl={effectiveBackdropUrl} />
+        </Suspense>
       )}
       {/* Negative top margin pulls the poster/title row up into the
           hero's bottom fade (see backdrop-hero.tsx) so the title reads
@@ -254,7 +286,9 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
           </p>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {rtScore != null && <RtBadge score={rtScore} />}
+            <Suspense fallback={null}>
+              <RtScoreBadge title={title} />
+            </Suspense>
             {/* Genre badges link to Discover's own ?genre= filter
                 (discovery-depth-audit rendition #1) -- previously these
                 were static Badge text with no way to act on them, despite
@@ -271,7 +305,9 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
           <CreditsSection credits={(credits ?? []) as unknown as Credit[]} />
 
-          <WhereToWatch offers={watchProviders} />
+          <Suspense fallback={null}>
+            <WatchProvidersSection title={title} />
+          </Suspense>
 
           {viewer && (
             <div className="mt-4">
@@ -329,7 +365,9 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
       {/* Discovery-depth-audit rendition #1 -- the movie page previously
           had no path forward once you'd read everything about this one
           title. See more-like-this.tsx for the RPC this is built on. */}
-      <MoreLikeThis titleId={title.id} mediaType={title.type as "movie" | "tv"} />
+      <Suspense fallback={null}>
+        <MoreLikeThis titleId={title.id} mediaType={title.type as "movie" | "tv"} />
+      </Suspense>
 
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-semibold">Reviews</h2>
@@ -362,7 +400,9 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
         )}
       </section>
 
-      <TmdbReviewsSection reviews={tmdbReviews} />
+      <Suspense fallback={null}>
+        <TmdbReviewsAsync title={title} />
+      </Suspense>
       </div>
     </div>
   );
