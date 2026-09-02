@@ -27,6 +27,8 @@ import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
 import { TasteDnaRow } from "@/components/home/taste-dna-row";
 import { getFriendLovedThis } from "@/lib/social/friend-loved-this";
 import { FriendLovedThisCard } from "@/components/movie/friend-loved-this-card";
+import { getContinueWatching } from "@/lib/watch-sessions/actions";
+import { ContinueWatchingRow } from "@/components/home/continue-watching-row";
 
 
 // --- Streamed subtrees -----------------------------------------------------
@@ -138,10 +140,13 @@ async function HomeRecommendationsSection({
   // fallback/placeholder when there's nothing real to show (cold-start
   // users, nobody followed yet, no match clearing the hidden-gem bar).
   const allShownIds = recommendations.map((r) => r.title.id);
-  const [hiddenGem, signaturePick, friendLoved] = await Promise.all([
+  const [hiddenGem, signaturePick, friendLoved, continueWatching] = await Promise.all([
     getHiddenGemForUser(userId, mediaType, allShownIds),
     computeSignaturePick(userId, mediaType),
     hero ? getFriendLovedThis(userId, hero.title.id) : Promise.resolve(null),
+    // Independent of the hero/MoodRow pool too -- a real in-progress
+    // watch_sessions row, or nothing at all (see getContinueWatching).
+    getContinueWatching(mediaType),
   ]);
 
   // Director now comes straight off each Recommendation -- engine.ts
@@ -168,9 +173,13 @@ async function HomeRecommendationsSection({
       )}
 
       {/* Quiet thumbnail row -- deliberately smaller and less prominent
-          than the hero above it. */}
+          than the hero above it. Heading matches rendition D's mockup
+          (d.png) -- an italic serif label, same register as "Continue
+          watching" / "Tonight, curated" below, rather than the row
+          floating with no label of its own. */}
       {morePicks.length > 0 && (
         <div className="mt-8">
+          <h3 className="font-display mb-3 text-center text-lg italic">Also for tonight</h3>
           <MoodRow picks={morePicks} isColdStart={isColdStart} />
         </div>
       )}
@@ -184,10 +193,24 @@ async function HomeRecommendationsSection({
         <WatchPartyCard mediaType={mediaType} />
       </div>
 
+      {/* Continue watching -- only the viewer's own real in-progress
+          watch_sessions row (see getContinueWatching); nothing rendered
+          at all when there isn't one, same no-fabricated-state rule as
+          Hidden Gem/Taste DNA/friend-loved below. */}
+      {continueWatching && (
+        <div className="mt-8">
+          <h3 className="font-display mb-3 text-center text-lg italic">Continue watching</h3>
+          <ContinueWatchingRow item={continueWatching} />
+        </div>
+      )}
+
+      {/* "Tonight, curated" -- a single divided list rather than three
+          stacked bento-cards, matching the mockup's plain hairline-rule
+          rows (see d.png) instead of boxing each one in its own card. */}
       {(hiddenGem || signaturePick || friendLoved) && (
         <div className="mt-8">
-          <h3 className="font-display mb-3 text-lg">Tonight, curated</h3>
-          <div className="flex flex-col gap-3">
+          <h3 className="font-display mb-3 text-center text-lg italic">Tonight, curated</h3>
+          <div className="divide-y divide-border">
             {hiddenGem && <HiddenGemCard title={hiddenGem.title} matchPercent={hiddenGem.matchPercent} />}
             {signaturePick && <TasteDnaRow pick={signaturePick} />}
             {friendLoved && <FriendLovedThisCard friend={friendLoved} />}

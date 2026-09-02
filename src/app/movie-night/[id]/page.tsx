@@ -19,6 +19,8 @@ import { captureServerError } from "@/lib/monitoring/sentry-server";
 import { getActiveMediaType } from "@/lib/context/media-type";
 import { movieNightLabel, movieNightLabelLower, movieNightsLabelLower } from "@/lib/copy/movie-night-copy";
 import { ReferralNudge } from "@/components/growth/referral-nudge";
+import { getMovieNightWatchSessions } from "@/lib/watch-sessions/actions";
+import { WatchTogetherPanel } from "@/components/watch-sessions/watch-together-panel";
 
 type ParticipantRow = MovieNightParticipantRow;
 
@@ -71,7 +73,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
   // more sequential round trips. Each keeps its own try/catch exactly as
   // before -- a bad row in one shouldn't 500 the whole page for the
   // others, same reasoning as previously.
-  const [comparisonsRaw, decidedTitleResult, candidates, voteRowsResult] = await Promise.all([
+  const [comparisonsRaw, decidedTitleResult, candidates, voteRowsResult, watchSessions] = await Promise.all([
     Promise.all(
       otherParticipants.map(async (p) => {
         try {
@@ -108,6 +110,11 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
     night.status === "collecting"
       ? supabase.from("movie_night_votes").select("title_id, user_id, vote").eq("movie_night_id", id)
       : Promise.resolve({ data: null }),
+    // Watch Together roster (task #774) -- only meaningful once the
+    // group actually has a decided pick to press play on together, same
+    // "only fetch what this status branch needs" pattern as candidates/
+    // voteRowsResult above being gated on "collecting" instead.
+    night.status === "decided" ? getMovieNightWatchSessions(id) : Promise.resolve([]),
   ]);
   const comparisons = comparisonsRaw.filter((c): c is NonNullable<typeof c> => c !== null);
   const decidedTitle = decidedTitleResult.data;
@@ -179,6 +186,16 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
               )}
             </div>
           </div>
+          <div className="mt-6">
+            <WatchTogetherPanel
+              movieNightId={night.id}
+              titleId={decidedTitle.id}
+              runtimeMinutes={decidedTitle.runtime_minutes}
+              currentUserId={user.id}
+              initialSessions={watchSessions}
+            />
+          </div>
+
           {isHost && (
             <div className="mt-4 flex gap-2">
               <form action={reopenMovieNight.bind(null, night.id)}>

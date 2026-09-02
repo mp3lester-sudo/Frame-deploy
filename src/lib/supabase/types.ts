@@ -506,6 +506,39 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      watch_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          title_id: string;
+          movie_night_id: string | null;
+          runtime_minutes: number | null;
+          status: "playing" | "paused" | "completed" | "abandoned";
+          started_at: string;
+          accumulated_seconds: number;
+          paused_at: string | null;
+          completed_at: string | null;
+          abandoned_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          title_id: string;
+          movie_night_id?: string | null;
+          runtime_minutes?: number | null;
+          status?: "playing" | "paused" | "completed" | "abandoned";
+        };
+        Update: Partial<{
+          status: "playing" | "paused" | "completed" | "abandoned";
+          started_at: string;
+          accumulated_seconds: number;
+          paused_at: string | null;
+          completed_at: string | null;
+          abandoned_at: string | null;
+        }>;
+        Relationships: [];
+      };
       people: {
         Row: {
           id: string;

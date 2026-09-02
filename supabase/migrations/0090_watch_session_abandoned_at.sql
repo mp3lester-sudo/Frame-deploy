@@ -1,0 +1,13 @@
+-- "How far did they get before they gave up" -- abandonWatchSession
+-- (actions.ts) currently just flips status to 'abandoned' with no
+-- timestamp and no final elapsed-time snapshot, unlike pause/complete
+-- which both call computeElapsedSeconds and persist the result. Without
+-- this, an abandoned session can't answer "did they bail in the first
+-- five minutes or three-quarters of the way through" -- the one fact
+-- that determines whether an abandon is even a meaningful taste signal
+-- (see the next migration, similarity_to_disliked_titles's new arm).
+--
+-- No updated_at trigger exists on watch_sessions (checked -- 0089 never
+-- added one), so a dedicated column mirroring completed_at is the
+-- correct fix here rather than leaning on a trigger that doesn't exist.
+alter table public.watch_sessions add column if not exists abandoned_at timestamptz;

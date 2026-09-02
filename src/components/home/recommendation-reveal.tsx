@@ -3,14 +3,12 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "@/components/ui/fade-image";
 import Link from "next/link";
-import { Bookmark, Info } from "lucide-react";
+import { Bookmark, Play } from "lucide-react";
 import type { Database } from "@/lib/supabase/types";
 import type { ReasonDetail } from "@/lib/recommendations/explain";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { BANNER_DUOTONE_FILTER } from "@/lib/design/duotone";
-import { formatRuntime } from "@/lib/utils";
 import { addToWatchlist, removeFromWatchlist } from "@/lib/actions/lists";
-import { WhyThisPick } from "./why-this-pick";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -169,14 +167,17 @@ export function RecommendationReveal({
     );
   }
 
-  const { title, reason, detail, director } = current;
-  const year = title.release_date?.slice(0, 4);
-  const meta = [year, formatRuntime(title.runtime_minutes), director].filter(Boolean).join(" · ");
+  // Rendition D's approved mockup pairs a plain gold percent line
+  // directly with the title, instead of the boxed badge chip + separate
+  // year/runtime/director meta row this hero used to show -- dropped
+  // that secondary line entirely rather than squeezing it in somewhere
+  // the approved static mockup never had it (see d.png).
+  const { title, reason } = current;
   const backdropImage = title.backdrop_url ?? title.poster_url;
   const href = `/movie/${title.id}`;
   const revealed = phase === "revealed";
   const meterActive = phase === "sealed" || phase === "revealing";
-  const badgeText = hasMatch ? `${displayPercent}%` : "NEW";
+  const matchLabel = hasMatch ? `${displayPercent}% match for you` : "Picked for you";
 
   return (
     // Redesign pass: dropped the hairline border + flat surface-raised
@@ -273,68 +274,70 @@ export function RecommendationReveal({
         </button>
       )}
 
+      {/* Revealed content: matches rendition D's approved mockup
+          (d.png) element-for-element -- gold match line, italic serif
+          title, reason line, ghost "Press play" pill -- centered rather
+          than the earlier left-aligned block, since that's how the
+          mockup composes it. The tap-to-reveal meter above is the one
+          thing the mockup (a static image) couldn't show and the user
+          explicitly asked to keep, so it still gates this exact content
+          rather than replacing it outright. */}
       {revealed && (
-        <div className="reveal-glow absolute inset-x-0 bottom-0 p-5 sm:p-8">
-          <div className="reveal-fade-up flex items-center gap-2.5">
-            <span className="bg-accent text-accent-foreground rounded-[10px] px-2.5 py-1 font-sans text-sm font-black tracking-tight">
-              {badgeText}
-              <span className="sr-only"> match</span>
-            </span>
-            {meta && <span className="font-sans text-[11.5px] text-foreground-muted">{meta}</span>}
-          </div>
+        <div className="reveal-glow absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-6 text-center sm:gap-4 sm:p-10">
+          <span className="reveal-fade-up text-gold-foil font-sans text-[11px] font-bold uppercase tracking-[0.25em]">
+            {matchLabel}
+          </span>
 
-          <Link href={href} className="block">
-            <h2 className="reveal-fade-up mt-2 font-sans text-4xl font-black leading-[0.98] tracking-tight text-foreground [animation-delay:60ms] sm:text-6xl">
+          <Link href={href}>
+            <h2 className="reveal-fade-up font-display text-4xl italic leading-[1.05] text-foreground [animation-delay:60ms] sm:text-6xl">
               {title.name}
             </h2>
-
-            <p className="reveal-fade-up mt-3 max-w-xl text-sm leading-relaxed text-foreground-muted [animation-delay:110ms] sm:text-base">
-              {reason}
-            </p>
           </Link>
 
-          <div className="reveal-fade-up mt-2 [animation-delay:160ms]">
-            <WhyThisPick detail={detail} />
-          </div>
+          <p className="reveal-fade-up max-w-md text-sm leading-relaxed text-foreground-muted [animation-delay:110ms] sm:text-base">
+            {reason}
+          </p>
 
-          {/* Circular glass icon buttons -- replaces the old pill-button
-              pair. Primary (watchlist) is solid so its on/off state stays
-              obvious at a glance; secondary (movie page) is outline-only.
-              Both are icon-only, so each carries its own aria-label since
-              there's no visible text left for a screen reader to read. */}
-          <div className="reveal-fade-up mt-5 flex flex-wrap items-center gap-3 [animation-delay:210ms]">
+          <Link
+            href={href}
+            className="reveal-fade-up mt-2 inline-flex items-center gap-2 rounded-[var(--radius-full)] border border-white/25 bg-black/35 px-6 py-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground backdrop-blur-md transition-colors [animation-delay:160ms] hover:border-accent/50 hover:bg-black/50"
+          >
+            <Play size={12} fill="currentColor" />
+            Press play
+          </Link>
+
+          {picks.length > 1 && (
             <button
               type="button"
-              onClick={toggleWatchlist}
-              disabled={isWatchlistPending}
-              aria-label={onWatchlist ? "Remove from watchlist" : "Add to watchlist"}
-              aria-pressed={onWatchlist}
-              className={
-                onWatchlist
-                  ? "bg-accent text-accent-foreground inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-accent-soft disabled:opacity-60"
-                  : "inline-flex h-11 w-11 items-center justify-center rounded-full border border-border-strong bg-white/5 text-foreground backdrop-blur-md transition-colors hover:bg-white/10 disabled:opacity-60"
-              }
+              onClick={generateAnother}
+              className="reveal-fade-up mt-1 text-xs text-foreground-muted transition-colors [animation-delay:210ms] hover:text-accent"
             >
-              <Bookmark size={17} fill={onWatchlist ? "currentColor" : "none"} />
+              Not feeling it? Generate another pick
             </button>
-            <Link
-              href={href}
-              aria-label="More info"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border-strong bg-white/5 text-foreground backdrop-blur-md transition-colors hover:bg-white/10"
-            >
-              <Info size={17} />
-            </Link>
-            {picks.length > 1 && (
-              <button
-                type="button"
-                onClick={generateAnother}
-                className="ml-1 text-xs text-foreground-muted transition-colors hover:text-accent"
-              >
-                Not feeling it? Generate another pick
-              </button>
-            )}
-          </div>
+          )}
         </div>
+      )}
+
+      {/* Watchlist toggle -- not part of the mockup's focal content (a
+          static image has no room for secondary chrome), but real,
+          already-wired functionality worth keeping reachable rather than
+          silently dropping. Tucked in the corner, out of the way of the
+          centered content the mockup actually specifies. */}
+      {revealed && (
+        <button
+          type="button"
+          onClick={toggleWatchlist}
+          disabled={isWatchlistPending}
+          aria-label={onWatchlist ? "Remove from watchlist" : "Add to watchlist"}
+          aria-pressed={onWatchlist}
+          className={
+            onWatchlist
+              ? "reveal-fade-up bg-accent text-accent-foreground absolute right-4 top-4 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-accent-soft disabled:opacity-60 sm:right-6 sm:top-6"
+              : "reveal-fade-up absolute right-4 top-4 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full border border-border-strong bg-white/5 text-foreground backdrop-blur-md transition-colors hover:bg-white/10 disabled:opacity-60 sm:right-6 sm:top-6"
+          }
+        >
+          <Bookmark size={16} fill={onWatchlist ? "currentColor" : "none"} />
+        </button>
       )}
     </div>
   );

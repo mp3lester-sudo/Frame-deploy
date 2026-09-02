@@ -29,6 +29,8 @@ import { SeasonRatings } from "@/components/season-ratings";
 import { MoreLikeThis } from "@/components/more-like-this";
 import { getFriendLovedThis } from "@/lib/social/friend-loved-this";
 import { FriendLovedThisCard } from "@/components/movie/friend-loved-this-card";
+import { getActiveWatchSession } from "@/lib/watch-sessions/actions";
+import { PressPlayButton } from "@/components/watch-sessions/press-play-button";
 import type { Metadata } from "next";
 import { cache } from "react";
 
@@ -89,6 +91,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
     imageOverride,
     mySeasonRatings,
     friendLovedThis,
+    activeWatchSession,
   ] =
     await Promise.all([
       getTitleById(id),
@@ -140,6 +143,13 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
       // for logged-out visitors and unconditionally cheap otherwise (one
       // follows lookup, one ratings lookup, both indexed).
       viewer ? getFriendLovedThis(viewer.id, id) : Promise.resolve(null),
+      // Solo "Press Play" -- does the viewer already have an in-progress
+      // watch session for this exact title (outside any Movie Night),
+      // so the button below renders as "Continue"/paused progress
+      // instead of a fresh "Press Play" on repeat visits. No-ops for
+      // logged-out visitors, same pattern as every other viewer-scoped
+      // fetch above.
+      viewer ? getActiveWatchSession(id) : Promise.resolve(null),
     ]);
 
   if (!title) notFound();
@@ -262,6 +272,12 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
           <CreditsSection credits={(credits ?? []) as unknown as Credit[]} />
 
           <WhereToWatch offers={watchProviders} />
+
+          {viewer && (
+            <div className="mt-4">
+              <PressPlayButton titleId={title.id} runtimeMinutes={title.runtime_minutes} initialSession={activeWatchSession} />
+            </div>
+          )}
 
           {friendLovedThis && (
             <div className="mt-4">
