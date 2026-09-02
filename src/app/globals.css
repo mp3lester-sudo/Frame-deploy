@@ -203,11 +203,6 @@ html.media-switching main {
      "your year in film" moment reads like it's set in the same
      marquee-logotype voice as the brand itself. */
   --font-hollywood: var(--font-bebas);
-  /* Default treatment for the home page greeting's first name -- bold,
-     minimal geometric sans. Overridden per-user by a poster-matched font
-     (see lib/poster-font) whenever their most recently reviewed/watched
-     title has one on file; this is just the fallback everyone starts on. */
-  --font-greeting: var(--font-syne);
   /* Full design-system rollout: section-page headers/body text now
      ride the SAME governed serif+sans pair as everything else
      (--font-display / --font-sans) instead of a third and fourth
