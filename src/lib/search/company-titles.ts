@@ -1,4 +1,5 @@
 import { tmdbUrl } from "@/lib/external/tmdb-client";
+import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/external/fetch-timeout";
 
 /**
  * Live TMDB ids for a studio's catalogue, ordered by popularity --
@@ -24,7 +25,7 @@ export async function getTmdbIdsForCompany(companyId: number, limit = 40): Promi
         language: "en-US",
         page: String(page),
       });
-      const res = await fetch(url, { next: { revalidate: 21600 } });
+      const res = await fetch(url, { next: { revalidate: 21600 }, signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS) });
       if (!res.ok) break;
       const data = await res.json();
       const results: Array<{ id: number }> = data.results ?? [];

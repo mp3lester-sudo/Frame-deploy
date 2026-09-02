@@ -19,12 +19,18 @@ export function PersonHero({
   birthdayLabel,
   placeOfBirth,
   bio,
+  bioLoading = false,
 }: {
   photoSrc?: string | null;
   name: string;
   birthdayLabel: string | null;
   placeOfBirth: string | null;
   bio: string | null;
+  // True while the TMDB bio lookup is still in flight (streamed in via its
+  // own Suspense boundary -- see person/[id]/page.tsx) so the hero can show
+  // a neutral loading skeleton instead of the misleading "No biography
+  // available yet" empty state.
+  bioLoading?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [clampHeight, setClampHeight] = useState<number | null>(null);
@@ -93,6 +99,12 @@ export function PersonHero({
             <p ref={bioRef} className="whitespace-pre-line text-sm leading-relaxed text-foreground-muted">
               {bio}
             </p>
+          </div>
+        ) : bioLoading ? (
+          <div className="mt-4 animate-pulse space-y-2">
+            <div className="h-3 w-full rounded bg-surface-raised" />
+            <div className="h-3 w-11/12 rounded bg-surface-raised" />
+            <div className="h-3 w-2/3 rounded bg-surface-raised" />
           </div>
         ) : (
           <p className="mt-4 text-sm text-foreground-muted">No biography available yet.</p>

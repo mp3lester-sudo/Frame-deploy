@@ -1,8 +1,15 @@
+import { Suspense } from "react";
 import Image from "@/components/ui/fade-image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getOrFetchPersonBio, getTmdbPersonImages, getTmdbTaggedImages } from "@/lib/external/tmdb-person";
+import {
+  getOrFetchPersonBio,
+  getTmdbPersonImages,
+  getTmdbTaggedImages,
+  type PersonBioLookupInput,
+  type TmdbTaggedImage,
+} from "@/lib/external/tmdb-person";
 import { tmdbImageAtSize } from "@/lib/external/tmdb-client";
 import { PersonHero } from "@/components/person-hero";
 import { PersonStillsGallery } from "@/components/person-stills-gallery";
@@ -19,74 +26,41 @@ function formatBirthday(iso: string | null): string | null {
   });
 }
 
-export default async function PersonProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const supabase = await createClient();
+type FilmographyRow = {
+  credit_type: string;
+  character_name: string | null;
+  titles: {
+    id: string;
+    name: string;
+    poster_url: string | null;
+    release_date: string | null;
+    type: string;
+    popularity: number | null;
+    tmdb_id: number | null;
+  } | null;
+};
 
-  const { data: person } = await supabase.from("people").select("*").eq("id", id).single();
-  if (!person) notFound();
-
-  // credits only depends on `id` (not on person.tmdb_id like the other
-  // three), so it doesn't need to wait behind them -- folded into the
-  // same Promise.all instead of running as its own sequential await.
-  const [{ bio, birthday, placeOfBirth }, stillImages, taggedImages, { data: credits }] = await Promise.all([
+/**
+ * Everything on this page that depends on a live TMDB call (bio, extra
+ * stills, tagged/iconic-role images) -- isolated behind its own Suspense
+ * boundary so the page shell (photo, name, filmography, collaborators --
+ * all DB-only) paints immediately instead of blocking on three unbounded
+ * external fetches. This was the exact same class of bug just fixed on
+ * the movie page (see MovieDetailPage's RtScoreBadge/WatchProvidersSection/
+ * etc.): a top-level `await Promise.all([...three TMDB calls...])` held up
+ * the whole page render, and (before fetch-timeout.ts) had no bound on how
+ * long a slow/hanging TMDB response could take.
+ *
+ * All three calls now carry EXTERNAL_FETCH_TIMEOUT_MS (2.5s) via
+ * tmdb-person.ts, so this boundary's worst case is bounded rather than
+ * open-ended.
+ */
+async function PersonEnrichment({ person, filmography }: { person: PersonBioLookupInput & { photo_url: string | null; name: string }; filmography: FilmographyRow[] }) {
+  const [{ bio, birthday, placeOfBirth }, stillImages, taggedImages] = await Promise.all([
     getOrFetchPersonBio(person),
-    person.tmdb_id ? getTmdbPersonImages(person.tmdb_id) : Promise.resolve([]),
-    person.tmdb_id ? getTmdbTaggedImages(person.tmdb_id) : Promise.resolve([]),
-    supabase
-      .from("title_credits")
-      .select("credit_type, character_name, titles(id, name, poster_url, release_date, type, popularity, tmdb_id)")
-      .eq("person_id", id),
+    person.tmdb_id ? getTmdbPersonImages(person.tmdb_id) : Promise.resolve([] as string[]),
+    person.tmdb_id ? getTmdbTaggedImages(person.tmdb_id) : Promise.resolve([] as TmdbTaggedImage[]),
   ]);
-
-  type FilmographyRow = {
-    credit_type: string;
-    character_name: string | null;
-    titles: {
-      id: string;
-      name: string;
-      poster_url: string | null;
-      release_date: string | null;
-      type: string;
-      popularity: number | null;
-      tmdb_id: number | null;
-    } | null;
-  };
-
-  const filmography = ((credits ?? []) as unknown as FilmographyRow[])
-    .filter((c) => c.titles)
-    .sort((a, b) => (b.titles!.release_date ?? "").localeCompare(a.titles!.release_date ?? ""));
-
-  // Frequently works with (discovery-depth-audit rendition #3) -- every
-  // other credit row on any title this person worked on, joined back to
-  // the collaborator's own name/photo. Depends on filmography (needs the
-  // title ids), so it can't join the earlier Promise.all -- kept as its
-  // own targeted query rather than over-fetching title_credits for the
-  // whole catalogue.
-  const filmographyTitleIds = [...new Set(filmography.map((c) => c.titles!.id))];
-  const { data: coCredits } = filmographyTitleIds.length
-    ? await supabase
-        .from("title_credits")
-        .select("title_id, person_id, people(id, name, photo_url)")
-        .in("title_id", filmographyTitleIds)
-    : { data: [] as never[] };
-
-  type CoCreditRow = {
-    title_id: string;
-    person_id: string;
-    people: { id: string; name: string; photo_url: string | null } | null;
-  };
-
-  const collaboratorCredits: CollaboratorCredit[] = ((coCredits ?? []) as unknown as CoCreditRow[])
-    .filter((c) => c.people)
-    .map((c) => ({
-      titleId: c.title_id,
-      personId: c.person_id,
-      personName: c.people!.name,
-      photoUrl: c.people!.photo_url,
-    }));
-
-  const frequentCollaborators = computeFrequentCollaborators(collaboratorCredits, id);
 
   // "Iconic roles": a real photo of THIS person from a specific
   // production (TMDB tagged_images — see getTmdbTaggedImages), not that
@@ -125,7 +99,7 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
     .map(({ titleId, titleName, imageUrl, characterName }) => ({ titleId, titleName, imageUrl, characterName }));
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <>
       <PersonHero
         photoSrc={tmdbImageAtSize(person.photo_url, "h632")}
         name={person.name}
@@ -139,6 +113,73 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
       ) : (
         <PersonStillsGallery images={stillImages} />
       )}
+    </>
+  );
+}
+
+export default async function PersonProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const { data: person } = await supabase.from("people").select("*").eq("id", id).single();
+  if (!person) notFound();
+
+  const { data: credits } = await supabase
+    .from("title_credits")
+    .select("credit_type, character_name, titles(id, name, poster_url, release_date, type, popularity, tmdb_id)")
+    .eq("person_id", id);
+
+  const filmography = ((credits ?? []) as unknown as FilmographyRow[])
+    .filter((c) => c.titles)
+    .sort((a, b) => (b.titles!.release_date ?? "").localeCompare(a.titles!.release_date ?? ""));
+
+  // Frequently works with (discovery-depth-audit rendition #3) -- every
+  // other credit row on any title this person worked on, joined back to
+  // the collaborator's own name/photo. Depends on filmography (needs the
+  // title ids), so it can't join the earlier query -- kept as its
+  // own targeted query rather than over-fetching title_credits for the
+  // whole catalogue.
+  const filmographyTitleIds = [...new Set(filmography.map((c) => c.titles!.id))];
+  const { data: coCredits } = filmographyTitleIds.length
+    ? await supabase
+        .from("title_credits")
+        .select("title_id, person_id, people(id, name, photo_url)")
+        .in("title_id", filmographyTitleIds)
+    : { data: [] as never[] };
+
+  type CoCreditRow = {
+    title_id: string;
+    person_id: string;
+    people: { id: string; name: string; photo_url: string | null } | null;
+  };
+
+  const collaboratorCredits: CollaboratorCredit[] = ((coCredits ?? []) as unknown as CoCreditRow[])
+    .filter((c) => c.people)
+    .map((c) => ({
+      titleId: c.title_id,
+      personId: c.person_id,
+      personName: c.people!.name,
+      photoUrl: c.people!.photo_url,
+    }));
+
+  const frequentCollaborators = computeFrequentCollaborators(collaboratorCredits, id);
+
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <Suspense
+        fallback={
+          <PersonHero
+            photoSrc={tmdbImageAtSize(person.photo_url, "h632")}
+            name={person.name}
+            birthdayLabel={null}
+            placeOfBirth={null}
+            bio={null}
+            bioLoading
+          />
+        }
+      >
+        <PersonEnrichment person={person} filmography={filmography} />
+      </Suspense>
 
       <FrequentCollaborators collaborators={frequentCollaborators} />
 

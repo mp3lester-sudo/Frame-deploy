@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { tmdbUrl, TMDB_IMAGE_BASE } from "@/lib/external/tmdb-client";
+import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/external/fetch-timeout";
 
 /**
  * Lazy fetch-on-view for person bio data, mirroring the RT score pattern:
@@ -38,7 +39,10 @@ export async function getOrFetchPersonBio(person: PersonBioLookupInput): Promise
   let result: PersonBio = { bio: null, birthday: null, placeOfBirth: null };
 
   try {
-    const res = await fetch(tmdbUrl(`/person/${person.tmdb_id}`), { next: { revalidate: 86400 } });
+    const res = await fetch(tmdbUrl(`/person/${person.tmdb_id}`), {
+      next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    });
     if (res.ok) {
       const data = await res.json();
       result = {
@@ -74,7 +78,10 @@ export async function getOrFetchPersonBio(person: PersonBioLookupInput): Promise
  */
 export async function getTmdbPersonImages(tmdbId: number, limit = 10): Promise<string[]> {
   try {
-    const res = await fetch(tmdbUrl(`/person/${tmdbId}/images`), { next: { revalidate: 86400 } });
+    const res = await fetch(tmdbUrl(`/person/${tmdbId}/images`), {
+      next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    });
     if (!res.ok) return [];
     const data = await res.json();
     const profiles: Array<{ file_path: string }> = data.profiles ?? [];
@@ -106,7 +113,10 @@ export interface TmdbTaggedImage {
 
 export async function getTmdbTaggedImages(tmdbId: number, limit = 20): Promise<TmdbTaggedImage[]> {
   try {
-    const res = await fetch(tmdbUrl(`/person/${tmdbId}/tagged_images`), { next: { revalidate: 86400 } });
+    const res = await fetch(tmdbUrl(`/person/${tmdbId}/tagged_images`), {
+      next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    });
     if (!res.ok) return [];
     const data = await res.json();
     const results: Array<{

@@ -1,5 +1,6 @@
 import { tmdbUrl } from "@/lib/external/tmdb-client";
 import { INDIE_DISTRIBUTOR_IDS } from "@/lib/news/indie-distributors";
+import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/external/fetch-timeout";
 
 /**
  * "Indie Spotlight" release calendar -- live TMDB /discover/movie call
@@ -91,7 +92,7 @@ export async function getIndieReleases(limit = 12): Promise<IndieRelease[]> {
     // result for every visitor), so a longer cache window than the 24h
     // used for critic reviews would be overkill in the other direction,
     // but new/upcoming release info doesn't change minute to minute either.
-    const res = await fetch(url, { next: { revalidate: 21600 } });
+    const res = await fetch(url, { next: { revalidate: 21600 }, signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS) });
     if (!res.ok) return [];
     const data = await res.json();
     return mapDiscoverResultsToReleases(data.results ?? [], isoDate(today)).slice(0, limit);
