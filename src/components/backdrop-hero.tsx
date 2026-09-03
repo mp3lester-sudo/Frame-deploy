@@ -311,10 +311,18 @@ export function BackdropHero({
               type="button"
               onClick={handleTapToPlay}
               aria-label={`Play ${title} trailer`}
-              className="absolute inset-0 z-10 flex items-center justify-center bg-background/30"
+              className="absolute inset-0 z-10 flex items-center justify-center bg-background/35"
             >
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-transform hover:scale-105">
-                <Play size={28} className="ml-1 fill-current" aria-hidden="true" />
+              {/* Two-layer ring (soft outer glow + a crisp dark separation ring)
+                  reads as an intentional, polished badge rather than a flat
+                  gold circle -- and the dark ring is what makes this fully
+                  opaque over YouTube's own red icon underneath regardless of
+                  how bright the paused frame is. */}
+              <span className="flex h-24 w-24 items-center justify-center rounded-full bg-accent text-accent-foreground ring-4 ring-background/50 shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-transform hover:scale-105 sm:h-28 sm:w-28">
+                <Play
+                  className="h-10 w-10 translate-x-[3px] fill-current sm:h-12 sm:w-12"
+                  aria-hidden="true"
+                />
               </span>
             </button>
           )}
