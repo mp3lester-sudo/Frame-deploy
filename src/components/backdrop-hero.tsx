@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Volume2, VolumeX, X } from "lucide-react";
+import { Play, Volume2, VolumeX, X } from "lucide-react";
 import Image from "@/components/ui/fade-image";
 import { BackButton } from "@/components/ui/back-button";
 import { siteOrigin } from "@/lib/seo/site";
@@ -114,6 +114,19 @@ export function BackdropHero({
   // PLAYING state change) -- used below to cancel the "stuck" fallback
   // timer once there's real signal the embed is working.
   const [playerStarted, setPlayerStarted] = useState(false);
+  // Distinct from playerStarted above: onReady only proves the embed
+  // *loaded*, not that autoplay actually took. In practice the
+  // autoplay=1/mute=1/playsinline=1 combination is routinely ignored by
+  // browsers for a postMessage-driven YouTube iframe (confirmed live --
+  // this isn't just an iOS quirk, the same embed sits paused showing
+  // YouTube's own play button in desktop Chromium too), leaving the
+  // player sitting on YouTube's own paused frame indefinitely even
+  // though the embed itself loaded fine. isReallyPlaying only flips true
+  // on a genuine PLAYING state change, and drives the Slate-branded tap
+  // overlay below -- a real click's playVideo() call is honored far more
+  // reliably by browser autoplay policy than the automatic one fired
+  // from onReady, since it's tied to an actual user gesture.
+  const [isReallyPlaying, setIsReallyPlaying] = useState(false);
 
   // Creates the real YT.Player instance, instead of hand-building an
   // iframe src string -- see the comment on loadYouTubeIframeApi for why.
@@ -167,12 +180,18 @@ export function BackdropHero({
             // enough on its own, but explicitly calling these through the
             // API's real methods (not postMessage guesswork) costs
             // nothing and catches any platform where the URL param alone
-            // doesn't take.
+            // doesn't take. Often doesn't take anyway (see isReallyPlaying
+            // above) -- that's what the tap overlay is for.
             event.target.mute();
             event.target.playVideo();
           },
           onStateChange: (event) => {
-            if (event.data === YT.PlayerState.PLAYING) setPlayerStarted(true);
+            if (event.data === YT.PlayerState.PLAYING) {
+              setPlayerStarted(true);
+              setIsReallyPlaying(true);
+            } else if (event.data === YT.PlayerState.PAUSED) {
+              setIsReallyPlaying(false);
+            }
           },
           // Covers YouTube's own explicit rejections: embedding disabled
           // by the uploader, age-restricted content, region blocks, or a
@@ -211,6 +230,14 @@ export function BackdropHero({
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on trailerKey (fresh timer per title), playerStarted intentionally read fresh via closure rather than restarting the timer on every state flip
   }, [trailerKey, playing]);
+
+  // Real click handler for the Slate-branded tap overlay -- see the
+  // isReallyPlaying comment above for why this exists. A trusted click
+  // event's playVideo() call succeeds far more often than the automatic
+  // one fired from onReady.
+  function handleTapToPlay() {
+    playerRef.current?.playVideo();
+  }
 
   function toggleMute() {
     const next = !muted;
@@ -267,6 +294,30 @@ export function BackdropHero({
             aria-label={`${title} trailer`}
             className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[100vw] origin-center scale-125 -translate-x-1/2 -translate-y-1/2 [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full [&>iframe]:border-0"
           />
+          {/* Slate-branded tap-to-play cover. Sits on top of YouTube's own
+              (frequently ignored) autoplay attempt -- see the
+              isReallyPlaying comment above. A real click here calls
+              playVideo() directly, which browsers honor far more
+              reliably than the automatic attempt, and this button reads
+              as Slate's own affordance rather than exposing YouTube's red
+              play icon. A sibling of the pointer-events-none video
+              container (not a child) so this stays the only tappable
+              thing over the embed -- YouTube's own controls/branding
+              underneath remain untouchable. Disappears the instant a real
+              PLAYING state comes through, whether that's from this tap or
+              (occasionally) autoplay actually working on its own. */}
+          {!isReallyPlaying && (
+            <button
+              type="button"
+              onClick={handleTapToPlay}
+              aria-label={`Play ${title} trailer`}
+              className="absolute inset-0 z-10 flex items-center justify-center bg-background/30"
+            >
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-transform hover:scale-105">
+                <Play size={28} className="ml-1 fill-current" aria-hidden="true" />
+              </span>
+            </button>
+          )}
           {/* Bottom fade so the hard edge at the base of the hero (very
               visible on high-contrast trailer intros -- rating cards,
               title-card frames, black-and-white cold opens) reads as an
