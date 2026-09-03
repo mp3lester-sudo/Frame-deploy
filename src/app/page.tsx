@@ -111,12 +111,14 @@ async function HomeRecommendationsSection({
   const continueWatchingPromise = getContinueWatching(mediaType);
 
   const { recommendations, isColdStart } = await getRecommendationsForUser(userId, {
-    // 1 hero + 6 for MoodRow ("More picks for you") + 2 held in reserve
+    // 1 hero + 6 for MoodRow ("More picks for you") + 9 held in reserve
     // purely for RecommendationReveal's "Generate another pick" cycle --
-    // the reserve pair is deliberately never passed to MoodRow, so tapping
+    // the reserve pool is deliberately never passed to MoodRow, so tapping
     // "generate another" on the hero can never show a poster that's
-    // already visible in the rail below it.
-    limit: 9,
+    // already visible in the rail below it. Widened from 2 to 9 reserve
+    // (3 -> 10 total cycleable picks) for beta -- more headroom before a
+    // tester exhausts the "not feeling it" cycle and hits a dead end.
+    limit: 16,
     context: activeContext,
     weather: weatherPromise.then((weather) => ({ weatherCode: weather?.code ?? null, tempF: weather?.tempF ?? null, hour })),
     mediaType,
@@ -124,12 +126,12 @@ async function HomeRecommendationsSection({
 
   const hero = recommendations[0];
   const morePicks = recommendations.slice(1, 7);
-  const heroReserve = recommendations.slice(7, 9);
+  const heroReserve = recommendations.slice(7, 16);
   const heroPool = hero ? [hero, ...heroReserve] : [];
 
   // Streaming-home hero CTA (Concept G) needs to know, per pick, whether
   // it's already on the watchlist -- one batched query over just the
-  // hero pool's few ids (hero + 2 reserve, see comment above), not the
+  // hero pool's few ids (hero + 9 reserve, see comment above), not the
   // whole recommendations array, since MoodRow's cards don't show this
   // state. Runs inside this already-streamed/Suspense-gated section, so
   // it doesn't add to the page shell's own critical path.

@@ -82,7 +82,7 @@ export function RecommendationReveal({
   // the pool as the *user* has shaped it this session -- "Generate
   // another pick" permanently drops a dismissed title from here (see
   // generateAnother below), it doesn't just cycle an index through the
-  // original array. Without this, a max-3-deep pool (hero + 2 reserve,
+  // original array. Without this, a max-10-deep pool (hero + 9 reserve,
   // see page.tsx) would wrap right back around to a title the user just
   // said "not feeling it" to after one more tap.
   const [localPicks, setLocalPicks] = useState(picks);
@@ -193,7 +193,7 @@ export function RecommendationReveal({
     // the pick being cycled away FROM, not the one being cycled TO.
     // Filtering the dismissed title out entirely (not just incrementing
     // an index mod length) is what actually prevents the wraparound --
-    // this pool is at most 3 deep, so a plain modulo cycle would land
+    // this pool is at most 10 deep, so a plain modulo cycle would land
     // right back on the just-dismissed title after one more tap.
     const remaining = localPicks.filter((p) => p.title.id !== dismissedTitleId);
     const nextPercent = remaining[0]?.matchPercent;
