@@ -110,11 +110,7 @@ export function BackdropHero({
   const [muted, setMuted] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
-  // Set once the player actually confirms it's alive (onReady or a
-  // PLAYING state change) -- used below to cancel the "stuck" fallback
-  // timer once there's real signal the embed is working.
-  const [playerStarted, setPlayerStarted] = useState(false);
-  // Distinct from playerStarted above: onReady only proves the embed
+  // Distinct from the playerStartedRef below: onReady only proves the embed
   // *loaded*, not that autoplay actually took. In practice the
   // autoplay=1/mute=1/playsinline=1 combination is routinely ignored by
   // browsers for a postMessage-driven YouTube iframe (confirmed live --
@@ -127,6 +123,23 @@ export function BackdropHero({
   // reliably by browser autoplay policy than the automatic one fired
   // from onReady, since it's tied to an actual user gesture.
   const [isReallyPlaying, setIsReallyPlaying] = useState(false);
+  // Used below by the stuck-trailer timer to know whether the player
+  // ever actually came up (onReady or a PLAYING state change). A plain
+  // useState here previously caused a real bug: the timer effect
+  // intentionally only depends on [trailerKey, playing] (see its own
+  // comment) so it doesn't restart every time this flips, but that also
+  // meant its setTimeout callback closed over the state variable's value
+  // at the render when the effect last actually ran (mount, in
+  // practice) and never saw any later update -- a permanently stale
+  // read, not "fresh" as the old comment assumed. The result: EVERY
+  // trailer, even ones playing perfectly, got yanked back to the plain
+  // backdrop exactly 15s after mount. A ref fixes this cleanly: unlike
+  // a closed-over state variable, ref.current is always read live
+  // regardless of which render's closure is doing the reading, so the
+  // timer can see up-to-the-second truth without needing to be one of
+  // its effect's deps (which would defeat the "don't restart on every
+  // flip" goal).
+  const playerStartedRef = useRef(false);
 
   // Creates the real YT.Player instance, instead of hand-building an
   // iframe src string -- see the comment on loadYouTubeIframeApi for why.
@@ -175,7 +188,7 @@ export function BackdropHero({
         },
         events: {
           onReady: (event) => {
-            setPlayerStarted(true);
+            playerStartedRef.current = true;
             // Belt and suspenders: autoplay=1 in playerVars should be
             // enough on its own, but explicitly calling these through the
             // API's real methods (not postMessage guesswork) costs
@@ -187,7 +200,7 @@ export function BackdropHero({
           },
           onStateChange: (event) => {
             if (event.data === YT.PlayerState.PLAYING) {
-              setPlayerStarted(true);
+              playerStartedRef.current = true;
               setIsReallyPlaying(true);
             } else if (event.data === YT.PlayerState.PAUSED) {
               setIsReallyPlaying(false);
@@ -224,11 +237,11 @@ export function BackdropHero({
   // going to load.
   useEffect(() => {
     if (!playing || !trailerKey) return;
+    playerStartedRef.current = false;
     const timer = window.setTimeout(() => {
-      if (!playerStarted) setPlaying(false);
+      if (!playerStartedRef.current) setPlaying(false);
     }, 15000);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on trailerKey (fresh timer per title), playerStarted intentionally read fresh via closure rather than restarting the timer on every state flip
   }, [trailerKey, playing]);
 
   // Real click handler for the Slate-branded tap overlay -- see the
