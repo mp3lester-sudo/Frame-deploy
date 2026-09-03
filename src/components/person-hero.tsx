@@ -1,114 +1,85 @@
-"use client";
-
-import { useLayoutEffect, useRef, useState } from "react";
-import { PersonPortrait } from "@/components/person-portrait";
+import Image from "@/components/ui/fade-image";
+import { BackButton } from "@/components/ui/back-button";
 
 /**
- * Portrait + name/meta/bio header for a person profile page, as one client
- * component. Unlike a fixed line-clamp, the bio is only truncated (and the
- * "Show more" toggle only shown) once the bio's own natural height would run
- * past the bottom of the portrait photo — a short bio that already fits
- * alongside the photo renders in full with no toggle at all. The toggle
- * lives directly under the portrait rather than under the bio text, so its
- * expanded/collapsed state has to be owned by this shared parent rather
- * than by the bio text itself.
+ * Full-bleed backdrop hero for a person page -- same container pattern as
+ * BackdropHero on the movie page (-mt-14 to extend under the nav's own
+ * reserved space, object-cover object-top since a portrait-aspect source
+ * cropped into a much wider box loses the most by centering, long
+ * two-stop bottom fade so overlaid text reads cleanly the whole way up).
+ * Replaces the earlier side-by-side "small portrait rectangle + name/bio"
+ * layout, which was the one major page in the app with no hero moment at
+ * all and plain gray section headers unlike everywhere else -- see
+ * person/[id]/page.tsx's other components for the matching gold/italic
+ * treatment applied to Iconic roles / Frequently works with / Filmography.
+ *
+ * Server component -- everything it needs (photo, name, birthday, place,
+ * filmography-derived stats) comes straight from the DB query in
+ * page.tsx, so unlike the old PersonHero this never has to wait on the
+ * TMDB bio lookup. Bio now lives in its own PersonBio component streamed
+ * in separately below (see person-bio.tsx) instead of being embedded
+ * here -- keeping the hero itself paint-immediately.
  */
 export function PersonHero({
   photoSrc,
   name,
-  birthdayLabel,
-  placeOfBirth,
-  bio,
-  bioLoading = false,
+  titleCount,
+  activeSince,
 }: {
   photoSrc?: string | null;
   name: string;
-  birthdayLabel: string | null;
-  placeOfBirth: string | null;
-  bio: string | null;
-  // True while the TMDB bio lookup is still in flight (streamed in via its
-  // own Suspense boundary -- see person/[id]/page.tsx) so the hero can show
-  // a neutral loading skeleton instead of the misleading "No biography
-  // available yet" empty state.
-  bioLoading?: boolean;
+  /** Real count from the filmography query -- not fabricated. */
+  titleCount: number;
+  /** Earliest release year across this person's credited filmography, if
+   *  derivable -- also real, not a guessed "years active" figure. */
+  activeSince: number | null;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [clampHeight, setClampHeight] = useState<number | null>(null);
-  const [overflows, setOverflows] = useState(false);
-  const portraitRef = useRef<HTMLDivElement>(null);
-  const bioRef = useRef<HTMLParagraphElement>(null);
-
-  useLayoutEffect(() => {
-    if (!bio) return;
-
-    function measure() {
-      const portraitEl = portraitRef.current;
-      const bioEl = bioRef.current;
-      if (!portraitEl || !bioEl) return;
-      const portraitHeight = portraitEl.getBoundingClientRect().height;
-      // scrollHeight reflects the paragraph's natural, unclamped height
-      // regardless of the wrapper's overflow-hidden clamp below.
-      const bioHeight = bioEl.scrollHeight;
-      setClampHeight(portraitHeight);
-      // Small tolerance so a bio that lands within a few px of the photo's
-      // bottom edge doesn't trigger a toggle for effectively no gain.
-      setOverflows(bioHeight > portraitHeight + 4);
-    }
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    if (portraitRef.current) observer.observe(portraitRef.current);
-    window.addEventListener("resize", measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-  }, [bio]);
+  const initials = name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
-    <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-      <div className="w-40 shrink-0 sm:w-56">
-        <div ref={portraitRef}>
-          <PersonPortrait src={photoSrc} name={name} />
+    <div className="relative -mt-14 h-[380px] w-full overflow-hidden sm:h-[520px]">
+      {photoSrc ? (
+        <Image src={photoSrc} alt="" fill priority sizes="100vw" className="object-cover object-top" />
+      ) : (
+        // No-photo fallback: same idea as the old initials circle, just
+        // filling the full-bleed box instead of a small rounded rect.
+        <div className="flex h-full w-full items-center justify-center bg-surface-raised">
+          <span className="font-display text-8xl italic text-foreground-muted" aria-hidden="true">
+            {initials}
+          </span>
         </div>
-        {overflows && (
-          <button
-            type="button"
-            onClick={() => setExpanded((e) => !e)}
-            className="mt-2 w-full text-center text-xs font-medium text-accent hover:brightness-110"
-          >
-            {expanded ? "Show less" : "Show more"}
-          </button>
-        )}
+      )}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/45 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/75 to-transparent sm:h-64" />
+
+      <div className="absolute left-3 top-[68px] z-10">
+        <BackButton />
       </div>
 
-      <div className="flex-1">
-        <h1 className="font-display text-2xl sm:text-3xl">{name}</h1>
-        {(birthdayLabel || placeOfBirth) && (
-          <p className="mt-1 text-sm text-foreground-muted">
-            {birthdayLabel}
-            {birthdayLabel && placeOfBirth && " · "}
-            {placeOfBirth}
-          </p>
-        )}
-        {bio ? (
-          <div
-            className="mt-4"
-            style={!expanded && clampHeight ? { maxHeight: clampHeight, overflow: "hidden" } : undefined}
-          >
-            <p ref={bioRef} className="whitespace-pre-line text-sm leading-relaxed text-foreground-muted">
-              {bio}
-            </p>
-          </div>
-        ) : bioLoading ? (
-          <div className="mt-4 animate-pulse space-y-2">
-            <div className="h-3 w-full rounded bg-surface-raised" />
-            <div className="h-3 w-11/12 rounded bg-surface-raised" />
-            <div className="h-3 w-2/3 rounded bg-surface-raised" />
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-foreground-muted">No biography available yet.</p>
-        )}
+      <div className="absolute inset-x-0 bottom-0 px-4 pb-6 sm:px-6 sm:pb-8">
+        <h1 className="font-display text-3xl italic text-foreground sm:text-5xl">{name}</h1>
+        {/* Birthday/place aren't rendered here -- they come from the same
+            TMDB bio lookup as the biography text (see PersonBio and
+            PersonEnrichment in page.tsx), which is behind its own Suspense
+            boundary so it doesn't block this hero's first paint. Showing
+            them here would mean a raw, possibly-stale/empty DB read on a
+            person's very first page view (before bio_checked_at is ever
+            set -- see getOrFetchPersonBio), not the resolved TMDB value. */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-accent/35 bg-accent/10 px-3 py-1 text-xs font-medium text-accent-soft">
+            {titleCount} {titleCount === 1 ? "title" : "titles"}
+          </span>
+          {activeSince && (
+            <span className="rounded-full border border-accent/35 bg-accent/10 px-3 py-1 text-xs font-medium text-accent-soft">
+              Since {activeSince}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

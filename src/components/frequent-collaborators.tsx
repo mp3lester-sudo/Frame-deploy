@@ -13,8 +13,8 @@ export function FrequentCollaborators({ collaborators }: { collaborators: Freque
   if (collaborators.length === 0) return null;
 
   return (
-    <section className="mt-10">
-      <h2 className="mb-3 text-lg font-semibold">Frequently works with</h2>
+    <section className="mt-10 border-t border-border pt-8">
+      <h2 className="mb-3 font-display text-lg italic text-accent">Frequently works with</h2>
       <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1">
         {collaborators.map((c) => (
           <Link

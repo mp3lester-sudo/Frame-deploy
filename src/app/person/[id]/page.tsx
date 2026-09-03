@@ -12,6 +12,7 @@ import {
 } from "@/lib/external/tmdb-person";
 import { tmdbImageAtSize } from "@/lib/external/tmdb-client";
 import { PersonHero } from "@/components/person-hero";
+import { PersonBio } from "@/components/person-bio";
 import { PersonStillsGallery } from "@/components/person-stills-gallery";
 import { PersonIconicRoles, type IconicRole } from "@/components/person-iconic-roles";
 import { FrequentCollaborators } from "@/components/frequent-collaborators";
@@ -98,15 +99,18 @@ async function PersonEnrichment({ person, filmography }: { person: PersonBioLook
     .slice(0, 8)
     .map(({ titleId, titleName, imageUrl, characterName }) => ({ titleId, titleName, imageUrl, characterName }));
 
+  const birthdayLabel = formatBirthday(birthday);
+
   return (
     <>
-      <PersonHero
-        photoSrc={tmdbImageAtSize(person.photo_url, "h632")}
-        name={person.name}
-        birthdayLabel={formatBirthday(birthday)}
-        placeOfBirth={placeOfBirth}
-        bio={bio}
-      />
+      {(birthdayLabel || placeOfBirth) && (
+        <p className="mb-3 text-sm text-foreground-muted">
+          {birthdayLabel}
+          {birthdayLabel && placeOfBirth && " · "}
+          {placeOfBirth}
+        </p>
+      )}
+      <PersonBio bio={bio} />
 
       {iconicRoles.length >= 2 ? (
         <PersonIconicRoles roles={iconicRoles} />
@@ -132,6 +136,16 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   const filmography = ((credits ?? []) as unknown as FilmographyRow[])
     .filter((c) => c.titles)
     .sort((a, b) => (b.titles!.release_date ?? "").localeCompare(a.titles!.release_date ?? ""));
+
+  // Real, derived from the same filmography query above -- not a guessed
+  // "years active" figure. Earliest release year across every credited
+  // title, if any have one. Powers the hero's stat pills (see
+  // person-hero.tsx) alongside the plain filmography count.
+  const creditYears = filmography
+    .map((c) => c.titles!.release_date?.slice(0, 4))
+    .filter((y): y is string => Boolean(y))
+    .map(Number);
+  const activeSince = creditYears.length ? Math.min(...creditYears) : null;
 
   // Frequently works with (discovery-depth-audit rendition #3) -- every
   // other credit row on any title this person worked on, joined back to
@@ -165,28 +179,30 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   const frequentCollaborators = computeFrequentCollaborators(collaboratorCredits, id);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <Suspense
-        fallback={
-          <PersonHero
-            photoSrc={tmdbImageAtSize(person.photo_url, "h632")}
-            name={person.name}
-            birthdayLabel={null}
-            placeOfBirth={null}
-            bio={null}
-            bioLoading
-          />
-        }
-      >
-        <PersonEnrichment person={person} filmography={filmography} />
-      </Suspense>
+    <div>
+      {/* Full-bleed, outside the max-w-4xl content wrapper below -- same
+          pattern as BackdropHero on the movie page. Pure DB data (photo,
+          name, filmography count/years), so it renders on the very first
+          paint instead of waiting on the TMDB bio/birthday lookup below
+          (see PersonEnrichment's own birthday/place line). */}
+      <PersonHero
+        photoSrc={tmdbImageAtSize(person.photo_url, "h632")}
+        name={person.name}
+        titleCount={filmography.length}
+        activeSince={activeSince}
+      />
 
-      <FrequentCollaborators collaborators={frequentCollaborators} />
+      <div className="mx-auto max-w-4xl px-4 pb-8 pt-6">
+        <Suspense fallback={<PersonBio bio={null} bioLoading />}>
+          <PersonEnrichment person={person} filmography={filmography} />
+        </Suspense>
 
-      <section className="mt-10">
-        <h2 className="mb-3 text-lg font-semibold">
-          Filmography <span className="text-sm font-normal text-foreground-muted">({filmography.length})</span>
-        </h2>
+        <FrequentCollaborators collaborators={frequentCollaborators} />
+
+        <section className="mt-10 border-t border-border pt-8">
+          <h2 className="mb-3 font-display text-lg italic text-accent">
+            Filmography <span className="font-sans text-sm not-italic text-foreground-muted">({filmography.length})</span>
+          </h2>
         {filmography.length ? (
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
             {filmography.map((c, i) => (
@@ -217,7 +233,8 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
         ) : (
           <p className="text-sm text-foreground-muted">No credited titles yet.</p>
         )}
-      </section>
+        </section>
+      </div>
     </div>
   );
 }

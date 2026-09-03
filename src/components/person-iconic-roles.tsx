@@ -24,8 +24,8 @@ export function PersonIconicRoles({ roles }: { roles: IconicRole[] }) {
   if (roles.length < 2) return null;
 
   return (
-    <section className="mt-8">
-      <h2 className="mb-3 text-lg font-semibold">Iconic roles</h2>
+    <section className="mt-8 border-t border-border pt-8">
+      <h2 className="mb-3 font-display text-lg italic text-accent">Iconic roles</h2>
       <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1">
         {roles.map((role, i) => (
           <Link
