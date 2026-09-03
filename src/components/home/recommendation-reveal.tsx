@@ -9,6 +9,7 @@ import type { ReasonDetail } from "@/lib/recommendations/explain";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { BANNER_DUOTONE_FILTER } from "@/lib/design/duotone";
 import { addToWatchlist, removeFromWatchlist } from "@/lib/actions/lists";
+import { dismissRecommendation } from "@/lib/actions/dismissals";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -76,6 +77,14 @@ export function RecommendationReveal({
   mediaType: MediaType;
 }) {
   const [index, setIndex] = useState(0);
+  // The picks prop is the pool as the server rendered it; localPicks is
+  // the pool as the *user* has shaped it this session -- "Generate
+  // another pick" permanently drops a dismissed title from here (see
+  // generateAnother below), it doesn't just cycle an index through the
+  // original array. Without this, a max-3-deep pool (hero + 2 reserve,
+  // see page.tsx) would wrap right back around to a title the user just
+  // said "not feeling it" to after one more tap.
+  const [localPicks, setLocalPicks] = useState(picks);
   const [phase, setPhase] = useState<Phase>("sealed");
   const [displayPercent, setDisplayPercent] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -88,7 +97,7 @@ export function RecommendationReveal({
   const [watchlistOverrides, setWatchlistOverrides] = useState<Record<string, boolean>>({});
   const [isWatchlistPending, startWatchlistTransition] = useTransition();
 
-  const current = picks[index];
+  const current = localPicks[index];
   const hasMatch = current?.matchPercent != null;
   const onWatchlist = current ? (watchlistOverrides[current.title.id] ?? current.initiallyOnWatchlist) : false;
 
@@ -147,19 +156,41 @@ export function RecommendationReveal({
   }
 
   function generateAnother() {
-    if (phase !== "revealed" || picks.length < 2) return;
-    // Resolve the next pick's index up front (not inside the timeouts
-    // below) so the SWEEP_MS timeout can read ITS matchPercent directly,
-    // rather than closing over `current` from render time -- by the time
-    // that timeout fires, setIndex has already run and `current` in this
-    // closure would still point at the pick being cycled away FROM, not
-    // the one being cycled TO.
-    const nextIndex = (index + 1) % picks.length;
-    const nextPercent = picks[nextIndex].matchPercent;
+    if (phase !== "revealed" || localPicks.length < 2) return;
+    const dismissedTitleId = current.title.id;
+
+    // "Not feeling it" is a real dismissal, not a cosmetic skip -- fire
+    // the same server action the swipe deck's left-swipe already uses
+    // (see lib/actions/dismissals.ts) so this title is excluded from
+    // every future recommendation run (engine.ts already reads
+    // title_dismissals at every candidate-pool stage) rather than just
+    // scrolling out of view for a few seconds and coming right back on
+    // the next page load. Fire-and-forget, same convention as the swipe
+    // deck: no UI feedback on failure, a slow network blip shouldn't
+    // block the reveal, and there's nothing server-rendered here that
+    // needs to catch up mid-session (see dismissRecommendation's own
+    // comment on why it deliberately skips revalidatePath).
+    void dismissRecommendation(dismissedTitleId);
+
+    // Resolve the next pool up front (not inside the timeouts below) so
+    // the SWEEP_MS timeout can read the next pick's matchPercent
+    // directly, rather than closing over `current` from render time --
+    // by the time that timeout fires, setLocalPicks/setIndex have
+    // already run and `current` in this closure would still point at
+    // the pick being cycled away FROM, not the one being cycled TO.
+    // Filtering the dismissed title out entirely (not just incrementing
+    // an index mod length) is what actually prevents the wraparound --
+    // this pool is at most 3 deep, so a plain modulo cycle would land
+    // right back on the just-dismissed title after one more tap.
+    const remaining = localPicks.filter((p) => p.title.id !== dismissedTitleId);
+    const nextPercent = remaining[0]?.matchPercent;
     setPhase("sweeping");
     setDisplayPercent(0);
     timers.current.push(
-      setTimeout(() => setIndex(nextIndex), CYCLE_SWAP_MS),
+      setTimeout(() => {
+        setLocalPicks(remaining);
+        setIndex(0);
+      }, CYCLE_SWAP_MS),
       setTimeout(() => {
         setDisplayPercent(nextPercent ?? 0);
         setPhase("revealed");
@@ -306,7 +337,7 @@ export function RecommendationReveal({
             Press play
           </Link>
 
-          {picks.length > 1 && (
+          {localPicks.length > 1 && (
             <button
               type="button"
               onClick={generateAnother}
