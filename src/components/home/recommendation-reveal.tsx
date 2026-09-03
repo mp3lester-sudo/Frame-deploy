@@ -291,23 +291,43 @@ export function RecommendationReveal({
           onClick={reveal}
           disabled={phase !== "sealed"}
           aria-label="Tap to generate tonight's recommendation"
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 text-center"
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 text-center"
         >
-          {/* Ghost numeral -- fills most of the card while sealed/
-              revealing, gradient-faded from solid to translucent so it
-              reads as a watermark rather than competing with the count-up
-              itself. Snaps away the instant phase flips to "revealed",
-              handed off to the small corner badge below. */}
-          <span
-            className="font-sans text-[92px] font-black leading-none tracking-tighter text-transparent sm:text-[130px] lg:text-[160px]"
-            style={{
-              backgroundImage: "linear-gradient(160deg, var(--foreground) 0%, rgba(242,233,223,0.15) 100%)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-            }}
-          >
-            {hasMatch ? displayPercent : "＋"}
-          </span>
+          {/* Concept A ("spotlight ring") -- replaces the old always-full
+              ghost-numeral watermark with a projector-spotlight motif: a
+              thin static outer ring, a thicker inner ring that doubles as
+              a real progress arc (SVG stroke-dashoffset driven by the
+              same displayPercent the count-up effect already animates,
+              no new animation logic), and a centered glyph that swaps
+              from a play icon to the live count-up numeral the instant
+              the tap lands. Sized to read as a focal spotlight rather
+              than filling the card the way the flat numeral used to --
+              the blurred backdrop gets more room to actually show
+              through around it. */}
+          <div className="relative flex h-24 w-24 items-center justify-center sm:h-32 sm:w-32 lg:h-40 lg:w-40">
+            <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(217,184,118,0.25)" strokeWidth="1.5" />
+              <circle
+                cx="50"
+                cy="50"
+                r="38"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 38}
+                strokeDashoffset={2 * Math.PI * 38 * (1 - (hasMatch ? displayPercent : 0) / 100)}
+                className="transition-[stroke-dashoffset] duration-100 ease-linear"
+              />
+            </svg>
+            {phase === "sealed" ? (
+              <Play className="h-7 w-7 text-accent sm:h-9 sm:w-9" aria-hidden="true" fill="currentColor" />
+            ) : (
+              <span className="font-sans text-3xl font-black leading-none text-foreground sm:text-4xl lg:text-5xl">
+                {hasMatch ? displayPercent : "＋"}
+              </span>
+            )}
+          </div>
           <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.2em] text-foreground-muted">
             {phase === "sealed"
               ? isColdStart
