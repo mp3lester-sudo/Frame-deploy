@@ -1,5 +1,5 @@
 import { tmdbUrl } from "@/lib/external/tmdb-client";
-import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/external/fetch-timeout";
+import { TRAILER_FETCH_TIMEOUT_MS } from "@/lib/external/fetch-timeout";
 
 /**
  * Official trailer lookup, sourced live from TMDB (same "fetch per-request,
@@ -18,9 +18,10 @@ export async function getTmdbTrailer(tmdbId: number, type: "movie" | "tv"): Prom
   try {
     const res = await fetch(tmdbUrl(`/${type}/${tmdbId}/videos`), {
       next: { revalidate: 86400 },
-      // See fetch-timeout.ts for why every external lookup on the movie
-      // page now carries a hard timeout.
-      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+      // Longer than the shared EXTERNAL_FETCH_TIMEOUT_MS -- see
+      // TRAILER_FETCH_TIMEOUT_MS in fetch-timeout.ts for why the trailer
+      // lookup specifically gets more room.
+      signal: AbortSignal.timeout(TRAILER_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const data = await res.json();
