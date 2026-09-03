@@ -1,120 +1,143 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Moon, Heart, Users, Volume2, Clock, ChevronDown, Check } from "lucide-react";
 import { CIRCUMSTANTIAL_CONTEXTS, CONTEXT_LABELS, type CircumstantialContext } from "@/lib/context/circumstantial";
 
-// Short, always-visible label per segment -- distinct from CONTEXT_LABELS
-// (still used in full below, for aria-label) because this control shows
-// its label at every screen size now, not just sm and up, so it has to
-// fit five-across in one row on a narrow phone without wrapping or
-// truncating. "Friends" reads unambiguously as "with friends" once it's
-// sitting next to Solo/Date night/Ambient/Short; the full phrasing is
-// still what a screen reader announces via aria-label below.
-const CONTEXT_SHORT_LABELS: Record<CircumstantialContext, string> = {
-  solo: "Solo",
-  date_night: "Date night",
-  with_friends: "Friends",
-  background: "Ambient",
-  something_short: "Short",
+const CONTEXT_ICONS: Record<CircumstantialContext, typeof Moon> = {
+  solo: Moon,
+  date_night: Heart,
+  with_friends: Users,
+  background: Volume2,
+  something_short: Clock,
+};
+
+// One line under each option's label in the expanded panel -- the label
+// alone ("Background watch") doesn't always make the *effect* obvious;
+// this says what picking it actually does to tonight's pick, in plain
+// words, the way a concierge would rather than a dry restatement of the
+// label.
+const CONTEXT_DESCRIPTIONS: Record<CircumstantialContext, string> = {
+  solo: "Just you tonight",
+  date_night: "Something to share",
+  with_friends: "A crowd-pleaser",
+  background: "On in the background",
+  something_short: "Under 100 minutes",
 };
 
 /**
- * Home page design pass (Concept B) -- was five separate pill buttons
- * (solid gold for active, plain outline otherwise), each competing for
- * attention as its own little button. Now one continuous glass track
- * (same --glass-bg/--glass-border tokens as the nav bar and every other
- * "modernization pass" surface) with a single sliding gold thumb behind
- * whichever segment is active, so the five options read as one control
- * with a state instead of five unrelated buttons -- the same idea
- * already shipped on the Movies/Shows toggle, just generalized from 2
- * segments to 5 and built as a server component instead of a client
- * one (see below for why that split still matters here).
+ * Concept C ("concierge button") -- replaces the five-across glass segmented
+ * rail (Concept B, previously shipped here) with a single collapsed pill
+ * showing only the active context, that expands into a panel of five full
+ * rows (icon + label + one-line description + checkmark on the active row).
+ * Rationale from the rendition round: the segmented rail has to always
+ * show all five options at once, which on a phone competes for width
+ * against the weather line, the greeting, and the hero right below it --
+ * every visit pays that header-space cost even though most visits never
+ * touch the picker. Collapsing to one line most of the time and trading a
+ * single extra tap for the rare context-switch reclaims that space, and
+ * the expanded panel has enough room to actually explain each option
+ * instead of a five-way-squeezed short label.
  *
- * Text labels only, no icons -- an earlier pass here paired each segment
- * with a small icon (Moon/Heart/Users/Waves/Timer) and hid the text
- * label below the sm breakpoint to save room, which read as five vague
- * glyphs on a phone instead of five clearly-named options. Every segment
- * now always shows its own short label (see CONTEXT_SHORT_LABELS above)
- * at every screen width -- a control whose whole job is "tell someone
- * what each option is" has to actually say so, not lean on an icon
- * standing in for a word.
+ * Now a client component (the segmented-rail version deliberately wasn't
+ * one -- see its retired comments) because the open/closed panel state is
+ * inherently client-side; there's no way to server-render "is this
+ * currently expanded" since it isn't part of the URL or any persisted
+ * state, just transient UI. Picking a context itself is still a plain
+ * Link navigation (?context=...), not client-side state -- only the
+ * panel's open/closed affordance is client state, matching how
+ * AddToListMenu split the same concern (client-side menu affordance,
+ * server actions for the actual mutation).
  *
- * Still plain server-rendered links (?context=...), not a client
- * component with its own state -- consistent with the rest of the app
- * (everything here is RSC + server actions, no client-side data
- * fetching pattern exists yet), and it means picking a context is just
- * a normal navigation, no extra JS. The thumb's position is just as
- * server-renderable as the old active/inactive pill class was: it's a
- * pure function of the `active` prop, computed once at render time via
- * activeIndex below, no client state needed to know where it goes.
- *
- * prefetch={false} is deliberate and load-bearing here, not the
- * default: next/image Link prefetches every visible Link's target the
- * moment it scrolls into view, which for these five segments meant
- * every single home page visit fired the FULL recommendation engine
- * (two pgvector similarity RPCs, a weather fetch, per-title reasoning
- * -- see getRecommendationsForUser in engine.ts) up to five extra times
- * in the background, on top of the real render -- a 6x server-load
- * multiplier for a picker most visits never touch. Confirmed via
- * production network logs: those background prefetches were measurably
- * contending for resources and intermittently coming back 503, which is
- * what made picking a context feel like it was stalling -- the click's
- * own request was competing with its own page's leftover prefetch
- * traffic. Turning off prefetch here means a click always starts a
- * clean, uncontended request instead.
- *
- * Fixed 5-up row now, not a horizontally-scrolling rail -- the old
- * version used flex-nowrap + overflow-x-auto because five separate
- * pills at comfortable tap-target width didn't reliably fit one line on
- * a narrow phone. A single track with equal 1/5-width segments does,
- * as long as each label stays short (see CONTEXT_SHORT_LABELS) --
- * nothing to scroll past or miss off the edge.
+ * prefetch={false} on every option Link, carried over unchanged from the
+ * segmented-rail version: next/link prefetches every visible Link's
+ * target the moment it scrolls into view, which for five context options
+ * meant every home page visit fired the full recommendation engine (two
+ * pgvector similarity RPCs, a weather fetch, per-title reasoning) up to
+ * five extra times in the background. Still true here even though only
+ * one option's Link is visible at a time when collapsed -- the panel's
+ * rows are all mounted (just visually hidden) so their Links would still
+ * prefetch on scroll-into-view without this.
  */
 export function ContextPicker({ active }: { active: CircumstantialContext }) {
-  const activeIndex = CIRCUMSTANTIAL_CONTEXTS.indexOf(active);
-  const segmentCount = CIRCUMSTANTIAL_CONTEXTS.length;
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const ActiveIcon = CONTEXT_ICONS[active];
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    if (open) document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [open]);
 
   return (
-    <div
-      role="radiogroup"
-      aria-label="What's tonight"
-      className="relative flex items-center gap-0.5 rounded-[var(--radius-full)] border border-[var(--glass-border)] bg-[var(--glass-bg)] p-1"
-    >
-      {/* The sliding thumb -- one element, repositioned per render via
-          activeIndex rather than a whole extra DOM node per segment.
-          Inset by the track's own p-1 (4px) on every side so it sits
-          fully inside the glass track instead of touching its border,
-          same visual relationship the Movies/Shows toggle's active
-          state has to its own container. */}
-      <div
-        aria-hidden="true"
-        className="absolute rounded-[var(--radius-full)]"
-        style={{
-          top: 4,
-          bottom: 4,
-          left: `calc(4px + (100% - 8px) * ${activeIndex} / ${segmentCount})`,
-          width: `calc((100% - 8px) / ${segmentCount})`,
-          backgroundImage: "var(--accent-gradient)",
-        }}
-      />
-      {CIRCUMSTANTIAL_CONTEXTS.map((context) => {
-        const isActive = context === active;
-        return (
-          <Link
-            key={context}
-            href={context === "solo" ? "/" : `/?context=${context}`}
-            prefetch={false}
-            role="radio"
-            aria-checked={isActive}
-            aria-label={CONTEXT_LABELS[context]}
-            className={
-              isActive
-                ? "relative z-10 flex flex-1 basis-0 items-center justify-center rounded-[var(--radius-full)] px-1 py-2 text-center text-[9.5px] font-semibold leading-tight text-[var(--accent-foreground)]"
-                : "relative z-10 flex flex-1 basis-0 items-center justify-center rounded-[var(--radius-full)] px-1 py-2 text-center text-[9.5px] leading-tight text-foreground-muted hover:text-foreground"
-            }
-          >
-            {CONTEXT_SHORT_LABELS[context]}
-          </Link>
-        );
-      })}
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        className="flex w-full items-center justify-between rounded-[var(--radius-full)] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3.5 py-2.5 text-sm text-foreground"
+      >
+        <span className="inline-flex items-center gap-2">
+          <ActiveIcon size={15} className="text-accent" aria-hidden="true" />
+          {CONTEXT_LABELS[active]} tonight
+        </span>
+        <ChevronDown
+          size={15}
+          className={open ? "rotate-180 text-foreground-muted transition-transform" : "text-foreground-muted transition-transform"}
+          aria-hidden="true"
+        />
+      </button>
+      {open && (
+        <div
+          role="radiogroup"
+          aria-label="What's tonight"
+          className="absolute z-20 mt-1.5 w-full overflow-hidden rounded-[var(--radius-md)] border border-[var(--glass-border)] bg-[var(--surface-raised)]"
+        >
+          {CIRCUMSTANTIAL_CONTEXTS.map((context, i) => {
+            const isActive = context === active;
+            const Icon = CONTEXT_ICONS[context];
+            return (
+              <Link
+                key={context}
+                href={context === "solo" ? "/" : `/?context=${context}`}
+                prefetch={false}
+                role="radio"
+                aria-checked={isActive}
+                onClick={() => setOpen(false)}
+                className={
+                  isActive
+                    ? `flex items-center gap-2.5 px-3.5 py-2.5 bg-accent/10 ${i > 0 ? "border-t border-[var(--glass-border)]" : ""}`
+                    : `flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-[var(--glass-bg)] ${i > 0 ? "border-t border-[var(--glass-border)]" : ""}`
+                }
+              >
+                <Icon size={15} className={isActive ? "text-accent" : "text-foreground-muted"} aria-hidden="true" />
+                <span className="flex-1">
+                  <span className={isActive ? "block text-[13px] font-medium text-foreground" : "block text-[13px] text-foreground"}>
+                    {CONTEXT_LABELS[context]}
+                  </span>
+                  <span className="block text-[11px] text-foreground-muted">{CONTEXT_DESCRIPTIONS[context]}</span>
+                </span>
+                {isActive && <Check size={14} className="text-accent" aria-hidden="true" />}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
