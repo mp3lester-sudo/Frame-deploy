@@ -16,7 +16,7 @@ import type { ReasonDetail } from "@/lib/recommendations/explain";
  * e.g. a sequel sharing its predecessor's title), the longer, more specific
  * match wins instead of a partial one splitting it awkwardly.
  */
-function renderLongReasonWithLinks(longReason: string, citedTitles: { id: string; name: string }[]) {
+export function renderLongReasonWithLinks(longReason: string, citedTitles: { id: string; name: string }[]) {
   const withNames = citedTitles.filter((c) => c.name && longReason.includes(c.name));
   if (withNames.length === 0) return longReason;
 
@@ -46,15 +46,25 @@ function renderLongReasonWithLinks(longReason: string, citedTitles: { id: string
  * Collapsed by default so the hero stays uncluttered; the chips only render
  * once there's something real to show.
  */
-export function WhyThisPick({ detail }: { detail: ReasonDetail }) {
-  const [open, setOpen] = useState(false);
-
-  const chips = [
+/**
+ * Extracted so the home hero's own expand affordance (recommendation-
+ * reveal.tsx) can build the exact same chip set without duplicating this
+ * logic -- both read the same ReasonDetail, both apply the same "top 3
+ * themes, top 2 tones, pacing, ending" truncation.
+ */
+export function buildReasonChips(detail: ReasonDetail): string[] {
+  return [
     ...detail.themes.slice(0, 3),
     ...detail.tone.slice(0, 2),
     detail.pacing ? `${detail.pacing} pace` : null,
     detail.endingType ? `${detail.endingType} ending` : null,
   ].filter((c): c is string => !!c);
+}
+
+export function WhyThisPick({ detail }: { detail: ReasonDetail }) {
+  const [open, setOpen] = useState(false);
+
+  const chips = buildReasonChips(detail);
 
   if (chips.length === 0 && !detail.longReason) return null;
 

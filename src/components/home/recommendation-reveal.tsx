@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "@/components/ui/fade-image";
 import Link from "next/link";
-import { Bookmark, Play } from "lucide-react";
+import { Bookmark, ChevronDown, Play } from "lucide-react";
 import type { Database } from "@/lib/supabase/types";
 import type { ReasonDetail } from "@/lib/recommendations/explain";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { BANNER_DUOTONE_FILTER } from "@/lib/design/duotone";
 import { addToWatchlist, removeFromWatchlist } from "@/lib/actions/lists";
 import { dismissRecommendation } from "@/lib/actions/dismissals";
+import { buildReasonChips, renderLongReasonWithLinks } from "@/components/home/why-this-pick";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -96,10 +97,16 @@ export function RecommendationReveal({
   // whenever there's no local override yet.
   const [watchlistOverrides, setWatchlistOverrides] = useState<Record<string, boolean>>({});
   const [isWatchlistPending, startWatchlistTransition] = useTransition();
+  // Same "keyed by title id, not a single flag" reasoning as
+  // watchlistOverrides above -- a pick cycled away from and never cycled
+  // back to naturally reads as collapsed again with no reset logic needed.
+  const [whyOpenOverrides, setWhyOpenOverrides] = useState<Record<string, boolean>>({});
 
   const current = localPicks[index];
   const hasMatch = current?.matchPercent != null;
   const onWatchlist = current ? (watchlistOverrides[current.title.id] ?? current.initiallyOnWatchlist) : false;
+  const whyOpen = current ? (whyOpenOverrides[current.title.id] ?? false) : false;
+  const chips = current ? buildReasonChips(current.detail) : [];
 
   function toggleWatchlist() {
     if (!current) return;
@@ -113,6 +120,12 @@ export function RecommendationReveal({
         setWatchlistOverrides((prev) => ({ ...prev, [titleId]: !next }));
       }
     });
+  }
+
+  function toggleWhy() {
+    if (!current) return;
+    const titleId = current.title.id;
+    setWhyOpenOverrides((prev) => ({ ...prev, [titleId]: !whyOpen }));
   }
 
   useEffect(() => {
@@ -328,6 +341,45 @@ export function RecommendationReveal({
           <p className="reveal-fade-up max-w-md text-sm leading-relaxed text-foreground-muted [animation-delay:110ms] sm:text-base">
             {reason}
           </p>
+
+          {/* Unboxed on purpose -- no pill, no border, no fill. Reads as
+              part of the copy under the reason line rather than another
+              chrome element competing with Press play for attention; only
+              asserts itself as a control on hover/tap (color shift). Tap
+              target is still the full <button>, just visually quiet. */}
+          {(current.detail.longReason || chips.length > 0) && (
+            <button
+              type="button"
+              onClick={toggleWhy}
+              aria-expanded={whyOpen}
+              className="reveal-fade-up inline-flex items-center gap-1 bg-transparent text-[11px] font-medium text-gold-foil transition-colors [animation-delay:135ms] hover:text-accent-soft"
+            >
+              {whyOpen ? "Hide details" : "Why this pick"}
+              <ChevronDown size={12} className={whyOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+            </button>
+          )}
+
+          {whyOpen && (
+            <div className="reveal-fade-up max-w-md text-left">
+              {current.detail.longReason && (
+                <p className="text-sm leading-relaxed text-foreground-muted">
+                  {renderLongReasonWithLinks(current.detail.longReason, current.detail.citedTitles)}
+                </p>
+              )}
+              {chips.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
+                  {chips.map((chip) => (
+                    <span
+                      key={chip}
+                      className="rounded-[var(--radius-full)] border border-border px-2.5 py-1 text-[11px] text-foreground-muted"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <Link
             href={href}
