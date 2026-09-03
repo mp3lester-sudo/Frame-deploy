@@ -34,12 +34,25 @@ const LATE_NIGHT_RUNTIME_CAP = 140;
  * A soft multiplier layered on top of contextMultiplier — where that models
  * a *chosen* circumstance (solo, date night, ...), this models the ambient
  * conditions nobody picked but that still shape what sounds good: rain and
- * cold pull people toward comfort-watch territory, a bright warm afternoon
- * pulls away from bleak/heavy tone, and very late at night a 3-hour epic is
- * a harder sell regardless of taste match. Every rule is a mild nudge
- * (0.85-1.15), never a hard exclusion — bad weather shouldn't make a
- * genuinely great match disappear, just rank a comfort pick slightly above
- * an equally-good but colder one.
+ * cold pull people toward comfort-watch territory, a storm at night pulls
+ * toward the exact opposite (a bleak, tense pick that matches the mood
+ * outside rather than fighting it), a bright warm afternoon pulls away
+ * from bleak/heavy tone, and very late at night a 3-hour epic is a harder
+ * sell regardless of taste match.
+ *
+ * User-requested rebalance (task: "higher contingency on weather and
+ * time" — pouring rain at midnight should be able to actually surface
+ * something like Se7en, not just barely nudge it): every rule's magnitude
+ * was raised from the original 0.85-1.15 range, and a new storm-noir rule
+ * was added for the one case the original rules didn't cover at all —
+ * bad weather + late night previously did nothing for heavy-toned titles,
+ * only warm+clear+daytime touched tone. Still never a hard exclusion —
+ * see engine.ts's doc comment on why weather/time is summed into a
+ * shared, clamped adjustment band alongside quality/genre/dislike/
+ * implicit signals rather than applied as its own uncapped multiplier — a
+ * single ambient-conditions signal shouldn't be able to unilaterally
+ * override a strong taste mismatch, but within that shared band it now
+ * carries a real, meaningful weight instead of a barely-perceptible one.
  */
 export function weatherTimeMultiplier(title: WeatherableTitle, signal: WeatherTimeSignal): number {
   let multiplier = 1;
@@ -49,19 +62,30 @@ export function weatherTimeMultiplier(title: WeatherableTitle, signal: WeatherTi
   const rough = isRoughWeather(signal.weatherCode);
   const cold = signal.tempF != null && signal.tempF <= COLD_TEMP_F;
   const warmAndClear = !rough && signal.tempF != null && signal.tempF >= WARM_TEMP_F;
+  const isLateNight = signal.hour >= 22 || signal.hour < 6;
 
   if ((rough || cold) && moodTags.some((t) => COMFORT_MOOD_TAGS.includes(t))) {
-    multiplier *= 1.15;
+    multiplier *= 1.25;
+  }
+
+  // Storm-noir: rain (or snow/thunder) on the window in the middle of the
+  // night is when a bleak, tense pick actually feels right, not just
+  // tolerable — matching the mood outside instead of ignoring it. This is
+  // deliberately the single strongest rule here, since it's the case that
+  // motivated widening the whole band: a genuinely great dark-thriller
+  // match should be able to win its spot on a stormy midnight, not just
+  // round up from an also-ran.
+  if (rough && isLateNight && tone.some((t) => HEAVY_TONE.includes(t))) {
+    multiplier *= 1.3;
   }
 
   if (warmAndClear && signal.hour >= 10 && signal.hour < 19) {
-    if (tone.some((t) => LIGHT_TONE.includes(t))) multiplier *= 1.1;
-    if (tone.some((t) => HEAVY_TONE.includes(t))) multiplier *= 0.9;
+    if (tone.some((t) => LIGHT_TONE.includes(t))) multiplier *= 1.2;
+    if (tone.some((t) => HEAVY_TONE.includes(t))) multiplier *= 0.8;
   }
 
-  const isLateNight = signal.hour >= 22 || signal.hour < 6;
   if (isLateNight && title.runtime_minutes != null && title.runtime_minutes > LATE_NIGHT_RUNTIME_CAP) {
-    multiplier *= 0.9;
+    multiplier *= 0.85;
   }
 
   return multiplier;
@@ -77,9 +101,13 @@ export function weatherTimeNote(title: WeatherableTitle, signal: WeatherTimeSign
   const rough = isRoughWeather(signal.weatherCode);
   const cold = signal.tempF != null && signal.tempF <= COLD_TEMP_F;
   const warmAndClear = !rough && signal.tempF != null && signal.tempF >= WARM_TEMP_F;
+  const isLateNight = signal.hour >= 22 || signal.hour < 6;
 
   if ((rough || cold) && moodTags.some((t) => COMFORT_MOOD_TAGS.includes(t))) {
     return rough ? "a comfort watch for the weather outside" : "cozy for a cold one";
+  }
+  if (rough && isLateNight && tone.some((t) => HEAVY_TONE.includes(t))) {
+    return "a stormy-night watch, dark to match it";
   }
   if (warmAndClear && signal.hour >= 10 && signal.hour < 19 && tone.some((t) => LIGHT_TONE.includes(t))) {
     return "light enough for a bright day";
