@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { tmdbUrl, TMDB_IMAGE_BASE } from "@/lib/external/tmdb-client";
+import { tmdbUrl } from "@/lib/external/tmdb-client";
 import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/external/fetch-timeout";
 
 /**
@@ -69,80 +69,3 @@ export async function getOrFetchPersonBio(person: PersonBioLookupInput): Promise
   return result;
 }
 
-
-/**
- * Extra stills beyond the single cached portrait (people.photo_url) — a
- * small gallery of other TMDB profile shots for this person. Fetched live
- * per-request like tmdb-reviews.ts/tmdb-videos.ts (no DB storage: this is
- * read-only reference content, not something anything else depends on).
- */
-export async function getTmdbPersonImages(tmdbId: number, limit = 10): Promise<string[]> {
-  try {
-    const res = await fetch(tmdbUrl(`/person/${tmdbId}/images`), {
-      next: { revalidate: 86400 },
-      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const profiles: Array<{ file_path: string }> = data.profiles ?? [];
-    return profiles.slice(0, limit).map((p) => `${TMDB_IMAGE_BASE}/w300${p.file_path}`);
-  } catch {
-    return [];
-  }
-}
-
-
-/**
- * A photo of THIS person specifically, tied to one of their acting
- * credits — not a movie poster (which is often an ensemble/marketing
- * shot) and not a generic real-life headshot. TMDB's tagged_images
- * endpoint returns images from each production's own gallery that TMDB
- * has tagged as containing this specific person, which is the closest
- * thing to "a picture of Leo playing Jordan Belfort" rather than just
- * the Wolf of Wall Street poster or a paparazzi photo of Leo. Each
- * result is keyed by the TMDB id of the movie/show it came from, so the
- * caller can match it back to our own titles table (via titles.tmdb_id)
- * to attach the character name from title_credits.
- */
-export interface TmdbTaggedImage {
-  imageUrl: string;
-  tmdbTitleId: number;
-  mediaType: string;
-  voteAverage: number;
-}
-
-export async function getTmdbTaggedImages(tmdbId: number, limit = 20): Promise<TmdbTaggedImage[]> {
-  try {
-    const res = await fetch(tmdbUrl(`/person/${tmdbId}/tagged_images`), {
-      next: { revalidate: 86400 },
-      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const results: Array<{
-      file_path?: string;
-      vote_average?: number;
-      media_type?: string;
-      image_type?: string;
-      media?: { id?: number; media_type?: string };
-    }> = data.results ?? [];
-
-    return results
-      .filter((r) => r.file_path && r.media?.id)
-      // TMDB tags people on POSTER art too (especially foreign-market
-      // one-sheets that feature an actor's face front and center) -- that's
-      // exactly the "movie poster" look this feature exists to avoid.
-      // Keep only backdrop/profile/still images, which are actual
-      // production photography rather than marketing art.
-      .filter((r) => r.image_type !== "poster")
-      .slice(0, limit)
-      .map((r) => ({
-        imageUrl: `${TMDB_IMAGE_BASE}/w300${r.file_path}`,
-        tmdbTitleId: r.media!.id!,
-        mediaType: r.media_type ?? r.media?.media_type ?? "movie",
-        voteAverage: r.vote_average ?? 0,
-      }));
-  } catch {
-    return [];
-  }
-}

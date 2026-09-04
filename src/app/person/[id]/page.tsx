@@ -5,16 +5,11 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   getOrFetchPersonBio,
-  getTmdbPersonImages,
-  getTmdbTaggedImages,
   type PersonBioLookupInput,
-  type TmdbTaggedImage,
 } from "@/lib/external/tmdb-person";
 import { tmdbImageAtSize } from "@/lib/external/tmdb-client";
 import { PersonHero } from "@/components/person-hero";
 import { PersonBio } from "@/components/person-bio";
-import { PersonStillsGallery } from "@/components/person-stills-gallery";
-import { PersonIconicRoles, type IconicRole } from "@/components/person-iconic-roles";
 import { FrequentCollaborators } from "@/components/frequent-collaborators";
 import { computeFrequentCollaborators, type CollaboratorCredit } from "@/lib/people/collaborators";
 
@@ -42,63 +37,20 @@ type FilmographyRow = {
 };
 
 /**
- * Everything on this page that depends on a live TMDB call (bio, extra
- * stills, tagged/iconic-role images) -- isolated behind its own Suspense
- * boundary so the page shell (photo, name, filmography, collaborators --
- * all DB-only) paints immediately instead of blocking on three unbounded
- * external fetches. This was the exact same class of bug just fixed on
- * the movie page (see MovieDetailPage's RtScoreBadge/WatchProvidersSection/
- * etc.): a top-level `await Promise.all([...three TMDB calls...])` held up
- * the whole page render, and (before fetch-timeout.ts) had no bound on how
- * long a slow/hanging TMDB response could take.
+ * Bio/birthday/place-of-birth depend on a live TMDB call, so this stays
+ * behind its own Suspense boundary -- the page shell (photo, name,
+ * filmography, collaborators, all DB-only) paints immediately instead of
+ * blocking on it. See getOrFetchPersonBio in tmdb-person.ts for the
+ * write-through cache and EXTERNAL_FETCH_TIMEOUT_MS (2.5s) bound.
  *
- * All three calls now carry EXTERNAL_FETCH_TIMEOUT_MS (2.5s) via
- * tmdb-person.ts, so this boundary's worst case is bounded rather than
- * open-ended.
+ * Used to also fetch and render a gallery of extra stills/"iconic role"
+ * photos below the bio (two more unbounded TMDB calls) -- removed per
+ * product direction: the full-bleed hero photo is the one image that
+ * matters on this page, and a second wall of photos below it competed
+ * with the Filmography grid rather than adding anything.
  */
-async function PersonEnrichment({ person, filmography }: { person: PersonBioLookupInput & { photo_url: string | null; name: string }; filmography: FilmographyRow[] }) {
-  const [{ bio, birthday, placeOfBirth }, stillImages, taggedImages] = await Promise.all([
-    getOrFetchPersonBio(person),
-    person.tmdb_id ? getTmdbPersonImages(person.tmdb_id) : Promise.resolve([] as string[]),
-    person.tmdb_id ? getTmdbTaggedImages(person.tmdb_id) : Promise.resolve([] as TmdbTaggedImage[]),
-  ]);
-
-  // "Iconic roles": a real photo of THIS person from a specific
-  // production (TMDB tagged_images — see getTmdbTaggedImages), not that
-  // title's poster and not a generic headshot. Matched back to our own
-  // acting credits by TMDB id so the caption can be the actual character
-  // name, and deduped to the single best-voted image per title. Ranked
-  // by the title's own popularity (already backfilled across the
-  // catalogue — see Task #32) so a small early-career cameo doesn't
-  // outrank the role someone actually knows this person for.
-  const actingCreditsByTmdbId = new Map(
-    filmography
-      .filter((c) => c.credit_type === "actor" && c.character_name && c.titles?.tmdb_id != null)
-      .map((c) => [c.titles!.tmdb_id as number, c])
-  );
-
-  const bestImageByTitle = new Map<number, (typeof taggedImages)[number]>();
-  for (const img of taggedImages) {
-    if (!actingCreditsByTmdbId.has(img.tmdbTitleId)) continue;
-    const existing = bestImageByTitle.get(img.tmdbTitleId);
-    if (!existing || img.voteAverage > existing.voteAverage) bestImageByTitle.set(img.tmdbTitleId, img);
-  }
-
-  const iconicRoles: IconicRole[] = [...bestImageByTitle.entries()]
-    .map(([tmdbTitleId, img]) => {
-      const credit = actingCreditsByTmdbId.get(tmdbTitleId)!;
-      return {
-        titleId: credit.titles!.id,
-        titleName: credit.titles!.name,
-        imageUrl: img.imageUrl,
-        characterName: credit.character_name!,
-        popularity: credit.titles!.popularity ?? 0,
-      };
-    })
-    .sort((a, b) => b.popularity - a.popularity)
-    .slice(0, 8)
-    .map(({ titleId, titleName, imageUrl, characterName }) => ({ titleId, titleName, imageUrl, characterName }));
-
+async function PersonEnrichment({ person }: { person: PersonBioLookupInput & { photo_url: string | null; name: string } }) {
+  const { bio, birthday, placeOfBirth } = await getOrFetchPersonBio(person);
   const birthdayLabel = formatBirthday(birthday);
 
   return (
@@ -111,12 +63,6 @@ async function PersonEnrichment({ person, filmography }: { person: PersonBioLook
         </p>
       )}
       <PersonBio bio={bio} />
-
-      {iconicRoles.length >= 2 ? (
-        <PersonIconicRoles roles={iconicRoles} />
-      ) : (
-        <PersonStillsGallery images={stillImages} />
-      )}
     </>
   );
 }
@@ -194,7 +140,7 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
 
       <div className="mx-auto max-w-4xl px-4 pb-8 pt-6">
         <Suspense fallback={<PersonBio bio={null} bioLoading />}>
-          <PersonEnrichment person={person} filmography={filmography} />
+          <PersonEnrichment person={person} />
         </Suspense>
 
         <FrequentCollaborators collaborators={frequentCollaborators} />
