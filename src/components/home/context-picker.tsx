@@ -135,7 +135,7 @@ export function ContextPicker({ active }: { active: CircumstantialContext }) {
         <div
           role="radiogroup"
           aria-label="What's tonight"
-          className="absolute z-20 mt-1.5 w-full overflow-hidden rounded-[var(--radius-md)] border border-[var(--glass-border)] bg-[var(--surface-raised)]"
+          className="absolute z-30 mt-1.5 w-full overflow-hidden rounded-[var(--radius-md)] border border-[var(--glass-border)] bg-[var(--surface-raised)]"
         >
           {CIRCUMSTANTIAL_CONTEXTS.map((context, i) => {
             const isActive = context === active;
