@@ -40,6 +40,16 @@ const CONTEXT_DESCRIPTIONS: Record<CircumstantialContext, string> = {
  * the expanded panel has enough room to actually explain each option
  * instead of a five-way-squeezed short label.
  *
+ * Trigger restyle, "reel-tab strip" (design rendition round 2, option E):
+ * the collapsed trigger no longer looks like a plain rounded-full glass
+ * pill -- it's a rounded-md card with a five-segment tick row above the
+ * label, one per circumstantial context, the active one lit gold. It's a
+ * quiet nod to "there are five of these" (a filmstrip frame-counter
+ * motif, fitting the app's cinema identity) without spelling all five out
+ * while collapsed, and it still collapses/expands exactly the same way --
+ * only the trigger's own visual treatment changed, not its behavior or
+ * the expanded panel below it.
+ *
  * Now a client component (the segmented-rail version deliberately wasn't
  * one -- see its retired comments) because the open/closed panel state is
  * inherently client-side; there's no way to server-render "is this
@@ -64,6 +74,11 @@ export function ContextPicker({ active }: { active: CircumstantialContext }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const ActiveIcon = CONTEXT_ICONS[active];
+  // Reel-tab strip (design rendition "E"): a five-segment tick row above the
+  // label, styled after a filmstrip's frame counter, with the active
+  // context's segment lit gold -- a quiet "there are 5 of these" signal
+  // that doesn't require spelling all five out while collapsed.
+  const activeIndex = CIRCUMSTANTIAL_CONTEXTS.indexOf(active);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -90,17 +105,31 @@ export function ContextPicker({ active }: { active: CircumstantialContext }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="true"
-        className="flex w-full items-center justify-between rounded-[var(--radius-full)] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3.5 py-2.5 text-sm text-foreground"
+        className="flex w-full flex-col gap-2.5 rounded-[var(--radius-md)] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-3 text-sm text-foreground"
       >
-        <span className="inline-flex items-center gap-2">
-          <ActiveIcon size={15} className="text-accent" aria-hidden="true" />
-          {CONTEXT_LABELS[active]} tonight
+        <span className="flex gap-1.5" aria-hidden="true">
+          {CIRCUMSTANTIAL_CONTEXTS.map((context, i) => (
+            <span
+              key={context}
+              className={
+                i === activeIndex
+                  ? "h-[3px] flex-1 rounded-full bg-accent shadow-[0_0_6px_rgba(217,184,118,0.6)]"
+                  : "h-[3px] flex-1 rounded-full bg-accent/15"
+              }
+            />
+          ))}
         </span>
-        <ChevronDown
-          size={15}
-          className={open ? "rotate-180 text-foreground-muted transition-transform" : "text-foreground-muted transition-transform"}
-          aria-hidden="true"
-        />
+        <span className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-2">
+            <ActiveIcon size={15} className="text-accent" aria-hidden="true" />
+            {CONTEXT_LABELS[active]} tonight
+          </span>
+          <ChevronDown
+            size={15}
+            className={open ? "rotate-180 text-foreground-muted transition-transform" : "text-foreground-muted transition-transform"}
+            aria-hidden="true"
+          />
+        </span>
       </button>
       {open && (
         <div
