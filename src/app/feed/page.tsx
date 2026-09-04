@@ -123,7 +123,7 @@ export default async function FeedPage() {
       : Promise.resolve({ data: [] as { review_id: string }[] }),
   ]);
 
-  const reactionsByReview = aggregateReactions(reactionRows ?? [], null);
+  const reactionsByReview = aggregateReactions(reactionRows ?? [], user.id);
   const commentCountByReview = new Map<string, number>();
   for (const row of commentRows ?? []) {
     commentCountByReview.set(row.review_id, (commentCountByReview.get(row.review_id) ?? 0) + 1);
@@ -134,7 +134,8 @@ export default async function FeedPage() {
   // real feature equivalent in the app, so it's always 0 rather than
   // faking a number.
   const posts: SocialPost[] = rows.slice(0, FEED_SIZE).map((review) => {
-    const counts = reactionsByReview.get(review.id)?.counts;
+    const reaction = reactionsByReview.get(review.id);
+    const counts = reaction?.counts;
     return {
       id: review.id,
       authorId: review.user_id,
@@ -149,8 +150,16 @@ export default async function FeedPage() {
       stats: {
         likes: counts?.agree ?? 0,
         comments: commentCountByReview.get(review.id) ?? 0,
-        reposts: 0,
       },
+      // Launch-audit findings #4/#5: posts had no link to the title being
+      // reviewed, and the Like icon was decorative. titleId powers the
+      // former; myReaction/canReact let PostCard reuse the same "agree"
+      // reaction toggle ReviewReactionBar already uses on the movie page,
+      // instead of inventing a separate like system.
+      titleId: review.titles?.id ?? null,
+      titleName: review.titles?.name ?? null,
+      myReaction: reaction?.myReaction ?? null,
+      canReact: true,
     };
   });
 

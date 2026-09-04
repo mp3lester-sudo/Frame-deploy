@@ -24,15 +24,21 @@ const BADGE_POLL_MS = 60_000;
 // own action list (alongside Watchlist/Your lists) rather than a
 // persistent top-level tab, since it's a once-in-a-while personal recap,
 // not something anyone needs one tap away from every page.
-// Clubs moved the same way again -- it was the 6th item here with zero
-// mobile presence at all (this row is desktop-only), so it's now a
-// header link in the home page's "Your circle" social rail instead,
-// right next to Hot Takes -- visible to every signed-in visit on every
-// screen size, not just desktop viewers who happened to look at this row.
+// Clubs and Hot Takes live one level down, inside /feed's own tab bar
+// (see feed/page.tsx's SocialTabs) rather than getting their own entries
+// here -- Social/Feed is the entry point for both.
 // Movie Night leads (right after Discover) rather than sitting fifth of
 // six equal-weight tabs -- see the home page and bottom nav for the same
 // promotion. Recommendations don't need a nav entry of their own: they
 // already own the home page, the first thing anyone sees.
+//
+// Launch audit finding: this labeled row is `hidden md:flex` -- Daily and
+// Social (and transitively Clubs/Hot Takes, one tap further into Social)
+// had ZERO mobile entry point as a result, since the intended home-page
+// mobile fallback (CircleFeed) was built but never wired up. Fixed below
+// by giving Daily and Social their own icon-only links in the
+// always-visible mobile icon cluster, instead of resurrecting a
+// dead component with no backing data query.
 function getLinks(mediaType: MediaType) {
   return [
     { href: "/discover", label: "Discover", icon: Compass },
@@ -145,6 +151,24 @@ export function NavBar({ isAuthed, mediaType }: { isAuthed: boolean; mediaType: 
             `relative` span so the unread badge still anchors to the
             icon itself, not to the now-larger padded Link box. */}
         <div className="flex items-center gap-3">
+          {/* Daily and Social mobile-only (md:hidden) icon links -- the
+              labeled nav row above already covers both on desktop, this
+              is purely the mobile entry point that was missing. Same
+              hit-slop pattern as the rest of this cluster. */}
+          <Link
+            href="/daily"
+            aria-label="Daily"
+            className="-m-2.5 flex items-center justify-center p-2.5 text-foreground-muted hover:text-foreground md:hidden"
+          >
+            <CalendarDays size={18} />
+          </Link>
+          <Link
+            href="/feed"
+            aria-label="Social"
+            className="-m-2.5 flex items-center justify-center p-2.5 text-foreground-muted hover:text-foreground md:hidden"
+          >
+            <Users size={18} />
+          </Link>
           <Link
             href="/search"
             aria-label="Search"

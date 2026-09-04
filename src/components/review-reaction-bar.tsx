@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { setReviewReaction } from "@/lib/actions/reactions";
 import { REVIEW_REACTIONS, REVIEW_REACTION_LABELS, type ReviewReaction } from "@/lib/constants/social";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 
 export function ReviewReactionBar({
   reviewId,
@@ -19,9 +20,16 @@ export function ReviewReactionBar({
   const [counts, setCounts] = useState(initialCounts);
   const [myReaction, setMyReaction] = useState(initialMyReaction);
   const [isPending, startTransition] = useTransition();
+  const { showToast } = useToast();
 
+  // Launch audit finding: setReviewReaction was unguarded -- same class
+  // of bug as follow-button.tsx. Revert both the optimistic count and
+  // the active-reaction highlight on failure, matching the revert
+  // pattern rate-control.tsx/watchlist-button.tsx already use.
   function handleClick(reaction: ReviewReaction) {
     if (!canReact) return;
+    const previousCounts = counts;
+    const previousReaction = myReaction;
     const next = myReaction === reaction ? null : reaction;
 
     setCounts((prev) => {
@@ -33,7 +41,13 @@ export function ReviewReactionBar({
     setMyReaction(next);
 
     startTransition(async () => {
-      await setReviewReaction(reviewId, next);
+      try {
+        await setReviewReaction(reviewId, next);
+      } catch {
+        setCounts(previousCounts);
+        setMyReaction(previousReaction);
+        showToast("Couldn't save your reaction — try again");
+      }
     });
   }
 

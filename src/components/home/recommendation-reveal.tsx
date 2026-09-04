@@ -11,6 +11,7 @@ import { BANNER_DUOTONE_FILTER } from "@/lib/design/duotone";
 import { addToWatchlist, removeFromWatchlist } from "@/lib/actions/lists";
 import { dismissRecommendation } from "@/lib/actions/dismissals";
 import { buildReasonChips, renderLongReasonWithLinks } from "@/components/home/why-this-pick";
+import { useToast } from "@/components/ui/toast";
 
 type Title = Database["public"]["Tables"]["titles"]["Row"];
 
@@ -97,6 +98,7 @@ export function RecommendationReveal({
   // whenever there's no local override yet.
   const [watchlistOverrides, setWatchlistOverrides] = useState<Record<string, boolean>>({});
   const [isWatchlistPending, startWatchlistTransition] = useTransition();
+  const { showToast } = useToast();
   // Same "keyed by title id, not a single flag" reasoning as
   // watchlistOverrides above -- a pick cycled away from and never cycled
   // back to naturally reads as collapsed again with no reset logic needed.
@@ -108,6 +110,8 @@ export function RecommendationReveal({
   const whyOpen = current ? (whyOpenOverrides[current.title.id] ?? false) : false;
   const chips = current ? buildReasonChips(current.detail) : [];
 
+  // Launch audit finding: same silent-failure gap as the standalone
+  // WatchlistButton component had -- fixed the same way, with a toast.
   function toggleWatchlist() {
     if (!current) return;
     const titleId = current.title.id;
@@ -118,6 +122,7 @@ export function RecommendationReveal({
         await (next ? addToWatchlist(titleId) : removeFromWatchlist(titleId));
       } catch {
         setWatchlistOverrides((prev) => ({ ...prev, [titleId]: !next }));
+        showToast("Couldn't update your watchlist — try again");
       }
     });
   }

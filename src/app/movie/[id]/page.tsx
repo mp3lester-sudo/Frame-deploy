@@ -369,7 +369,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
         <MoreLikeThis titleId={title.id} mediaType={title.type as "movie" | "tv"} />
       </Suspense>
 
-      <section className="mt-10">
+      <section id="reviews" className="mt-10 scroll-mt-20">
         <h2 className="mb-3 font-display text-lg italic text-accent">Reviews</h2>
         {viewer && (
           <div className="mb-4">

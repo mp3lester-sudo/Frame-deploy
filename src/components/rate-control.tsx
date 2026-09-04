@@ -11,6 +11,10 @@ export function RateControl({ titleId, initialScore = 0 }: { titleId: string; in
   const [isPending, startTransition] = useTransition();
   const { showToast } = useToast();
 
+  // Launch audit finding: both catch blocks reverted the star display
+  // silently with no toast -- inconsistent with this component's own
+  // breakthrough-toast path just above it. Now every failure path here
+  // surfaces something.
   function handleChange(next: number) {
     const previous = score;
     setScore(next);
@@ -23,6 +27,7 @@ export function RateControl({ titleId, initialScore = 0 }: { titleId: string; in
         }
       } catch {
         setScore(previous);
+        showToast("Couldn't save your rating — try again");
       }
     });
   }
@@ -35,6 +40,7 @@ export function RateControl({ titleId, initialScore = 0 }: { titleId: string; in
         await unrateTitle(titleId);
       } catch {
         setScore(previous);
+        showToast("Couldn't remove your rating — try again");
       }
     });
   }

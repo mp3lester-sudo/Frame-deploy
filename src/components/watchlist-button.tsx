@@ -5,6 +5,7 @@ import { Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { addToWatchlist, removeFromWatchlist } from "@/lib/actions/lists";
 import { posthog } from "@/lib/analytics/posthog-client";
+import { useToast } from "@/components/ui/toast";
 
 export function WatchlistButton({
   titleId,
@@ -15,7 +16,11 @@ export function WatchlistButton({
 }) {
   const [onWatchlist, setOnWatchlist] = useState(initiallyOnWatchlist);
   const [isPending, startTransition] = useTransition();
+  const { showToast } = useToast();
 
+  // Launch audit finding: failures here reverted silently with no toast,
+  // inconsistent with the app's own established toast pattern (see
+  // rate-control.tsx) -- fixed to match.
   function handleClick() {
     const next = !onWatchlist;
     setOnWatchlist(next);
@@ -25,6 +30,7 @@ export function WatchlistButton({
         await (next ? addToWatchlist(titleId) : removeFromWatchlist(titleId));
       } catch {
         setOnWatchlist(!next);
+        showToast("Couldn't update your watchlist — try again");
       }
     });
   }

@@ -17,5 +17,16 @@ export interface SocialPost {
   timeAgo: string;
   body: string;
   photo?: { url: string; caption: string; orientation: "poster" | "still" };
-  stats: { likes: number; comments: number; reposts: number };
+  stats: { likes: number; comments: number };
+  /** The title this review is about -- launch-audit finding: posts had no
+   *  way to reach the movie/show being reviewed, only the author's profile.
+   *  Null only if the underlying review's title was deleted. */
+  titleId: string | null;
+  titleName: string | null;
+  /** The viewer's own reaction on the underlying review, so the feed's
+   *  Like button can reflect and toggle real state instead of being a
+   *  dead, always-off icon. "agree" is the reaction Like maps onto --
+   *  see feed/page.tsx's REVIEWS_SELECT comment for why. */
+  myReaction: import("@/lib/constants/social").ReviewReaction | null;
+  canReact: boolean;
 }

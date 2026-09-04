@@ -1,32 +1,8 @@
 import Link from "next/link";
-import { Heart, MessageCircle, Repeat2 } from "lucide-react";
 import Image from "@/components/ui/fade-image";
 import { Avatar } from "@/components/ui/avatar";
 import type { SocialPost } from "@/lib/social/post";
-
-function formatCount(n: number) {
-  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
-  return String(n);
-}
-
-function EngagementRow({ post }: { post: SocialPost }) {
-  return (
-    <div className="flex max-w-sm items-center gap-6 text-foreground-muted">
-      <span className="flex items-center gap-1.5 text-xs">
-        <MessageCircle size={16} strokeWidth={1.75} />
-        {formatCount(post.stats.comments)}
-      </span>
-      <span className="flex items-center gap-1.5 text-xs">
-        <Repeat2 size={17} strokeWidth={1.75} />
-        {formatCount(post.stats.reposts)}
-      </span>
-      <span className="flex items-center gap-1.5 text-xs">
-        <Heart size={16} strokeWidth={1.75} />
-        {formatCount(post.stats.likes)}
-      </span>
-    </div>
-  );
-}
+import { PostEngagementRow } from "@/components/social/post-engagement-row";
 
 /**
  * "Now showing" treatment -- replaces the old flat Twitter-style row.
@@ -51,6 +27,11 @@ function EngagementRow({ post }: { post: SocialPost }) {
  *
  * Avatar and author name link to /profile/[username], matching the
  * sitewide "avatars/names are clickable" convention (see ReviewCard).
+ *
+ * Launch-audit finding #5: posts had no way to reach the title being
+ * reviewed. The photo branch's caption doubles as that link (it already
+ * shows the title name); the text-only branch gets a small "On <Title>"
+ * line matching Hot Takes' pinned title-link convention.
  */
 export function PostCard({ post }: { post: SocialPost }) {
   if (post.photo) {
@@ -80,15 +61,24 @@ export function PostCard({ post }: { post: SocialPost }) {
             <span className="text-xs font-medium text-foreground drop-shadow">{post.authorName}</span>
             <span className="text-[11px] text-foreground-muted drop-shadow">&middot; {post.timeAgo}</span>
           </Link>
-          <p className="font-display absolute bottom-3 left-3 right-3 text-base italic leading-snug text-foreground drop-shadow">
-            &ldquo;{post.photo.caption}&rdquo;
-          </p>
+          {post.titleId ? (
+            <Link
+              href={`/movie/${post.titleId}`}
+              className="font-display absolute bottom-3 left-3 right-3 text-base italic leading-snug text-foreground drop-shadow hover:underline"
+            >
+              &ldquo;{post.photo.caption}&rdquo;
+            </Link>
+          ) : (
+            <p className="font-display absolute bottom-3 left-3 right-3 text-base italic leading-snug text-foreground drop-shadow">
+              &ldquo;{post.photo.caption}&rdquo;
+            </p>
+          )}
         </div>
 
         <div className="p-3">
           <p className="whitespace-pre-line text-[15px] leading-normal text-foreground">{post.body}</p>
           <div className="mt-3">
-            <EngagementRow post={post} />
+            <PostEngagementRow post={post} />
           </div>
         </div>
       </article>
@@ -110,10 +100,19 @@ export function PostCard({ post }: { post: SocialPost }) {
           <span className="text-foreground-muted">&middot; {post.timeAgo}</span>
         </div>
 
+        {post.titleId && post.titleName && (
+          <Link
+            href={`/movie/${post.titleId}`}
+            className="mt-1 inline-block text-xs font-medium uppercase tracking-wider text-accent hover:underline"
+          >
+            On {post.titleName}
+          </Link>
+        )}
+
         <p className="mt-1 whitespace-pre-line text-[15px] leading-normal text-foreground">{post.body}</p>
 
         <div className="mt-3">
-          <EngagementRow post={post} />
+          <PostEngagementRow post={post} />
         </div>
       </div>
     </article>
