@@ -445,12 +445,27 @@ export default async function HomePage({
           <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.85) 100%)" }} />
           <div className="onboarding-intro-grain absolute inset-0" />
         </div>
-        <div className="cinematic-intro-title pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center overflow-hidden bg-[#0A0A09]" aria-hidden="true">
+        {/* Title card, "off-frame crop" (design rendition round 2, option
+            C) -- the old version was centered wordmark + hairline + tagline,
+            the exact same "decorative border around a centered logo"
+            template as every other option in that round. This one instead
+            borrows festival-poster logic: the wordmark is set enormous and
+            deliberately cropped by the left edge, confident enough not to
+            need the whole word on screen, while the tagline sits alone,
+            small, unbothered, in the opposite corner. The empty diagonal
+            between them is the actual composition -- no border, no
+            ornament, nothing centered. */}
+        <div className="cinematic-intro-title pointer-events-none absolute inset-0 z-[1] overflow-hidden bg-[#0A0A09]" aria-hidden="true">
           <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, rgba(255,250,235,0.09) 0%, transparent 60%)" }} />
           <div className="onboarding-intro-grain absolute inset-0" />
-          <p className="text-gold-foil font-hollywood relative text-5xl tracking-[0.3em]">Slate</p>
-          <div className="relative my-4 h-px w-16 bg-white/40" />
-          <p className="font-display relative text-sm italic text-white/60">a picture house, for your taste</p>
+          <p className="text-gold-foil font-hollywood absolute left-[-3vw] top-[36%] text-[clamp(72px,24vw,180px)] leading-[0.85] tracking-[0.02em]">
+            Slate
+          </p>
+          <p className="font-display absolute bottom-12 right-6 text-right text-sm italic leading-snug text-white/55 sm:bottom-16 sm:right-10">
+            a picture house,
+            <br />
+            for your taste
+          </p>
         </div>
       </div>
       <script
