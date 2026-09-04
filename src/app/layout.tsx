@@ -48,6 +48,17 @@ const bebasNeue = Bebas_Neue({
   variable: "--font-bebas",
   subsets: ["latin"],
   weight: "400",
+  // Only ever renders in the nav wordmark (a handful of characters) --
+  // unlike Geist/Instrument Serif, which cover most of the visible text
+  // on every page, next/font's default preload: true was putting a
+  // <link rel="preload"> for this font's file in <head> on every single
+  // page load site-wide, most of which never render a single Bebas
+  // Neue glyph. Disabling preload keeps this font self-hosted and
+  // still fast on the pages that do use it (it's cached after the
+  // first fetch, and font-display: swap already avoids blocking text
+  // paint) without paying that request/priority-hint cost everywhere
+  // else.
+  preload: false,
 });
 
 // Inscriptional roman serif -- reserved for profile pages themed around
@@ -59,6 +70,12 @@ const bebasNeue = Bebas_Neue({
 const cinzel = Cinzel({
   variable: "--font-cinzel",
   subsets: ["latin"],
+  // Same reasoning as bebasNeue's preload: false above -- Cinzel is
+  // scoped to profile pages themed around a specific favorite film's
+  // opening title-card look (theme-preset.ts) and renders nowhere else,
+  // so preloading it on every page (the next/font default) was pure
+  // waste for every page view that isn't a themed profile.
+  preload: false,
 });
 
 // Big Shoulders + IBM Plex Sans used to be loaded here for

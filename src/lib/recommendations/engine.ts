@@ -604,7 +604,26 @@ export async function getRecommendationsForUser(
     ratedTitleIds.length
       ? supabase.from("titles").select("id, genres, release_date").in("id", ratedTitleIds)
       : Promise.resolve({ data: [] as { id: string; genres: string[] | null; release_date: string | null }[] }),
-    supabase.from("titles").select("*").in("id", candidateIds),
+    // Scoring/ranking/explanation below only ever reads a fixed, narrow
+    // set of columns off each candidate (see the field list here) -- full
+    // display columns (poster_url, overview, backdrop_url, tmdb_id, ...)
+    // are pure UI data nothing in this function touches until a candidate
+    // has already survived scoring, diversification, and exploration to
+    // become one of the handful of ids actually shown to the user. This
+    // used to be select("*") for the WHOLE candidate pool (up to
+    // CANDIDATE_POOL_MULTIPLIER * limit ids -- 100+ for Home's hero
+    // cycling pool), even though diversifyRecommendations/the quality
+    // floor/context exclusions discard something like 85-90% of that pool
+    // before any of it reaches the UI. See the second, full-row query
+    // further down (fullById) for the small follow-up fetch that gets the
+    // real display columns, but only for the handful of ids that survive
+    // all the way to `finalIds`.
+    supabase
+      .from("titles")
+      .select(
+        "id, weighted_rating, rt_critic_score, genres, release_date, runtime_minutes, violence_level, emotional_intensity, dialogue_density, comedy_level, pacing, mood_tags, tone, themes, ending_type"
+      )
+      .in("id", candidateIds),
     // Title-level negative feedback: how close each candidate is to the
     // user's single most similar disliked title -- "disliked" meaning
     // either a rating <= 2.5 or a Discover swipe-deck pass (migration
@@ -1008,7 +1027,26 @@ export async function getRecommendationsForUser(
   // it's what actually decided the ranking, so it's what should be reflected
   // back as "how good a match, right now."
   const adjustedScoreById = new Map(adjusted.map((a) => [a.id, a.score]));
-  const finalIds = rankedIds.filter((id) => byId.has(id));
+  const preFetchFinalIds = rankedIds.filter((id) => byId.has(id));
+
+  // The narrow scoring select above deliberately left out every display
+  // column (poster_url, overview, backdrop_url, tmdb_id, ...) -- this is
+  // the one point in the function where the actual UI-facing title rows
+  // get fetched, and only for the handful (limit-sized) of candidates
+  // that survived scoring/diversification/exploration, not the whole
+  // over-fetched candidate pool. Same shape as the citation lookup's own
+  // "only for the final short list" reasoning just above.
+  const { data: finalTitleRows } = preFetchFinalIds.length
+    ? await supabase.from("titles").select("*").in("id", preFetchFinalIds)
+    : { data: [] as Title[] };
+  const fullById = new Map((finalTitleRows ?? []).map((t) => [t.id, t]));
+  // Re-filtered against fullById too (not just byId) so `recommendations`
+  // below can trust every id in finalIds has a full row -- guards the
+  // theoretical race of a title getting deleted between the candidate-pool
+  // fetch and this one, without ever needing an unsafe cast to paper over
+  // a row that's actually missing its display columns.
+  const finalIds = preFetchFinalIds.filter((id) => fullById.has(id));
+
   // Raw (pre-adjustment) content similarity of the #1 displayed pick --
   // NOT the adjusted score, which is polluted by generic context/weather/
   // quality/genre-affinity multipliers that have nothing to do with how
@@ -1022,7 +1060,7 @@ export async function getRecommendationsForUser(
   );
 
   const recommendations = finalIds.map((id, i) => {
-    const title = byId.get(id)!;
+    const title = fullById.get(id)!;
     const isExploration = id === explorationTitleId;
     // Recommendation intelligence audit finding #2: the exploration slot
     // gets its own honest explanation builder instead of buildReasonDetail
