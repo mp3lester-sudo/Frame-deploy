@@ -15,6 +15,7 @@ import { PostHogProvider } from "@/components/analytics/posthog-provider";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { ToastProvider } from "@/components/ui/toast";
 import { PullToRefresh } from "@/components/native/pull-to-refresh";
+import { SwipeBackGesture } from "@/components/native/swipe-back-gesture";
 import { WidgetTokenBootstrap } from "@/components/native/widget-token-bootstrap";
 import { getActiveMediaType } from "@/lib/context/media-type";
 
@@ -208,21 +209,30 @@ export default async function RootLayout({
           <ToastProvider>
             <ServiceWorkerRegistration />
             <WidgetTokenBootstrap isAuthed={!!user} />
-            {/* PullToRefresh now wraps the header + page content as one
+            {/* SwipeBackGesture (edge-swipe-back, see its own comment)
+                wraps PullToRefresh rather than the other way around --
+                both apply their own transform to their own wrapper div
+                (translateX vs translateY), so nesting either order
+                composes fine visually; this order just keeps "leaving
+                this screen" (horizontal) as the outer, coarser gesture
+                and "refreshing this screen" (vertical) as the inner one.
+                PullToRefresh now wraps the header + page content as one
                 dragged sheet (see its own comment for why) -- BottomNav is
-                deliberately left outside it so the bottom tab bar stays
-                pinned to the true viewport edge instead of sliding down
-                with the rest of the page mid-gesture. */}
-            <PullToRefresh>
-              <NavBar isAuthed={!!user} mediaType={mediaType} />
-              {showPromoBanner && <PromoBanner />}
-              {showPromoBanner && <PremiumPopup />}
-              {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
-                  own bottom padding (see bottom-nav.tsx) -- otherwise page
-                  content would be hidden behind the bar on notched iPhones.
-                  3.5rem covers the flush bar's own height (~56px). */}
-              <main className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
-            </PullToRefresh>
+                deliberately left outside both so the bottom tab bar stays
+                pinned to the true viewport edge instead of sliding with
+                the rest of the page mid-gesture. */}
+            <SwipeBackGesture>
+              <PullToRefresh>
+                <NavBar isAuthed={!!user} mediaType={mediaType} />
+                {showPromoBanner && <PromoBanner />}
+                {showPromoBanner && <PremiumPopup />}
+                {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
+                    own bottom padding (see bottom-nav.tsx) -- otherwise page
+                    content would be hidden behind the bar on notched iPhones.
+                    3.5rem covers the flush bar's own height (~56px). */}
+                <main className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0"><PageTransition>{children}</PageTransition></main>
+              </PullToRefresh>
+            </SwipeBackGesture>
             <BottomNav mediaType={mediaType} avatarUrl={avatarUrl} avatarName={avatarName} />
           </ToastProvider>
         </PostHogProvider>
