@@ -668,7 +668,30 @@ export default async function HomePage({
               together below, since they come from the same
               getRecommendationsForUser call (see HomeRecommendationsSection
               above). */}
-          <Suspense fallback={<HomeRecommendationsSkeleton />}>
+          {/* Keyed on mediaType, same reasoning as Discover's
+              SwipeDeckSection Suspense boundary (see discover/page.tsx).
+              RecommendationReveal already resets its own localPicks via
+              its own key -- but that alone wasn't enough to fully close
+              the Movies/Shows bleed report: setMediaType wraps
+              router.refresh() in startTransition, and React's own rule
+              for a transition that causes a Suspense boundary to
+              re-suspend is to keep the PREVIOUSLY COMMITTED subtree on
+              screen (not the fallback) until the new one is ready --
+              normally the right call (no jarring loading flash on a
+              quick swap), but it means this whole boundary, hero
+              included, stays mounted on the outgoing mediaType's
+              committed instance for the entire round trip, not just
+              until RecommendationReveal's own key changes. Keying the
+              boundary itself forces React to treat the incoming
+              mediaType as a genuinely different subtree rather than one
+              to reconcile in place: the old one still stays visible
+              while pending (same transition behavior, still no jarring
+              flash), but the moment the new data lands it's a full
+              fresh mount of everything in here -- hero, MoodRow, all of
+              it -- discarded and rebuilt rather than patched, closing
+              off any stale-state carryover beyond just the one prop
+              path RecommendationReveal's own key already covered. */}
+          <Suspense key={mediaType} fallback={<HomeRecommendationsSkeleton />}>
             <HomeRecommendationsSection
               userId={user.id}
               activeContext={activeContext}
