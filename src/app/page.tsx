@@ -553,27 +553,27 @@ export default async function HomePage({
           deliberate "this is your seat" marker instead of a stray
           avatar. Still the same photo-with-initial-fallback logic as
           before, just reframed -- no new data dependency. */}
-      <div className="mt-5 flex flex-col items-center gap-1.5">
-        <div className="rounded-[var(--radius-md)] border border-border-strong bg-accent/[0.03] p-[5px]">
+      <div className="mt-5 flex flex-col items-center gap-2">
+        <div className="rounded-[var(--radius-md)] border border-border-strong bg-accent/[0.03] p-[7px]">
           {avatarUrl ? (
             <Image
               src={avatarUrl}
               alt=""
-              width={52}
-              height={52}
-              className="h-[52px] w-[52px] rounded-[var(--radius-sm)] object-cover"
+              width={84}
+              height={84}
+              className="h-[84px] w-[84px] rounded-[var(--radius-sm)] object-cover"
               aria-hidden="true"
             />
           ) : (
             <span
-              className="flex h-[52px] w-[52px] items-center justify-center rounded-[var(--radius-sm)] font-display text-xl italic text-accent"
+              className="flex h-[84px] w-[84px] items-center justify-center rounded-[var(--radius-sm)] font-display text-4xl italic text-accent"
               aria-hidden="true"
             >
               {firstName.charAt(0).toUpperCase()}
             </span>
           )}
         </div>
-        <span className="font-display text-sm italic text-foreground-muted" aria-hidden="true">
+        <span className="font-display text-base italic text-foreground-muted" aria-hidden="true">
           {firstName}
         </span>
         <span className="sr-only">{firstName}&apos;s home</span>
