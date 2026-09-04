@@ -37,7 +37,7 @@ export function BackButton({
         }
       }}
       aria-label="Back"
-      className={`flex h-9 w-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-background ${className}`}
+      className={`glass-icon-btn flex h-9 w-9 items-center justify-center rounded-full text-foreground ${className}`}
     >
       <ArrowLeft size={18} />
     </button>

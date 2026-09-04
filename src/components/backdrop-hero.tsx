@@ -363,7 +363,7 @@ export function BackdropHero({
               type="button"
               onClick={toggleMute}
               aria-label={muted ? "Unmute trailer" : "Mute trailer"}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-background"
+              className="glass-icon-btn flex h-9 w-9 items-center justify-center rounded-full text-foreground"
             >
               {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
             </button>
@@ -371,7 +371,7 @@ export function BackdropHero({
               type="button"
               onClick={() => setPlaying(false)}
               aria-label="Close trailer"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-background"
+              className="glass-icon-btn flex h-9 w-9 items-center justify-center rounded-full text-foreground"
             >
               <X size={18} />
             </button>

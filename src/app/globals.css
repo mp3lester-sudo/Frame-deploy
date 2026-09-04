@@ -923,6 +923,28 @@ html.consent-decided .cookie-consent-banner {
   }
 }
 
+/* Rendition A ("refined glass") from the trailer-controls redesign round:
+   the back/mute/close circles floating over BackdropHero's trailer (and
+   BackButton wherever else it's used) were a flat bg-background/80 dot --
+   the one remaining icon-control surface in the app that wasn't built
+   from the same glass tokens as .bento-card above. Same border/shadow/
+   blur trio, just circular and sized for a single icon instead of a
+   content panel -- these three controls now read as the same frosted-
+   glass material as the rest of the app instead of generic dark UI
+   chrome floating on top of it. */
+.glass-icon-btn {
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--glass-shadow);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.glass-icon-btn:hover {
+  background-color: var(--glass-bg-hover);
+  border-color: var(--border-strong);
+}
+
 
 /* ============================================================
    Movie Night decision reveal -- the moment a group's pick locks in,
