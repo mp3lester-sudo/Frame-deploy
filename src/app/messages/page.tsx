@@ -189,7 +189,7 @@ function SuggestedContactsRow({
   return (
     <div className="mb-6">
       <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">People you might want to message</p>
-      <div className="flex gap-3 overflow-x-auto pb-1">
+      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
         {suggestions.map((s) => {
           const profile = profileById.get(s.userId);
           if (!profile) return null;
@@ -197,7 +197,7 @@ function SuggestedContactsRow({
           const label =
             s.reason === "compatibility" ? `${s.detail}% compatible` : "Watched together recently";
           return (
-            <div key={s.userId} className="bento-card flex w-40 shrink-0 flex-col items-center gap-2 p-3 text-center">
+            <div key={s.userId} className="bento-card flex w-40 shrink-0 snap-start flex-col items-center gap-2 p-3 text-center">
               <Link href={`/profile/${profile.username}`}>
                 <Avatar name={name} src={profile.avatar_url} size={48} />
               </Link>

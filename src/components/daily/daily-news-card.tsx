@@ -11,7 +11,7 @@ export function DailyNewsCard({ story }: { story: DailyNewsStory | null }) {
       href={story.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface transition-colors hover:border-border-strong"
+      className="group block overflow-hidden rounded-[var(--radius-xl)] border border-glass-border bg-glass shadow-[var(--glass-shadow)] backdrop-blur-[20px] transition-colors hover:border-border-strong hover:bg-glass-hover"
     >
       {story.imageUrl && (
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-raised">

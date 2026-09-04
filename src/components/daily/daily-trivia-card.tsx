@@ -47,7 +47,7 @@ export function DailyTriviaCard(props: Props) {
   }
 
   return (
-    <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface p-5">
+    <div className="relative overflow-hidden rounded-[var(--radius-xl)] border border-glass-border bg-glass shadow-[var(--glass-shadow)] backdrop-blur-[20px] p-5">
       {props.posterUrl && (
         <>
           <Image
@@ -85,7 +85,7 @@ export function DailyTriviaCard(props: Props) {
                       ? "border-danger/60 bg-danger/10 text-foreground"
                       : isSelected
                         ? "border-accent/60 bg-accent/10 text-foreground"
-                        : "border-border bg-surface/60 text-foreground-muted hover:border-border-strong"
+                        : "border-glass-border bg-glass text-foreground-muted hover:border-border-strong hover:bg-glass-hover"
                 } ${revealed ? "cursor-default" : "cursor-pointer"}`}
               >
                 <span

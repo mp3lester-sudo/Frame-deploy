@@ -63,11 +63,11 @@ function FilterRail({
     <div className="mb-4">
       <p className="mb-1.5 text-[10px] uppercase tracking-wider text-foreground-muted">{label}</p>
       <div className="relative -mx-4 px-4">
-        <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+        <div className="no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1">
           <Link
             href={allHref}
             className={cn(
-              "shrink-0 whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
+              "shrink-0 snap-start whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
               isAll
                 ? "border-accent bg-accent text-accent-foreground"
                 : "border-border text-foreground-muted hover:border-border-strong hover:text-foreground"
@@ -80,7 +80,7 @@ function FilterRail({
               key={o.href}
               href={o.href}
               className={cn(
-                "shrink-0 whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
+                "shrink-0 snap-start whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
                 o.active
                   ? "border-accent bg-accent text-accent-foreground"
                   : "border-border text-foreground-muted hover:border-border-strong hover:text-foreground"
@@ -252,11 +252,11 @@ export default async function DiscoverPage({
       <div className="mb-2">
         <p className="mb-1.5 text-[10px] uppercase tracking-wider text-foreground-muted">Genre</p>
         <div className="relative -mx-4 px-4">
-          <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+          <div className="no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1">
             <Link
               href={hrefWith({ genre: undefined })}
               className={cn(
-                "shrink-0 whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
+                "shrink-0 snap-start whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
                 !genre
                   ? "border-accent bg-accent text-accent-foreground"
                   : "border-border text-foreground-muted hover:border-border-strong hover:text-foreground"
@@ -269,7 +269,7 @@ export default async function DiscoverPage({
                 key={value}
                 href={hrefWith({ genre: value })}
                 className={cn(
-                  "shrink-0 whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
+                  "shrink-0 snap-start whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
                   genre === value
                     ? "border-accent bg-accent text-accent-foreground"
                     : "border-border text-foreground-muted hover:border-border-strong hover:text-foreground"
