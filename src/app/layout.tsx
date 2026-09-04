@@ -10,6 +10,7 @@ import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { isPremiumActive } from "@/lib/premium/is-premium";
 import { PageTransition } from "@/components/page-transition";
 import { PromoBanner } from "@/components/layout/promo-banner";
+import { PremiumPopup } from "@/components/premium/premium-popup";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { ToastProvider } from "@/components/ui/toast";
@@ -169,7 +170,8 @@ export default async function RootLayout({
     }
   }
   // Logged-out visitors get the landing page's own conversion funnel
-  // instead of a banner; Premium accounts never see it at all.
+  // instead of a banner; Premium accounts never see it at all. Also
+  // gates PremiumPopup below -- same audience, same reasoning.
   const showPromoBanner = !!user && !isPremium;
 
   return (
@@ -214,6 +216,7 @@ export default async function RootLayout({
             <PullToRefresh>
               <NavBar isAuthed={!!user} mediaType={mediaType} />
               {showPromoBanner && <PromoBanner />}
+              {showPromoBanner && <PremiumPopup />}
               {/* pb grows by env(safe-area-inset-bottom) to match BottomNav's
                   own bottom padding (see bottom-nav.tsx) -- otherwise page
                   content would be hidden behind the bar on notched iPhones.
