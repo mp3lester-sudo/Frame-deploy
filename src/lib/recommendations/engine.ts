@@ -202,6 +202,67 @@ async function fetchContentMatches(
   return data;
 }
 
+/**
+ * Safety net for the specific live bug this was built to close: a
+ * 500+-rating account intermittently getting served the cold-start
+ * popularity fallback instead of real picks, flipping back and forth on
+ * otherwise-identical page loads (see migration 0097's comment for the
+ * full story -- in short, match_titles_for_user's own cost grew after
+ * task #851 widened Home's hero pool, and the DB-side statement_timeout
+ * tuned in migrations 0093/0094 didn't grow with it, so the ANN query
+ * can lose the race under real load even though every one of engine.ts's
+ * three existing self-heal/retry layers retries the *same* expensive
+ * query shape).
+ *
+ * Rather than chase the timeout number a further time, every request
+ * that DOES get a real result writes it here (see cacheRecommendationMatches
+ * below); this is read back only as the last resort before falling all
+ * the way through to true cold start, so a degraded request shows this
+ * user's own real, recent picks (at most a little stale) instead of a
+ * generic, unpersonalized popularity list. A user who's never had a
+ * successful request yet (genuinely new, or genuinely cold-start) has no
+ * row here and falls through to true cold start exactly as before --
+ * this only ever softens an already-warm account's bad luck on one
+ * request, never fabricates personalization that was never real.
+ */
+async function loadCachedRecommendationMatches(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  mediaType: MediaType
+): Promise<{ title_id: string; similarity: number }[] | null> {
+  const { data } = await supabase
+    .from("recommendation_cache")
+    .select("matches")
+    .eq("user_id", userId)
+    .eq("media_type", mediaType)
+    .maybeSingle();
+  return data?.matches?.length ? data.matches : null;
+}
+
+/** Fire-and-forget, same pattern as logRecommendationImpressions below --
+ *  a cache write failing or running slow must never affect what this
+ *  request itself returns. Caps the stored pool at 200 rows: more than
+ *  enough headroom for every downstream consumer (hero + reserve pool,
+ *  MoodRow, citation matching) even after dismissals/exclusions eat into
+ *  it, without writing the entire multi-thousand-row raw ANN result. */
+function cacheRecommendationMatches(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  mediaType: MediaType,
+  matches: { title_id: string; similarity: number }[]
+) {
+  if (!matches.length) return;
+  void supabase
+    .from("recommendation_cache")
+    .upsert(
+      { user_id: userId, media_type: mediaType, matches: matches.slice(0, 200), updated_at: new Date().toISOString() },
+      { onConflict: "user_id,media_type" }
+    )
+    .then(({ error }) => {
+      if (error) captureServerError(error, { userId, mediaType, stage: "recommendation-cache-write" });
+    });
+}
+
 export async function getRecommendationsForUser(
   userId: string,
   {
@@ -297,6 +358,12 @@ export async function getRecommendationsForUser(
   // content matches) doesn't redundantly recompute right after the first
   // one already just ran.
   let selfHealed = false;
+  // See loadCachedRecommendationMatches's doc comment -- tracks whether
+  // this request's real picks came from the recommendation_cache fallback
+  // rather than a live match_titles_for_user result, so a cache-sourced
+  // result doesn't get re-cached (pointless -- it would just be writing
+  // back what was already there, possibly slightly stale).
+  let usedCachedMatches = false;
 
   if (!tasteVector) {
     // A missing taste_vectors row was unconditionally treated as
@@ -486,7 +553,32 @@ export async function getRecommendationsForUser(
   }
 
   if (blended.size === 0) {
+    // Every live attempt above (initial fetch, missing-vector self-heal,
+    // zero-match self-heal, bare retry) has now failed for this request.
+    // Before accepting true cold start, check whether this account has a
+    // real result on file from an earlier successful request -- see
+    // loadCachedRecommendationMatches's doc comment.
+    const cached = await loadCachedRecommendationMatches(supabase, userId, mediaType);
+    if (cached) {
+      contentMatches = cached;
+      usedCachedMatches = true;
+      for (const m of cached) {
+        if (dismissedTitleIds.has(m.title_id)) continue;
+        blended.set(m.title_id, (blended.get(m.title_id) ?? 0) + m.similarity);
+      }
+      if (blended.size > 0) markDegraded("match_titles_for_user-cache-fallback")("timeout");
+    }
+  }
+
+  if (blended.size === 0) {
     return finish({ recommendations: await getColdStartRecommendations(userId, limit, context, mediaType), isColdStart: true });
+  }
+
+  // A real result this request -- either a live fetch or one of the
+  // self-heal retries above, but not the cache fallback itself -- is
+  // worth banking for the next request that might not be so lucky.
+  if (!usedCachedMatches) {
+    cacheRecommendationMatches(supabase, userId, mediaType, contentMatches ?? []);
   }
 
   // Context weighting needs each candidate's taste metadata (runtime,

@@ -187,6 +187,22 @@ export interface Database {
         Update: Partial<{ embedding: number[]; sample_size: number }>;
         Relationships: [];
       };
+      recommendation_cache: {
+        Row: {
+          user_id: string;
+          media_type: string;
+          matches: { title_id: string; similarity: number }[];
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          media_type: string;
+          matches: { title_id: string; similarity: number }[];
+          updated_at?: string;
+        };
+        Update: Partial<{ matches: { title_id: string; similarity: number }[]; updated_at: string }>;
+        Relationships: [];
+      };
       title_embeddings: {
         Row: { title_id: string; embedding: number[]; model: string; updated_at: string };
         Insert: { title_id: string; embedding: number[]; model?: string };
