@@ -548,9 +548,12 @@ export default async function HomePage({
           filler: no border language tying it to anything else on the
           page, no reason for it to be there beyond "here's a photo."
           This treatment borrows a director's-chair nameback: the photo
-          sits in a small gold-edged plaque (not a bare circle). Still
-          the same photo-with-initial-fallback logic as before, just
-          reframed -- no new data dependency.
+          sits in a small gold-edged plaque (not a bare circle). Photo
+          is full-bleed inside the plaque (no inner padding gap) with
+          the border sitting flush against its edge, rather than
+          floating inset from a visible border. Still the same
+          photo-with-initial-fallback logic as before, just reframed --
+          no new data dependency.
 
           Name caption (font rendition round, option B, "poster credit
           line") -- swapped from the italic Instrument Serif caption
@@ -560,19 +563,19 @@ export default async function HomePage({
           brand's own display type instead of borrowing the tagline's
           serif italic. */}
       <div className="mt-5 flex flex-col items-center gap-2">
-        <div className="rounded-[var(--radius-md)] border border-border-strong bg-accent/[0.03] p-[7px]">
+        <div className="overflow-hidden rounded-[var(--radius-md)] border border-border-strong">
           {avatarUrl ? (
             <Image
               src={avatarUrl}
               alt=""
               width={84}
               height={84}
-              className="h-[84px] w-[84px] rounded-[var(--radius-sm)] object-cover"
+              className="h-[84px] w-[84px] object-cover"
               aria-hidden="true"
             />
           ) : (
             <span
-              className="flex h-[84px] w-[84px] items-center justify-center rounded-[var(--radius-sm)] font-display text-4xl italic text-accent"
+              className="flex h-[84px] w-[84px] items-center justify-center bg-accent/[0.03] font-display text-4xl italic text-accent"
               aria-hidden="true"
             >
               {firstName.charAt(0).toUpperCase()}
