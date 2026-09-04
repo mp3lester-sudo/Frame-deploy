@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Search, Sparkles, Users, Compass, User, Clapperboard, Settings, Mail, Bell, CalendarDays } from "lucide-react";
+import { Search, Sparkles, Compass, User, Clapperboard, Settings, Mail, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getNavBadgeCounts } from "@/lib/actions/nav-badges";
 import { MediaTypeToggle } from "@/components/layout/media-type-toggle";
@@ -32,20 +32,21 @@ const BADGE_POLL_MS = 60_000;
 // promotion. Recommendations don't need a nav entry of their own: they
 // already own the home page, the first thing anyone sees.
 //
-// Launch audit finding: this labeled row is `hidden md:flex` -- Daily and
-// Social (and transitively Clubs/Hot Takes, one tap further into Social)
-// had ZERO mobile entry point as a result, since the intended home-page
-// mobile fallback (CircleFeed) was built but never wired up. Fixed below
-// by giving Daily and Social their own icon-only links in the
-// always-visible mobile icon cluster, instead of resurrecting a
-// dead component with no backing data query.
+// Daily and Social/Feed shelved from this bar (both the labeled desktop
+// row and the mobile icon cluster below) per explicit product direction
+// -- the bar had gotten too crowded. This is a deliberate declutter, not
+// a regression of the earlier launch-audit mobile-entry-point fix: the
+// routes (/daily, /feed, and transitively /clubs, /hot-takes one tap
+// further into Social) are untouched and still reachable directly, just
+// not linked from primary nav for now. Do not silently re-add them here
+// without checking in -- if usage data or a future request calls for
+// bringing one back, it deserves its own deliberate placement rather
+// than reflexively restoring the old row.
 function getLinks(mediaType: MediaType) {
   return [
     { href: "/discover", label: "Discover", icon: Compass },
     { href: "/movie-night", label: movieNightLabel(mediaType), icon: Clapperboard },
     { href: "/ai", label: "Ask Slate", icon: Sparkles },
-    { href: "/feed", label: "Social", icon: Users },
-    { href: "/daily", label: "Daily", icon: CalendarDays },
   ];
 }
 
@@ -151,24 +152,6 @@ export function NavBar({ isAuthed, mediaType }: { isAuthed: boolean; mediaType: 
             `relative` span so the unread badge still anchors to the
             icon itself, not to the now-larger padded Link box. */}
         <div className="flex items-center gap-3">
-          {/* Daily and Social mobile-only (md:hidden) icon links -- the
-              labeled nav row above already covers both on desktop, this
-              is purely the mobile entry point that was missing. Same
-              hit-slop pattern as the rest of this cluster. */}
-          <Link
-            href="/daily"
-            aria-label="Daily"
-            className="-m-2.5 flex items-center justify-center p-2.5 text-foreground-muted hover:text-foreground md:hidden"
-          >
-            <CalendarDays size={18} />
-          </Link>
-          <Link
-            href="/feed"
-            aria-label="Social"
-            className="-m-2.5 flex items-center justify-center p-2.5 text-foreground-muted hover:text-foreground md:hidden"
-          >
-            <Users size={18} />
-          </Link>
           <Link
             href="/search"
             aria-label="Search"
