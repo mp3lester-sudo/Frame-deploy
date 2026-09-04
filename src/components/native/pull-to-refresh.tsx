@@ -76,6 +76,24 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const startY = useRef<number | null>(null);
   const startX = useRef<number>(0);
   const axisLock = useRef<"vertical" | "horizontal" | null>(null);
+  // Perf audit finding: same rAF-batching fix as the two swipe decks --
+  // onTouchMove used to call setPull/setActive directly on every touch
+  // sample, forcing a React re-render (and a style recompute on the
+  // dragged wrapper) on every single event while pulling, rather than at
+  // most once per displayed frame.
+  const pullRafRef = useRef<number | null>(null);
+  const pendingPullRef = useRef<{ active: boolean; pull: number } | null>(null);
+
+  function flushPendingPull() {
+    if (pullRafRef.current !== null) return;
+    pullRafRef.current = requestAnimationFrame(() => {
+      pullRafRef.current = null;
+      if (pendingPullRef.current) {
+        setActive(pendingPullRef.current.active);
+        setPull(pendingPullRef.current.pull);
+      }
+    });
+  }
 
   useEffect(() => {
     if (!isNativeApp()) return;
@@ -104,19 +122,19 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
         // Locked out for the rest of this touch -- a swipe that started
         // horizontal stays horizontal even if it later drifts vertical,
         // same as a real scroll-vs-swipe recognizer would treat it.
-        setActive(false);
-        setPull(0);
+        pendingPullRef.current = { active: false, pull: 0 };
+        flushPendingPull();
         return;
       }
 
       if (deltaY <= 0) {
-        setActive(false);
-        setPull(0);
+        pendingPullRef.current = { active: false, pull: 0 };
+        flushPendingPull();
         return;
       }
       if (deltaY > 8) {
-        setActive(true);
-        setPull(applyResistance(deltaY));
+        pendingPullRef.current = { active: true, pull: applyResistance(deltaY) };
+        flushPendingPull();
       }
     }
 
@@ -163,6 +181,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
+      if (pullRafRef.current !== null) cancelAnimationFrame(pullRafRef.current);
     };
   }, [pull, refreshing]);
 

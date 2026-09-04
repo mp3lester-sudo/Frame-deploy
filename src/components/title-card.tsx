@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Image from "@/components/ui/fade-image";
 import Link from "next/link";
 import type { Database } from "@/lib/supabase/types";
@@ -14,7 +15,17 @@ export type GridTitle = Pick<
   "id" | "name" | "poster_url" | "type" | "in_production"
 >;
 
-export function TitleCard({
+/**
+ * Perf audit finding: this is the single most-reused card in the app
+ * (Discover, Search, Person's filmography, Watchlist, Home) -- rendered
+ * dozens to a hundred+ times per grid. Its own props are plain values
+ * with no inline-recreated callbacks, so a shallow-equal memo is a safe,
+ * pure win: appending a page via LoadMoreGrid's "Load more" (or any
+ * other list this sits in re-rendering for an unrelated reason) no
+ * longer re-renders every already-painted card, only the ones whose
+ * props actually changed.
+ */
+export const TitleCard = memo(function TitleCard({
   title,
   reason,
   highlight,
@@ -74,4 +85,4 @@ export function TitleCard({
       {reason && <p className="line-clamp-2 text-xs text-foreground-muted">{reason}</p>}
     </Link>
   );
-}
+});

@@ -139,6 +139,23 @@ export function OnboardingSwipe({
     startY: 0,
     active: false,
   });
+  // Perf audit finding: same fix as Discover's SwipeRecsCard -- batching
+  // pointermove events into one setDragOffset commit per animation frame
+  // instead of one per event, so this drag gesture (a new user's very
+  // first interaction with the app) doesn't force a re-render on every
+  // single pointer sample.
+  const dragRafRef = useRef<number | null>(null);
+  const pendingDragRef = useRef<{ x: number; y: number } | null>(null);
+
+  function cancelPendingDragFrame() {
+    if (dragRafRef.current !== null) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
+    pendingDragRef.current = null;
+  }
+
+  useEffect(() => cancelPendingDragFrame, []);
 
   const current = deck[index];
   const progress = ((index + 1) / deck.length) * 100;
@@ -291,15 +308,18 @@ export function OnboardingSwipe({
 
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!pointerRef.current.active) return;
-    setDragOffset({
-      x: e.clientX - pointerRef.current.startX,
-      y: e.clientY - pointerRef.current.startY,
+    pendingDragRef.current = { x: e.clientX - pointerRef.current.startX, y: e.clientY - pointerRef.current.startY };
+    if (dragRafRef.current !== null) return;
+    dragRafRef.current = requestAnimationFrame(() => {
+      dragRafRef.current = null;
+      if (pendingDragRef.current) setDragOffset(pendingDragRef.current);
     });
   }
 
   function endDrag() {
     if (!pointerRef.current.active) return;
     pointerRef.current.active = false;
+    cancelPendingDragFrame();
     setIsDragging(false);
     if (dragOffset.x > SWIPE_THRESHOLD) {
       exitCard("right", RATING_FOR.love_it);

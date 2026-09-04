@@ -82,6 +82,30 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
     startY: 0,
     active: false,
   });
+  // Perf audit finding: onPointerMove used to call setDragOffset directly,
+  // meaning every single pointermove event (which can fire well over
+  // 60/sec on a fast trackpad or touchscreen) forced a full React
+  // re-render of this ~600-line component tree -- rotation, translateX/Y,
+  // opacity, dragScale, edge-glow, and the live match-percent number all
+  // recomputed on every event, not just once per displayed frame. Batching
+  // the latest pointer position into a ref and only committing it to real
+  // state once per animation frame (the actual rate the browser can even
+  // paint at) cuts the re-render rate to match the display instead of the
+  // input device, with zero change to the drag's visual behavior --
+  // dragOffset still ends up holding exactly the same values, just
+  // coalesced rather than one-commit-per-event.
+  const dragRafRef = useRef<number | null>(null);
+  const pendingDragRef = useRef<{ x: number; y: number } | null>(null);
+
+  function cancelPendingDragFrame() {
+    if (dragRafRef.current !== null) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
+    pendingDragRef.current = null;
+  }
+
+  useEffect(() => cancelPendingDragFrame, []);
 
   // The visible card DOM node itself is never remounted between swipes
   // (see cardRef below) -- so "just swapped to a new card" is tracked
@@ -184,12 +208,18 @@ export function SwipeRecsCard({ initialDeck }: { initialDeck: SwipeRec[] }) {
 
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!pointerRef.current.active) return;
-    setDragOffset({ x: e.clientX - pointerRef.current.startX, y: e.clientY - pointerRef.current.startY });
+    pendingDragRef.current = { x: e.clientX - pointerRef.current.startX, y: e.clientY - pointerRef.current.startY };
+    if (dragRafRef.current !== null) return;
+    dragRafRef.current = requestAnimationFrame(() => {
+      dragRafRef.current = null;
+      if (pendingDragRef.current) setDragOffset(pendingDragRef.current);
+    });
   }
 
   function endDrag() {
     if (!pointerRef.current.active) return;
     pointerRef.current.active = false;
+    cancelPendingDragFrame();
     setIsDragging(false);
     if (dragOffset.x > SWIPE_THRESHOLD) {
       decide("right");
