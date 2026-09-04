@@ -528,37 +528,39 @@ export default async function HomePage({
         </Suspense>
       </div>
 
-      {/* Quiet mark, Concept C -- the "Good evening Name" greeting (both
-          this persistent line and the full-screen splash that used to run
-          before it) is gone entirely per product direction. A small
-          centered initial anchors the top of the page where the greeting
-          used to sit without restating anything the ContextCards line
-          above or the recommendation below already say better.
-
-          Reverted the Walk of Fame star treatment -- tried at two sizes
-          (78px, then 168px with a fuller star shape), but the plain
-          circular photo read better against a screenshot side-by-side
-          than either star version, so back to the circle. Sized a tad
-          up from the last circular pass (52px -> 60px) per feedback,
-          same photo-with-initial-fallback logic as before. */}
-      <div className="mt-5 flex justify-center">
-        {avatarUrl ? (
-          <Image
-            src={avatarUrl}
-            alt=""
-            width={60}
-            height={60}
-            className="h-[60px] w-[60px] rounded-full border border-border-strong object-cover"
-            aria-hidden="true"
-          />
-        ) : (
-          <span
-            className="flex h-[60px] w-[60px] items-center justify-center rounded-full border border-border-strong font-display text-2xl italic text-accent"
-            aria-hidden="true"
-          >
-            {firstName.charAt(0).toUpperCase()}
-          </span>
-        )}
+      {/* Quiet mark, "marquee nameplate" (design rendition round 2,
+          option A) -- the plain floating circle from Concept C read as
+          filler: no border language tying it to anything else on the
+          page, no reason for it to be there beyond "here's a photo."
+          This treatment borrows a director's-chair nameback: the photo
+          sits in a small gold-edged plaque (not a bare circle) with the
+          first name in italic serif beneath it, so it reads as a
+          deliberate "this is your seat" marker instead of a stray
+          avatar. Still the same photo-with-initial-fallback logic as
+          before, just reframed -- no new data dependency. */}
+      <div className="mt-5 flex flex-col items-center gap-1.5">
+        <div className="rounded-[var(--radius-md)] border border-border-strong bg-accent/[0.03] p-[5px]">
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt=""
+              width={52}
+              height={52}
+              className="h-[52px] w-[52px] rounded-[var(--radius-sm)] object-cover"
+              aria-hidden="true"
+            />
+          ) : (
+            <span
+              className="flex h-[52px] w-[52px] items-center justify-center rounded-[var(--radius-sm)] font-display text-xl italic text-accent"
+              aria-hidden="true"
+            >
+              {firstName.charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
+        <span className="font-display text-sm italic text-foreground-muted" aria-hidden="true">
+          {firstName}
+        </span>
         <span className="sr-only">{firstName}&apos;s home</span>
       </div>
 
