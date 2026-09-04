@@ -182,8 +182,21 @@ async function HomeRecommendationsSection({
       {/* The recommendation is the unambiguous focal point of the page --
           full column width, alone, dramatically taller than everything
           below it (see recommendation-reveal.tsx). */}
+      {/* keyed on mediaType: RecommendationReveal seeds its own localPicks/
+          phase/index/overrides state from the picks prop via useState on
+          FIRST mount only (see that component's own comment on why --
+          "Generate another pick" needs to permanently drop a dismissed
+          title, not just re-derive from a prop every render). Without a
+          key here, switching Movies<->Shows re-renders this component
+          with a fresh (TV) picks prop but keeps its stale (movie) local
+          state, so the hero kept showing the previous media type's pick
+          -- already-revealed, no tap-to-reveal gate -- bled right into
+          the other side's palette. Same class of bug as Discover's/
+          Search's/Watched's LoadMoreGrid needing key={mediaType} (see
+          discover/page.tsx's comment); this is the one spot on Home that
+          never got the same fix. */}
       {heroRevealPicks.length > 0 && (
-        <RecommendationReveal picks={heroRevealPicks} isColdStart={isColdStart} mediaType={mediaType} />
+        <RecommendationReveal key={mediaType} picks={heroRevealPicks} isColdStart={isColdStart} mediaType={mediaType} />
       )}
 
       {/* Quiet thumbnail row -- deliberately smaller and less prominent

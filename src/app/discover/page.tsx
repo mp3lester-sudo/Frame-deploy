@@ -240,7 +240,18 @@ export default async function DiscoverPage({
       <h1 className="text-gold-foil font-section-heading mb-4 text-3xl">Discover</h1>
 
       {viewer && (
-        <Suspense fallback={<SwipeDeckSkeleton />}>
+        // Keyed on mediaType, same reasoning as LoadMoreGrid below:
+        // SwipeRecsCard seeds its own `deck` state from initialDeck via
+        // useState on first mount only (drag/swipe needs a stable local
+        // array it can pop cards off of, not one re-derived from props
+        // every render). Without a key here, toggling Movies<->Shows
+        // re-renders this Suspense boundary with a fresh (TV) deck prop
+        // but SwipeRecsCard kept showing its stale (movie) local deck --
+        // swiping through Movie cards on the Shows tab until the frozen
+        // deck ran out. Keying remounts the whole boundary (briefly
+        // showing SwipeDeckSkeleton again, same as any other fresh async
+        // fetch) so the deck always matches the tab you're actually on.
+        <Suspense key={mediaType} fallback={<SwipeDeckSkeleton />}>
           <SwipeDeckSection />
         </Suspense>
       )}
