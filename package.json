@@ -36,7 +36,8 @@
     "verify:direct-messages": "tsx --env-file=.env.local scripts/verify-direct-messages.ts",
     "verify:hot-takes": "tsx --env-file=.env.local scripts/verify-hot-takes.ts",
     "verify:rt-and-person-bio": "tsx --env-file=.env.local scripts/verify-rt-and-person-bio.ts",
-    "verify:anonymous-taste-teaser": "tsx --env-file=.env.local scripts/verify-anonymous-taste-teaser.ts"
+    "verify:anonymous-taste-teaser": "tsx --env-file=.env.local scripts/verify-anonymous-taste-teaser.ts",
+    "find:junk-titles": "tsx --env-file=.env.local scripts/find-junk-titles.ts"
   },
   "dependencies": {
     "@capacitor/core": "^7.6.8",
