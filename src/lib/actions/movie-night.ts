@@ -45,12 +45,27 @@ async function requireUser() {
   return { supabase, user };
 }
 
-export async function createMovieNight() {
+const startModeSchema = z.enum(["date_night", "with_friends"]).optional();
+
+/**
+ * Accepts an optional FormData so callers can pick a mode -- the home
+ * page's MovieNightBar submits one of its two tabs' hidden "mode" input,
+ * while the plain "Start a movie night" button on /movie-night (and any
+ * other pre-existing caller) submits no such field, which is exactly as
+ * valid: `mode` stays undefined and the night's context column is left
+ * null. Same two values ContextPicker already uses for the solo home
+ * page (see circumstantial.ts) -- reusing that vocabulary here rather
+ * than inventing a second one for the same idea.
+ */
+export async function createMovieNight(formData?: FormData) {
   const { supabase, user } = await requireUser();
+
+  const rawMode = formData?.get("mode");
+  const mode = startModeSchema.parse(typeof rawMode === "string" && rawMode ? rawMode : undefined);
 
   const { data: night, error } = await supabase
     .from("movie_nights")
-    .insert({ host_id: user.id })
+    .insert({ host_id: user.id, context: mode ?? null })
     .select("id")
     .single();
   if (error || !night) throw new Error(error?.message ?? "Could not create movie night");

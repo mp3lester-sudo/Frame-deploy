@@ -37,7 +37,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
   const [{ data: night }, { data: participantRows }, { data: viewerProfile }] = await Promise.all([
     supabase
       .from("movie_nights")
-      .select("id, host_id, status, decided_title_id, invite_token, created_at")
+      .select("id, host_id, status, decided_title_id, invite_token, context, created_at")
       .eq("id", id)
       .maybeSingle(),
     supabase
@@ -137,7 +137,18 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
       </Link>
 
       <div className="mt-3 flex items-center justify-between">
-        <h1 className="text-gold-foil font-section-heading text-2xl">{movieNightLabel(mediaType)}</h1>
+        <div>
+          <h1 className="text-gold-foil font-section-heading text-2xl">{movieNightLabel(mediaType)}</h1>
+          {/* Only set when this night was started from the home page's
+              MovieNightBar (see its "mode" hidden field) -- nights started
+              from the plain /movie-night button have no context, and
+              that's expected, not an error state, so nothing renders. */}
+          {night.context && (
+            <p className="mt-0.5 text-[11px] uppercase tracking-wider text-foreground-muted">
+              {night.context === "date_night" ? "Date night" : "With friends"}
+            </p>
+          )}
+        </div>
         <span className="text-xs uppercase tracking-wider text-accent">
           {night.status === "collecting" && "Collecting picks"}
           {night.status === "decided" && "Decided"}

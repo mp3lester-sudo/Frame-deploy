@@ -469,10 +469,19 @@ export interface Database {
           status: "collecting" | "decided" | "cancelled";
           decided_title_id: string | null;
           invite_token: string;
+          context: "date_night" | "with_friends" | null;
           created_at: string;
         };
-        Insert: { host_id: string; status?: "collecting" | "decided" | "cancelled" };
-        Update: Partial<{ status: "collecting" | "decided" | "cancelled"; decided_title_id: string | null }>;
+        Insert: {
+          host_id: string;
+          status?: "collecting" | "decided" | "cancelled";
+          context?: "date_night" | "with_friends" | null;
+        };
+        Update: Partial<{
+          status: "collecting" | "decided" | "cancelled";
+          decided_title_id: string | null;
+          context: "date_night" | "with_friends" | null;
+        }>;
         Relationships: [];
       };
       movie_night_participants: {

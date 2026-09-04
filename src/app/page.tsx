@@ -20,7 +20,7 @@ import type { MediaType } from "@/lib/context/media-type-cookie";
 import { PreciseLocation } from "@/components/home/precise-location";
 import { getWelcomeBackData } from "@/lib/home/welcome-back";
 import { WelcomeBackHero } from "@/components/home/welcome-back-hero";
-import { WatchPartyCard } from "@/components/home/watch-party-card";
+import { MovieNightBar } from "@/components/home/movie-night-bar";
 import { getHiddenGemForUser } from "@/lib/recommendations/hidden-gem";
 import { HiddenGemCard } from "@/components/home/hidden-gem-card";
 import { computeSignaturePick } from "@/lib/taste-dna/signature-pick";
@@ -198,13 +198,16 @@ async function HomeRecommendationsSection({
         </div>
       )}
 
-      {/* Home page redesign (rendition D): a quiet Watch Party CTA sits
+      {/* Home page redesign (rendition D): a quiet Movie Night bar sits
           right below "also for tonight," styled to echo the hero's own
           pill CTA so the page's two real actions -- watch, or start a
           group session -- share one button language instead of this
-          reading as a lesser, passive link. */}
+          reading as a lesser, passive link. Now offers two explicit start
+          actions (Date night / With friends, see movie-night-bar.tsx)
+          instead of one generic "Start" button, plus a follower avatar
+          stack for social proof when there are enough followers to show. */}
       <div className="mt-8">
-        <WatchPartyCard mediaType={mediaType} />
+        <MovieNightBar userId={userId} mediaType={mediaType} />
       </div>
 
       {/* Continue watching -- only the viewer's own real in-progress
