@@ -106,6 +106,8 @@ export default async function SearchPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <h1 className="text-gold-foil font-section-heading mb-4 text-3xl">Search</h1>
+
       {/* Plain GET form -- no client JS, no live-search debounce -- so it
           relied entirely on the browser's native "submit on Enter"
           behavior with nothing in the UI signaling that. A search box
@@ -114,23 +116,32 @@ export default async function SearchPage({
           user happens to guess to press Enter). The button below is a
           real type="submit" -- no onClick needed, the browser handles
           it identically to pressing Enter since there's still no
-          action/onSubmit override here. */}
-      <form className="mb-4 flex max-w-md gap-2">
+          action/onSubmit override here. Sized to match Ask Slate's own
+          primary input (h-12) rather than the default Input height --
+          this is the one and only field on the page, it should read as
+          the primary action, not an afterthought toolbar control. */}
+      <form className="mb-5 flex gap-2">
         <input type="hidden" name="type" value={mode} />
-        <Input name="q" defaultValue={q} placeholder={placeholder} className="flex-1" />
-        <Button type="submit" variant="secondary" size="md" aria-label="Search" className="shrink-0 px-3">
-          <Search size={16} />
+        <Input name="q" defaultValue={q} placeholder={placeholder} className="h-12 flex-1 text-base" />
+        <Button type="submit" variant="secondary" size="md" aria-label="Search" className="h-12 shrink-0 px-4">
+          <Search size={18} />
         </Button>
       </form>
 
-      <div className="mb-6 flex gap-1 border-b border-border">
+      {/* Pill segmented control, matching Discover's genre-filter pill
+          convention (see discover/page.tsx) instead of an underline tab
+          bar -- gives Search the same branded selection idiom as its
+          sibling browse surface rather than a generic default pattern. */}
+      <div className="mb-6 flex gap-2">
         {TABS.map((t) => (
           <Link
             key={t.value}
             href={tabHref(t.value)}
             className={cn(
-              "px-3 pb-2 text-sm whitespace-nowrap",
-              mode === t.value ? "border-b-2 border-accent text-foreground" : "text-foreground-muted hover:text-foreground"
+              "shrink-0 whitespace-nowrap rounded-[var(--radius-full)] border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
+              mode === t.value
+                ? "border-accent bg-accent text-accent-foreground"
+                : "border-border text-foreground-muted hover:border-border-strong hover:text-foreground"
             )}
           >
             {t.label}

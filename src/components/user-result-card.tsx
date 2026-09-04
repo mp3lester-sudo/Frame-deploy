@@ -5,7 +5,7 @@ import type { UserSearchResult } from "@/lib/actions/users";
 
 export function UserResultCard({ user }: { user: UserSearchResult }) {
   return (
-    <div className="flex items-center gap-3 border-b border-border py-3 last:border-0">
+    <div className="bento-card flex items-center gap-3 p-3">
       <Link href={`/profile/${user.username}`} className="flex flex-1 items-center gap-3 min-w-0">
         <Avatar name={user.display_name ?? user.username} src={user.avatar_url} size={40} />
         <div className="min-w-0">

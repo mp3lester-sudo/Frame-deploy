@@ -33,7 +33,7 @@ export function LoadMorePeople({
 
   return (
     <>
-      <div className="rounded-[var(--radius-md)] border border-border bg-surface px-4">
+      <div className="flex flex-col gap-2">
         {users.map((u) => (
           <UserResultCard key={u.id} user={u} />
         ))}

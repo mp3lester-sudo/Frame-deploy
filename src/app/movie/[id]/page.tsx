@@ -370,7 +370,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
       </Suspense>
 
       <section className="mt-10">
-        <h2 className="mb-3 text-lg font-semibold">Reviews</h2>
+        <h2 className="mb-3 font-display text-lg italic text-accent">Reviews</h2>
         {viewer && (
           <div className="mb-4">
             <WriteReviewForm titleId={title.id} />

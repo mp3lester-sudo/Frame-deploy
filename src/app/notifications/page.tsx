@@ -104,7 +104,7 @@ export default async function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="font-display mb-6 text-2xl">Notifications</h1>
+      <h1 className="text-gold-foil font-section-heading mb-6 text-2xl">Notifications</h1>
 
       {notifications.length === 0 ? (
         <p className="text-sm text-foreground-muted">

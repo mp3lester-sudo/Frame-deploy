@@ -1077,7 +1077,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       )}
 
       <div className="mb-3 mt-8 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Recently watched</h2>
+        <h2 className="font-display text-lg italic text-accent">Recently watched</h2>
         {(ratingCount ?? 0) > 12 && (
           <Link href={`/profile/${profile.username}/watched`} className="text-sm text-foreground-muted hover:text-foreground">
             See all {ratingCount} &rarr;

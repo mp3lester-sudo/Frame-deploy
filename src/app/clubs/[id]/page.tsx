@@ -59,7 +59,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl">{club.name}</h1>
+          <h1 className="text-gold-foil font-section-heading text-2xl">{club.name}</h1>
           {club.description && <p className="mt-1 text-sm text-foreground-muted">{club.description}</p>}
         </div>
         {viewer && <JoinLeaveClubButton clubId={club.id} initiallyMember={isMember} isOwner={isOwner} />}
@@ -88,7 +88,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      <h2 className="mb-3 text-lg font-semibold">Discussion</h2>
+      <h2 className="mb-3 font-display text-lg italic text-accent">Discussion</h2>
       {isMember ? (
         <ClubFeed clubId={club.id} initialPosts={posts} canPost={isMember} />
       ) : (

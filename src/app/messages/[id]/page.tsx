@@ -58,7 +58,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           &larr;
         </Link>
         <Avatar name={otherProfile?.display_name ?? otherProfile?.username ?? "?"} src={otherProfile?.avatar_url} size={36} />
-        <Link href={`/profile/${otherProfile?.username ?? ""}`} className="font-medium hover:text-accent">
+        <Link href={`/profile/${otherProfile?.username ?? ""}`} className="font-display text-lg hover:text-accent">
           {otherProfile?.display_name ?? otherProfile?.username ?? "Unknown"}
         </Link>
         <div className="ml-auto flex items-center gap-3">

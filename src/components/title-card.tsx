@@ -39,7 +39,7 @@ export function TitleCard({
     >
       <div
         className={cn(
-          "relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] bg-surface-raised transition-shadow duration-200 group-hover:shadow-[0_16px_32px_-12px_rgba(0,0,0,0.7)]",
+          "relative aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-md)] border border-glass-border bg-glass shadow-[var(--glass-shadow)] transition-[box-shadow,border-color] duration-200 group-hover:border-border-strong group-hover:shadow-[0_16px_32px_-12px_rgba(0,0,0,0.7)]",
           highlight &&
             "ring-2 ring-accent shadow-[0_0_20px_-4px_rgba(205,166,70,0.65)]"
         )}

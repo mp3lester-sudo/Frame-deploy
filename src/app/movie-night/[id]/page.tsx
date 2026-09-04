@@ -137,7 +137,7 @@ export default async function MovieNightDetailPage({ params }: { params: Promise
       </Link>
 
       <div className="mt-3 flex items-center justify-between">
-        <h1 className="font-display text-2xl">{movieNightLabel(mediaType)}</h1>
+        <h1 className="text-gold-foil font-section-heading text-2xl">{movieNightLabel(mediaType)}</h1>
         <span className="text-xs uppercase tracking-wider text-accent">
           {night.status === "collecting" && "Collecting picks"}
           {night.status === "decided" && "Decided"}
