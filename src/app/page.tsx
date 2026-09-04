@@ -549,9 +549,11 @@ export default async function HomePage({
           page, no reason for it to be there beyond "here's a photo."
           This treatment borrows a director's-chair nameback: the photo
           sits in a small gold-edged plaque (not a bare circle). Photo
-          is full-bleed inside the plaque (no inner padding gap) with
-          the border sitting flush against its edge, rather than
-          floating inset from a visible border. Still the same
+          is full-bleed inside the plaque (98px -- matches the plaque's
+          old outer footprint of 84px photo + 7px padding on each side,
+          so removing the padding didn't shrink the mark) with the
+          border sitting flush against its edge, rather than floating
+          inset from a visible border. Still the same
           photo-with-initial-fallback logic as before, just reframed --
           no new data dependency.
 
@@ -568,14 +570,14 @@ export default async function HomePage({
             <Image
               src={avatarUrl}
               alt=""
-              width={84}
-              height={84}
-              className="h-[84px] w-[84px] object-cover"
+              width={98}
+              height={98}
+              className="h-[98px] w-[98px] object-cover"
               aria-hidden="true"
             />
           ) : (
             <span
-              className="flex h-[84px] w-[84px] items-center justify-center bg-accent/[0.03] font-display text-4xl italic text-accent"
+              className="flex h-[98px] w-[98px] items-center justify-center bg-accent/[0.03] font-display text-4xl italic text-accent"
               aria-hidden="true"
             >
               {firstName.charAt(0).toUpperCase()}
