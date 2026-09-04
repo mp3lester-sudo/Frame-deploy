@@ -86,3 +86,33 @@ export function letterGradeForPoints(points: number): string {
   }
   return grade;
 }
+
+/**
+ * How far through the CURRENT letter grade's band a point total sits, as
+ * a 0-1 fraction -- drives the radial "seal" ring's fill on the profile
+ * page (CinemaScoreSeal) so the badge reads as a live progress meter
+ * toward the next grade, not just a static letter. Walks the same
+ * threshold table with the same "keep the last band whose floor we've
+ * cleared" logic as letterGradeForPoints above, on purpose -- computing
+ * the band index any other way risks the ring and the letter disagreeing
+ * about which grade is actually current.
+ *
+ * A+ has no ceiling (nothing to progress toward once you're the top
+ * grade), so it always reads as a full ring rather than a fraction that
+ * can never reach 1.
+ */
+export function gradeProgress(points: number): number {
+  const safe = Math.max(0, points);
+  let bandIndex = 0;
+  for (let i = 0; i < GRADE_THRESHOLDS.length; i++) {
+    if (safe >= GRADE_THRESHOLDS[i][0]) bandIndex = i;
+    else break;
+  }
+  const [bandMin] = GRADE_THRESHOLDS[bandIndex];
+  const nextBand = GRADE_THRESHOLDS[bandIndex + 1];
+  if (!nextBand) return 1; // A+ -- top of the scale, always full
+  const [nextMin] = nextBand;
+  const span = nextMin - bandMin;
+  if (span <= 0) return 1;
+  return Math.min(1, Math.max(0, (safe - bandMin) / span));
+}

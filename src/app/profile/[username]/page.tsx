@@ -20,6 +20,7 @@ import { computeCompatibilityForUsers } from "@/lib/matchmaking/compute";
 import { TasteCompatibilityCard } from "@/components/taste-compatibility-card";
 import { EXPERIENCE_TIER_LABEL } from "@/lib/constants/experience-tier";
 import { computeCinemaPoints, letterGradeForPoints, tierForPoints } from "@/lib/profile/cinema-score";
+import { CinemaScoreSeal } from "@/components/profile/cinema-score-seal";
 import { computeGenreDistribution, buildFingerprintGradient, buildTasteQuote } from "@/lib/profile/taste-fingerprint";
 import { resolveTheme } from "@/lib/profile/theme-preset";
 import { isAuteurActive } from "@/lib/premium/tier";
@@ -541,12 +542,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Watched</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          {/* Static text, not AnimatedCounter -- a letter grade has no
-              meaningful count-up animation (there's nothing to tick
-              through between "" and "A+"), same reasoning as why the Top
-              genre cell beside it is plain text too. */}
-          <p className="font-display text-2xl">{cinemaGrade}</p>
-          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Cinema Score</p>
+          {/* Radial "seal" (CinemaScoreSeal) instead of a bare letter --
+              same conic-gradient-ring language as the Taste fingerprint
+              wheel above, and the ring itself is a live progress meter
+              toward the next grade rather than pure decoration. See
+              task #610 / that component's own doc comment. */}
+          <CinemaScoreSeal grade={cinemaGrade} points={cinemaPoints} />
+          <p className="mt-1.5 text-[11px] uppercase tracking-wider text-foreground-muted">Cinema Score</p>
         </div>
         <div className="flex-1 px-2 text-center">
           <p className="font-display truncate text-2xl">{topGenre ?? "—"}</p>

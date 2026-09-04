@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { computeCinemaPoints, tierForPoints, letterGradeForPoints, CINEMA_TIER_THRESHOLDS } from "../cinema-score";
+import {
+  computeCinemaPoints,
+  tierForPoints,
+  letterGradeForPoints,
+  gradeProgress,
+  CINEMA_TIER_THRESHOLDS,
+} from "../cinema-score";
 
 describe("computeCinemaPoints", () => {
   it("gives 0 for no activity", () => {
@@ -96,3 +102,43 @@ describe("letterGradeForPoints", () => {
     expect(letterGradeForPoints(points)).toBe("A+");
   });
 });
+
+describe("gradeProgress", () => {
+  it("is 0 at the very start of a band", () => {
+    expect(gradeProgress(0)).toBe(0); // start of F (0-150)
+    expect(gradeProgress(150)).toBe(0); // start of D (150-400)
+  });
+
+  it("is a fraction partway through a band", () => {
+    expect(gradeProgress(75)).toBeCloseTo(75 / 150); // halfway through F
+  });
+
+  it("approaches 1 just before the next band starts, without reaching it", () => {
+    const justBelow = gradeProgress(149);
+    expect(justBelow).toBeLessThan(1);
+    expect(justBelow).toBeCloseTo(149 / 150);
+  });
+
+  it("agrees with letterGradeForPoints about which band a point total is in", () => {
+    // 999 is still "C" (band 800-1000), not yet "C+" -- gradeProgress should
+    // be measuring progress through the C band, not the C+ one.
+    expect(letterGradeForPoints(999)).toBe("C");
+    expect(gradeProgress(999)).toBeCloseTo((999 - 800) / (1000 - 800));
+  });
+
+  it("clamps negative points to 0, same as letterGradeForPoints clamps to F", () => {
+    expect(gradeProgress(-500)).toBe(0);
+  });
+
+  it("is always 1 at and above the A+ floor -- no ceiling to progress toward", () => {
+    expect(gradeProgress(CINEMA_TIER_THRESHOLDS.pro + 2500)).toBe(1); // 7500, A+ floor
+    expect(gradeProgress(1_000_000)).toBe(1);
+  });
+
+  it("is a fraction just below the A+ floor, inside the A band (5000-7500)", () => {
+    const justBelowAPlus = gradeProgress(7499);
+    expect(justBelowAPlus).toBeLessThan(1);
+    expect(justBelowAPlus).toBeCloseTo((7499 - CINEMA_TIER_THRESHOLDS.pro) / 2500);
+  });
+});
+
