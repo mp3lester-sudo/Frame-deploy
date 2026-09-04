@@ -919,8 +919,23 @@ export async function getRecommendationsForUser(
   // of just 1, so a pick that's genuinely close to two different things a
   // user loved can say so ("Because you loved X and Y") instead of
   // arbitrarily picking just one.
+  //
+  // Skipped entirely for the swipe deck ("swipe deck needs to be faster"):
+  // this is the one genuinely sequential, unbounded-feeling stage left on
+  // the critical path -- the comment on the RPC call below already flags
+  // it as running AFTER both Promise.all batches, so its full latency (up
+  // to the 3s cap) plus a second sequential titles lookup for the cited
+  // names is pure added time nothing else can hide behind. That cost buys
+  // "Because you loved X" specificity in the reason text, which matters
+  // for Home's single big hero moment but is disproportionate for a
+  // fast-swiping card deck -- buildReasonDetail below already treats an
+  // empty citedTitles array as a normal, fully supported case (same as
+  // any candidate that just didn't clear the citation similarity
+  // threshold), falling back to genre/decade/context notes instead of
+  // leaving the reason blank, so this never produces a broken card, just
+  // a slightly less specific one.
   const citedTitlesByRecId = new Map<string, { id: string; name: string }[]>();
-  if (citationTargets.length) {
+  if (citationTargets.length && source !== "swipe_deck") {
     // Single batched round trip (most_similar_liked_titles_batch, migration
     // 0065) instead of one RPC call per citation target -- this used to be
     // Promise.all(citationTargets.map(id => supabase.rpc(...))), which is
