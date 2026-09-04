@@ -548,11 +548,17 @@ export default async function HomePage({
           filler: no border language tying it to anything else on the
           page, no reason for it to be there beyond "here's a photo."
           This treatment borrows a director's-chair nameback: the photo
-          sits in a small gold-edged plaque (not a bare circle) with the
-          first name in italic serif beneath it, so it reads as a
-          deliberate "this is your seat" marker instead of a stray
-          avatar. Still the same photo-with-initial-fallback logic as
-          before, just reframed -- no new data dependency. */}
+          sits in a small gold-edged plaque (not a bare circle). Still
+          the same photo-with-initial-fallback logic as before, just
+          reframed -- no new data dependency.
+
+          Name caption (font rendition round, option B, "poster credit
+          line") -- swapped from the italic Instrument Serif caption
+          to Bebas Neue, the same face already carrying the "Slate"
+          wordmark elsewhere in the app. Uppercase, gold, tight
+          tracking, credit-block scale: ties the nameplate to the
+          brand's own display type instead of borrowing the tagline's
+          serif italic. */}
       <div className="mt-5 flex flex-col items-center gap-2">
         <div className="rounded-[var(--radius-md)] border border-border-strong bg-accent/[0.03] p-[7px]">
           {avatarUrl ? (
@@ -573,7 +579,10 @@ export default async function HomePage({
             </span>
           )}
         </div>
-        <span className="font-display text-base italic text-foreground-muted" aria-hidden="true">
+        <span
+          className="font-hollywood text-xl uppercase tracking-[0.12em] text-accent"
+          aria-hidden="true"
+        >
           {firstName}
         </span>
         <span className="sr-only">{firstName}&apos;s home</span>
