@@ -593,14 +593,31 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           an icon here -- a plain icon undersold it next to the other
           three, which are truly just links, not a whole feature. */}
       {isOwnProfile && (
-        <div className="stagger-card mt-6 flex items-center justify-center gap-5" style={{ animationDelay: "500ms" }}>
-          <Link href="/settings" aria-label="Edit profile" className="text-foreground-muted transition-colors hover:text-accent">
+        // gap-1 (not gap-5) now that each link carries its own h-11 w-11
+        // hit area -- the visible 20px icons keep the same spacing as
+        // before, but the tappable region around each is a real 44px
+        // target instead of the bare icon (design audit, ranked item #7:
+        // this was the most severe touch-target instance in the app).
+        <div className="stagger-card mt-6 flex items-center justify-center gap-1" style={{ animationDelay: "500ms" }}>
+          <Link
+            href="/settings"
+            aria-label="Edit profile"
+            className="flex h-11 w-11 items-center justify-center text-foreground-muted transition-colors hover:text-accent"
+          >
             <Settings size={20} />
           </Link>
-          <Link href="/watchlist" aria-label="Watchlist" className="text-foreground-muted transition-colors hover:text-accent">
+          <Link
+            href="/watchlist"
+            aria-label="Watchlist"
+            className="flex h-11 w-11 items-center justify-center text-foreground-muted transition-colors hover:text-accent"
+          >
             <Bookmark size={20} />
           </Link>
-          <Link href="/lists" aria-label="Your lists" className="text-foreground-muted transition-colors hover:text-accent">
+          <Link
+            href="/lists"
+            aria-label="Your lists"
+            className="flex h-11 w-11 items-center justify-center text-foreground-muted transition-colors hover:text-accent"
+          >
             <ListChecks size={20} />
           </Link>
         </div>

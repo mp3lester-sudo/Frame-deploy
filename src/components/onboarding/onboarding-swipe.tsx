@@ -587,7 +587,11 @@ export function OnboardingSwipe({
               type="button"
               disabled={isPending}
               onClick={() => exitCard("left", RATING_FOR.not_for_me)}
-              className="flex items-center justify-center gap-1.5 rounded-full border border-white/35 py-2.5 font-sans text-[11px] font-medium uppercase tracking-wide text-white/85 transition-colors hover:border-danger hover:text-danger disabled:opacity-50"
+              // py-3.5 (not py-2.5) -- brings this to a real ~44px tap
+              // target, matching the app's other touch-target fixes
+              // (design audit, ranked item #7) instead of the shallower
+              // padding these rating buttons shipped with originally.
+              className="flex items-center justify-center gap-1.5 rounded-full border border-white/35 py-3.5 font-sans text-[11px] font-medium uppercase tracking-wide text-white/85 transition-colors hover:border-danger hover:text-danger disabled:opacity-50"
             >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
               Pass
@@ -596,7 +600,7 @@ export function OnboardingSwipe({
               type="button"
               disabled={isPending}
               onClick={() => exitCard("fade", RATING_FOR.its_fine)}
-              className="flex items-center justify-center gap-1.5 rounded-full border border-white/35 py-2.5 font-sans text-[11px] font-medium uppercase tracking-wide text-white/85 transition-colors hover:border-white hover:text-white disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 rounded-full border border-white/35 py-3.5 font-sans text-[11px] font-medium uppercase tracking-wide text-white/85 transition-colors hover:border-white hover:text-white disabled:opacity-50"
             >
               <Minus className="h-3.5 w-3.5" aria-hidden="true" />
               It&apos;s fine
@@ -605,7 +609,7 @@ export function OnboardingSwipe({
               type="button"
               disabled={isPending}
               onClick={() => exitCard("right", RATING_FOR.love_it)}
-              className="bg-gold-foil text-accent-foreground flex items-center justify-center gap-1.5 rounded-full py-2.5 font-sans text-[11px] font-semibold uppercase tracking-wide shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] transition-[filter] hover:brightness-110 disabled:opacity-50"
+              className="bg-gold-foil text-accent-foreground flex items-center justify-center gap-1.5 rounded-full py-3.5 font-sans text-[11px] font-semibold uppercase tracking-wide shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(205,166,70,0.55)] transition-[filter] hover:brightness-110 disabled:opacity-50"
             >
               <Heart className="h-3.5 w-3.5" aria-hidden="true" />
               Love it

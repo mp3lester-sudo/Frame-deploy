@@ -39,7 +39,10 @@ export function CreateListForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-border bg-surface p-4">
+    // bento-card, not the old flat border-border/bg-surface panel -- this
+    // form used to be the one pre-glass leftover sitting directly above a
+    // list of .bento-card rows on /lists (design audit, ranked item #9).
+    <form onSubmit={handleSubmit} className="bento-card flex flex-col gap-3 p-4">
       <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="List name (e.g. Best Heist Movies)" autoFocus />
       <textarea
         value={description}
