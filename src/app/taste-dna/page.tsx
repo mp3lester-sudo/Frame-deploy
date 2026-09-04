@@ -126,7 +126,17 @@ export default async function TasteDnaPage() {
 
       {tasteTwin && <TasteTwinCard twin={tasteTwin} />}
 
-      <div className="mt-8 flex flex-col gap-4">
+      {/* Everything below used to be a run of bare pill rows directly on
+          the page background -- the exact same archetype bars / genre /
+          language / mood / director pills that live inside a bento-card
+          panel on the profile page (see profile's inline Slate DNA
+          section). Wrapping it in the same panel here closes that gap:
+          this page had zero card-treatment history across the whole app
+          (design audit, ranked item #4), even though it's the canonical
+          home for this data and the profile page already got the glass
+          treatment. */}
+      <div className="bento-card mt-8 px-6 py-8 sm:px-10 sm:py-10">
+      <div className="flex flex-col gap-4">
         {topArchetypes.map((a, i) => (
           <ArchetypeBar
             key={a.name}
@@ -233,14 +243,31 @@ export default async function TasteDnaPage() {
           <p className="mb-2 text-[11px] uppercase tracking-wider text-foreground-muted">
             Sensibility
           </p>
-          <ul className="flex flex-col gap-1 text-sm text-foreground-muted">
-            {dna.pacingPreference && <li>{PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}</li>}
-            {dna.violenceTolerance != null && <li>Violence tolerance: {dna.violenceTolerance}/5</li>}
-            {dna.comedyTolerance != null && <li>Comedy tolerance: {dna.comedyTolerance}/5</li>}
-            {dna.emotionalIntensityPreference != null && (
-              <li>Emotional intensity: {dna.emotionalIntensityPreference}/5</li>
+          {/* Pill treatment matching genres/languages/mood/directors above,
+              not a plain bullet list -- same fix task #844 made on the
+              profile page's copy of this block. */}
+          <div className="flex flex-wrap gap-2">
+            {dna.pacingPreference && (
+              <span className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs">
+                {PACING_LABEL[dna.pacingPreference] ?? dna.pacingPreference}
+              </span>
             )}
-          </ul>
+            {dna.violenceTolerance != null && (
+              <span className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs">
+                Violence tolerance {dna.violenceTolerance}/5
+              </span>
+            )}
+            {dna.comedyTolerance != null && (
+              <span className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs">
+                Comedy tolerance {dna.comedyTolerance}/5
+              </span>
+            )}
+            {dna.emotionalIntensityPreference != null && (
+              <span className="rounded-[var(--radius-full)] border border-border bg-surface px-3 py-1 text-xs">
+                Emotional intensity {dna.emotionalIntensityPreference}/5
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -259,6 +286,7 @@ export default async function TasteDnaPage() {
           </ul>
         </div>
       )}
+      </div>
     </section>
   );
 }
