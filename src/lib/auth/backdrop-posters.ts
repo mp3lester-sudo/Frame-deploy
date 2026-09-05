@@ -48,10 +48,15 @@ async function fetchAuthBackdropPosters(): Promise<string[]> {
     .limit(POSTER_COUNT);
 
   if (error) {
+    // console.error too (not just Sentry) -- this project's SENTRY_DSN
+    // may not be configured in every environment, and a Sentry no-op
+    // must not be the only way this is ever visible.
+    console.error("getAuthBackdropPosters query error:", error);
     await captureServerError(error, { source: "getAuthBackdropPosters" });
     return [];
   }
   if (!data || data.length === 0) {
+    console.error("getAuthBackdropPosters: query returned zero rows");
     await captureServerError(new Error("getAuthBackdropPosters: query returned zero rows"), {
       source: "getAuthBackdropPosters",
     });
