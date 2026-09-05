@@ -537,9 +537,20 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         className="stagger-card flex divide-x divide-dashed divide-glass-border rounded-[var(--radius-md)] border border-dashed border-glass-border bg-glass pt-5 pb-4 backdrop-blur-sm"
         style={{ animationDelay: "440ms" }}
       >
+        {/* Each cell's value sits in a shared h-12 flex-centered box
+            before the label -- CinemaScoreSeal's ring (h-12, to hold a
+            bigger letter after the last round of feedback) is taller
+            than a plain text-2xl number/word, and without a common
+            value height every other cell's label baseline drifted
+            relative to Cinema Score's, reading as an uneven row instead
+            of five aligned stat columns. Centering each value in the
+            same-height box keeps every label starting at the same y
+            position regardless of what the value itself renders as. */}
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-2xl"><AnimatedCounter value={ratingCount ?? 0} /></p>
-          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Watched</p>
+          <div className="flex h-12 items-center justify-center">
+            <p className="font-display text-2xl"><AnimatedCounter value={ratingCount ?? 0} /></p>
+          </div>
+          <p className="mt-1.5 text-[11px] uppercase tracking-wider text-foreground-muted">Watched</p>
         </div>
         <div className="flex-1 px-2 text-center">
           {/* Radial "seal" (CinemaScoreSeal) instead of a bare letter --
@@ -547,20 +558,28 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
               wheel above, and the ring itself is a live progress meter
               toward the next grade rather than pure decoration. See
               task #610 / that component's own doc comment. */}
-          <CinemaScoreSeal grade={cinemaGrade} points={cinemaPoints} />
+          <div className="flex h-12 items-center justify-center">
+            <CinemaScoreSeal grade={cinemaGrade} points={cinemaPoints} />
+          </div>
           <p className="mt-1.5 text-[11px] uppercase tracking-wider text-foreground-muted">Cinema Score</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display truncate text-2xl">{topGenre ?? "—"}</p>
-          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Top genre</p>
+          <div className="flex h-12 items-center justify-center">
+            <p className="font-display truncate text-2xl">{topGenre ?? "—"}</p>
+          </div>
+          <p className="mt-1.5 text-[11px] uppercase tracking-wider text-foreground-muted">Top genre</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-2xl"><AnimatedCounter value={followerCount ?? 0} /></p>
-          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Followers</p>
+          <div className="flex h-12 items-center justify-center">
+            <p className="font-display text-2xl"><AnimatedCounter value={followerCount ?? 0} /></p>
+          </div>
+          <p className="mt-1.5 text-[11px] uppercase tracking-wider text-foreground-muted">Followers</p>
         </div>
         <div className="flex-1 px-2 text-center">
-          <p className="font-display text-2xl"><AnimatedCounter value={followingCount ?? 0} /></p>
-          <p className="text-[11px] uppercase tracking-wider text-foreground-muted">Following</p>
+          <div className="flex h-12 items-center justify-center">
+            <p className="font-display text-2xl"><AnimatedCounter value={followingCount ?? 0} /></p>
+          </div>
+          <p className="mt-1.5 text-[11px] uppercase tracking-wider text-foreground-muted">Following</p>
         </div>
       </div>
 
