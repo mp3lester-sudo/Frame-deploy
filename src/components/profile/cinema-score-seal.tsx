@@ -38,7 +38,23 @@ export function CinemaScoreSeal({ grade, points }: { grade: string; points: numb
       title={`${points.toLocaleString()} Cinema Score points`}
     >
       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
-        <span className={cn("font-display text-lg font-bold leading-none", isTopTier && "text-gold-foil")}>
+        {/* translate-y-[4px]: Instrument Serif (font-display) reserves
+            noticeably more headroom above a capital letter's cap-height
+            than below the baseline -- flex centers the glyph's LINE BOX,
+            not its ink, so at leading-none the letter reads visibly high
+            in the circle instead of centered (the exact "off-center A+"
+            the user flagged). Nudging down by the measured ascent/descent
+            gap re-centers the actual glyph; verified against a live
+            screenshot of the rendered seal, not just computed from
+            assumed font metrics. inline-block so the transform is honored
+            consistently (some WebKit versions are stricter about
+            transforms on inline elements). */}
+        <span
+          className={cn(
+            "inline-block translate-y-[4px] font-display text-lg font-bold leading-none",
+            isTopTier && "text-gold-foil"
+          )}
+        >
           {grade}
         </span>
       </div>
