@@ -31,14 +31,14 @@ export function CinemaScoreSeal({ grade, points }: { grade: string; points: numb
 
   return (
     <div
-      className="wheel-in mx-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+      className="wheel-in mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
       style={{
         background: `conic-gradient(var(--accent) 0deg ${progressDeg}deg, rgb(217 184 118 / 0.15) ${progressDeg}deg 360deg)`,
       }}
       title={`${points.toLocaleString()} Cinema Score points`}
     >
-      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background">
-        <span className={cn("font-display text-sm font-semibold leading-none", isTopTier && "text-gold-foil")}>
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
+        <span className={cn("font-display text-lg font-bold leading-none", isTopTier && "text-gold-foil")}>
           {grade}
         </span>
       </div>
