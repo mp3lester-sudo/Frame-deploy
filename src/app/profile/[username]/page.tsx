@@ -532,9 +532,19 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
 
       {/* Ticket-stub stat strip: dashed dividers instead of separate
           boxed tiles, reading like the torn perforation on a real
-          admission ticket rather than a generic stats card grid. */}
+          admission ticket rather than a generic stats card grid.
+          px-1 (not px-2) on each cell: at px-2 the row's 5-cell
+          min-content (~382px, mostly the unbreakable "FOLLOWERS"/
+          "FOLLOWING" labels + the Cinema Score seal's fixed 48px ring)
+          was ~39px wider than the mobile column (~341px), so the row
+          silently overflowed and the last cell (Following) rendered
+          cut off mid-word with no visible scroll cue. Trimming each
+          cell's horizontal padding by 8px x5 closes exactly that gap --
+          verified live (row scrollWidth === clientWidth at 341px, no
+          overflow at all), so the row no longer needs to scroll or
+          clip anything. */}
       <div
-        className="stagger-card flex divide-x divide-dashed divide-glass-border overflow-x-auto rounded-[var(--radius-md)] border border-dashed border-glass-border bg-glass pt-5 pb-4 backdrop-blur-sm"
+        className="stagger-card flex divide-x divide-dashed divide-glass-border rounded-[var(--radius-md)] border border-dashed border-glass-border bg-glass pt-5 pb-4 backdrop-blur-sm"
         style={{ animationDelay: "440ms" }}
       >
         {/* Each cell's value sits in a shared h-12 flex-centered box
@@ -546,13 +556,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             of five aligned stat columns. Centering each value in the
             same-height box keeps every label starting at the same y
             position regardless of what the value itself renders as. */}
-        <div className="flex-1 px-2 text-center">
+        <div className="flex-1 px-1 text-center">
           <div className="flex h-12 items-center justify-center">
             <p className="font-display text-2xl"><AnimatedCounter value={ratingCount ?? 0} /></p>
           </div>
           <p className="mt-1.5 text-[11px] uppercase tracking-wider text-foreground-muted">Watched</p>
         </div>
-        <div className="flex-1 px-2 text-center">
+        <div className="flex-1 px-1 text-center">
           {/* Radial "seal" (CinemaScoreSeal) instead of a bare letter --
               same conic-gradient-ring language as the Taste fingerprint
               wheel above, and the ring itself is a live progress meter
@@ -563,19 +573,19 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           </div>
           <p className="mt-1.5 text-[11px] uppercase tracking-wider text-foreground-muted">Cinema Score</p>
         </div>
-        <div className="flex-1 px-2 text-center">
+        <div className="flex-1 px-1 text-center">
           <div className="flex h-12 items-center justify-center">
             <p className="font-display truncate text-2xl">{topGenre ?? "—"}</p>
           </div>
           <p className="mt-1.5 text-[11px] uppercase tracking-wider text-foreground-muted">Top genre</p>
         </div>
-        <div className="flex-1 px-2 text-center">
+        <div className="flex-1 px-1 text-center">
           <div className="flex h-12 items-center justify-center">
             <p className="font-display text-2xl"><AnimatedCounter value={followerCount ?? 0} /></p>
           </div>
           <p className="mt-1.5 text-[11px] uppercase tracking-wider text-foreground-muted">Followers</p>
         </div>
-        <div className="flex-1 px-2 text-center">
+        <div className="flex-1 px-1 text-center">
           <div className="flex h-12 items-center justify-center">
             <p className="font-display text-2xl"><AnimatedCounter value={followingCount ?? 0} /></p>
           </div>
