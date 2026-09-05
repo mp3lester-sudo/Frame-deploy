@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import type { Database } from "@/lib/supabase/types";
+import { captureServerError } from "@/lib/monitoring/sentry-server";
 
 // How many poster tiles the auth-page backdrop shows -- matches the
 // profile banner's collage (see profile/[username]/page.tsx), which uses
@@ -28,12 +29,33 @@ async function fetchAuthBackdropPosters(): Promise<string[]> {
     { auth: { persistSession: false } }
   );
 
-  const { data } = await supabase
+  // The `error` half of this used to be discarded outright (`const { data
+  // } = await ...`), so a live P0 bug -- the backdrop rendering zero
+  // images in production -- left no trace anywhere: no thrown exception
+  // (Postgrest errors don't throw through supabase-js), no Sentry event,
+  // nothing in Vercel's runtime logs. Confirmed live via
+  // get_runtime_errors: zero errors recorded for /login despite the
+  // backdrop visibly being empty. Capturing (not throwing) both the error
+  // case and the "query succeeded but returned nothing" case here so the
+  // next time this breaks, it's visible instead of silent -- the caller
+  // still gets an empty array either way and the page still renders fine
+  // without a backdrop, exactly as before.
+  const { data, error } = await supabase
     .from("titles")
     .select("poster_url")
     .not("poster_url", "is", null)
     .order("popularity", { ascending: false })
     .limit(POSTER_COUNT);
+
+  if (error) {
+    await captureServerError(error, { source: "getAuthBackdropPosters" });
+    return [];
+  }
+  if (!data || data.length === 0) {
+    await captureServerError(new Error("getAuthBackdropPosters: query returned zero rows"), {
+      source: "getAuthBackdropPosters",
+    });
+  }
 
   return (data ?? []).map((t) => t.poster_url).filter((url): url is string => !!url);
 }
