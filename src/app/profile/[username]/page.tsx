@@ -495,7 +495,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   ) : null;
 
   const rail = (
-    <div>
+    <div className="min-w-0">
       {/* Taste fingerprint: a wax-seal-style wheel sized to this person's
           actual genre split (one accent hue at decreasing opacity per
           slice, matching the app's single-accent restraint rather than a
@@ -534,7 +534,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           boxed tiles, reading like the torn perforation on a real
           admission ticket rather than a generic stats card grid. */}
       <div
-        className="stagger-card flex divide-x divide-dashed divide-glass-border rounded-[var(--radius-md)] border border-dashed border-glass-border bg-glass pt-5 pb-4 backdrop-blur-sm"
+        className="stagger-card flex divide-x divide-dashed divide-glass-border overflow-x-auto rounded-[var(--radius-md)] border border-dashed border-glass-border bg-glass pt-5 pb-4 backdrop-blur-sm"
         style={{ animationDelay: "440ms" }}
       >
         {/* Each cell's value sits in a shared h-12 flex-centered box
@@ -779,6 +779,24 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           panel and the Pyramid panel below for why. Default grid
           align-items (stretch) is what makes the h-full added to both of
           those panels actually do anything. */}
+      {/* Every direct child below also carries min-w-0. Below xl there's
+          no explicit grid-template-columns, so the single implicit
+          column's "auto" track sizing falls back to the widest child's
+          own min-content -- and a grid item's default min-width is
+          "auto" (its content's min-content), not 0. The rail's ticket-
+          stub stat row (5 cells: Watched/Cinema Score/Top genre/
+          Followers/Following) has a genuine, unavoidable min-content
+          around 380px once you add up 5 cells' worth of unbreakable
+          single-word labels plus the Cinema Score seal's fixed 48px
+          ring -- wider than this column ever gets at a real phone
+          width. Without min-w-0 that one row forces the WHOLE shared
+          column (and every other panel stacked in it) to blow out past
+          the viewport, which is what read as "the whole page is
+          uncentered": everything shifted to accommodate a 380px column
+          inside a ~340px space. min-w-0 lets the track shrink to fit
+          the container again; the stat row itself then gets its own
+          overflow-x-auto (see its className) so it scrolls internally
+          on the narrowest screens instead of pushing the page wide. */}
       <div className="grid gap-6 xl:grid-cols-[1fr_1.3fr_1fr]">
       {/* Slate DNA, inline: used to be a link out to a separate page
           (/taste-dna), now sits directly beside the Personal Pyramid as
@@ -795,7 +813,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         // middle / rail right) is untouched -- only the stacked-mobile
         // order changes, putting the Pyramid (what the user picked) above
         // the DNA breakdown (what the app inferred) per product direction.
-        <Reveal className="order-2 h-full xl:order-none">
+        <Reveal className="order-2 h-full min-w-0 xl:order-none">
           <div className="bento-card relative flex h-full flex-col overflow-hidden">
             <div className="relative px-6 py-8 sm:px-10 sm:py-10">
               <div className="mb-6 text-center">
@@ -977,7 +995,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           just "Settings", since that's the one action that unblocks
           this exact panel. */}
       {favorites.length === 0 && isOwnProfile && (
-        <div className="order-1 mt-0 h-full xl:order-none">
+        <div className="order-1 mt-0 h-full min-w-0 xl:order-none">
           <div className="flex h-full flex-col items-center justify-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-glass-border bg-glass px-8 py-14 text-center backdrop-blur-sm">
             <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent">Official selection</p>
             <h2 className="font-section-heading text-xl">Build your Personal Pyramid</h2>
@@ -998,7 +1016,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         // See the order-2/xl:order-none comment on the DNA panel above --
         // this is its counterpart, order-1 so the Pyramid renders first
         // in the mobile stack.
-        <div className="order-1 mt-0 h-full xl:order-none">
+        <div className="order-1 mt-0 h-full min-w-0 xl:order-none">
           {/* The podium used to sit directly on the page background at a
               narrow 480px width, which read as an accidentally small
               widget stranded in a lot of empty page rather than a
