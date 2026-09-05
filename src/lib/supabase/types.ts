@@ -291,6 +291,26 @@ export interface Database {
         Update: Partial<{ status: "open" | "reviewed" | "dismissed" }>;
         Relationships: [];
       };
+      admin_actions: {
+        Row: {
+          id: string;
+          admin_id: string | null;
+          target_user_id: string | null;
+          action: "suspend_user" | "unsuspend_user" | "delete_content";
+          reason: string | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          admin_id: string | null;
+          target_user_id: string | null;
+          action: "suspend_user" | "unsuspend_user" | "delete_content";
+          reason?: string | null;
+          metadata?: Record<string, unknown>;
+        };
+        Update: never;
+        Relationships: [];
+      };
       user_blocks: {
         Row: { blocker_id: string; blocked_id: string; created_at: string };
         Insert: { blocker_id: string; blocked_id: string };

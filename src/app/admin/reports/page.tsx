@@ -6,6 +6,7 @@ import { isAdminEmail } from "@/lib/admin/is-admin";
 import { REPORT_REASON_LABELS, type ReportReason, type ReportableContentType } from "@/lib/moderation/validate";
 import { ReportRow } from "@/components/admin/report-row";
 import { formatDistanceToNow } from "@/lib/date";
+import { resolveReportedUserId } from "@/lib/admin/resolve-reported-user";
 
 export const dynamic = "force-dynamic";
 
@@ -119,13 +120,20 @@ export default async function AdminReportsPage() {
   const all = [...open, ...resolved];
 
   const reporterIds = [...new Set(all.map((r) => r.reporter_id))];
-  const [{ data: reporterRows }, previews] = await Promise.all([
+  const [{ data: reporterRows }, previews, targetUserIds] = await Promise.all([
     reporterIds.length
       ? supabase.from("profiles").select("id, username, display_name").in("id", reporterIds)
       : Promise.resolve({ data: [] }),
     fetchPreviews(supabase, all),
+    // One resolveReportedUserId() call per report -- each hits a
+    // different table depending on content_type, so there's no single
+    // batched query the way fetchPreviews above manages for previews.
+    // Report volume is low enough (open + 20 most recent resolved) that
+    // this is fine; revisit if the open queue ever gets large.
+    Promise.all(all.map((r) => resolveReportedUserId(supabase, r.content_type, r.content_id))),
   ]);
   const reporters = new Map((reporterRows ?? []).map((p: ProfileLite) => [p.id, p]));
+  const targetUserIdByReport = new Map(all.map((r, i) => [r.id, targetUserIds[i]]));
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -152,6 +160,7 @@ export default async function AdminReportsPage() {
                 preview={previews.get(r.content_id) ?? null}
                 reasonLabel={REPORT_REASON_LABELS[r.reason]}
                 timeAgo={formatDistanceToNow(r.created_at)}
+                targetUserId={targetUserIdByReport.get(r.id) ?? null}
               />
             ))}
           </div>
@@ -174,6 +183,7 @@ export default async function AdminReportsPage() {
                 preview={previews.get(r.content_id) ?? null}
                 reasonLabel={REPORT_REASON_LABELS[r.reason]}
                 timeAgo={formatDistanceToNow(r.created_at)}
+                targetUserId={targetUserIdByReport.get(r.id) ?? null}
                 readOnly
               />
             ))}

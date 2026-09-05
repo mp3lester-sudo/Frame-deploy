@@ -97,6 +97,14 @@ export async function POST(request: Request) {
             .update({ is_premium: isActive, premium_tier: isActive ? tier : null })
             .eq("id", existing.user_id);
           if (profileError) throw new Error(`profiles update failed: ${profileError.message}`);
+
+          // Only fire on the active -> inactive transition, not every
+          // renewal update -- an active subscription hits this same case
+          // on every Stripe status refresh, and only the ones that end up
+          // inactive represent an actual cancellation/lapse worth tracking.
+          if (!isActive) {
+            await captureServerEvent(existing.user_id, "subscription_cancelled", { tier, reason: sub.status });
+          }
         }
         break;
       }

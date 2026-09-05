@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/verified-user";
 import { z } from "zod";
 import { TOGGLABLE_NOTIFICATION_TYPES, type TogglableNotificationType } from "@/lib/constants/notifications";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -42,6 +43,11 @@ export async function subscribeToPush(input: z.infer<typeof subscribeSchema>) {
     { onConflict: "user_id,endpoint" }
   );
   if (error) throw new Error(error.message);
+
+  // Fire-and-forget, same as every other analytics call in this app --
+  // a PostHog hiccup should never surface as a broken push-subscribe
+  // action to the user.
+  captureServerEvent(user.id, "push_subscribed").catch(() => {});
 }
 
 const unsubscribeSchema = z.object({ endpoint: z.string().url() });

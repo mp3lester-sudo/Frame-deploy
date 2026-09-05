@@ -148,6 +148,12 @@ export default async function SettingsPage() {
         <Link href="/terms" className="hover:text-accent hover:underline">
           Terms of Service
         </Link>
+        <Link href="/community-guidelines" className="hover:text-accent hover:underline">
+          Community Guidelines
+        </Link>
+        <Link href="/dmca" className="hover:text-accent hover:underline">
+          DMCA
+        </Link>
         <a href="/api/account/export" className="hover:text-accent hover:underline">
           Export my data
         </a>

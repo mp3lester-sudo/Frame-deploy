@@ -137,6 +137,7 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
 
   let seededSwipes = 0;
   let movieNightRedirectId: string | null = null;
+  let referredByProfileId: string | null = null;
   if (data.user) {
     // Every account gets its own shareable referral code, generated here
     // (rather than a DB default/trigger) so a rare collision can just
@@ -155,7 +156,6 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
     // referring account, if any -- an unknown/stale/tampered code just
     // means no referrer, never a signup failure.
     const refCode = (formData.get("ref") as string | null)?.trim();
-    let referredByProfileId: string | null = null;
     if (refCode) {
       const { data: referrer, error: referrerError } = await supabase.from("profiles").select("id").eq("referral_code", refCode).maybeSingle();
       if (referrerError) console.error("[signUp] referrer lookup", referrerError.message);
@@ -243,13 +243,19 @@ export async function signUp(_prev: AuthActionState, formData: FormData): Promis
   // learned not to repeat.
   if (data.user) {
     const userId = data.user.id;
-    after(() =>
+    const wasReferred = referredByProfileId != null;
+    after(() => {
       captureServerEvent(userId, "user_signed_up", {
         username,
         seeded_swipes: seededSwipes,
         via_movie_night_invite: Boolean(movieNightRedirectId),
-      })
-    );
+        referred_by_link: wasReferred,
+      });
+      // Separate from user_signed_up so "how many signups came via a
+      // referral link" can be queried as its own funnel step without
+      // filtering every signup event on a boolean property.
+      if (wasReferred) captureServerEvent(userId, "referral_signup_via_link");
+    });
   }
 
   // Only skip the post-signup /onboarding quiz if the landing-page teaser
@@ -567,5 +573,7 @@ export async function deleteAccount(
     // this final signOut call itself succeeded.
     console.error("deleteAccount: auth.signOut() threw, redirecting to /login anyway", error);
   }
+  const deletedUserId = user.id;
+  after(() => captureServerEvent(deletedUserId, "account_deleted"));
   redirect("/login?accountDeleted=true");
 }

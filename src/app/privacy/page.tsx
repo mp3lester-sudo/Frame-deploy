@@ -60,12 +60,48 @@ export default function PrivacyPage() {
         <div>
           <h2 className="font-section-heading text-lg text-foreground">Third parties</h2>
           <p className="mt-3">
-            We rely on a small number of infrastructure providers to run Slate: Supabase (database and
-            authentication), Vercel (hosting), Stripe (payment processing), OpenAI (AI-generated
-            recommendations and tagging), and The Movie Database / TMDB (movie and show catalogue data).
-            Each only receives the data necessary to perform its function. We do not sell your personal
-            information to advertisers or data brokers.
+            We rely on a small number of infrastructure providers (&ldquo;sub-processors&rdquo;) to run
+            Slate. Each only receives the data necessary to perform its function, and none are permitted
+            to use your data for their own purposes. We do not sell your personal information to
+            advertisers or data brokers.
           </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            <li>
+              <strong className="text-foreground">Supabase</strong> — database, authentication, and file
+              storage. Receives essentially all account and activity data described above.
+            </li>
+            <li>
+              <strong className="text-foreground">Vercel</strong> — application hosting. Receives request
+              traffic (IP address, pages visited) in the ordinary course of serving the app.
+            </li>
+            <li>
+              <strong className="text-foreground">Stripe</strong> — payment processing for Slate Premium.
+              Receives your payment details directly; Slate only receives your subscription status.
+            </li>
+            <li>
+              <strong className="text-foreground">OpenAI</strong> — powers AI-generated recommendations,
+              taste explanations, and catalogue tagging. Receives the specific text/context needed to
+              generate a given response (e.g. your ratings, for a recommendation explanation).
+            </li>
+            <li>
+              <strong className="text-foreground">Resend</strong> — transactional and re-engagement
+              email. Receives your email address and the content of emails sent to you.
+            </li>
+            <li>
+              <strong className="text-foreground">PostHog</strong> — product analytics. Receives
+              consent-gated usage events (see Cookie/analytics consent); does not receive payment or
+              message content.
+            </li>
+            <li>
+              <strong className="text-foreground">Sentry</strong> — error monitoring. Receives technical
+              error reports (stack traces, request metadata) when something breaks, to help us fix it.
+            </li>
+            <li>
+              <strong className="text-foreground">The Movie Database (TMDB) &amp; OMDB</strong> — movie
+              and show catalogue data, posters, and critic scores. Do not receive personal account data;
+              Slate only queries them for public title information.
+            </li>
+          </ul>
         </div>
 
         <div>
