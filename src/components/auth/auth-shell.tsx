@@ -36,7 +36,12 @@ export function AuthShell({ posters, children }: { posters: string[]; children: 
         <p className="text-gold-foil font-hollywood mb-6 text-center text-3xl uppercase tracking-[0.08em]">
           Slate
         </p>
-        <div className="bento-card p-6">{children}</div>
+        {/* .marquee-panel replaces the plain .bento-card here (see globals.css) --
+            a dashed gold frame with lit bulbs along the top/bottom edges,
+            reusing the marquee-lights language from the greeting/decision
+            reveal instead of the same flat glass rectangle every other
+            panel in the app uses. */}
+        <div className="marquee-panel p-6">{children}</div>
       </div>
     </div>
   );

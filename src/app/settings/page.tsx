@@ -90,7 +90,16 @@ export default async function SettingsPage() {
         <TasteTwinToggle initialOptIn={profile?.taste_twin_opt_in ?? false} />
       </section>
 
-      <section id="favorites" className="mb-6 scroll-mt-20 bento-card p-4">
+      {/* Every other section here is genuinely a form -- profile fields,
+          a password field, toggles -- so a bordered glass card is doing
+          real work framing an input surface. Favorites isn't a form, it's
+          a row of posters, and wrapping a poster row in the same glass
+          rectangle as the forms around it was treating two different
+          kinds of content as if they were one (compare the bare poster
+          rows used on Profile and Discover). Dropping the card here reads
+          as "this is a shelf of movies," not "this is another settings
+          form that happens to show posters." */}
+      <section id="favorites" className="mb-6 scroll-mt-20">
         <SectionLabel>Favorite films</SectionLabel>
         <FavoriteTitlesEditor key={mediaType} initialFavorites={favorites} mediaType={mediaType} />
       </section>
@@ -114,7 +123,15 @@ export default async function SettingsPage() {
       </section>
 
       {profile?.referral_code && (
-        <section className="mb-6 bento-card p-4">
+        // A referral is closer kin to the Premium page's admission tickets
+        // than to a settings form -- "give someone a pass," not "configure
+        // a preference" -- so it borrows that ticket's dashed-border,
+        // warm-tinted panel instead of the same glass card as Profile and
+        // Password above it.
+        <section
+          className="mb-6 rounded-[var(--radius-lg)] border border-dashed p-4"
+          style={{ borderColor: "var(--border-strong)", backgroundColor: "rgba(217,184,118,0.04)" }}
+        >
           <SectionLabel>Invite friends</SectionLabel>
           <ReferralCard
             referralLink={`${siteOrigin()}/signup?ref=${profile.referral_code}`}
@@ -138,9 +155,16 @@ export default async function SettingsPage() {
 
       <LogoutButtons />
 
-      <div className="mt-8 flex justify-center">
+      {/* Deliberately the one section on this page with no card, no
+          glass, and no gold -- an irreversible action reading like a
+          routine settings panel is the actual danger, not a missing
+          coat of styling. Quiet and off to the side is the point. */}
+      <section className="mt-8">
+        <SectionLabel>
+          <span className="text-danger">Danger zone</span>
+        </SectionLabel>
         <DeleteAccountForm />
-      </div>
+      </section>
     </div>
   );
 }

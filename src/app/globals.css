@@ -921,6 +921,45 @@ html.consent-decided .cookie-consent-banner {
   button.bento-card:hover {
     transform: translateY(-2px);
   }
+
+  /* The auth screens (login/signup/forgot-password/reset-password) sat
+     inside a plain .bento-card -- the same flat glass rectangle every
+     other panel in the app uses, with zero cue that these pages are the
+     literal front door with the poster-collage backdrop behind them. This
+     borrows the marquee-lights language already established by the home
+     page greeting (.marquee-bulbs) and Movie Night's decision reveal,
+     applied to a panel border instead of text: a dashed gold frame with
+     a literal row of lit bulbs along the top and bottom edges, so the
+     one screen doing the most to establish "you're at the movies" gets
+     the one border treatment that says so without adding a new pattern
+     to the app's vocabulary. */
+  .marquee-panel {
+    position: relative;
+    border-radius: var(--radius-lg);
+    border: 1.5px dashed var(--border-strong);
+    background-color: rgba(10, 9, 8, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .marquee-panel::before,
+  .marquee-panel::after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    height: 6px;
+    background-image: radial-gradient(circle, var(--accent-soft) 42%, transparent 46%);
+    background-size: 22px 6px;
+    background-repeat: repeat-x;
+    filter: drop-shadow(0 0 3px rgba(217, 184, 118, 0.7));
+    pointer-events: none;
+  }
+  .marquee-panel::before {
+    top: -3px;
+  }
+  .marquee-panel::after {
+    bottom: -3px;
+  }
 }
 
 /* Rendition A ("refined glass") from the trailer-controls redesign round:

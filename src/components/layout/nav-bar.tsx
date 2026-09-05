@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Search, Sparkles, Compass, User, Clapperboard, Settings, Mail, Bell } from "lucide-react";
+import { Search, User, Clapperboard, Settings, Mail, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getNavBadgeCounts } from "@/lib/actions/nav-badges";
 import { MediaTypeToggle } from "@/components/layout/media-type-toggle";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { movieNightLabel } from "@/lib/copy/movie-night-copy";
+import { DiscoverIcon, AskIcon } from "@/components/layout/bottom-nav-icons";
 
 // How often to re-poll unread badge counts once mounted. Not tied to
 // navigation anymore (see below) -- this alone keeps them reasonably
@@ -44,9 +45,9 @@ const BADGE_POLL_MS = 60_000;
 // than reflexively restoring the old row.
 function getLinks(mediaType: MediaType) {
   return [
-    { href: "/discover", label: "Discover", icon: Compass },
+    { href: "/discover", label: "Discover", icon: DiscoverIcon },
     { href: "/movie-night", label: movieNightLabel(mediaType), icon: Clapperboard },
-    { href: "/ai", label: "Ask Slate", icon: Sparkles },
+    { href: "/ai", label: "Ask Slate", icon: AskIcon },
   ];
 }
 

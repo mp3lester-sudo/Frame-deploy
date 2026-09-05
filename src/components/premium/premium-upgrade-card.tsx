@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { posthog } from "@/lib/analytics/posthog-client";
 import { isNativeApp } from "@/lib/native/is-native";
@@ -35,76 +35,6 @@ const AUTEUR_FEATURES = [
   "Gold Auteur badge on your profile",
   "Early access to new features",
 ];
-
-/**
- * Pricing framed as a literal admission ticket rather than a generic SaaS
- * pricing card -- "Slate presents" / plan name in the marquee italic
- * serif / a perforated tear-line between the header and the feature list
- * (two notches cut into the card's sides, same trick real ticket stubs
- * use) / "Admit one" language on the features. Leans into the cinema
- * theme the rest of the app already commits to (onboarding intro, Wrapped
- * slides, the greeting marquee) instead of looking like it was pulled
- * from an unrelated SaaS template.
- */
-function TicketCard({
-  eyebrow = "Slate presents",
-  title,
-  price,
-  features,
-  accented = false,
-  children,
-}: {
-  eyebrow?: string;
-  title: string;
-  price: string;
-  features: string[];
-  accented?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className="relative overflow-hidden rounded-[var(--radius-xl)] border bg-[var(--glass-bg)] backdrop-blur-xl"
-      style={{
-        borderColor: accented ? "rgba(217,184,118,0.5)" : "var(--glass-border)",
-        boxShadow: accented ? "0 0 0 1px rgba(217,184,118,0.15), var(--glass-shadow)" : "var(--glass-shadow)",
-      }}
-    >
-      <div className="p-6 pb-5 text-center">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-foreground-muted">{eyebrow}</p>
-        <h1 className="font-display mt-1 text-2xl italic text-accent-soft">{title}</h1>
-        <p className="mt-1 text-sm text-foreground-muted">{price}</p>
-      </div>
-
-      {/* Perforated tear-line: a dashed rule with two circular notches
-          punched into the card's edges, background-matched to the page
-          so they read as cutouts rather than dots sitting on top. */}
-      <div className="relative">
-        <div
-          className="absolute left-0 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background"
-          aria-hidden
-        />
-        <div
-          className="absolute right-0 top-1/2 h-6 w-6 -translate-y-1/2 translate-x-1/2 rounded-full bg-background"
-          aria-hidden
-        />
-        <div className="border-t border-dashed" style={{ borderColor: "rgba(217,184,118,0.3)" }} />
-      </div>
-
-      <div className="p-6 pt-5">
-        <p className="mb-3 text-[10px] uppercase tracking-wider text-foreground-muted">Admit one &middot; included</p>
-        <ul className="flex flex-col gap-2 text-sm">
-          {features.map((f) => (
-            <li key={f} className="flex items-start gap-2">
-              <span className="text-accent">&#9733;</span>
-              {f}
-            </li>
-          ))}
-        </ul>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export function PremiumUpgradeCard({
   auteurAvailable = false,
@@ -156,70 +86,111 @@ export function PremiumUpgradeCard({
     }
   }
 
+  const nativeNotice = (
+    <p className="mt-6 text-center text-sm text-foreground-muted">
+      To subscribe, visit{" "}
+      <span className="text-foreground">{siteOrigin().replace(/^https?:\/\//, "")}</span> in your browser.
+    </p>
+  );
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
-      <div className="grid gap-8 sm:grid-cols-2">
-        <TicketCard title="Premium" price="$7.99 / month" features={PREMIUM_FEATURES}>
-          {native ? (
-            // Deliberately no purchase button (and no clickable checkout
-            // link) inside the native wrapper at all -- a browser-redirect
-            // "Buy" button still puts a purchase flow one tap away from
-            // inside the app, which is the exact pattern App Review most
-            // often flags under 3.1.1 even when the actual charge happens
-            // in Safari. Pointing people to the website with no in-app
-            // affordance to start checkout is the more conservative
-            // reading, same posture apps like Netflix/Spotify take.
-            <p className="mt-6 text-center text-sm text-foreground-muted">
-              To subscribe, visit{" "}
-              <span className="text-foreground">{siteOrigin().replace(/^https?:\/\//, "")}</span> in your
-              browser.
-            </p>
-          ) : (
-            <Button
-              className="mt-6 w-full"
-              isLoading={loadingTier === "premium"}
-              onClick={() => handleUpgrade("premium")}
-            >
-              Upgrade to Premium
-            </Button>
-          )}
-        </TicketCard>
+      {/* Previously two independent TicketCards side by side -- each its
+          own bordered, shadowed rectangle, which reads as two SaaS
+          pricing cards that happen to sit next to each other rather than
+          two showtimes on the same bill. One shared .marquee-panel frame
+          (same dashed-gold-border-with-lit-bulbs treatment as the auth
+          screens) now holds both tiers, with a single dashed divider --
+          borrowed from the ticket tear-line, including its die-cut
+          notches -- between them, so this reads as one theater listing
+          with two showings rather than two unrelated products. */}
+      <div className="marquee-panel relative p-7">
+        <div
+          className="absolute left-1/2 top-0 hidden h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background sm:block"
+          aria-hidden
+        />
+        <div
+          className="absolute bottom-0 left-1/2 hidden h-6 w-6 -translate-x-1/2 translate-y-1/2 rounded-full bg-background sm:block"
+          aria-hidden
+        />
 
-        <TicketCard title="Auteur" price="$14.99 / month" features={AUTEUR_FEATURES} accented>
-          {native ? (
-            <p className="mt-6 text-center text-sm text-foreground-muted">
-              To subscribe, visit{" "}
-              <span className="text-foreground">{siteOrigin().replace(/^https?:\/\//, "")}</span> in your
-              browser.
+        <p className="text-center text-[11px] uppercase tracking-[0.2em] text-foreground-muted">Now showing</p>
+        <h1 className="font-display mt-1 mb-6 text-center text-xl text-accent-soft">Two ways to see it</h1>
+
+        <div
+          className="grid gap-8 sm:grid-cols-2 sm:gap-0 sm:divide-x sm:divide-dashed"
+          style={{ borderColor: "rgba(217,184,118,0.3)" }}
+        >
+          <div className="flex flex-col px-0 text-center sm:px-7">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-foreground-muted">Slate presents</p>
+            <h2 className="font-display mt-1 text-2xl italic text-accent-soft">Premium</h2>
+            <p className="mt-1 text-sm text-foreground-muted">$7.99 / month</p>
+            <p className="mt-4 mb-2 text-[10px] uppercase tracking-wider text-foreground-muted">
+              Admit one &middot; included
             </p>
-          ) : auteurAvailable ? (
-            <Button
-              className="mt-6 w-full"
-              isLoading={loadingTier === "auteur"}
-              onClick={() => handleUpgrade("auteur")}
-            >
-              Upgrade to Auteur
-            </Button>
-          ) : waitlistJoined ? (
-            <p className="mt-6 text-center text-sm text-foreground-muted">
-              You&rsquo;re on the list -- we&rsquo;ll email you when Auteur is ready to buy.
-            </p>
-          ) : (
-            <div className="mt-6">
+            <ul className="flex flex-1 flex-col gap-2 text-left text-sm">
+              {PREMIUM_FEATURES.map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <span className="text-accent">&#9733;</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {native ? (
+              nativeNotice
+            ) : (
               <Button
-                className="w-full"
-                variant="secondary"
-                isLoading={waitlistLoading}
-                onClick={handleJoinWaitlist}
+                className="mt-6 w-full"
+                isLoading={loadingTier === "premium"}
+                onClick={() => handleUpgrade("premium")}
               >
-                Notify me when it&rsquo;s ready
+                Upgrade to Premium
               </Button>
-              {waitlistError && (
-                <p className="mt-2 text-center text-xs text-danger">{waitlistError}</p>
-              )}
-            </div>
-          )}
-        </TicketCard>
+            )}
+          </div>
+
+          <div
+            className="mt-8 flex flex-col rounded-[var(--radius-md)] px-0 pt-8 text-center sm:mt-0 sm:rounded-none sm:px-7 sm:pt-0"
+            style={{ backgroundColor: "rgba(217,184,118,0.04)" }}
+          >
+            <p className="text-[10px] uppercase tracking-[0.2em] text-foreground-muted">Slate presents</p>
+            <h2 className="font-display mt-1 text-2xl italic text-accent-soft">Auteur</h2>
+            <p className="mt-1 text-sm text-foreground-muted">$14.99 / month</p>
+            <p className="mt-4 mb-2 text-[10px] uppercase tracking-wider text-foreground-muted">
+              Admit one &middot; included
+            </p>
+            <ul className="flex flex-1 flex-col gap-2 text-left text-sm">
+              {AUTEUR_FEATURES.map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <span className="text-accent">&#9733;</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {native ? (
+              nativeNotice
+            ) : auteurAvailable ? (
+              <Button
+                className="mt-6 w-full"
+                isLoading={loadingTier === "auteur"}
+                onClick={() => handleUpgrade("auteur")}
+              >
+                Upgrade to Auteur
+              </Button>
+            ) : waitlistJoined ? (
+              <p className="mt-6 text-center text-sm text-foreground-muted">
+                You&rsquo;re on the list -- we&rsquo;ll email you when Auteur is ready to buy.
+              </p>
+            ) : (
+              <div className="mt-6">
+                <Button className="w-full" variant="secondary" isLoading={waitlistLoading} onClick={handleJoinWaitlist}>
+                  Notify me when it&rsquo;s ready
+                </Button>
+                {waitlistError && <p className="mt-2 text-center text-xs text-danger">{waitlistError}</p>}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

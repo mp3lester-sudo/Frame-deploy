@@ -2,11 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Compass, Sparkles, Clapperboard, User } from "lucide-react";
+import { Home, Clapperboard, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import type { MediaType } from "@/lib/context/media-type-cookie";
 import { movieNightLabel } from "@/lib/copy/movie-night-copy";
+import { DiscoverIcon, AskIcon } from "@/components/layout/bottom-nav-icons";
+
+// Discover and Ask were the two tabs still leaning on stock lucide glyphs
+// with no real connection to the app underneath them -- a compass reads
+// as "navigate/maps," and a sparkle reads as "generic AI assistant"
+// (see UX audit finding #4 above and the AI Design Fingerprint Audit).
+// Home (a house) and Profile (a face) are correctly universal and are
+// left as lucide icons on purpose -- changing those would cost
+// recognizability for no gain. DiscoverIcon/AskIcon (bespoke marks: a
+// lens iris and a perforated film-strip speech bubble) live in
+// bottom-nav-icons.tsx so the desktop NavBar can share the exact same
+// glyphs instead of drifting into two different icon sets.
 
 // Movie Night replaces Social here -- this bar is the primary navigation
 // surface for most people (mobile web and the native app both), and
@@ -28,9 +40,9 @@ import { movieNightLabel } from "@/lib/copy/movie-night-copy";
 function getTabs(mediaType: MediaType) {
   return [
     { href: "/", label: "Home", icon: Home },
-    { href: "/discover", label: "Discover", icon: Compass },
+    { href: "/discover", label: "Discover", icon: DiscoverIcon },
     { href: "/movie-night", label: movieNightLabel(mediaType), icon: Clapperboard },
-    { href: "/ai", label: "Ask", icon: Sparkles },
+    { href: "/ai", label: "Ask", icon: AskIcon },
     { href: "/profile/me", label: "Profile", icon: User },
   ];
 }
